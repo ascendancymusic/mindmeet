@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Simple AI Generation Animation */
+@keyframes simple-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Fade in animation for modals */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Success popup countdown animation */
+@keyframes countdown-bar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* Modern Node Overlay Effects */
+.react-flow__node:not(.no-node-overlay)::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.10) 40%, rgba(0,0,0,0.2) 100%);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 1; /* Always on */
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Ensure YouTube embed is above overlay */
+.youtube-embed-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* Ensure ImageNode image is above overlay */
+.imagenode-image-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* Enhanced node shadows and borders */
+.react-flow__node {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease-in-out;
+}
+
+.react-flow__node:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Extend edges by 8 pixels to minimize gaps */
+.react-flow__edge path {
+  /* Use round line caps to extend the visual connection */
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Increase stroke width slightly to create visual extension */
+  stroke-width: 1px;
+}
+
+/* Extend connection lines deeper into nodes by adjusting the edge positioning */
+.react-flow__edge {
+  z-index: 1;
+}
+
+/* Ensure edges extend closer to node centers */
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Custom styling for better edge-to-node connection */
+.react-flow__handle {
+  /* Make handles slightly larger to improve connection appearance */
+  width: 8px !important;
+  height: 8px !important;
+  border: 2px solid #374151 !important;
+}
+
+/* Modern Edge Overlay Effects - Apply gradient overlay to edges *-- Maybe try box shadow instead of filter? */ 
+.react-flow__edge path {
+  /* Add a subtle gradient overlay effect to edges */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.9);
+}

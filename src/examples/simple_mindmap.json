@@ -1,0 +1,341 @@
+{
+  "edges": [
+    {
+      "id": "reactflow__edge-1-1741611800001",
+      "source": "1",
+      "target": "1741611800001"
+    },
+    {
+      "id": "reactflow__edge-1-1741611800002",
+      "source": "1",
+      "target": "1741611800002"
+    },
+    {
+      "id": "reactflow__edge-1-1741611800003",
+      "source": "1",
+      "target": "1741611800003"
+    },
+    {
+      "id": "reactflow__edge-1741611800001-1741612000004",
+      "source": "1741611800001",
+      "target": "1741612000004"
+    },
+    {
+      "id": "reactflow__edge-1741611800001-1741612100005",
+      "source": "1741611800001",
+      "target": "1741612100005"
+    },
+    {
+      "id": "reactflow__edge-1741611800001-1741612200006",
+      "source": "1741611800001",
+      "target": "1741612200006"
+    },
+    {
+      "id": "reactflow__edge-1741611800001-1741612300007",
+      "source": "1741611800001",
+      "target": "1741612300007"
+    },
+    {
+      "id": "reactflow__edge-1741611800002-1741612400008",
+      "source": "1741611800002",
+      "target": "1741612400008"
+    },
+    {
+      "id": "reactflow__edge-1741611800002-1741612500009",
+      "source": "1741611800002",
+      "target": "1741612500009"
+    },
+    {
+      "id": "reactflow__edge-1741611800002-1741612600010",
+      "source": "1741611800002",
+      "target": "1741612600010"
+    },
+    {
+      "id": "reactflow__edge-1741611800002-1741612800012",
+      "source": "1741611800002",
+      "target": "1741612800012"
+    },
+    {
+      "id": "reactflow__edge-1741611800003-1741612900013",
+      "source": "1741611800003",
+      "target": "1741612900013"
+    },
+    {
+      "id": "reactflow__edge-1741612900013-1741613000014",
+      "source": "1741612900013",
+      "target": "1741613000014"
+    },
+    {
+      "id": "reactflow__edge-1741611800003-1741613400018",
+      "source": "1741611800003",
+      "target": "1741613400018"
+    },
+    {
+      "id": "reactflow__edge-1741611800003-1741613100015",
+      "source": "1741611800003",
+      "target": "1741613100015"
+    },
+    {
+      "id": "reactflow__edge-1741611800003-1741613200016",
+      "source": "1741611800003",
+      "target": "1741613200016"
+    },
+    {
+      "id": "reactflow__edge-1741611800003-1741613300017",
+      "source": "1741611800003",
+      "target": "1741613300017"
+    },
+    {
+      "id": "reactflow__edge-1741612900013-1741615000001",
+      "source": "1741612900013",
+      "target": "1741615000001"
+    },
+    {
+      "id": "reactflow__edge-1741612500009-1741612700011",
+      "source": "1741612500009",
+      "target": "1741612700011"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "data": {
+        "label": "Bigglesmooth Saga"
+      },
+      "type": "input",
+      "position": {
+        "x": 263.69915966386554,
+        "y": 4.834997528423116
+      },
+      "background": "#2E4053"
+    },
+    {
+      "id": "1741611800001",
+      "data": {
+        "label": "The Rise: Contentless King"
+      },
+      "type": "default",
+      "position": {
+        "x": -198.23529411764704,
+        "y": 162.3529411764706
+      },
+      "background": "#388E3C"
+    },
+    {
+      "id": "1741611800002",
+      "data": {
+        "label": "The Queen: Becky Boost"
+      },
+      "type": "default",
+      "position": {
+        "x": 250,
+        "y": 150
+      },
+      "background": "#B71C49"
+    },
+    {
+      "id": "1741611800003",
+      "data": {
+        "label": "The Downfall: Cancelled"
+      },
+      "type": "default",
+      "position": {
+        "x": 850,
+        "y": 150
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741612000004",
+      "data": {
+        "label": "Twitch Scream King"
+      },
+      "type": "default",
+      "position": {
+        "x": -398.2352941176474,
+        "y": 312.3529411764706
+      },
+      "background": "#558B2F"
+    },
+    {
+      "id": "1741612100005",
+      "data": {
+        "label": "Snorty Got Em Schnoots!"
+      },
+      "type": "default",
+      "position": {
+        "x": -198.23529411764704,
+        "y": 312.3529411764706
+      },
+      "background": "#558B2F"
+    },
+    {
+      "id": "1741612200006",
+      "data": {
+        "label": "Youtube Fame"
+      },
+      "type": "default",
+      "position": {
+        "x": -398.2352941176474,
+        "y": 412.3529411764706
+      },
+      "background": "#558B2F"
+    },
+    {
+      "id": "1741612300007",
+      "data": {
+        "label": "Ay Yo, Bigglesmooth Clips"
+      },
+      "type": "default",
+      "position": {
+        "x": -198.23529411764704,
+        "y": 412.3529411764706
+      },
+      "background": "#558B2F"
+    },
+    {
+      "id": "1741612400008",
+      "data": {
+        "label": "BROO HOW DID BROO PULL?"
+      },
+      "type": "default",
+      "position": {
+        "x": 50,
+        "y": 300
+      },
+      "background": "#880E4F"
+    },
+    {
+      "id": "1741612500009",
+      "data": {
+        "label": "Singing Contract"
+      },
+      "type": "default",
+      "position": {
+        "x": 250,
+        "y": 300
+      },
+      "background": "#880E4F"
+    },
+    {
+      "id": "1741612600010",
+      "data": {
+        "label": "LALALA relationship problems..."
+      },
+      "type": "default",
+      "position": {
+        "x": 50,
+        "y": 400
+      },
+      "background": "#880E4F"
+    },
+    {
+      "id": "1741612700011",
+      "data": {
+        "label": "100 MILLION STREAMS!!!"
+      },
+      "type": "default",
+      "position": {
+        "x": 250,
+        "y": 400
+      },
+      "background": "#880E4F"
+    },
+    {
+      "id": "1741612800012",
+      "data": {
+        "label": "I couldnt believe I would be a famous singer sniif sniif"
+      },
+      "type": "default",
+      "position": {
+        "x": 450,
+        "y": 300
+      },
+      "background": "#880E4F"
+    },
+    {
+      "id": "1741612900013",
+      "data": {
+        "label": "Controversial Takes"
+      },
+      "type": "default",
+      "position": {
+        "x": 650,
+        "y": 300
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741613000014",
+      "data": {
+        "label": "You should be a muslim bro"
+      },
+      "type": "default",
+      "position": {
+        "x": 650,
+        "y": 400
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741613400018",
+      "data": {
+        "label": "Backlash Begins"
+      },
+      "type": "default",
+      "position": {
+        "x": 850,
+        "y": 400
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741613100015",
+      "data": {
+        "label": "The great Bigglesmooth problem"
+      },
+      "type": "default",
+      "position": {
+        "x": 850,
+        "y": 500
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741613200016",
+      "data": {
+        "label": "Public Opinion Shifts"
+      },
+      "type": "default",
+      "position": {
+        "x": 1050,
+        "y": 400
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741613300017",
+      "data": {
+        "label": "Bigglesmooth is no more..."
+      },
+      "type": "default",
+      "position": {
+        "x": 1047.4621848739496,
+        "y": 300.98319327731093
+      },
+      "background": "#B71C1C"
+    },
+    {
+      "id": "1741615000001",
+      "data": {
+        "label": "Dont be a simp, nigga!"
+      },
+      "type": "default",
+      "position": {
+        "x": 650,
+        "y": 500
+      },
+      "background": "#B71C1C"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+.message-container {
+  position: relative;
+  transition: all 0.3s ease-out;
+  width: auto;
+}
+
+.message-container:hover {
+  padding-right: 40px !important;
+}

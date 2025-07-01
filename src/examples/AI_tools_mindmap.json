@@ -1,0 +1,571 @@
+{
+  "edges": [
+    {
+      "id": "reactflow__edge-1-1741619242042",
+      "source": "1",
+      "target": "1741619242042"
+    },
+    {
+      "id": "reactflow__edge-1-1741619246294",
+      "source": "1",
+      "target": "1741619246294"
+    },
+    {
+      "id": "reactflow__edge-1-1741690000001",
+      "source": "1",
+      "target": "1741690000001"
+    },
+    {
+      "id": "reactflow__edge-1-1741690000004",
+      "source": "1",
+      "target": "1741690000004"
+    },
+    {
+      "id": "reactflow__edge-1-1744610000007",
+      "source": "1",
+      "target": "1744610000007"
+    },
+    {
+      "id": "reactflow__edge-1741619242042-1741619268529",
+      "source": "1741619242042",
+      "target": "1741619268529"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1741619269386",
+      "source": "1741619246294",
+      "target": "1741619269386"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1741619270268",
+      "source": "1741619246294",
+      "target": "1741619270268"
+    },
+    {
+      "id": "reactflow__edge-1741619242042-1741619271238",
+      "source": "1741619242042",
+      "target": "1741619271238"
+    },
+    {
+      "id": "reactflow__edge-1741619242042-1741619272416",
+      "source": "1741619242042",
+      "target": "1741619272416"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1741619273776",
+      "source": "1741619246294",
+      "target": "1741619273776"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1741619358490",
+      "source": "1741619246294",
+      "target": "1741619358490"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1741689198081",
+      "source": "1741619246294",
+      "target": "1741689198081"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1741689221421",
+      "source": "1741619246294",
+      "target": "1741689221421"
+    },
+    {
+      "id": "reactflow__edge-1741690000001-1741690000002",
+      "source": "1741690000001",
+      "target": "1741690000002"
+    },
+    {
+      "id": "reactflow__edge-1741690000001-1741690000003",
+      "source": "1741690000001",
+      "target": "1741690000003"
+    },
+    {
+      "id": "reactflow__edge-1741690000004-1741690000005",
+      "source": "1741690000004",
+      "target": "1741690000005"
+    },
+    {
+      "id": "reactflow__edge-1741690000004-1741690000006",
+      "source": "1741690000004",
+      "target": "1741690000006"
+    },
+    {
+      "id": "reactflow__edge-1741690000001-1741621066708",
+      "source": "1741690000001",
+      "target": "1741621066708"
+    },
+    {
+      "id": "reactflow__edge-1744610000007-1744610000008",
+      "source": "1744610000007",
+      "target": "1744610000008"
+    },
+    {
+      "id": "reactflow__edge-1744610000007-1744610000009",
+      "source": "1744610000007",
+      "target": "1744610000009"
+    },
+    {
+      "id": "reactflow__edge-1744610000007-1744610000010",
+      "source": "1744610000007",
+      "target": "1744610000010"
+    },
+    {
+      "id": "reactflow__edge-1744610000007-1744627499750",
+      "source": "1744610000007",
+      "target": "1744627499750"
+    },
+    {
+      "id": "reactflow__edge-1744610000007-1744627512237",
+      "source": "1744610000007",
+      "target": "1744627512237"
+    },
+    {
+      "id": "reactflow__edge-1744610000007-1744627522510",
+      "source": "1744610000007",
+      "target": "1744627522510"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1744780000001",
+      "source": "1741619246294",
+      "target": "1744780000001"
+    },
+    {
+      "id": "reactflow__edge-1741619242042-1744780000002",
+      "source": "1741619242042",
+      "target": "1744780000002"
+    },
+    {
+      "id": "reactflow__edge-1741690000001-1744780000003",
+      "source": "1741690000001",
+      "target": "1744780000003"
+    },
+    {
+      "id": "reactflow__edge-1741690000004-1744780000004",
+      "source": "1741690000004",
+      "target": "1744780000004"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1745060400001",
+      "source": "1741619246294",
+      "target": "1745060400001"
+    },
+    {
+      "id": "reactflow__edge-1741619246294-1745060400002",
+      "source": "1741619246294",
+      "target": "1745060400002"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "data": {
+        "label": "AI tools"
+      },
+      "type": "input",
+      "position": {
+        "x": 350,
+        "y": 0
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1741619242042",
+      "data": {
+        "label": "Coding"
+      },
+      "type": "default",
+      "position": {
+        "x": 140.00254456426055,
+        "y": 126.79852415272887
+      },
+      "background": "#4ade80"
+    },
+    {
+      "id": "1741619246294",
+      "data": {
+        "label": "Chatbots"
+      },
+      "type": "default",
+      "position": {
+        "x": 187.58687642545613,
+        "y": 446.23412054357397
+      },
+      "background": "#f472b6"
+    },
+    {
+      "id": "1741690000001",
+      "data": {
+        "label": "Image Gen"
+      },
+      "type": "default",
+      "position": {
+        "x": 402.5994318181818,
+        "y": 113.60795454545456
+      },
+      "background": "#a98efb"
+    },
+    {
+      "id": "1741690000004",
+      "data": {
+        "label": "Audio"
+      },
+      "type": "default",
+      "position": {
+        "x": 696.1008522727273,
+        "y": 133.10369318181813
+      },
+      "background": "#facc15"
+    },
+    {
+      "id": "1744610000007",
+      "data": {
+        "label": "Video AI"
+      },
+      "type": "default",
+      "position": {
+        "x": 685.4336799025689,
+        "y": 450.0940173355473
+      },
+      "background": "#64748b"
+    },
+    {
+      "id": "1741619268529",
+      "data": {
+        "url": "https://bolt.new/",
+        "displayText": "Bolt"
+      },
+      "type": "link",
+      "position": {
+        "x": 46.50112410971508,
+        "y": 239.79568324363794
+      },
+      "background": "#86efac"
+    },
+    {
+      "id": "1741619271238",
+      "data": {
+        "url": "https://v0.dev/",
+        "displayText": "v0"
+      },
+      "type": "link",
+      "position": {
+        "x": 180.21561274607873,
+        "y": 317.7786377890925
+      },
+      "background": "#86efac"
+    },
+    {
+      "id": "1741619272416",
+      "data": {
+        "url": "https://bolt.myaibuilt.app/",
+        "displayText": "Bolt free"
+      },
+      "type": "link",
+      "position": {
+        "x": 40.002544564260546,
+        "y": 326.7985241527289
+      },
+      "background": "#86efac"
+    },
+    {
+      "id": "1741619269386",
+      "data": {
+        "url": "https://console.groq.com/playground",
+        "displayText": "groq"
+      },
+      "type": "link",
+      "position": {
+        "x": 181.19283070582588,
+        "y": 539.0336625220071
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1741619270268",
+      "data": {
+        "url": "https://claude.ai/",
+        "displayText": "Claude"
+      },
+      "type": "link",
+      "position": {
+        "x": 344.39048970670603,
+        "y": 618.2387007592432
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1741619273776",
+      "data": {
+        "url": "https://grok.com/",
+        "displayText": "Grok"
+      },
+      "type": "link",
+      "position": {
+        "x": 52.397360030209796,
+        "y": 622.2325938050175
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1741619358490",
+      "data": {
+        "url": "https://chat.deepseek.com/",
+        "displayText": "DeepSeek"
+      },
+      "type": "link",
+      "position": {
+        "x": 299.5876397947343,
+        "y": 701.4376320422534
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1741689198081",
+      "data": {
+        "url": "https://www.perplexity.ai/",
+        "displayText": "Perplexity AI"
+      },
+      "type": "link",
+      "position": {
+        "x": 173.99237268425892,
+        "y": 621.4325429137323
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1741689221421",
+      "data": {
+        "url": "https://you.com/",
+        "displayText": "You.com"
+      },
+      "type": "link",
+      "position": {
+        "x": 31.596036856794328,
+        "y": 543.0339169784331
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1741690000002",
+      "data": {
+        "url": "https://www.midjourney.com/",
+        "displayText": "Midjourney"
+      },
+      "type": "link",
+      "position": {
+        "x": 428.51562500000006,
+        "y": 231.80397727272725
+      },
+      "background": "#d8b4fe"
+    },
+    {
+      "id": "1741690000003",
+      "data": {
+        "url": "https://stability.ai/",
+        "displayText": "Stable Diffusion"
+      },
+      "type": "link",
+      "position": {
+        "x": 302.5994318181818,
+        "y": 313.60795454545456
+      },
+      "background": "#d8b4fe"
+    },
+    {
+      "id": "1741621066708",
+      "data": {
+        "url": "Krea.ai",
+        "displayText": "Krea"
+      },
+      "type": "link",
+      "position": {
+        "x": 312.99715909090907,
+        "y": 226.60511363636363
+      },
+      "background": "#d8b4fe"
+    },
+    {
+      "id": "1741690000005",
+      "data": {
+        "url": "https://soundraw.io/",
+        "displayText": "Soundraw"
+      },
+      "type": "link",
+      "position": {
+        "x": 596.1008522727273,
+        "y": 233.10369318181813
+      },
+      "background": "#fde047"
+    },
+    {
+      "id": "1741690000006",
+      "data": {
+        "url": "https://www.lalal.ai/",
+        "displayText": "Lalal.ai"
+      },
+      "type": "link",
+      "position": {
+        "x": 749.3110795454545,
+        "y": 235.70312499999994
+      },
+      "background": "#fde047"
+    },
+    {
+      "id": "1744610000008",
+      "data": {
+        "url": "https://runwayml.com/",
+        "displayText": "RunwayML"
+      },
+      "type": "link",
+      "position": {
+        "x": 478.3243049025689,
+        "y": 553.99316506282
+      },
+      "background": "#94a3b8"
+    },
+    {
+      "id": "1744610000009",
+      "data": {
+        "url": "https://pika.art/",
+        "displayText": "Pika Labs"
+      },
+      "type": "link",
+      "position": {
+        "x": 635.4336799025689,
+        "y": 550.0940173355473
+      },
+      "background": "#94a3b8"
+    },
+    {
+      "id": "1744610000010",
+      "data": {
+        "url": "https://deforum.github.io/",
+        "displayText": "Deforum"
+      },
+      "type": "link",
+      "position": {
+        "x": 791.243338993478,
+        "y": 555.292880971911
+      },
+      "background": "#94a3b8"
+    },
+    {
+      "id": "1744627499750",
+      "data": {
+        "url": "https://www.descript.com/",
+        "displayText": "Descript"
+      },
+      "type": "link",
+      "position": {
+        "x": 623.7362367207506,
+        "y": 639.69629006282
+      },
+      "background": "#94a3b8"
+    },
+    {
+      "id": "1744627512237",
+      "data": {
+        "url": "https://www.synthesia.io/",
+        "displayText": "Synthesia"
+      },
+      "type": "link",
+      "position": {
+        "x": 779.5458958116599,
+        "y": 637.0968582446382
+      },
+      "background": "#94a3b8"
+    },
+    {
+      "id": "1744627522510",
+      "data": {
+        "url": "https://www.topazlabs.com/topaz-video-ai",
+        "displayText": "topaz"
+      },
+      "type": "link",
+      "position": {
+        "x": 503.01890717529614,
+        "y": 638.3965741537291
+      },
+      "background": "#94a3b8"
+    },
+    {
+      "id": "1744780000001",
+      "data": {
+        "url": "https://www.microsoft.com/en-us/copilot",
+        "displayText": "Copilot"
+      },
+      "type": "link",
+      "position": {
+        "x": 300.41313632862534,
+        "y": 537.4399221500879
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1744780000002",
+      "data": {
+        "url": "https://www.blackbox.ai/",
+        "displayText": "Blackbox"
+      },
+      "type": "link",
+      "position": {
+        "x": 152.9997036551696,
+        "y": 239.10676278909256
+      },
+      "background": "#86efac"
+    },
+    {
+      "id": "1744780000003",
+      "data": {
+        "url": "https://clipdrop.co/stable-diffusion",
+        "displayText": "Clipdrop"
+      },
+      "type": "link",
+      "position": {
+        "x": 500.00000000000006,
+        "y": 311.69744318181824
+      },
+      "background": "#d8b4fe"
+    },
+    {
+      "id": "1744780000004",
+      "data": {
+        "url": "https://otter.ai/",
+        "displayText": "Otter.ai"
+      },
+      "type": "link",
+      "position": {
+        "x": 677.9048295454546,
+        "y": 307.7982954545454
+      },
+      "background": "#fde047"
+    },
+    {
+      "id": "1745060400001",
+      "data": {
+        "url": "https://poe.com/",
+        "displayText": "Poe"
+      },
+      "type": "link",
+      "position": {
+        "x": 195.59374674895966,
+        "y": 699.0311179577465
+      },
+      "background": "#f9a8d4"
+    },
+    {
+      "id": "1745060400002",
+      "data": {
+        "url": "https://www.character.ai/",
+        "displayText": "Character AI"
+      },
+      "type": "link",
+      "position": {
+        "x": 19.595273487516152,
+        "y": 700.6312197403169
+      },
+      "background": "#f9a8d4"
+    }
+  ]
+}

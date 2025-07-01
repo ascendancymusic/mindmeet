@@ -1,0 +1,173 @@
+{
+  "edges": [
+    {
+      "id": "reactflow__edge-1-1746189545518",
+      "source": "1",
+      "target": "1746189545518"
+    },
+    {
+      "id": "reactflow__edge-1-1746189554787",
+      "source": "1",
+      "target": "1746189554787"
+    },
+    {
+      "id": "reactflow__edge-1746189545518-1746189567645",
+      "source": "1746189545518",
+      "target": "1746189567645"
+    },
+    {
+      "id": "reactflow__edge-1746189545518-1746189579207",
+      "source": "1746189545518",
+      "target": "1746189579207"
+    },
+    {
+      "id": "reactflow__edge-1746189545518-1746189582219",
+      "source": "1746189545518",
+      "target": "1746189582219"
+    },
+    {
+      "id": "reactflow__edge-1746189545518-1746189583837",
+      "source": "1746189545518",
+      "target": "1746189583837"
+    },
+    {
+      "id": "reactflow__edge-1746189545518-1746189580205",
+      "source": "1746189545518",
+      "target": "1746189580205"
+    },
+    {
+      "id": "reactflow__edge-1746189554787-1746189648194",
+      "source": "1746189554787",
+      "target": "1746189648194"
+    },
+    {
+      "id": "reactflow__edge-1746189554787-1746189670023",
+      "source": "1746189554787",
+      "target": "1746189670023"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "data": {
+        "label": "Socials"
+      },
+      "type": "input",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189545518",
+      "data": {
+        "label": "Normie socials"
+      },
+      "type": "default",
+      "position": {
+        "x": 134.28842153442721,
+        "y": 90.1090087339584
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189554787",
+      "data": {
+        "label": "Music links"
+      },
+      "type": "default",
+      "position": {
+        "x": 363.7034454827864,
+        "y": 97.093292167448
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189567645",
+      "data": {
+        "username": "dude"
+      },
+      "type": "instagram",
+      "position": {
+        "x": 80.92694050468808,
+        "y": 164.01470933489605
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189579207",
+      "data": {
+        "username": "dude"
+      },
+      "type": "twitter",
+      "position": {
+        "x": 80.03402634192813,
+        "y": 241.41108658841202
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189580205",
+      "data": {
+        "username": "dude"
+      },
+      "type": "facebook",
+      "position": {
+        "x": 194.0753157847939,
+        "y": 241.096755258204
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189582219",
+      "data": {
+        "username": "dude"
+      },
+      "type": "youtube",
+      "position": {
+        "x": 194.8867169866691,
+        "y": 163.82318040843853
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189583837",
+      "data": {
+        "username": "dudedudedudedude"
+      },
+      "type": "tiktok",
+      "position": {
+        "x": 82.868070291826,
+        "y": 322.2632442707294
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189648194",
+      "data": {
+        "url": "soundcloud.com/dancyascen",
+        "displayText": "SoundCloud"
+      },
+      "type": "link",
+      "position": {
+        "x": 352.07211047425045,
+        "y": 170.36425500179084
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189670023",
+      "data": {
+        "url": "spotify.com/artist",
+        "displayText": "Spotify"
+      },
+      "type": "link",
+      "position": {
+        "x": 370.345685324016,
+        "y": 248.93937474358665
+      },
+      "background": "#1f2937"
+    }
+  ]
+}

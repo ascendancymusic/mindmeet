@@ -1,0 +1,173 @@
+@import url('/webfonts/font-face.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(20, 20, 28, 0.7);
+  }
+
+  body {
+    @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-gray-100 font-aspekta;
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-aspekta;
+  }
+
+  ::selection {
+    background-color: rgba(147, 51, 234, 0.9); /* Purple */
+  }
+
+  /* Custom scrollbar styles - vertical only */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #222;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 4px;
+    border: 2px solid #222;
+  }
+
+  /* Hide horizontal scrollbar */
+  ::-webkit-scrollbar-corner {
+    display: none; /* For Chrome/Safari */
+  }
+
+  /* Hide horizontal scrollbar for Firefox */
+  scrollbar-width: none; /* Firefox */
+  scrollbar-gutter: stable; /* Firefox */
+}
+
+@layer components {
+  .glass-panel {
+    @apply backdrop-blur-lg bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-lg;
+  }
+
+  .glow {
+    @apply relative;
+  }
+
+  .glow::before {
+    content: '';
+    @apply absolute inset-0 rounded-xl;
+    background: radial-gradient(circle at 50% 0%, rgba(147, 51, 234, 0.1), transparent 40%);
+  }
+
+  .glow::after {
+    content: '';
+    @apply absolute -inset-px rounded-xl opacity-0 transition-opacity duration-500;
+    background: linear-gradient(
+      60deg,
+      transparent 20%,
+      rgba(147, 51, 234, 0.1) 40%,
+      rgba(147, 51, 234, 0.1) 60%,
+      transparent 80%
+    );
+  }
+
+  .glow:hover::after {
+    @apply opacity-100;
+  }
+
+  .metallic {
+    background: linear-gradient(145deg, #2a2a3c, #1a1a2c);
+    @apply shadow-inner;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Sleek glassy React Flow handle to match UserProfile theme, no blur for performance */
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.88) 65%, rgba(226,232,240,0.7) 100%);
+  border-radius: 50%;
+  border: 1.5px solid rgba(51,65,85,0.7); /* slate-800, semi-transparent */
+  box-shadow: 0 2px 8px 0 rgba(30,41,59,0.10), 0 0 0 2px rgba(255,255,255,0.13), 0 1px 8px 0 rgba(148,163,184,0.10);
+  /* No blur for performance */
+  transition: box-shadow 0.18s, border-color 0.18s, background 0.18s;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.18s;
+}
+
+.react-flow__handle:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.97) 75%, rgba(226,232,240,0.90) 100%);
+  border-color: #fff;
+  box-shadow: 0 4px 16px 0 rgba(148,163,184,0.18), 0 0 0 3px rgba(255,255,255,0.18);
+}
+
+/* Override the selection box style for multi-selection */
+.react-flow__nodesselection-rect {
+  border: 1px dotted rgba(147, 51, 234, 0.8) !important;
+  background-color: rgba(147, 51, 234, 0.1) !important;
+}
+
+/* Override the active selection box style (while dragging) */
+.react-flow__selection {
+  border: 1px dotted rgba(147, 51, 234, 0.8) !important;
+  background-color: rgba(147, 51, 234, 0.25) !important;
+}
+
+
+@keyframes electric-border {
+  0% {
+    border-image-source: linear-gradient(90deg, rgba(59,130,246,0.3) 0%, rgba(59,130,246,0.7) 50%, rgba(59,130,246,0.3) 100%);
+    border-image-slice: 1;
+  }
+  100% {
+    border-image-source: linear-gradient(90deg, rgba(59,130,246,0.3) 100%, rgba(59,130,246,0.7) 50%, rgba(59,130,246,0.3) 0%);
+    border-image-slice: 1;
+  }
+}
+
+@layer utilities {
+  .animate-electric-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid transparent;
+    border-radius: 0.75rem;
+    border-image: linear-gradient(90deg, rgba(59,130,246,0.3), rgba(59,130,246,0.7), rgba(59,130,246,0.3));
+    border-image-slice: 1;
+    animation: electric-border 2s linear infinite;
+    z-index: 1;
+  }
+
+  /* Disable text selection when shift is pressed */
+  .no-text-select {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+  }
+}

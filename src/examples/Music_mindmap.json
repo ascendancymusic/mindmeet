@@ -1,0 +1,177 @@
+{
+  "edges": [
+    {
+      "id": "reactflow__edge-1-1743936549622",
+      "source": "1",
+      "target": "1743936549622"
+    },
+    {
+      "id": "reactflow__edge-1-1743936549623",
+      "source": "1",
+      "target": "1743936549623"
+    },
+    {
+      "id": "reactflow__edge-1-1743936549624",
+      "source": "1",
+      "target": "1743936549624"
+    },
+    {
+      "id": "reactflow__edge-1743936549622-1743936549625",
+      "source": "1743936549622",
+      "target": "1743936549625"
+    },
+    {
+      "id": "reactflow__edge-1743936549622-1743936549626",
+      "source": "1743936549622",
+      "target": "1743936549626"
+    },
+    {
+      "id": "reactflow__edge-1743936549623-1743936549627",
+      "source": "1743936549623",
+      "target": "1743936549627"
+    },
+    {
+      "id": "reactflow__edge-1743936549623-1743936549628",
+      "source": "1743936549623",
+      "target": "1743936549628"
+    },
+    {
+      "id": "reactflow__edge-1743936549624-1743936549629",
+      "source": "1743936549624",
+      "target": "1743936549629"
+    },
+    {
+      "id": "reactflow__edge-1743936549624-1743936549630",
+      "source": "1743936549624",
+      "target": "1743936549630"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "data": {
+        "label": "Jazz"
+      },
+      "type": "input",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1743936549622",
+      "data": {
+        "label": "Bebop"
+      },
+      "type": "default",
+      "position": {
+        "x": -46.678409090909085,
+        "y": 142.9431818181818
+      },
+      "background": "#f472b6"
+    },
+    {
+      "id": "1743936549623",
+      "data": {
+        "label": "Neo-Soul"
+      },
+      "type": "default",
+      "position": {
+        "x": 250,
+        "y": 150
+      },
+      "background": "#4ade80"
+    },
+    {
+      "id": "1743936549624",
+      "data": {
+        "label": "Smooth Jazz"
+      },
+      "type": "default",
+      "position": {
+        "x": 541.0329545454545,
+        "y": 152.11704545454546
+      },
+      "background": "#facc15"
+    },
+    {
+      "id": "1743936549625",
+      "data": {
+        "label": "Charlie Parker - Ornithology",
+        "spotifyUrl": "https://open.spotify.com/track/6A1mh31895sUIYEpOfeqC3"
+      },
+      "type": "spotify",
+      "position": {
+        "x": -246.67840909090916,
+        "y": 242.9431818181818
+      },
+      "background": "#f472b6"
+    },
+    {
+      "id": "1743936549626",
+      "data": {
+        "label": "Dizzy Gillespie - Salt Peanuts",
+        "spotifyUrl": "https://open.spotify.com/track/1xXydFs62EqOXFMPizVhn4"
+      },
+      "type": "spotify",
+      "position": {
+        "x": -246.67840909090916,
+        "y": 392.9431818181818
+      },
+      "background": "#f472b6"
+    },
+    {
+      "id": "1743936549627",
+      "data": {
+        "label": "Erykah Badu - On & On",
+        "spotifyUrl": "https://open.spotify.com/track/0tNuJpBgtE65diL6Q8Q7fI"
+      },
+      "type": "spotify",
+      "position": {
+        "x": 100,
+        "y": 250
+      },
+      "background": "#4ade80"
+    },
+    {
+      "id": "1743936549628",
+      "data": {
+        "label": "D'Angelo - Untitled (How Does It Feel)",
+        "spotifyUrl": "https://open.spotify.com/track/4oPNN7syJYSjzDhRerF966"
+      },
+      "type": "spotify",
+      "position": {
+        "x": 100,
+        "y": 400
+      },
+      "background": "#4ade80"
+    },
+    {
+      "id": "1743936549629",
+      "data": {
+        "label": "Kenny G - Songbird",
+        "spotifyUrl": "https://open.spotify.com/track/5a2lHMvRRwhQp2zSwtjNmq"
+      },
+      "type": "spotify",
+      "position": {
+        "x": 441.03295454545446,
+        "y": 252.11704545454546
+      },
+      "background": "#facc15"
+    },
+    {
+      "id": "1743936549630",
+      "data": {
+        "label": "George Benson - Breezin'",
+        "spotifyUrl": "https://open.spotify.com/track/1m3BAsNsQAaSNMD2M6vlKY"
+      },
+      "type": "spotify",
+      "position": {
+        "x": 441.03295454545446,
+        "y": 402.11704545454546
+      },
+      "background": "#facc15"
+    }
+  ]
+}

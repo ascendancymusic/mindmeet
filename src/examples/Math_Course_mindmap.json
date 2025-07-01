@@ -1,0 +1,162 @@
+{
+  "edges": [
+    {
+      "id": "reactflow__edge-1-1741767405993",
+      "source": "1",
+      "target": "1741767405993"
+    },
+    {
+      "id": "reactflow__edge-1-1741767412423",
+      "source": "1",
+      "target": "1741767412423"
+    },
+    {
+      "id": "reactflow__edge-1-1741767415807",
+      "source": "1",
+      "target": "1741767415807"
+    },
+    {
+      "id": "reactflow__edge-1741767405993-1741767427696",
+      "source": "1741767405993",
+      "target": "1741767427696"
+    },
+    {
+      "id": "reactflow__edge-1741767405993-1741767430298",
+      "source": "1741767405993",
+      "target": "1741767430298"
+    },
+    {
+      "id": "reactflow__edge-1741767415807-1741767842691",
+      "source": "1741767415807",
+      "target": "1741767842691"
+    },
+    {
+      "id": "reactflow__edge-1741767415807-1741767861712",
+      "source": "1741767415807",
+      "target": "1741767861712"
+    },
+    {
+      "id": "reactflow__edge-1741767412423-1741867750464",
+      "source": "1741767412423",
+      "target": "1741867750464"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "data": {
+        "label": "Trigonometry"
+      },
+      "type": "input",
+      "position": {
+        "x": 268.5,
+        "y": 0.5
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1741767405993",
+      "data": {
+        "label": "Part 1 (Intro)"
+      },
+      "type": "default",
+      "position": {
+        "x": -92.52957245619666,
+        "y": 120.514709334896
+      },
+      "background": "#010101"
+    },
+    {
+      "id": "1741767412423",
+      "data": {
+        "label": "Part 2"
+      },
+      "type": "default",
+      "position": {
+        "x": 273.34416204929676,
+        "y": 118.42040993583362
+      },
+      "background": "#00193d"
+    },
+    {
+      "id": "1741767415807",
+      "data": {
+        "label": "Part 3"
+      },
+      "type": "default",
+      "position": {
+        "x": 623.69163333072,
+        "y": 123.35694400951056
+      },
+      "background": "#003680"
+    },
+    {
+      "id": "1741767427696",
+      "data": {
+        "videoUrl": "https://www.youtube.com/watch?v=Jsiy4TxgIME",
+        "label": "Basic trigonometry | Basic trigonometry | Trigonometry | Khan Academy"
+      },
+      "type": "youtube-video",
+      "position": {
+        "x": -192.33378568700567,
+        "y": 204.68562288653686
+      },
+      "background": "#010101"
+    },
+    {
+      "id": "1741767430298",
+      "data": {
+        "videoUrl": "https://www.youtube.com/watch?v=F21S9Wpi0y8",
+        "label": "The unit circle definition of sine, cosine, and tangent | Trigonometry | Khan Academy"
+      },
+      "type": "youtube-video",
+      "position": {
+        "x": -190.48678581783835,
+        "y": 429.1347656208327
+      },
+      "background": "#010101"
+    },
+    {
+      "id": "1741767842691",
+      "data": {
+        "videoUrl": "https://www.youtube.com/watch?v=znR9tW4AiZI",
+        "label": "Using Trig Functions",
+        "type": "youtube-video"
+      },
+      "type": "youtube-video",
+      "position": {
+        "x": 537.5788934804431,
+        "y": 210.443993397162
+      },
+      "background": "#003680"
+    },
+    {
+      "id": "1741767861712",
+      "data": {
+        "videoUrl": "https://www.youtube.com/watch?v=bm8oYKKlCXI",
+        "label": "How To Graph Trigonometric Functions | Trigonometry",
+        "type": "youtube-video"
+      },
+      "type": "youtube-video",
+      "position": {
+        "x": 540.2307303760883,
+        "y": 431.87237418353754
+      },
+      "background": "#003680"
+    },
+    {
+      "id": "1741867750464",
+      "data": {
+        "videoUrl": "https://www.youtube.com/watch?v=9zspW8u6kQM",
+        "label": "Radian and degree | Unit circle definition of trig functions | Trigonometry | Khan Academy",
+        "type": "youtube-video"
+      },
+      "type": "youtube-video",
+      "position": {
+        "x": 169.75186630581499,
+        "y": 216.61885755602486
+      },
+      "background": "#00193d"
+    }
+  ]
+}

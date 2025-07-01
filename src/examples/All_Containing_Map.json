@@ -1,0 +1,210 @@
+{
+  "edges": [
+    {
+      "id": "reactflow__edge-1-1746189820580",
+      "source": "1",
+      "target": "1746189820580"
+    },
+    {
+      "id": "reactflow__edge-1746189820580-1746189829053",
+      "source": "1746189820580",
+      "target": "1746189829053"
+    },
+    {
+      "id": "reactflow__edge-1-1746189842260",
+      "source": "1",
+      "target": "1746189842260"
+    },
+    {
+      "id": "reactflow__edge-1746189842260-1746189850000",
+      "source": "1746189842260",
+      "target": "1746189850000"
+    },
+    {
+      "id": "reactflow__edge-1746189842260-17461898608511746189860851-target",
+      "source": "1746189842260",
+      "target": "1746189860851"
+    },
+    {
+      "id": "reactflow__edge-1746189820580-1746189893043",
+      "source": "1746189820580",
+      "target": "1746189893043"
+    },
+    {
+      "id": "reactflow__edge-1746189820580-1746189929011",
+      "source": "1746189820580",
+      "target": "1746189929011"
+    },
+    {
+      "id": "reactflow__edge-1746189842260-1746189950595",
+      "source": "1746189842260",
+      "target": "1746189950595"
+    },
+    {
+      "id": "reactflow__edge-1746189820580-1746189969444",
+      "source": "1746189820580",
+      "target": "1746189969444"
+    },
+    {
+      "id": "reactflow__edge-1746189842260-1746260451420",
+      "source": "1746189842260",
+      "target": "1746260451420"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "data": {
+        "label": "All containing map"
+      },
+      "type": "input",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746189820580",
+      "data": {
+        "label": "Text"
+      },
+      "type": "default",
+      "position": {
+        "x": 157.8984375,
+        "y": 132.171875
+      },
+      "background": "#006aff"
+    },
+    {
+      "id": "1746189829053",
+      "data": {
+        "url": "link.com",
+        "displayText": "Link"
+      },
+      "type": "link",
+      "position": {
+        "x": 229.1371161259887,
+        "y": 202.68466143817767
+      },
+      "background": "#006aff"
+    },
+    {
+      "id": "1746189842260",
+      "data": {
+        "label": "Text 2"
+      },
+      "type": "default",
+      "position": {
+        "x": 548.3472917472894,
+        "y": 124.31971731768238
+      },
+      "background": "#004609"
+    },
+    {
+      "id": "1746189850000",
+      "data": {
+        "username": "instauser"
+      },
+      "type": "instagram",
+      "position": {
+        "x": 463.6685492590095,
+        "y": 211.31971731768238
+      },
+      "background": "#004609"
+    },
+    {
+      "id": "1746189860851",
+      "data": {
+        "label": "",
+        "mapKey": "5d4670ec-35ec-40f5-b68c-d95654611d26"
+      },
+      "type": "mindmap",
+      "position": {
+        "x": 444.62086659705494,
+        "y": 314.753920923308
+      },
+      "background": "#004609"
+    },
+    {
+      "id": "1746189893043",
+      "data": {
+        "label": "I SPENT $100,000 AT PORSCHE SO I COULD BEAT A FORMULA 1 DRIVER",
+        "videoUrl": "https://www.youtube.com/watch?v=DCtDoT7g9Ko"
+      },
+      "type": "youtube-video",
+      "position": {
+        "x": 51.612020813770926,
+        "y": 305.03971753334497
+      },
+      "background": "#006aff"
+    },
+    {
+      "id": "1746189929011",
+      "data": {
+        "label": "Image",
+        "imageUrl": "https://zzuxwkkpgjgiqzhqldsx.supabase.co/storage/v1/object/public/mindmap-images/d0392122-224c-4294-89cf-9b5ccfc88d9c/1746189929011.jpg?v=1746260444321"
+      },
+      "type": "image",
+      "width": 100,
+      "height": 100,
+      "position": {
+        "x": 69.57923392705226,
+        "y": 178.60231620469935
+      },
+      "background": "#006aff"
+    },
+    {
+      "id": "1746189950595",
+      "data": {
+        "username": "youtubeuser"
+      },
+      "type": "youtube",
+      "position": {
+        "x": 620.7635915384253,
+        "y": 205.76028242691393
+      },
+      "background": "#004609"
+    },
+    {
+      "id": "1746189969444",
+      "data": {
+        "label": "https://soundcloud.com/berxtothetom/inevitable",
+        "soundCloudUrl": "https://soundcloud.com/berxtothetom/inevitable"
+      },
+      "type": "soundcloud",
+      "position": {
+        "x": 53.127737380281246,
+        "y": 516.4821785615454
+      },
+      "background": "#006aff"
+    },
+    {
+      "id": "1746260451420",
+      "data": {
+        "label": "Piano Fantasia - Song for Denise",
+        "spotifyUrl": "https://open.spotify.com/track/69Z9CGFvblV0qTb6wMoCpP"
+      },
+      "type": "spotify",
+      "position": {
+        "x": 441.1050243494839,
+        "y": 594.1610481168135
+      },
+      "background": "#1f2937"
+    },
+    {
+      "id": "1746260464976",
+      "data": {
+        "label": "Audio",
+        "audioUrl": "https://zzuxwkkpgjgiqzhqldsx.supabase.co/storage/v1/object/public/mindmap-audio/d0392122-224c-4294-89cf-9b5ccfc88d9c/1746260464976.opus?v=1746261420167",
+        "duration": 35.17239583333333
+      },
+      "type": "audio",
+      "position": {
+        "x": 59.99532318277306,
+        "y": 730.5553718248
+      },
+      "background": "#1f2937"
+    }
+  ]
+}
