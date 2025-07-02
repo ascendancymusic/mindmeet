@@ -2,9 +2,16 @@
 export async function compressImage(file: File): Promise<{ compressedFile: File; originalSize: number; compressedSize: number }> {
   const originalSize = file.size;
 
-  if (file.type === 'image/gif' || file.type === 'image/webp') {
-    return { compressedFile: file, originalSize, compressedSize: originalSize };
-  }
+  if (
+  file.type === 'image/gif' ||
+  file.type === 'image/webp' ||
+  file.type === 'image/heic' ||
+  file.type === 'image/heif' ||
+  file.type === 'image/avif' ||
+  file.type === 'image/svg+xml'
+) {
+  return { compressedFile: file, originalSize, compressedSize: originalSize };
+}
 
   const canvas = document.createElement('canvas');
   const img = new Image();
