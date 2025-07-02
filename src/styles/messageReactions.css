@@ -6,12 +6,12 @@
 
 /* Add more space below messages with reactions */
 .message-container.has-reactions {
-  margin-bottom: 24px !important; /* More space for messages with reactions */
+  margin-bottom: 28px !important; /* More space for messages with reactions */
 }
 
 /* Even more space for user messages with reactions */
 .user-message.has-reactions {
-  margin-bottom: 24px !important; /* Extra space for user messages with reactions */
+  margin-bottom: 28px !important; /* Extra space for user messages with reactions */
 }
 
 /* Style for the reaction container */

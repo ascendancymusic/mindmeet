@@ -2193,7 +2193,7 @@ const Chat: React.FC = () => {
                 handleReactToMessage(messageId, type);
               }}
             >
-              <img src={imagePath} alt={type} className="w-5 h-5 object-contain" />
+              <img src={imagePath} alt={type} className="w-6 h-6 object-contain" />
               {users.length > 1 && <span className="text-white font-medium">{users.length}</span>}
             </div>
           );
