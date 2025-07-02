@@ -222,25 +222,21 @@ export function NewAccountSetup({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg max-w-md w-full p-6 relative">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome!</h2>
-          <p className="text-gray-400">Customize your profile to get started</p>
-        </div>
-
-        <div
-            className="flex justify-center mb-6 relative group cursor-pointer"
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-slate-800/70 to-slate-900/80 backdrop-blur-xl rounded-2xl max-w-md w-full p-8 border border-slate-700/40 shadow-2xl relative">
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="relative group cursor-pointer mb-4"
             onClick={handleAvatarClick}
           >
-            <div className="relative w-20 h-20">
-              <img 
-                src={currentAvatar || "/placeholder.svg"} 
-                alt="Profile" 
-                className="w-20 h-20 rounded-full border-2 border-gray-700 object-cover"
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden ring-4 ring-slate-600/20 transition-all duration-300 group-hover:ring-blue-400/40">
+              <img
+                src={currentAvatar || "/placeholder.svg"}
+                alt="Profile"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                <Camera className="w-6 h-6 text-white" />
+                <Camera className="w-7 h-7 text-white" />
               </div>
             </div>
             <input
@@ -251,9 +247,14 @@ export function NewAccountSetup({
               onChange={handleFileChange}
             />
           </div>
-
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-1">
+            Welcome!
+          </h2>
+          <p className="text-slate-400">Customize your profile to get started</p>
+        </div>
+  
         {isFetchingProfile ? (
-          <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="flex flex-col items-center justify-center space-y-4 py-12">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 border-4 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
               <div className="absolute inset-2 border-4 border-t-transparent border-purple-500 rounded-full animate-spin animate-reverse"></div>
@@ -261,9 +262,9 @@ export function NewAccountSetup({
             <p className="text-gray-400 animate-pulse">Loading your profile...</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-400 mb-1">
+              <label htmlFor="fullName" className="block text-sm font-medium text-slate-400 mb-1">
                 Display Name
               </label>
               <input
@@ -271,13 +272,12 @@ export function NewAccountSetup({
                 id="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value.slice(0, 25))}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="Your display name"
               />
             </div>
-            
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-400 mb-1">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-400 mb-1">
                 Username
               </label>
               <input
@@ -285,14 +285,14 @@ export function NewAccountSetup({
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20))}
-                className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white focus:ring-2 focus:border-transparent ${
-                  !usernameAvailable ? "border-red-500 focus:ring-red-500" : "border-gray-700 focus:ring-purple-500"
+                className={`w-full bg-slate-800 border rounded-lg px-4 py-2 text-white focus:ring-2 focus:border-transparent transition ${
+                  !usernameAvailable ? "border-red-500 focus:ring-red-500" : "border-slate-700 focus:ring-blue-500"
                 }`}
                 placeholder="Your unique username"
                 required
               />
               {isCheckingUsername && (
-                <p className="text-gray-400 text-sm mt-1">Checking availability...</p>
+                <p className="text-slate-400 text-sm mt-1">Checking availability...</p>
               )}
               {!isCheckingUsername && !usernameAvailable && (
                 <p className="text-red-500 text-sm mt-1">Username is already taken</p>
@@ -301,96 +301,89 @@ export function NewAccountSetup({
                 <p className="text-green-500 text-sm mt-1">Username is available</p>
               )}
             </div>
-
             {error && (
               <div className="bg-red-900/30 border border-red-500 text-red-200 px-4 py-2 rounded-lg">
                 {error}
               </div>
             )}
-
-            <div className="flex pt-2">
-              <button
-                type="submit"
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded-lg transition-colors flex items-center justify-center disabled:opacity-50"
-                disabled={isLoading || !usernameAvailable || isCheckingUsername}
-              >
-                {isLoading ? "Saving..." : "Accept"}
-              </button>
-            </div>
+            <button
+              type="submit"
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-bold text-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50 shadow-lg hover:from-blue-400 hover:to-purple-500"
+              disabled={isLoading || !usernameAvailable || isCheckingUsername}
+            >
+              {isLoading ? "Saving..." : "Accept"}
+            </button>
           </form>
         )}
-      </div>
-
-      {/* Avatar Editor Modal */}
-      {isAvatarEditorOpen && avatarImage && (
-        <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          onClick={() => !isUploading && setIsAvatarEditorOpen(false)}
-        >
+  
+        {/* Avatar Editor Modal */}
+        {isAvatarEditorOpen && avatarImage && (
           <div
-            className="bg-gray-900 rounded-xl p-6 w-full max-w-md flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={() => !isUploading && setIsAvatarEditorOpen(false)}
           >
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">Edit Profile Picture</h2>
-
-            <div className="mb-4 rounded-full overflow-hidden border-2 border-gray-700">
-              <AvatarEditor
-                ref={avatarEditorRef}
-                image={avatarImage}
-                width={250}
-                height={250}
-                border={0}
-                borderRadius={125}
-                color={[0, 0, 0, 0.6]} // RGBA
-                scale={avatarScale}
-                rotate={0}
-              />
-            </div>
-
-            <div className="w-full mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Zoom</label>
-              <input
-                type="range"
-                min="1"
-                max="2"
-                step="0.01"
-                value={avatarScale}
-                onChange={(e) => setAvatarScale(Number.parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                disabled={isUploading}
-              />
-            </div>
-
-            <div className="flex justify-center space-x-4 w-full">
-              <button
-                onClick={() => !isUploading && setIsAvatarEditorOpen(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isUploading}
-              >
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveAvatar}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Save
-                  </>
-                )}
-              </button>
+            <div
+              className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-8 w-full max-w-md flex flex-col items-center border border-slate-700/50 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-semibold text-slate-100 mb-4">Edit Profile Picture</h2>
+              <div className="mb-4 rounded-full overflow-hidden border-2 border-slate-700">
+                <AvatarEditor
+                  ref={avatarEditorRef}
+                  image={avatarImage}
+                  width={250}
+                  height={250}
+                  border={0}
+                  borderRadius={125}
+                  color={[0, 0, 0, 0.6]}
+                  scale={avatarScale}
+                  rotate={0}
+                />
+              </div>
+              <div className="w-full mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-2">Zoom</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="2"
+                  step="0.01"
+                  value={avatarScale}
+                  onChange={(e) => setAvatarScale(Number.parseFloat(e.target.value))}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  disabled={isUploading}
+                />
+              </div>
+              <div className="flex justify-center space-x-4 w-full">
+                <button
+                  onClick={() => !isUploading && setIsAvatarEditorOpen(false)}
+                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isUploading}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveAvatar}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Save
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
