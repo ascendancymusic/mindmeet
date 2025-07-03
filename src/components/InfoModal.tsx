@@ -161,13 +161,70 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
   };
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <style>{`
+        @media (max-height: 1090px) {
+          .compact-modal-header {
+            padding: 1rem !important;
+          }
+          .compact-modal-content {
+            padding: 1rem !important;
+            max-height: 65vh !important;
+            overflow-y: auto !important;
+          }
+          .compact-modal-title {
+            font-size: 1.125rem !important;
+            margin-bottom: 0.75rem !important;
+          }
+          .compact-modal-section {
+            margin-bottom: 1rem !important;
+          }
+          .compact-modal-section:last-child {
+            margin-bottom: 0 !important;
+          }
+          .compact-section-title {
+            font-size: 0.75rem !important;
+            margin-bottom: 0.5rem !important;
+          }
+          .compact-creator-card {
+            padding: 0.75rem !important;
+          }
+          .compact-avatar {
+            width: 2.5rem !important;
+            height: 2.5rem !important;
+          }
+          .compact-collaborator {
+            padding: 0.5rem !important;
+          }
+          .compact-collaborator-avatar {
+            width: 1.75rem !important;
+            height: 1.75rem !important;
+          }
+          .compact-description {
+            padding: 0.75rem !important;
+          }
+          .compact-stats-grid {
+            gap: 0.5rem !important;
+          }
+          .compact-stat-card {
+            padding: 0.75rem !important;
+          }
+          .compact-stat-value {
+            font-size: 1.125rem !important;
+            margin-bottom: 0.25rem !important;
+          }
+          .compact-stat-label {
+            font-size: 0.625rem !important;
+          }
+        }
+      `}</style>
       <div
         className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl max-w-lg w-full shadow-2xl border border-slate-700/30 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        style={{ maxHeight: '90vh' }}
       >        {/* Enhanced Header */}
-        <div className="p-6 border-b border-slate-700/50">
+        <div className="p-6 border-b border-slate-700/50 compact-modal-header">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">{mindmap.name}</h2>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent compact-modal-title">{mindmap.name}</h2>
             <button 
               onClick={onClose} 
               className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-xl transition-all duration-200"
@@ -213,19 +270,19 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
             )}
           </div>
         </div>        {/* Enhanced Content */}
-        <div className="p-6 space-y-6">          {/* Enhanced Creator info */}
-          <div>
-            <h3 className="text-sm font-medium text-slate-400 mb-3">
+        <div className="p-6 space-y-6 compact-modal-content">          {/* Enhanced Creator info */}
+          <div className="compact-modal-section">
+            <h3 className="text-sm font-medium text-slate-400 mb-3 compact-section-title">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-blue-400" />
                 <span>Created by</span>
               </div>
             </h3>
             <div 
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/30 transition-all duration-200 cursor-pointer border border-slate-700/30 hover:border-slate-600/50"
+              className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/30 transition-all duration-200 cursor-pointer border border-slate-700/30 hover:border-slate-600/50 compact-creator-card"
               onClick={() => window.open(`/${mindmap.username}`, '_blank')}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex-shrink-0 overflow-hidden ring-2 ring-slate-600/20">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex-shrink-0 overflow-hidden ring-2 ring-slate-600/20 compact-avatar">
                 {getAvatar() ? (
                   <img
                     src={getAvatar()!}
@@ -245,27 +302,27 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
             </div>
           </div>          {/* Enhanced Collaborators */}
           {mindmap.collaborators && mindmap.collaborators.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-slate-400 mb-3">
+            <div className="compact-modal-section">
+              <h3 className="text-sm font-medium text-slate-400 mb-3 compact-section-title">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-purple-400" />
                   <span>Collaborators ({mindmap.collaborators.length})</span>
                 </div>
               </h3>
               {isLoadingCollaborators ? (
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30">
+                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 compact-description">
                   <p className="text-slate-400 text-sm">Loading collaborators...</p>
                 </div>
               ) : collaboratorProfiles.length > 0 ? (
-                <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/30 space-y-2">
+                <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/30 space-y-2 compact-description">
                   {collaboratorProfiles.map((collaborator) => (
                     <div 
                       key={collaborator.id} 
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/30 transition-all duration-200 cursor-pointer"
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/30 transition-all duration-200 cursor-pointer compact-collaborator"
                       onClick={() => window.open(`/${collaborator.username}`, '_blank')}
                     >
                       <div className="relative">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden ring-2 ring-slate-600/20">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center overflow-hidden ring-2 ring-slate-600/20 compact-collaborator-avatar">
                           {collaborator.avatar_url ? (
                             <img
                               src={collaborator.avatar_url}
@@ -291,39 +348,39 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
                   ))}
                 </div>
               ) : (
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30">
+                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 compact-description">
                   <p className="text-slate-400 text-sm">No collaborator information available.</p>
                 </div>
               )}
             </div>
           )}          {/* Enhanced Description */}
-          <div>
-            <h3 className="text-sm font-medium text-slate-400 mb-3">
+          <div className="compact-modal-section">
+            <h3 className="text-sm font-medium text-slate-400 mb-3 compact-section-title">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-purple-400" />
                 <span>Description</span>
               </div>
             </h3>
-            <p className="text-slate-300 bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 leading-relaxed">
+            <p className="text-slate-300 bg-slate-800/30 p-4 rounded-xl border border-slate-700/30 leading-relaxed compact-description">
               {mindmap.description || "No description provided."}
             </p>
           </div>          {/* Enhanced Visibility */}
           {!hideVisibility && (
-            <div>
-              <h3 className="text-sm font-medium text-slate-400 mb-3">
+            <div className="compact-modal-section">
+              <h3 className="text-sm font-medium text-slate-400 mb-3 compact-section-title">
                 <div className="flex items-center gap-2">
                   {getVisibilityIcon()}
                   <span>Visibility</span>
                 </div>
               </h3>
-              <div className="flex items-center gap-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
+              <div className="flex items-center gap-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700/30 compact-description">
                 <span className="text-slate-300">{getVisibilityText()}</span>
               </div>
             </div>
           )}          {/* Enhanced Stats */}
           {mindmap.stats && (
-            <div>
-              <h3 className="text-sm font-medium text-slate-400 mb-3">
+            <div className="compact-modal-section">
+              <h3 className="text-sm font-medium text-slate-400 mb-3 compact-section-title">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-purple-400" />
                   <span>Statistics</span>
@@ -333,32 +390,32 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
                 {/* Structure Metrics */}
                 <div>
                   <p className="text-xs text-slate-500 mb-3 px-1 font-medium">Structure</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200">
-                      <p className="text-xl font-bold text-white mb-1">{mindmap.stats.nodes || 0}</p>
-                      <p className="text-xs text-slate-400 font-medium">Nodes</p>
+                  <div className="grid grid-cols-2 gap-3 compact-stats-grid">
+                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200 compact-stat-card">
+                      <p className="text-xl font-bold text-white mb-1 compact-stat-value">{mindmap.stats.nodes || 0}</p>
+                      <p className="text-xs text-slate-400 font-medium compact-stat-label">Nodes</p>
                     </div>
-                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200">
-                      <p className="text-xl font-bold text-white mb-1">{mindmap.stats.edges || 0}</p>
-                      <p className="text-xs text-slate-400 font-medium">Connections</p>
+                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200 compact-stat-card">
+                      <p className="text-xl font-bold text-white mb-1 compact-stat-value">{mindmap.stats.edges || 0}</p>
+                      <p className="text-xs text-slate-400 font-medium compact-stat-label">Connections</p>
                     </div>
                   </div>
                 </div>
                 {/* Engagement Metrics */}
                 <div>
                   <p className="text-xs text-slate-500 mb-3 px-1 font-medium">Engagement</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200">
-                      <p className="text-xl font-bold text-white mb-1">{mindmap.stats.likes || 0}</p>
-                      <p className="text-xs text-slate-400 font-medium">Likes</p>
+                  <div className="grid grid-cols-3 gap-3 compact-stats-grid">
+                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200 compact-stat-card">
+                      <p className="text-xl font-bold text-white mb-1 compact-stat-value">{mindmap.stats.likes || 0}</p>
+                      <p className="text-xs text-slate-400 font-medium compact-stat-label">Likes</p>
                     </div>
-                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200">
-                      <p className="text-xl font-bold text-white mb-1">{mindmap.stats.comments || 0}</p>
-                      <p className="text-xs text-slate-400 font-medium">Comments</p>
+                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200 compact-stat-card">
+                      <p className="text-xl font-bold text-white mb-1 compact-stat-value">{mindmap.stats.comments || 0}</p>
+                      <p className="text-xs text-slate-400 font-medium compact-stat-label">Comments</p>
                     </div>
-                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200">
-                      <p className="text-xl font-bold text-white mb-1">{mindmap.stats.saves || 0}</p>
-                      <p className="text-xs text-slate-400 font-medium">Saves</p>
+                    <div className="bg-slate-800/30 p-4 rounded-xl text-center border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200 compact-stat-card">
+                      <p className="text-xl font-bold text-white mb-1 compact-stat-value">{mindmap.stats.saves || 0}</p>
+                      <p className="text-xs text-slate-400 font-medium compact-stat-label">Saves</p>
                     </div>
                   </div>
                 </div>

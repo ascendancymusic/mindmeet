@@ -18,8 +18,25 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false) // Add state for button loading
   const [isRedirecting, setIsRedirecting] = useState(false) // Add state for redirecting
+  const [isCompactMode, setIsCompactMode] = useState(false)
   const navigate = useNavigate()
   const { setUser, setLoading, setError, error, validateSession } = useAuthStore()
+  
+  // Check if screen height is less than 1090px and set compact mode
+  useEffect(() => {
+    const checkHeight = () => {
+      setIsCompactMode(window.innerHeight < 1090);
+    };
+    
+    // Initial check
+    checkHeight();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkHeight);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkHeight);
+  }, []);
 
   useEffect(() => {
     const hash = window.location.hash
@@ -133,7 +150,13 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
   }
 
   return (
-    <div className="w-full relative">
+    <div
+      className="w-full relative"
+      style={{
+        fontSize: isCompactMode ? 'clamp(0.85rem, 2vw, 1rem)' : '1rem',
+        padding: 0,
+      }}
+    >
       {/* Enhanced Redirection overlay */}
       {isRedirecting && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-xl rounded-2xl animate-fadeIn border border-slate-700/50">
@@ -157,7 +180,10 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
       )}
 
       {/* Enhanced Welcome Message */}
-      <h2 className="text-xl font-semibold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-8">
+      <h2
+        className="text-xl md:text-lg sm:text-base font-semibold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6"
+        style={{ fontSize: isCompactMode ? 'clamp(1.1rem, 2vw, 1.25rem)' : '1.25rem' }}
+      >
         Welcome back!
       </h2>
 
@@ -179,10 +205,10 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className={isCompactMode ? "space-y-4 text-base md:text-sm sm:text-xs" : "space-y-6 text-base"}>
         {/* Enhanced Email Input */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+          <label htmlFor="email" className={`block font-medium text-slate-300 mb-2 ${isCompactMode ? "text-sm md:text-xs" : "text-sm"}`}>
             Email or Username
           </label>
           <input
@@ -190,14 +216,16 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
             type="text"
             value={email}
             onChange={handleInputChange(setEmail)}
-            className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm"
+            className={`w-full rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm ${
+              isCompactMode ? "px-3 py-2 md:px-2 md:py-1 sm:px-1 sm:py-1 text-base md:text-sm sm:text-xs" : "px-4 py-3 text-base"
+            }`}
             placeholder="johndoe@gmail.com or username"
           />
         </div>
 
         {/* Enhanced Password Input */}
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+          <label htmlFor="password" className={`block font-medium text-slate-300 mb-2 ${isCompactMode ? "text-sm md:text-xs" : "text-sm"}`}>
             Password
           </label>
           <div className="relative">
@@ -206,12 +234,14 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={handleInputChange(setPassword)}
-              className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm pr-12"
+              className={`w-full rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm ${
+                isCompactMode ? "px-3 py-2 md:px-2 md:py-1 sm:px-1 sm:py-1 pr-10 text-base md:text-sm sm:text-xs" : "px-4 py-3 pr-12 text-base"
+              }`}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 px-4 text-slate-400 hover:text-blue-400 transition-colors"
+              className="absolute inset-y-0 right-0 px-3 text-slate-400 hover:text-blue-400 transition-colors"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -223,7 +253,7 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
                 setError(null) // Clear error when navigating
                 navigate("/reset-password")
               }}
-              className="text-sm text-slate-400 hover:text-blue-400 transition-colors font-medium"
+              className={`text-slate-400 hover:text-blue-400 transition-colors font-medium ${isCompactMode ? "text-sm md:text-xs" : "text-sm"}`}
             >
               Forgot Password?
             </button>
@@ -231,28 +261,32 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
         </div>
 
         {/* Enhanced Button Section */}
-        <div className="space-y-4 pt-2">
+        <div className={isCompactMode ? "space-y-2 pt-0" : "space-y-4 pt-2"}>
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl transition-all duration-200 flex items-center justify-center font-medium transform hover:scale-105 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className={`w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl transition-all duration-200 flex items-center justify-center font-medium transform hover:scale-105 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+              isCompactMode ? "py-1.5 px-2 md:py-2 md:px-3 sm:py-1 sm:px-2 text-base md:text-sm sm:text-xs" : "py-3 px-4 text-base"
+            }`}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign in"}
+            {isSubmitting ? <Loader2 className={isCompactMode ? "w-4 h-4" : "w-5 h-5"} /> : "Sign in"}
           </button>
 
           <button
             type="button"
             onClick={() => navigate("/mindmap")}
-            className="w-full py-3 px-4 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white rounded-xl transition-all duration-200 font-medium border border-slate-700/50 hover:border-slate-600/50 backdrop-blur-sm"
+            className={`w-full bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white rounded-xl transition-all duration-200 font-medium border border-slate-700/50 hover:border-slate-600/50 backdrop-blur-sm ${
+              isCompactMode ? "py-1.5 px-2 md:py-2 md:px-3 sm:py-1 sm:px-2 text-base md:text-sm sm:text-xs" : "py-3 px-4 text-base"
+            }`}
           >
             Continue as guest
           </button>
         </div>
 
         {/* Enhanced Divider */}
-        <div className="flex items-center gap-4 my-6">
+        <div className={`flex items-center gap-4 ${isCompactMode ? "my-4" : "my-6"}`}>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
-          <span className="text-slate-400 text-sm font-medium">or</span>
+          <span className={`text-slate-400 font-medium ${isCompactMode ? "text-xs" : "text-sm"}`}>or</span>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
         </div>
 
@@ -265,8 +299,8 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
         />
 
         {/* Enhanced Sign Up Link */}
-        <div className="text-center pt-6">
-          <span className="text-sm text-slate-400">
+        <div className={`text-center ${isCompactMode ? "pt-4" : "pt-6"}`}>
+          <span className={`text-slate-400 ${isCompactMode ? "text-xs" : "text-sm"}`}>
             Don't have an account?{" "}
             <button
               type="button"
@@ -274,7 +308,7 @@ export function LoginForm({ successMessage = "" }: LoginFormProps) {
                 setError(null) // Clear error when navigating
                 navigate("/signup")
               }}
-              className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-purple-300 transition-all duration-200 font-semibold"
+              className={`bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-purple-300 transition-all duration-200 font-semibold ${isCompactMode ? "text-xs" : "text-sm"}`}
             >
               Sign up
             </button>

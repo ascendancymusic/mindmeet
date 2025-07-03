@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Node as ReactFlowNode, Edge } from "reactflow";
 import { supabase } from "../supabaseClient";
 import { useAuthStore } from './authStore';
+import { useToastStore } from './toastStore';
 import { compressImage } from '../utils/compressImage';
 import { compressAudioFile } from '../utils/compressAudio';
 import { prepareNodeForSaving } from '../utils/nodeUtils';
@@ -333,6 +334,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         console.error("Error saving mindmap to Supabase:", error.message);
       } else {
         console.log("Mindmap saved successfully:", id);
+        // Trigger success toast notification
+        useToastStore.getState().showToast("Mindmap saved successfully!", "success");
       }
     } catch (err) {
       console.error("Unexpected error in saveMapToSupabase:", err);

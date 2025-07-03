@@ -37,6 +37,7 @@ import {
   ListMusic,
   Plus,
   Brain,
+  SquarePen,
   Youtube
 } from "lucide-react"
 import {
@@ -74,9 +75,12 @@ import { MindMapNode } from "../components/MindMapNode"
 import MindMapSelector from "../components/MindMapSelector"
 import { ConditionalLoginPrompt } from "../components/LoginPrompt";
 import { useAuthStore } from "../store/authStore";
+import { useToastStore } from "../store/toastStore";
+import { Toast } from "../components/Toast";
 import defaultNodeStyles from "../config/defaultNodeStyles";
 import { supabase } from "../supabaseClient";
 import { MindMapHelpModal } from "../components/MindMapHelpModal";
+import MindMapCustomization from "../components/MindMapCustomization";
 import SelectionToolbarWrapper from "../components/SelectionToolbarWrapper";
 import { aiService } from "../services/aiService";
 import { useCollaborationStore } from "../store/collaborationStore";
@@ -120,7 +124,12 @@ export interface YouTubeVideo {
 export default function MindMap() {
   const { username, id } = useParams()
   const navigate = useNavigate()
-  const { maps, updateMap, setMaps, acceptAIChanges } = useMindMapStore()  // Node types for ReactFlow
+  const { maps, updateMap, setMaps, acceptAIChanges } = useMindMapStore()
+  
+  // Toast notification state
+  const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
+  
+  // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
     spotify: SpotifyNode,
     soundcloud: SoundCloudNode,
@@ -173,14 +182,15 @@ export default function MindMap() {
   const [selectedColor, setSelectedColor] = useState<string>("#1f2937")
   const [previewColor, setPreviewColor] = useState<string | null>(null)
   const colorPickerRef = useRef<HTMLDivElement>(null)
-  const edgeTypeDropdownRef = useRef<HTMLDivElement>(null)
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const user = useAuthStore((state) => state.user);
-  const [showHelpModal, setShowHelpModal] = useState(false);  // Collaboration store for real-time features
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showCustomizationModal, setShowCustomizationModal] = useState(false);  // Collaboration store for real-time features
   const {
     initializeCollaboration,
     cleanupCollaboration,
@@ -224,7 +234,6 @@ export default function MindMap() {
 
   // Edge type state
   const [edgeType, setEdgeType] = useState<'default' | 'straight' | 'smoothstep'>('default');
-  const [showEdgeTypeDropdown, setShowEdgeTypeDropdown] = useState(false);
 
   // Set up sensors for drag and drop functionality
   const sensors = useSensors(
@@ -514,9 +523,6 @@ export default function MindMap() {
         setShowColorPicker(false)
         setPreviewColor(null)
       }
-      if (edgeTypeDropdownRef.current && !edgeTypeDropdownRef.current.contains(event.target as Element)) {
-        setShowEdgeTypeDropdown(false)
-      }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
@@ -637,7 +643,6 @@ export default function MindMap() {
 
       addToHistory(action);
       setEdgeType(newEdgeType);
-      setShowEdgeTypeDropdown(false);
 
       if (!isInitialLoad) {
         setHasUnsavedChanges(true);
@@ -2366,18 +2371,25 @@ export default function MindMap() {
     setIsInitialLoad(false)
   }
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!isLoggedIn) {
       setShowLoginPrompt(true);
       return;
     }
 
     if (id && editedTitle.trim() !== "") {
-      updateMap(id, nodes, edges, editedTitle, user?.id || '', edgeType)
-      setHasUnsavedChanges(false)
-      setOriginalTitle(editedTitle)
-
-      setLastSavedHistoryIndex(currentHistoryIndex)
+      setIsSaving(true);
+      try {
+        await updateMap(id, nodes, edges, editedTitle, user?.id || '', edgeType)
+        setHasUnsavedChanges(false)
+        setOriginalTitle(editedTitle)
+        setLastSavedHistoryIndex(currentHistoryIndex)
+      } catch (error) {
+        console.error('Error saving mindmap:', error);
+        // You could add error handling here if needed
+      } finally {
+        setIsSaving(false);
+      }
     } else if (id) {
       setEditedTitle(originalTitle)
       setHasUnsavedChanges(false)
@@ -2952,12 +2964,12 @@ export default function MindMap() {
         }
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault()
-        if (hasUnsavedChanges) {
+        if (hasUnsavedChanges && !isSaving) {
           handleSave()
         }
       }
     },
-    [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo],
+    [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo, isSaving],
   )
 
   useEffect(() => {
@@ -3192,14 +3204,17 @@ export default function MindMap() {
     };
   }, [showMindMapSelector]);
 
-  const handleModalResponse = (response: "yes" | "no" | "cancel") => {
-    setShowUnsavedChangesModal(false)
+  const handleModalResponse = async (response: "yes" | "no" | "cancel") => {
     if (response === "yes") {
-      handleSave()
+      await handleSave()
+      setShowUnsavedChangesModal(false)
       navigate("/mindmap")
     } else if (response === "no") {
+      setShowUnsavedChangesModal(false)
       setHasUnsavedChanges(false)
       navigate("/mindmap")
+    } else {
+      setShowUnsavedChangesModal(false)
     }
   }
   const handleColorChange = (nodeId: string, color: string) => {
@@ -3315,7 +3330,12 @@ export default function MindMap() {
   }
 
   const handleDefaultColorChange = (nodeId: string) => {
-    const defaultColor = "#1f2937"
+    // Find the parent node's color
+    const parentEdge = edges.find(edge => edge.target === nodeId);
+    const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+    const defaultColor = parentNode 
+      ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+      : "#1f2937";
     handleColorChange(nodeId, defaultColor)
 
     const descendantIds = getNodeDescendants(nodeId)
@@ -3723,15 +3743,15 @@ export default function MindMap() {
               onClick={() => navigate("/mindmap")}
               className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              Back to Maps
+              Back to mindmaaps
             </button>
           </div>
         </div>
       </div>
     );
   }  return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 pt-8">
-      <div className="fixed left-0 z-10" style={{ top: reactFlowWrapperRef.current ? reactFlowWrapperRef.current.getBoundingClientRect().top + 'px' : '120px' }}>
+    <div className="fixed inset-0 flex items-start justify-center pt-20">
+      <div className="fixed left-0 top-[8.75rem] z-10">
         <NodeTypesMenu
           moveWithChildren={moveWithChildren}
           setMoveWithChildren={setMoveWithChildren}
@@ -3744,11 +3764,11 @@ export default function MindMap() {
         />
       </div>
       
-      <div className="h-[90vh] bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-6 text-slate-100 w-[95vw] relative">
+      <div className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-4 pt-3 text-slate-100 w-[95vw] relative h-[90vh]">
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
         <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
 
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2 mt-1">
           <button
             onClick={() => {
               if (hasUnsavedChanges) {
@@ -3757,7 +3777,12 @@ export default function MindMap() {
                 navigate("/mindmap")
               }
             }}
-            className="flex items-center text-slate-400 hover:text-white transition-all duration-200 hover:bg-slate-700/30 rounded-lg px-3 py-2"
+            disabled={isSaving}
+            className={`flex items-center transition-all duration-200 rounded-lg px-3 py-1.5 ${
+              isSaving 
+                ? 'text-slate-600 cursor-not-allowed' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+            }`}
           >
             {isSmallScreen ? (
               <ArrowLeft className="w-5 h-5" />
@@ -3789,7 +3814,7 @@ export default function MindMap() {
                   setHasUnsavedChanges(false)
                 }
               }}
-              className="text-2xl font-bold text-center bg-transparent border-b border-slate-500 focus:outline-none focus:border-blue-500 text-white inline-block"
+              className="text-2xl font-bold text-center bg-transparent border-b border-slate-500 focus:outline-none focus:border-blue-500 text-white inline-block py-0.5"
               autoFocus
             />
           ) : (
@@ -3802,20 +3827,31 @@ export default function MindMap() {
           )}
           <button
             onClick={handleSave}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-              hasUnsavedChanges
+            className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg transition-all duration-200 ${
+              hasUnsavedChanges && !isSaving
                 ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white transform hover:scale-105 shadow-lg"
+                : isSaving
+                ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
                 : "bg-slate-700/50 text-slate-400 cursor-not-allowed"
             }`}
-            disabled={!hasUnsavedChanges}
+            disabled={!hasUnsavedChanges || isSaving}
           >
-            <Save className="w-5 h-5" />
-            {isSmallScreen ? null : <span>Save Changes</span>}
+            {isSaving ? (
+              <>
+                <Loader className="w-5 h-5 animate-spin" />
+                {isSmallScreen ? null : <span>Saving... Please wait</span>}
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                {isSmallScreen ? null : <span>Save Changes</span>}
+              </>
+            )}
           </button>        </div>
 
         {/* Banner for playlist selection mode */}
         {isAddingToPlaylist && (
-          <div className="mb-2 px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-xl text-sm text-blue-300 flex items-center justify-between backdrop-blur-sm">
+          <div className="mb-1 px-4 py-1.5 bg-blue-600/20 border border-blue-500/30 rounded-xl text-sm text-blue-300 flex items-center justify-between backdrop-blur-sm">
             <div className="flex items-center">
               <ListMusic className="w-5 h-5 mr-2" />
               <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
@@ -4135,44 +4171,15 @@ export default function MindMap() {
             <Maximize2 className="w-4 h-4 text-gray-300" />
           </button>
 
-          {/* Edge type dropdown */}
-          <div ref={edgeTypeDropdownRef} className="absolute bottom-2 right-12" style={{ zIndex: 10 }}>
+          {/* Mind Map Customization button */}
+          <div className="absolute bottom-1.5 right-12" style={{ zIndex: 10 }}>
             <button
-              onClick={() => setShowEdgeTypeDropdown(!showEdgeTypeDropdown)}
+              onClick={() => setShowCustomizationModal(true)}
               className="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
-              title="Edge Type"
+              title="Mind Map Customization"
             >
-              <Network className="w-4 h-4 text-gray-300" />
+              <SquarePen className="w-4 h-4 text-gray-300" />
             </button>
-
-            {showEdgeTypeDropdown && (
-              <div className="absolute bottom-full mb-2 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-[120px]" style={{ zIndex: 20 }}>
-                <button
-                  onClick={() => handleEdgeTypeChange('default')}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors ${
-                    edgeType === 'default' ? 'text-sky-400 bg-gray-700/50' : 'text-gray-300'
-                  }`}
-                >
-                  Bezier (Default)
-                </button>
-                <button
-                  onClick={() => handleEdgeTypeChange('smoothstep')}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors ${
-                    edgeType === 'smoothstep' ? 'text-sky-400 bg-gray-700/50' : 'text-gray-300'
-                  }`}
-                >
-                  Smooth Step
-                </button>
-                <button
-                  onClick={() => handleEdgeTypeChange('straight')}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors ${
-                    edgeType === 'straight' ? 'text-sky-400 bg-gray-700/50' : 'text-gray-300'
-                  }`}
-                >
-                  Straight
-                </button>
-              </div>
-            )}
           </div>
 
           <button
@@ -4550,7 +4557,18 @@ export default function MindMap() {
                             }}
                             className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
                           >
-                            <div className="w-4 h-4 rounded bg-slate-700 border border-slate-600"></div>
+                            <div 
+                              className="w-4 h-4 rounded border border-slate-600"
+                              style={{
+                                backgroundColor: (() => {
+                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                  return parentNode 
+                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+                                    : "#1f2937";
+                                })()
+                              }}
+                            ></div>
                             <span>Default</span>
                           </button>
 
@@ -4619,7 +4637,18 @@ export default function MindMap() {
                             }}
                             className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
                           >
-                            <div className="w-4 h-4 rounded bg-slate-700 border border-slate-600"></div>
+                            <div 
+                              className="w-4 h-4 rounded border border-slate-600"
+                              style={{
+                                backgroundColor: (() => {
+                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                  return parentNode 
+                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+                                    : "#1f2937";
+                                })()
+                              }}
+                            ></div>
                             <span>Default</span>
                           </button>
 
@@ -4683,13 +4712,22 @@ export default function MindMap() {
                   type="button"
                   onClick={() => handleModalResponse("yes")}
                   className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                    hasUnsavedChanges 
+                    hasUnsavedChanges && !isSaving
                       ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white shadow-lg hover:shadow-green-500/25 transform hover:scale-105" 
+                      : isSaving
+                      ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
                       : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
                   }`}
-                  disabled={!hasUnsavedChanges}
+                  disabled={!hasUnsavedChanges || isSaving}
                 >
-                  Save Changes
+                  {isSaving ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader className="w-4 h-4 animate-spin" />
+                      <span>Saving... Please wait</span>
+                    </div>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </button>
                 <button
                   type="button"
@@ -4966,6 +5004,22 @@ export default function MindMap() {
         )}
 
         <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+        
+        {/* Mind Map Customization Modal */}
+        <MindMapCustomization
+          isOpen={showCustomizationModal}
+          onClose={() => setShowCustomizationModal(false)}
+          edgeType={edgeType}
+          onEdgeTypeChange={handleEdgeTypeChange}
+        />
+        
+        {/* Toast Notification */}
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          isVisible={toastVisible}
+          onClose={hideToast}
+        />
       </div>
     </div>
   )

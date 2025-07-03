@@ -15,12 +15,29 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false); // Add showPassword state
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [isCompactMode, setIsCompactMode] = useState(false);
   const navigate = useNavigate();
   const { setLoading, setError, error, isLoading } = useAuthStore();
 
   useEffect(() => {
     return () => setError(null); // Clear error when component unmounts
   }, [setError]);
+  
+  // Check if screen height is less than 1090px and set compact mode
+  useEffect(() => {
+    const checkHeight = () => {
+      setIsCompactMode(window.innerHeight < 1090);
+    };
+    
+    // Initial check
+    checkHeight();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkHeight);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkHeight);
+  }, []);
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setter(e.target.value);
@@ -108,10 +125,23 @@ export default function SignUp() {
     }
   };
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="w-full max-w-md mx-auto px-6 lg:px-8 flex flex-col justify-center" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="flex items-center justify-center h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div 
+        className="w-full max-w-md px-6 lg:px-8 flex flex-col" 
+        style={{ 
+          maxHeight: '90vh', 
+          overflowY: 'auto',
+          paddingTop: isCompactMode ? '0.5rem' : '1rem',
+          paddingBottom: isCompactMode ? '0.5rem' : '1rem'
+        }}>
         {/* Enhanced Title */}
-        <h1 className="text-4xl md:text-3xl sm:text-2xl font-bold mb-8 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+        <h1 
+          className="text-4xl md:text-3xl sm:text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent"
+          style={{ 
+            marginBottom: isCompactMode ? '1.5rem' : '2rem',
+            fontSize: isCompactMode ? 'clamp(1.5rem, 4vw, 2rem)' : ''
+          }}
+        >
           Create Account
         </h1>
         
@@ -124,7 +154,7 @@ export default function SignUp() {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-6 text-base md:text-sm sm:text-xs">
+        <form onSubmit={handleSubmit} className={isCompactMode ? "space-y-4 text-base md:text-sm sm:text-xs" : "space-y-6 text-base"}>
           {/* Enhanced Name Input */}
           <div>
             <label htmlFor="name" className="block text-sm md:text-xs font-medium text-slate-300 mb-2">
@@ -205,9 +235,9 @@ export default function SignUp() {
           </button>
 
           {/* Enhanced Divider */}
-          <div className="flex items-center gap-4 my-6">
+          <div className={`flex items-center gap-4 ${isCompactMode ? "my-3" : "my-6"}`}>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
-            <span className="text-slate-400 text-sm md:text-xs font-medium">or</span>
+            <span className={`text-slate-400 font-medium ${isCompactMode ? "text-xs" : "text-sm"}`}>or</span>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
           </div>
 
@@ -221,8 +251,8 @@ export default function SignUp() {
           />
 
           {/* Enhanced Sign In Link */}
-          <div className="text-center pt-6">
-            <span className="text-sm md:text-xs text-slate-400">
+          <div className={`text-center ${isCompactMode ? "pt-3" : "pt-6"}`}>
+            <span className={`text-slate-400 ${isCompactMode ? "text-xs" : "text-sm"}`}>
               Already have an account?{' '}
               <button
                 type="button"
@@ -230,7 +260,7 @@ export default function SignUp() {
                   setError(null); // Clear error when navigating
                   navigate('/login');
                 }}
-                className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-purple-300 transition-all duration-200 font-semibold"
+                className={`bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-purple-300 transition-all duration-200 font-semibold ${isCompactMode ? "text-xs" : "text-sm"}`}
               >
                 Log in
               </button>
@@ -239,7 +269,7 @@ export default function SignUp() {
         </form>
 
         {/* Enhanced Terms and Privacy Links */}
-        <div className="mt-8 text-sm md:text-xs text-slate-400 text-center">
+        <div className={`text-slate-400 text-center ${isCompactMode ? "mt-4 text-xs" : "mt-8 text-sm"}`}>
           By continuing, you agree to our
           <button 
             onClick={() => setShowTermsModal(true)}

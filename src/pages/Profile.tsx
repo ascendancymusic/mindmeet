@@ -29,7 +29,7 @@ import {
   Info,
 } from "lucide-react"
 
-// Add shimmer animation styles
+// Add shimmer animation styles and responsive height classes
 const shimmerStyles = `
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
@@ -37,6 +37,17 @@ const shimmerStyles = `
   }
   .animate-shimmer {
     animation: shimmer 2s infinite;
+  }
+  
+  /* Custom responsive height classes */
+  @media (max-height: 1090px) {
+    .compact-container { padding: 1rem !important; }
+    .compact-card { padding: 1rem !important; }
+    .compact-gap { gap: 1rem !important; }
+    .compact-gap-sm { gap: 0.75rem !important; }
+    .compact-margin { margin-top: 1rem !important; }
+    .compact-padding { padding-top: 0.75rem !important; }
+    .compact-preview { height: 12rem !important; margin-bottom: 1rem !important; }
   }
 `
 
@@ -70,11 +81,11 @@ const CustomBackground = () => {
 
 const SkeletonLoader = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -112,7 +123,7 @@ const SkeletonLoader = () => {
           <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
           
           {/* Preview skeleton */}
-          <div className="h-56 bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
+          <div className="h-56 compact-preview bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
             {/* Animated shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
             
@@ -210,6 +221,7 @@ export default function Profile() {
                 saves: newSaves,
                 saved_by: newSavedBy,
                 creatorUsername: profile?.username || user?.username || 'Unknown',
+                creatorFull_name: profile?.full_name || user?.full_name || profile?.username || user?.username || 'Unknown',
                 creatorAvatar: profile?.avatar_url || user?.avatar_url || null
               };
               updatedSavedMaps = [...prevSavedMaps, mapWithCreatorInfo];
@@ -448,6 +460,7 @@ export default function Profile() {
       setIsLoading(true)
 
       // Fetch profile data
+      let profileData = null;
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -458,7 +471,7 @@ export default function Profile() {
         if (error) {
           console.error("Error fetching profile:", error)
         } else if (data) {
-          const profileData = {
+          profileData = {
             ...data,
             followed_by: data.followed_by || [],
             following: data.following || [],
@@ -498,6 +511,9 @@ export default function Profile() {
             createdAt: Date.now(),
             is_main: map.is_main || false,
             collaborators: map.collaborators || [],
+            creatorUsername: profileData?.username || user?.username || 'Unknown',
+            creatorFull_name: profileData?.full_name || user?.full_name || 'Unknown',
+            creatorAvatar: profileData?.avatar_url || user?.avatar_url || null,
           })).sort((a, b) => b.updatedAt - a.updatedAt) || []
           setUserMaps(processedMaps)
         }
@@ -1200,9 +1216,9 @@ export default function Profile() {
   if (isLoading) {
     return (
       <div className="min-h-screen">
-        <div className="max-w-5xl mx-auto p-6">
+        <div className="max-w-5xl mx-auto p-6 compact-container">
           {/* Skeleton Profile Header */}
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
             <div className="flex gap-4 items-start">
               {/* Skeleton Avatar */}
               <div className="w-20 h-20 rounded-2xl bg-slate-700/50 animate-pulse"></div>
@@ -1227,9 +1243,8 @@ export default function Profile() {
                 <div className="h-4 w-32 bg-slate-700/50 rounded animate-pulse"></div>
               </div>
             </div>
-            
-            {/* Skeleton Stats */}
-            <div className="mt-6 grid grid-cols-3 gap-4 border-t border-slate-700/50 pt-4">
+               {/* Skeleton Stats */}
+          <div className="mt-6 compact-margin grid grid-cols-3 gap-4 compact-gap-sm border-t border-slate-700/50 pt-4 compact-padding">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="text-center p-2">
                   <div className="h-6 w-8 bg-slate-700/50 rounded mx-auto mb-2 animate-pulse"></div>
@@ -1264,9 +1279,9 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-5xl mx-auto p-6 compact-container">
         {/* Enhanced Profile Header */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
           <div className="flex gap-4 items-start">
             {/* Enhanced Avatar */}
             <div className="relative group">
@@ -1357,7 +1372,7 @@ export default function Profile() {
           </div>
 
           {/* Enhanced Stats */}
-          <div className="mt-6 grid grid-cols-3 gap-4 border-t border-slate-700/50 pt-4">
+          <div className="mt-6 compact-margin grid grid-cols-3 gap-4 compact-gap-sm border-t border-slate-700/50 pt-4 compact-padding">
             <div className="text-center group cursor-default hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200">
               <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
                 {publicMaps.length}
@@ -1431,11 +1446,11 @@ export default function Profile() {
           {activeTab === "mindmaps" && (
             <>
               {publicMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {publicMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       {/* Enhanced Map Header */}
@@ -1531,8 +1546,8 @@ export default function Profile() {
                       {/* Enhanced Mind Map Preview */}
                       {map.nodes?.length > 0 && (
                         <a
-                          href={`/${username}/${map.id}`}
-                          className="block mb-5 h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          href={`/${map.creatorUsername}/${map.id}`}
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={prepareNodesForRendering(map.nodes)}
@@ -1640,11 +1655,11 @@ export default function Profile() {
           {activeTab === "collaborations" && (
             <>
               {collaborationMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {collaborationMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-3">
@@ -1727,7 +1742,7 @@ export default function Profile() {
                       {map.nodes?.length > 0 && (
                         <a
                           href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={prepareNodesForRendering(map.nodes)}
@@ -1834,11 +1849,11 @@ export default function Profile() {
           {activeTab === "saves" && (
             <>
               {savedMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {savedMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-4">
@@ -1921,7 +1936,7 @@ export default function Profile() {
                       {map.nodes?.length > 0 && (
                         <a
                           href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={prepareNodesForRendering(map.nodes)}

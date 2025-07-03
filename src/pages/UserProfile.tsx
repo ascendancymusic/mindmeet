@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react"
 
-// Add shimmer animation styles
+// Add shimmer animation styles and responsive height classes
 const shimmerStyles = `
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
@@ -28,6 +28,17 @@ const shimmerStyles = `
   }
   .animate-shimmer {
     animation: shimmer 2s infinite;
+  }
+  
+  /* Custom responsive height classes */
+  @media (max-height: 1090px) {
+    .compact-container { padding: 1rem !important; }
+    .compact-card { padding: 1rem !important; }
+    .compact-gap { gap: 1rem !important; }
+    .compact-gap-sm { gap: 0.75rem !important; }
+    .compact-margin { margin-top: 1rem !important; }
+    .compact-padding { padding-top: 0.75rem !important; }
+    .compact-preview { height: 12rem !important; margin-bottom: 1rem !important; }
   }
 `
 
@@ -63,11 +74,11 @@ const CustomBackground = () => {
 
 const SkeletonLoader = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -104,7 +115,7 @@ const SkeletonLoader = () => {
           <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
           
           {/* Preview skeleton */}
-          <div className="h-56 bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
+          <div className="h-56 compact-preview bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
             {/* Animated shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
             
@@ -590,9 +601,9 @@ const UserProfile: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <div className="max-w-5xl mx-auto p-6">
+        <div className="max-w-5xl mx-auto p-6 compact-container">
           {/* Skeleton Profile Header */}
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
             <div className="flex gap-4 items-start">
               {/* Skeleton Avatar */}
               <div className="w-20 h-20 rounded-2xl bg-slate-700/50 animate-pulse"></div>
@@ -684,8 +695,8 @@ const UserProfile: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-5xl mx-auto p-6">        {/* Enhanced Profile Header */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl">
+      <div className="max-w-5xl mx-auto p-6 compact-container">        {/* Enhanced Profile Header */}
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
           <div className="flex gap-4 items-start">
             {/* Enhanced Avatar */}
             <div className="relative group">
@@ -820,11 +831,11 @@ const UserProfile: React.FC = () => {
           {/* Mindmaps Tab */}
           {activeTab === "mindmaps" && (
             <>              {publicMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {publicMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       {/* Enhanced Map Header */}
@@ -898,7 +909,7 @@ const UserProfile: React.FC = () => {
                       {map.json_data?.nodes?.length > 0 && (
                         <a
                           href={`/${username}/${map.id}`}
-                          className="block mb-5 h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={prepareNodesForRendering(map.json_data.nodes)}
@@ -1003,11 +1014,11 @@ const UserProfile: React.FC = () => {
           {/* Collaborations Tab */}          {activeTab === "collaborations" && (
             <>
               {collaborationMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {collaborationMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-3">
@@ -1088,8 +1099,8 @@ const UserProfile: React.FC = () => {
                         </span>
                       </div>                      {map.json_data?.nodes?.length > 0 && (
                         <a
-                          href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          href={`/${username}/${map.id}`}
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={prepareNodesForRendering(map.json_data.nodes)}
@@ -1194,11 +1205,11 @@ const UserProfile: React.FC = () => {
           {/* Saves Tab */}
           {activeTab === "saves" && (
             <>              {savedMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {savedMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-4">
@@ -1279,8 +1290,8 @@ const UserProfile: React.FC = () => {
                         </span>
                       </div>                      {map.json_data?.nodes?.length > 0 && (
                         <a
-                          href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          href={`/${username}/${map.id}`}
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={prepareNodesForRendering(map.json_data.nodes)}
