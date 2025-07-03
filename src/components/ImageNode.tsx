@@ -37,7 +37,6 @@ const ResizeIcon = () => (
       cursor: 'nwse-resize',
       background: 'rgba(0, 0, 0, 0.5)',
       borderRadius: '4px',
-      backdropFilter: 'blur(4px)',
       boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
     }}
   >
@@ -59,6 +58,13 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
   const reactFlowInstance = useReactFlow();
   const [initialSize, setInitialSize] = useState<{ width: number; height: number } | null>(null);
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Get the actual node to access its style/background
+  const node = reactFlowInstance.getNode(id);
+  const nodeBackground = (node?.style?.background as string) || 
+                        (node?.style?.backgroundColor as string) || 
+                        (node as any)?.background ||
+                        '#374151';
 
   const loadImage = useCallback(() => {
     // If we have a file, prioritize it over imageUrl (for local preview before saving)
@@ -203,7 +209,7 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
             margin: '0',
             position: 'absolute',
             right: 0,
-            bottom: 0,
+            bottom: data.label ? 30 : 0, // Adjust position when title is shown
             zIndex: 10,
           }}
           keepAspectRatio={true}
@@ -274,22 +280,39 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
           </div>
         )}
         {imageSrc && (
-          <img
-            key={imageSrc}
-            src={imageSrc}
-            alt={data.label || 'Node image'}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            className={`w-full h-auto object-contain rounded-[14px] transition-opacity duration-700 ease-in-out imagenode-image-content ${
-              !isLoading ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              filter: !isLoading ? 'blur(0)' : 'blur(5px)',
-              maxWidth: '800px',
-              maxHeight: '600px',
-              display: 'block',
-            }}
-          />
+          <div className="relative">
+            <img
+              key={imageSrc}
+              src={imageSrc}
+              alt={data.label || 'Node image'}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              className={`w-full h-auto object-contain ${data.label ? 'rounded-t-[14px]' : 'rounded-[14px]'} transition-opacity duration-700 ease-in-out imagenode-image-content ${
+                !isLoading ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{
+                filter: !isLoading ? 'blur(0)' : 'blur(5px)',
+                maxWidth: '800px',
+                maxHeight: '600px',
+                display: 'block',
+              }}
+            />
+            
+            {/* Title Section */}
+            {data.label && (
+              <div 
+                className="image-node-title-extension border-t border-slate-600/30 rounded-b-[14px] px-3 py-2 text-center border-l border-r border-b"
+                style={{
+                  backgroundColor: nodeBackground,
+                  borderColor: (node?.style?.borderColor as string) || 'rgb(71 85 105 / 0.6)',
+                }}
+              >
+                <span className="text-white text-sm font-medium break-words">
+                  {data.label}
+                </span>
+              </div>
+            )}
+          </div>
         )}
       </div>
       <Handle

@@ -125,3 +125,63 @@
   /* Add a subtle gradient overlay effect to edges */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.9);
 }
+
+/* Markdown content styling for nodes */
+.markdown-content {
+  /* Ensure inline display for node content */
+  display: inline;
+  line-height: 1.4;
+  /* Allow click events to pass through to the parent node */
+  pointer-events: none;
+}
+
+.markdown-content * {
+  /* Ensure all child elements also don't block pointer events */
+  pointer-events: none;
+}
+
+.markdown-content strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+.markdown-content em {
+  font-style: italic;
+  color: inherit;
+}
+
+.markdown-content code {
+  background-color: rgba(55, 65, 81, 0.5);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-family: 'Courier New', monospace;
+  color: #e5e7eb;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  display: inline;
+  margin: 0;
+  color: inherit;
+}
+
+/* Prevent unwanted spacing in markdown content */
+.markdown-content p {
+  margin: 0;
+  display: inline;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0;
+  padding: 0;
+  display: inline;
+}
+
+.markdown-content li {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}

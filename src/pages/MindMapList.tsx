@@ -153,7 +153,6 @@ export default function MindMapList(): JSX.Element {
   const [mapToDelete, setMapToDelete] = useState<string | null>(null)
   const [mapToEdit, setMapToEdit] = useState<string | null>(null) 
   const [newMapTitle, setNewMapTitle] = useState("")
-  const [editingMapId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"owned" | "collaboration">("owned")
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -210,23 +209,6 @@ export default function MindMapList(): JSX.Element {
     setNewMapTitle("")
     setIsCreating(false)
     navigate(`/${user.username}/${id}/edit`)
-  }
-
-  const handleOpenMap = (id: string) => {
-    setCurrentMap(id)
-    if (user) {
-      // Find the map to determine the correct navigation path
-      const currentMaps = viewMode === "owned" ? maps : collaborationMaps
-      const map = currentMaps.find(m => m.id === id)
-      
-      if (viewMode === "collaboration" && map?.creatorUsername) {
-        // For collaboration maps, navigate to creator's username
-        navigate(`/${map.creatorUsername}/${id}/edit`)
-      } else {
-        // For owned maps, use current user's username
-        navigate(`/${user.username}/${id}/edit`)
-      }
-    }
   }
 
   const handleResize = useCallback(() => {
@@ -556,8 +538,7 @@ export default function MindMapList(): JSX.Element {
           {sortedMaps.map((map, index) => (
             <div
               key={map.id}
-              onClick={() => !editingMapId && handleOpenMap(map.id)}
-              className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50 cursor-pointer"
+              className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="relative">
@@ -715,9 +696,16 @@ export default function MindMapList(): JSX.Element {
                 
                 {/* Enhanced Mind Map Preview */}
                 {map.nodes?.length > 0 && (
-                  <div 
-                    className={`h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview ${isSmallScreen ? 'pointer-events-none' : ''}`}
-                    onClick={!isSmallScreen ? (e) => e.stopPropagation() : undefined}
+                  <a
+                    href={(() => {
+                      if (viewMode === "collaboration" && map?.creatorUsername) {
+                        return `/${map.creatorUsername}/${map.id}/edit`;
+                      } else {
+                        return `/${user?.username}/${map.id}/edit`;
+                      }
+                    })()}
+                    className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? 'pointer-events-auto' : ''}`}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <ReactFlow
                       nodes={prepareNodesForRendering(map.nodes)}
@@ -729,7 +717,7 @@ export default function MindMapList(): JSX.Element {
                           : "#374151";
 
                         // Get edgeType from map, default to 'default' if not valid
-                        const edgeType = ['default', 'straight', 'smoothstep'].includes(map.edgeType)
+                        const edgeType = ['default', 'straight', 'smoothstep'].includes(map.edgeType || '')
                           ? map.edgeType
                           : 'default';
 
@@ -760,7 +748,7 @@ export default function MindMapList(): JSX.Element {
                       <CustomBackground />
                     </ReactFlow>
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                  </div>
+                  </a>
                 )}
               </div>
             </div>

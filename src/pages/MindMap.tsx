@@ -1,5 +1,6 @@
 import React from "react"
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react"
+import MarkdownRenderer from '../components/MarkdownRenderer'
 import { useNavigate, useParams } from "react-router-dom"
 import { usePageTitle } from '../hooks/usePageTitle'
 import ReactFlow,
@@ -38,7 +39,12 @@ import {
   Plus,
   Brain,
   SquarePen,
-  Youtube
+  Youtube,
+  Edit3,
+  Type,
+  Bold,
+  Italic,
+  Code
 } from "lucide-react"
 import {
   DndContext,
@@ -190,7 +196,8 @@ export default function MindMap() {
   const [isSaving, setIsSaving] = useState(false);
   const user = useAuthStore((state) => state.user);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showCustomizationModal, setShowCustomizationModal] = useState(false);  // Collaboration store for real-time features
+  const [showCustomizationModal, setShowCustomizationModal] = useState(false);
+  const [showAdvancedTextEditor, setShowAdvancedTextEditor] = useState(false);
   const {
     initializeCollaboration,
     cleanupCollaboration,
@@ -346,7 +353,7 @@ export default function MindMap() {
               height: typeof height === 'number' ? height : undefined,
               data: {
                 ...node,
-                label: node.data.label || "Image",
+                label: node.data.label || "",
               }
             };
           }
@@ -1150,7 +1157,7 @@ export default function MindMap() {
           position,
           // Omit initial dimensions to enable automatic sizing based on image aspect ratio
           data: {
-            label: "Image",
+            label: "",
             file: imageFile,
             type: "image",
           },
@@ -1251,7 +1258,7 @@ export default function MindMap() {
                 data: {
                   ...node.data,
                   file,
-                  label: "Image",
+                  label: "",
                   // Preserve original remote URL while prioritizing local file
                   // This enables reverting changes and maintains reference for upload replacement
                   originalImageUrl: node.data.imageUrl,
@@ -3750,7 +3757,7 @@ export default function MindMap() {
       </div>
     );
   }  return (
-    <div className="fixed inset-0 flex items-start justify-center pt-20">
+    <div className="fixed inset-0 flex items-start justify-center pt-20 -translate-y-2">
       <div className="fixed left-0 top-[8.75rem] z-10">
         <NodeTypesMenu
           moveWithChildren={moveWithChildren}
@@ -3909,7 +3916,13 @@ export default function MindMap() {
                     className="break-words overflow-hidden"
                     style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
                   >
-                    {node.type === "default" && nodeLabel === "" ? <span className="text-gray-400">Text...</span> : nodeLabel}
+                    {node.type === "default" && nodeLabel === "" ? (
+                      <span className="text-gray-400">Text...</span>
+                    ) : node.type === "default" ? (
+                      <MarkdownRenderer content={nodeLabel} />
+                    ) : (
+                      nodeLabel
+                    )}
                   </div>
                   <button
                     className="ml-2 p-1 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
@@ -3929,6 +3942,8 @@ export default function MindMap() {
                 </div>
               ) : node.type === "default" && nodeLabel === "" ? (
                 <span className="text-gray-400">Text...</span>
+              ) : node.type === "default" ? (
+                <MarkdownRenderer content={nodeLabel} />
               ) : (
                 nodeLabel
               );
@@ -3962,6 +3977,10 @@ export default function MindMap() {
                      "auto") :
                     (nodeTypeStyle as any).height || 'auto',
                   minWidth: "auto",
+                  // Special border radius handling for image nodes with titles
+                  borderRadius: node.type === "image" && nodeData.label ? 
+                    "14px 14px 0 0" : // Only round top corners when image has title
+                    nodeTypeStyle.borderRadius, // Use default for all other cases
                   background:
 
                     (node.id === selectedNodeId || (selectedNodeId && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
@@ -3990,6 +4009,9 @@ export default function MindMap() {
                   whiteSpace: "normal",
                   wordWrap: "break-word",
                   overflowWrap: "break-word",
+                  
+                  // Make root node text bold
+                  fontWeight: node.id === "1" ? "bold" : "normal",
                 },
               } as Node;
             })}
@@ -4248,8 +4270,23 @@ export default function MindMap() {
                     <div className="p-2 bg-slate-500/10 rounded-xl">
                       <ImageIcon className="w-5 h-5 text-slate-400" />
                     </div>
-                    <span className="text-slate-200 font-medium">Change image</span>
+                    <span className="text-slate-200 font-medium">
+                      {selectedNode.data.imageUrl || selectedNode.data.file ? 'Image Settings' : 'Add Image'}
+                    </span>
                   </div>
+                  
+                  {/* Title Editor - Always show when image exists */}
+                  {(selectedNode.data.imageUrl || selectedNode.data.file) && (
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Enter image caption..."
+                      value={selectedNode.data.label || ""}
+                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                  )}
+
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
@@ -4491,42 +4528,176 @@ export default function MindMap() {
                   )}
                 </div>
               ) : (
-                <input
-                  autoFocus
-                  data-node-id={selectedNodeId}
-                  type="text"
-                  placeholder={
-                    selectedNode.type === "default"
-                      ? "Text..."
-                      : selectedNode.type === "instagram"
-                        ? "username"
-                        : selectedNode.type === "twitter"
-                          ? "username"
-                          : selectedNode.type === "facebook"
-                            ? "username"
-                            : selectedNode.type === "youtube"
-                              ? "username"
-                              : selectedNode.type === "tiktok"
-                                ? "username"
-                                : "Text..."
-                  }
-                  value={["instagram", "twitter", "facebook", "youtube", "tiktok"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
-                  onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                  className={`px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 ${
-                    selectedNodeId === "1"
-                      ? "border-2 border-gradient-to-r from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25"
-                      : "border-slate-600/30"
-                  }`}
-                  style={
-                    selectedNodeId === "1"
-                      ? {
-                          background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))",
-                          borderImage: "linear-gradient(90deg, #60a5fa, #3b82f6)",
-                          borderImageSlice: 1,
+                <div className="space-y-4">
+                  {selectedNode.type === "default" && !showAdvancedTextEditor ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Type className="w-4 h-4 text-slate-400" />
+                          <span className="text-sm text-slate-400">Quick Edit</span>
+                        </div>
+                        <button
+                          onClick={() => setShowAdvancedTextEditor(true)}
+                          className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-lg transition-all duration-200"
+                          title="Advanced text editor"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <input
+                        autoFocus
+                        data-node-id={selectedNodeId}
+                        type="text"
+                        placeholder="Text..."
+                        value={selectedNode.data.label || ""}
+                        onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                        className={`px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 ${
+                          selectedNodeId === "1"
+                            ? "border-2 border-gradient-to-r from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25 font-bold"
+                            : "border-slate-600/30"
+                        }`}
+                        style={
+                          selectedNodeId === "1"
+                            ? {
+                                background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))",
+                                borderImage: "linear-gradient(90deg, #60a5fa, #3b82f6)",
+                                borderImageSlice: 1,
+                              }
+                            : {}
                         }
-                      : {}
-                  }
-                />
+                      />
+                    </div>
+                  ) : selectedNode.type === "default" && showAdvancedTextEditor ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Edit3 className="w-4 h-4 text-blue-400" />
+                          <span className="text-sm text-blue-400">Advanced Editor</span>
+                        </div>
+                        <button
+                          onClick={() => setShowAdvancedTextEditor(false)}
+                          className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-lg transition-all duration-200"
+                          title="Simple editor"
+                        >
+                          <Type className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      {/* Formatting Toolbar */}
+                      <div className="flex items-center gap-1 p-2 bg-slate-800/30 rounded-lg border border-slate-700/30">
+                        <button
+                          onClick={() => {
+                            const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
+                            if (textarea) {
+                              const start = textarea.selectionStart;
+                              const end = textarea.selectionEnd;
+                              const selectedText = textarea.value.substring(start, end);
+                              const newText = selectedText ? `**${selectedText}**` : '**bold**';
+                              const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
+                              updateNodeLabel(selectedNodeId, newValue);
+                              setTimeout(() => {
+                                textarea.focus();
+                                textarea.setSelectionRange(start + 2, start + 2 + (selectedText ? selectedText.length : 4));
+                              }, 0);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
+                          title="Bold (**text**)"
+                        >
+                          <Bold className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
+                            if (textarea) {
+                              const start = textarea.selectionStart;
+                              const end = textarea.selectionEnd;
+                              const selectedText = textarea.value.substring(start, end);
+                              const newText = selectedText ? `*${selectedText}*` : '*italic*';
+                              const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
+                              updateNodeLabel(selectedNodeId, newValue);
+                              setTimeout(() => {
+                                textarea.focus();
+                                textarea.setSelectionRange(start + 1, start + 1 + (selectedText ? selectedText.length : 6));
+                              }, 0);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
+                          title="Italic (*text*)"
+                        >
+                          <Italic className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
+                            if (textarea) {
+                              const start = textarea.selectionStart;
+                              const end = textarea.selectionEnd;
+                              const selectedText = textarea.value.substring(start, end);
+                              const newText = selectedText ? `\`${selectedText}\`` : '`code`';
+                              const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
+                              updateNodeLabel(selectedNodeId, newValue);
+                              setTimeout(() => {
+                                textarea.focus();
+                                textarea.setSelectionRange(start + 1, start + 1 + (selectedText ? selectedText.length : 4));
+                              }, 0);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
+                          title="Code (`text`)"
+                        >
+                          <Code className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Large Text Area */}
+                      <textarea
+                        autoFocus
+                        data-node-id={selectedNodeId}
+                        placeholder="Text..."
+                        value={selectedNode.data.label || ""}
+                        onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                        className={`px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none ${
+                          selectedNodeId === "1"
+                            ? "border-2 border-gradient-to-r from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25 font-bold"
+                            : "border-slate-600/30"
+                        }`}
+                        style={
+                          selectedNodeId === "1"
+                            ? {
+                                background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))",
+                                borderImage: "linear-gradient(90deg, #60a5fa, #3b82f6)",
+                                borderImageSlice: 1,
+                              }
+                            : {}
+                        }
+                        rows={4}
+                      />
+                    </div>
+                  ) : (
+                    <input
+                      autoFocus
+                      data-node-id={selectedNodeId}
+                      type="text"
+                      placeholder={
+                        selectedNode.type === "instagram"
+                          ? "username"
+                          : selectedNode.type === "twitter"
+                            ? "username"
+                            : selectedNode.type === "facebook"
+                              ? "username"
+                              : selectedNode.type === "youtube"
+                                ? "username"
+                                : selectedNode.type === "tiktok"
+                                  ? "username"
+                                  : "Text..."
+                      }
+                      value={["instagram", "twitter", "facebook", "youtube", "tiktok"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
+                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                  )}
+                </div>
               )}              {/* Root node controls */}
               {selectedNodeId === "1" && (
                 <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">

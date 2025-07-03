@@ -873,7 +873,7 @@ const UserProfile: React.FC = () => {
                               e.stopPropagation()
                               toggleMenu(map.id)
                             }}
-                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50 opacity-0 group-hover:opacity-100"
+                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
@@ -1066,7 +1066,7 @@ const UserProfile: React.FC = () => {
                               e.stopPropagation()
                               toggleMenu(map.id)
                             }}
-                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50 opacity-0 group-hover:opacity-100"
+                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
@@ -1257,7 +1257,7 @@ const UserProfile: React.FC = () => {
                               e.stopPropagation()
                               toggleMenu(map.id)
                             }}
-                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50 opacity-0 group-hover:opacity-100"
+                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
