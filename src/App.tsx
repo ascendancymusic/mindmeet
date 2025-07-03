@@ -75,31 +75,33 @@ function App() {
 
   return (
     <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-      <div className="flex flex-col min-h-screen bg-fixed bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        {isLoggedIn && <LoggedInNavigation />}
-        {!isLoggedIn &&
-          !['/', '/login', '/signup'].includes(window.location.pathname) && (
-            <LoggedOutNavigation />
-          )} {/* Show only when not logged in and not on home, login, or signup */}
-        <main className="flex-1 min-h-0 container mx-auto px-1 py-0">
-          <Routes>
-            <Route path="/" element={isLoggedIn ? <HomeLoggedIn /> : <Home />} />
-            <Route path="/mindmap" element={<MindMapList />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/signup" element={isLoggedIn ? <Navigate to="/" /> : <SignUp />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/chat" element={isLoggedIn ? <Chat /> : <Navigate to="/login" />} />
-            <Route path="/debug" element={<MindMapDebug />} />
-            <Route path="/login" element={isLoggedIn ? <Navigate to="/" /> : <Home />} />
-            <Route path="/reset-password" element={<ForgotPassword />} />
-            <Route path="/@:username" element={<UserProfile />} /> {/* Route for @username to redirect to main map */}
-            <Route path="/:username" element={<UserProfile />} /> {/* Dynamic username route */}
-            {username && <Route path={`/${username}`} element={<Profile />} />} {/* Route for fetched username */}
-            <Route path="/:username/:id/edit" element={<MindMap />} /> {/* Updated route for editing mindmaps */}
-            <Route path="/:username/:id" element={<ViewMindMap />} /> {/* Route for viewing mind maps */}
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
+      <div className="site-wrapper">
+        <div className="flex flex-col min-h-screen bg-fixed bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          {isLoggedIn && <LoggedInNavigation />}
+          {!isLoggedIn &&
+            !['/', '/login', '/signup'].includes(window.location.pathname) && (
+              <LoggedOutNavigation />
+            )} {/* Show only when not logged in and not on home, login, or signup */}
+          <main className="flex-1 min-h-0 container mx-auto px-1 py-0">
+            <Routes>
+              <Route path="/" element={isLoggedIn ? <HomeLoggedIn /> : <Home />} />
+              <Route path="/mindmap" element={<MindMapList />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/signup" element={isLoggedIn ? <Navigate to="/" /> : <SignUp />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/chat" element={isLoggedIn ? <Chat /> : <Navigate to="/login" />} />
+              <Route path="/debug" element={<MindMapDebug />} />
+              <Route path="/login" element={isLoggedIn ? <Navigate to="/" /> : <Home />} />
+              <Route path="/reset-password" element={<ForgotPassword />} />
+              <Route path="/@:username" element={<UserProfile />} /> {/* Route for @username to redirect to main map */}
+              <Route path="/:username" element={<UserProfile />} /> {/* Dynamic username route */}
+              {username && <Route path={`/${username}`} element={<Profile />} />} {/* Route for fetched username */}
+              <Route path="/:username/:id/edit" element={<MindMap />} /> {/* Updated route for editing mindmaps */}
+              <Route path="/:username/:id" element={<ViewMindMap />} /> {/* Route for viewing mind maps */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+        </div>
       </div>
     </BrowserRouter>
   );

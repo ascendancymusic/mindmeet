@@ -275,7 +275,7 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data }) => {
                   nodesDraggable={false}
                   nodesConnectable={false}
                   elementsSelectable={false}
-                  zoomOnScroll={true}
+                  zoomOnScroll={false}
                   zoomOnDoubleClick={false}
                   minZoom={0.1}
                   maxZoom={2}

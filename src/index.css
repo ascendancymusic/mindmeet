@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* screen size change */
+@media (max-height: 1090px) {
+  .site-wrapper {
+    transform: scale(0.67);
+    transform-origin: top left;
+    width: 149.25vw;   /* 100 / 0.67 */
+    min-height: 149.25vh;
+    /* Optional: prevent scrollbars */
+    overflow: auto;
+  }
+}
+
 /* Simple AI Generation Animation */
 @keyframes simple-fade-in {
   from {
