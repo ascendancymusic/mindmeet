@@ -1,7 +1,7 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { Search, Bell, User, Network, LogOut, Settings, Menu, X, MessageCircle } from "lucide-react"
+import { Search, Bell, User, Network, LogOut, Settings, Menu, X, MessageCircle, MessageSquare } from "lucide-react"
 import NotificationsDropdown from "./NotificationsDropdown"
 import { useAuthStore } from "../store/authStore"
 import { supabase } from "../supabaseClient"
@@ -278,16 +278,23 @@ const LoggedInNavigation: React.FC = () => {
             )}
           </div>
         </div>        {/* Right section with navigation icons - always visible */}
-        <nav className="flex items-center space-x-3">
+        <nav className="flex items-center gap-2">
           {!isMobile && (
-            <Link
-              to="/mindmap"
-              className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive(
-                "/mindmap",
-              )}`}
-            >
-              <Network className="w-5 h-5 mx-auto" />
-            </Link>
+            <>
+              <Link
+                to="/mindmap"
+                className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/mindmap")}`}
+              >
+                <Network className="w-5 h-5 mx-auto" />
+              </Link>
+              <Link
+                to="/chat"
+                className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/chat")}`}
+                aria-label="Chat"
+              >
+                <MessageSquare className="w-5 h-5 mx-auto" />
+              </Link>
+            </>
           )}
           <div className="relative" ref={notificationRef}>
             <button
