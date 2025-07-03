@@ -109,9 +109,9 @@ export default function SignUp() {
   };
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="w-full max-w-md mx-auto px-6 lg:px-8 flex flex-col justify-center">
+      <div className="w-full max-w-md mx-auto px-6 lg:px-8 flex flex-col justify-center" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
         {/* Enhanced Title */}
-        <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+        <h1 className="text-4xl md:text-3xl sm:text-2xl font-bold mb-8 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
           Create Account
         </h1>
         
@@ -124,10 +124,10 @@ export default function SignUp() {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 text-base md:text-sm sm:text-xs">
           {/* Enhanced Name Input */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="name" className="block text-sm md:text-xs font-medium text-slate-300 mb-2">
               Name
             </label>
             <input
@@ -136,14 +136,14 @@ export default function SignUp() {
               value={name}
               onChange={handleInputChange(setName)}
               maxLength={25}
-              className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm"
+              className="w-full px-4 py-3 md:px-3 md:py-2 sm:px-2 sm:py-1 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm text-base md:text-sm sm:text-xs"
               placeholder="John Doe"
             />
           </div>
 
           {/* Enhanced Username Input */}
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="username" className="block text-sm md:text-xs font-medium text-slate-300 mb-2">
               Username
             </label>
             <input
@@ -152,14 +152,14 @@ export default function SignUp() {
               value={username}
               onChange={handleUsernameChange}
               maxLength={20}
-              className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm"
+              className="w-full px-4 py-3 md:px-3 md:py-2 sm:px-2 sm:py-1 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm text-base md:text-sm sm:text-xs"
               placeholder="dude123"
             />
           </div>
 
           {/* Enhanced Email Input */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="email" className="block text-sm md:text-xs font-medium text-slate-300 mb-2">
               Email
             </label>
             <input
@@ -167,14 +167,14 @@ export default function SignUp() {
               type="email"
               value={email}
               onChange={handleInputChange(setEmail)}
-              className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm"
+              className="w-full px-4 py-3 md:px-3 md:py-2 sm:px-2 sm:py-1 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm text-base md:text-sm sm:text-xs"
               placeholder="dude@example.com"
             />
           </div>
 
           {/* Enhanced Password Input */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="password" className="block text-sm md:text-xs font-medium text-slate-300 mb-2">
               Password
             </label>
             <div className="relative">
@@ -183,7 +183,7 @@ export default function SignUp() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={handleInputChange(setPassword)}
-                className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm pr-12"
+                className="w-full px-4 py-3 md:px-3 md:py-2 sm:px-2 sm:py-1 rounded-xl bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 backdrop-blur-sm pr-12 text-base md:text-sm sm:text-xs"
               />
               <button
                 type="button"
@@ -198,7 +198,7 @@ export default function SignUp() {
           {/* Enhanced Submit Button */}
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl transition-all duration-200 font-medium transform hover:scale-105 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="w-full py-3 px-4 md:px-3 md:py-2 sm:px-2 sm:py-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl transition-all duration-200 font-medium transform hover:scale-105 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-base md:text-sm sm:text-xs"
             disabled={isLoading}
           >
             {isLoading ? 'Signing up...' : 'Sign up'}
@@ -207,7 +207,7 @@ export default function SignUp() {
           {/* Enhanced Divider */}
           <div className="flex items-center gap-4 my-6">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
-            <span className="text-slate-400 text-sm font-medium">or</span>
+            <span className="text-slate-400 text-sm md:text-xs font-medium">or</span>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
           </div>
 
@@ -222,7 +222,7 @@ export default function SignUp() {
 
           {/* Enhanced Sign In Link */}
           <div className="text-center pt-6">
-            <span className="text-sm text-slate-400">
+            <span className="text-sm md:text-xs text-slate-400">
               Already have an account?{' '}
               <button
                 type="button"
@@ -239,7 +239,7 @@ export default function SignUp() {
         </form>
 
         {/* Enhanced Terms and Privacy Links */}
-        <div className="mt-8 text-sm text-slate-400 text-center">
+        <div className="mt-8 text-sm md:text-xs text-slate-400 text-center">
           By continuing, you agree to our
           <button 
             onClick={() => setShowTermsModal(true)}

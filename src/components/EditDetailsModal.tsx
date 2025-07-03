@@ -315,9 +315,12 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
     >
-      <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30">
-        <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6">Edit Map Details</h2>
-        <div className="space-y-6">
+      <div
+        className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30"
+        style={{ maxHeight: '90vh' }}
+      >
+        <h2 className="text-xl md:text-lg sm:text-base font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6">Edit Map Details</h2>
+        <div className="space-y-6 overflow-y-auto" style={{ maxHeight: '65vh' }}>
           <div className="space-y-3">
             <label htmlFor="map-title" className="block text-sm font-medium text-slate-300">
               Title<span className="text-red-400">*</span>
@@ -327,7 +330,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               type="text"
               value={editDetails.title}
               onChange={(e) => setEditDetails({ ...editDetails, title: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 text-base md:text-sm sm:text-xs"
               maxLength={20}
               required
             />
@@ -352,7 +355,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                 }}
                 className={`w-0 flex-grow min-w-[80px] px-3 py-3 bg-slate-800/50 ${
                   editError ? "border-l border-red-500/50" : "border-l border-slate-700/30"
-                } text-slate-100 focus:outline-none text-sm`}
+                } text-slate-100 focus:outline-none text-sm md:text-xs sm:text-xs`}
                 required
               />
             </div>
@@ -369,7 +372,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               <textarea
                 value={editDetails.description}
                 onChange={(e) => setEditDetails({ ...editDetails, description: e.target.value.substring(0, 200) })}
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none"
+                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none text-base md:text-sm sm:text-xs"
                 rows={3}
                 maxLength={200}
                 placeholder="Add a description for your mind map..."

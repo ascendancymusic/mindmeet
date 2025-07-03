@@ -72,17 +72,17 @@ export default function Home() {
         {/* Subtle background pattern */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900/20 to-slate-800/20 backdrop-blur-3xl"></div>
 
-        <div className="w-full max-w-md px-6 lg:px-8 relative z-10">
+        <div className="w-full max-w-md px-6 lg:px-8 relative z-10" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
           {/* Enhanced Brand Title */}
           <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent drop-shadow-2xl">
+            <h1 className="text-5xl md:text-4xl sm:text-3xl font-bold mb-4 bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent drop-shadow-2xl">
               MindMeet
             </h1>
-            <p className="text-slate-400 text-lg font-medium">Connect minds, create together</p>
+            <p className="text-slate-400 text-lg md:text-base sm:text-sm font-medium">Connect minds, create together</p>
           </div>
 
           {/* Enhanced Login Form Container */}
-          <div className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/30 shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-8 md:p-6 sm:p-4 border border-slate-700/30 shadow-2xl" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
             <LoginForm successMessage={successMessage} />
           </div>
         </div>
