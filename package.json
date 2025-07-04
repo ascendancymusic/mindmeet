@@ -43,6 +43,7 @@
     "react-window": "^1.8.11",
     "react-window-infinite-loader": "^1.0.10",
     "reactflow": "^11.10.4",
+    "rehype-raw": "^7.0.0",
     "supabase": "^2.19.7",
     "uuid": "^11.1.0",
     "zustand": "^4.5.2"

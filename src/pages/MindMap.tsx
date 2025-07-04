@@ -92,6 +92,7 @@ import { aiService } from "../services/aiService";
 import { useCollaborationStore } from "../store/collaborationStore";
 import { CollaboratorCursors } from "../components/CollaboratorCursors";
 import { CollaboratorsList } from "../components/CollaboratorsList";
+import { CollaborationChat } from "../components/CollaborationChat";
 
 
 interface HistoryAction {
@@ -204,7 +205,8 @@ export default function MindMap() {
     updateCursorPosition,
     broadcastCursorPosition,
     broadcastLiveChange,
-    currentMindMapId
+    currentMindMapId,
+    collaboratorCursors
   } = useCollaborationStore();
 
   // State for playlist song selection mode
@@ -241,6 +243,9 @@ export default function MindMap() {
 
   // Edge type state
   const [edgeType, setEdgeType] = useState<'default' | 'straight' | 'smoothstep'>('default');
+
+  // Collaboration chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Set up sensors for drag and drop functionality
   const sensors = useSensors(
@@ -4220,7 +4225,20 @@ export default function MindMap() {
                 collaboratorIds={currentMap.collaborators || []}
                 creatorId={currentMap.creator}
                 className="max-w-xs"
+                onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
+                isChatOpen={isChatOpen}
               />
+              
+              {/* Collaboration Chat - positioned under the collaborators menu */}
+              {currentMindMapId && user && (
+                <CollaborationChat
+                  isOpen={isChatOpen}
+                  onClose={() => setIsChatOpen(false)}
+                  currentUserName={user.username || user.email || 'Anonymous'}
+                  currentUserAvatar={user.avatar_url}
+                  mindMapId={currentMindMapId}
+                />
+              )}
             </div>
           )}
         </div>
@@ -4648,6 +4666,82 @@ export default function MindMap() {
                         >
                           <Code className="w-4 h-4" />
                         </button>
+                        
+                        {/* Divider */}
+                        <div className="w-px h-6 bg-slate-600/50 mx-1"></div>
+                        
+                        {/* Text Color Button with Dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              const isOpen = document.querySelector('[data-color-picker="true"]');
+                              if (isOpen) {
+                                isOpen.remove();
+                              } else {
+                                // Create color picker dropdown
+                                const colorPicker = document.createElement('div');
+                                colorPicker.setAttribute('data-color-picker', 'true');
+                                colorPicker.className = 'absolute top-full left-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg p-2 shadow-lg z-50 grid grid-cols-4 gap-1';
+                                colorPicker.style.minWidth = '120px';
+                                
+                                const colors = [
+                                  { name: 'Red', value: '#ef4444', class: 'bg-red-500' },
+                                  { name: 'Orange', value: '#f97316', class: 'bg-orange-500' },
+                                  { name: 'Yellow', value: '#eab308', class: 'bg-yellow-500' },
+                                  { name: 'Green', value: '#22c55e', class: 'bg-green-500' },
+                                  { name: 'Blue', value: '#3b82f6', class: 'bg-blue-500' },
+                                  { name: 'Purple', value: '#a855f7', class: 'bg-purple-500' },
+                                  { name: 'Pink', value: '#ec4899', class: 'bg-pink-500' },
+                                  { name: 'Black', value: '#000000', class: 'bg-black border-white' }
+                                ];
+                                
+                                colors.forEach(color => {
+                                  const colorButton = document.createElement('button');
+                                  colorButton.className = `w-6 h-6 rounded-md ${color.class} hover:scale-110 transition-transform border border-slate-600`;
+                                  colorButton.title = color.name;
+                                  colorButton.onclick = () => {
+                                    const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
+                                    if (textarea) {
+                                      const start = textarea.selectionStart;
+                                      const end = textarea.selectionEnd;
+                                      const selectedText = textarea.value.substring(start, end);
+                                      const newText = selectedText ? `<span style="color: ${color.value}">${selectedText}</span>` : `<span style="color: ${color.value}">text</span>`;
+                                      const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
+                                      updateNodeLabel(selectedNodeId, newValue);
+                                      setTimeout(() => {
+                                        textarea.focus();
+                                        const textStart = selectedText ? start + `<span style="color: ${color.value}">`.length : start + `<span style="color: ${color.value}">`.length;
+                                        const textEnd = selectedText ? textStart + selectedText.length : textStart + 4;
+                                        textarea.setSelectionRange(textStart, textEnd);
+                                      }, 0);
+                                    }
+                                    colorPicker.remove();
+                                  };
+                                  colorPicker.appendChild(colorButton);
+                                });
+                                
+                                // Add click outside listener
+                                setTimeout(() => {
+                                  const clickOutside = (event: Event) => {
+                                    if (!colorPicker.contains(event.target as HTMLElement)) {
+                                      colorPicker.remove();
+                                      document.removeEventListener('click', clickOutside);
+                                    }
+                                  };
+                                  document.addEventListener('click', clickOutside);
+                                }, 0);
+                                
+                                // Append to the button's parent
+                                const button = e.currentTarget as HTMLElement;
+                                button.parentElement?.appendChild(colorPicker);
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
+                            title="Text Color"
+                          >
+                            <Palette className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Large Text Area */}

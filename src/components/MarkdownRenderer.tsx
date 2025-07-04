@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 
 interface MarkdownRendererProps {
   content: string;
@@ -10,6 +11,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
   return (
     <div className={`markdown-content ${className}`} style={{ pointerEvents: 'none' }}>
       <ReactMarkdown
+        rehypePlugins={[rehypeRaw]}
         components={{
           // Customize markdown elements to match your design
           p: ({ children }) => <span className="inline">{children}</span>,
@@ -19,6 +21,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
             <code className="bg-gray-700/50 px-1 py-0.5 rounded text-sm font-mono">
               {children}
             </code>
+          ),
+          // Handle HTML span tags for colored text
+          span: ({ children, style, ...props }) => (
+            <span style={style} {...props}>{children}</span>
           ),
           // Remove default margins from headings and make them inline
           h1: ({ children }) => <strong className="text-lg font-bold">{children}</strong>,
