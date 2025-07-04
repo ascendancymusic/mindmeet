@@ -11,6 +11,7 @@ import ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
   applyEdgeChanges,
+  reconnectEdge,
   type ReactFlowInstance,
   type NodeChange,
   type EdgeChange,
@@ -113,6 +114,7 @@ interface HistoryAction {
     color?: string
     affectedNodes?: string[]
     edgeType?: 'default' | 'straight' | 'smoothstep'
+    replacedEdgeId?: string
   }
   previousState?: {
     nodes: Node[]
@@ -178,6 +180,9 @@ export default function MindMap() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPosition, setDragStartPosition] = useState<Record<string, { x: number; y: number }> | null>(null)
   const [isMultiDragging, setIsMultiDragging] = useState(false)
+  const [isAltPressed, setIsAltPressed] = useState(false);
+  const edgeReconnectSuccessful = useRef(true);
+
 
   // Dynamic page title
   usePageTitle(currentMap ? `Editing: ${currentMap.title || 'Untitled'}` : 'Loading...');
@@ -206,7 +211,6 @@ export default function MindMap() {
     broadcastCursorPosition,
     broadcastLiveChange,
     currentMindMapId,
-    collaboratorCursors
   } = useCollaborationStore();
 
   // State for playlist song selection mode
@@ -258,6 +262,8 @@ export default function MindMap() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+;
 
   useLayoutEffect(() => {
     const handleResize = () => setIsSmallScreen(window.innerWidth < 1080)
@@ -579,6 +585,24 @@ export default function MindMap() {
     [edges],
   )
 
+  
+
+  useEffect(() => {
+    const handleAltDown = (e: KeyboardEvent) => {
+      if (e.altKey) setIsAltPressed(true);
+    };
+    const handleAltUp = (e: KeyboardEvent) => {
+      if (!e.altKey) setIsAltPressed(false);
+    };
+    window.addEventListener('keydown', handleAltDown);
+    window.addEventListener('keyup', handleAltUp);
+    return () => {
+      window.removeEventListener('keydown', handleAltDown);
+      window.removeEventListener('keyup', handleAltUp);
+    };
+  }, []);
+
+
   const toggleNodeCollapse = useCallback((nodeId: string, event: React.MouseEvent) => {
     event.stopPropagation()
     setCollapsedNodes((prev) => {
@@ -757,6 +781,95 @@ export default function MindMap() {
     },
     [isDragging, dragStartPosition, nodes, edges, addToHistory, moveWithChildren, getNodeDescendants],
   )
+
+const onReconnectStart = useCallback(() => {
+  edgeReconnectSuccessful.current = false;
+}, []);
+
+const onReconnect = useCallback(
+  (oldEdge: Edge, newConnection: Connection) => {
+    edgeReconnectSuccessful.current = true;
+    setEdges((eds) => {
+      const updatedEdges = reconnectEdge(oldEdge, newConnection, eds);
+
+      // --- HISTORY ---
+      const action = createHistoryAction(
+        "connect_nodes",
+        { connection: newConnection, replacedEdgeId: oldEdge.id }, // <-- add replacedEdgeId
+        nodes,
+        eds
+      );
+      addToHistory(action);
+
+      // --- LIVE BROADCAST ---
+      if (currentMindMapId && broadcastLiveChange) {
+        // Remove old edge
+        broadcastLiveChange({
+          id: oldEdge.id,
+          type: 'edge',
+          action: 'delete',
+          data: { id: oldEdge.id }
+        });
+        // Add new edge
+        const newEdge = updatedEdges.find(
+          edge => edge.source === newConnection.source && edge.target === newConnection.target
+        );
+        if (newEdge) {
+          broadcastLiveChange({
+            id: newEdge.id,
+            type: 'edge',
+            action: 'create',
+            data: newEdge
+          });
+        }
+      }
+
+      return updatedEdges;
+    });
+
+    if (!isInitialLoad) setHasUnsavedChanges(true);
+    setIsInitialLoad(false);
+  },
+  [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
+);
+
+const onReconnectEnd = useCallback(
+  (_: unknown, edge: Edge) => {
+    if (!edgeReconnectSuccessful.current) {
+      setEdges((eds) => {
+        const updatedEdges = eds.filter((e) => e.id !== edge.id);
+
+        // --- HISTORY ---
+        const action = createHistoryAction(
+          "disconnect_nodes",
+          { nodeId: edge.id },
+          nodes,
+          eds
+        );
+        addToHistory(action);
+
+        // --- LIVE BROADCAST ---
+        if (currentMindMapId && broadcastLiveChange) {
+          broadcastLiveChange({
+            id: edge.id,
+            type: 'edge',
+            action: 'delete',
+            data: { id: edge.id }
+          });
+        }
+
+        return updatedEdges;
+      });
+
+      if (!isInitialLoad) setHasUnsavedChanges(true);
+      setIsInitialLoad(false);
+    }
+    edgeReconnectSuccessful.current = true;
+  },
+  [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
+);
+
+
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -2774,8 +2887,16 @@ export default function MindMap() {
           )
           break
         case "connect_nodes":
-          setEdges((edges) => addEdge(nextAction.data.connection!, edges))
-          break
+          setEdges((edges) => {
+            let updatedEdges = edges;
+            // Remove the replaced edge by its id (if present)
+            if (nextAction.data.replacedEdgeId) {
+              updatedEdges = updatedEdges.filter(e => e.id !== nextAction.data.replacedEdgeId);
+            }
+            // Add the new edge (will replace if already present)
+            return addEdge(nextAction.data.connection!, updatedEdges);
+          });
+          break;
         case "disconnect_nodes":
           setEdges((edges) =>
             edges.filter((edge) => edge.source !== nextAction.data.nodeId && edge.target !== nextAction.data.nodeId),
@@ -3729,18 +3850,167 @@ export default function MindMap() {
 
   const nodeEditorClass = isSmallScreen ? "w-full max-w-[160px]" : "w-full max-w-[250px]"
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
-  // Loading screen
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8 text-slate-100">
-          <div className="flex flex-col items-center">
-            <Loader className="w-12 h-12 text-gradient-to-r from-blue-400 to-purple-500 animate-spin mb-4" />
-            <p className="text-xl text-slate-200">Loading mind map...</p>
+  
+  // Skeleton loader for mind map interface
+  const MindMapSkeleton = () => (
+    <div className="fixed inset-0 flex items-start justify-center pt-20 -translate-y-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+      `}</style>
+      
+      {/* Left sidebar - Node Types Menu skeleton */}
+      <div className="fixed left-0 top-[8.75rem] z-10">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-3 space-y-2" style={{ width: '80px' }}>
+          {/* Node type buttons skeleton */}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="w-12 h-12 rounded-xl bg-slate-700/50 animate-pulse relative overflow-hidden" style={{ animationDelay: `${i * 100}ms` }}>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+          ))}
+          
+          {/* Undo/Redo buttons skeleton */}
+          <div className="border-t border-slate-700/30 pt-2 mt-2">
+            <div className="space-y-2">
+              <div className="w-12 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+              </div>
+              <div className="w-12 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    );
+      
+      {/* Main container skeleton */}
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-4 pt-3 text-slate-100 w-[95vw] relative h-[90vh]">
+        
+        {/* Header skeleton */}
+        <div className="flex justify-between items-center mb-2 mt-1">
+          {/* Back button skeleton */}
+          <div className="flex items-center space-x-2 p-3 rounded-lg bg-slate-700/50 animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+            <div className="w-5 h-5 bg-slate-600/50 rounded"></div>
+            <div className="h-4 bg-slate-600/50 rounded w-24"></div>
+          </div>
+          
+          {/* Title skeleton */}
+          <div className="h-8 bg-slate-700/50 rounded-lg w-64 animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+          </div>
+          
+          {/* Save button skeleton */}
+          <div className="flex items-center space-x-2 px-4 py-3 rounded-lg bg-slate-700/50 animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+            <div className="w-5 h-5 bg-slate-600/50 rounded"></div>
+            <div className="h-4 bg-slate-600/50 rounded w-20"></div>
+          </div>
+        </div>
+
+        {/* Main canvas area skeleton */}
+        <div className="h-[calc(100%-2rem)] w-full border border-slate-700/50 rounded-xl overflow-hidden relative backdrop-blur-sm bg-slate-900/30">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+          
+          {/* Background grid pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="w-full h-full" style={{
+              backgroundImage: 'radial-gradient(circle, #64748b 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }}></div>
+          </div>
+          
+          {/* Simulated mind map nodes skeleton */}
+          <div className="absolute inset-0 p-8">
+            {/* Central node */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="w-32 h-16 bg-slate-700/60 rounded-xl animate-pulse relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+              </div>
+            </div>
+            
+            {/* Surrounding nodes */}
+            <div className="absolute left-1/4 top-1/3 w-24 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '200ms' }}>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            <div className="absolute right-1/4 top-1/4 w-28 h-14 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '400ms' }}>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            <div className="absolute left-1/3 bottom-1/3 w-20 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '600ms' }}>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            <div className="absolute right-1/3 bottom-1/4 w-26 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '800ms' }}>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            
+            {/* Connection lines skeleton */}
+            <svg className="absolute inset-0 w-full h-full">
+              <defs>
+                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="transparent" />
+                  <stop offset="50%" stopColor="rgba(148, 163, 184, 0.3)" />
+                  <stop offset="100%" stopColor="transparent" />
+                </linearGradient>
+              </defs>
+              
+              <line x1="50%" y1="50%" x2="25%" y2="33%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+              <line x1="50%" y1="50%" x2="75%" y2="25%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+              <line x1="50%" y1="50%" x2="33%" y2="67%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+              <line x1="50%" y1="50%" x2="67%" y2="75%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+            </svg>
+          </div>
+          
+          {/* Controls skeleton */}
+          <div className="absolute bottom-4 left-4 space-y-2">
+            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
+          </div>
+          
+          {/* Corner buttons skeleton */}
+          <div className="absolute top-2 right-2 w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="absolute bottom-2 right-2 w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="absolute bottom-1.5 right-12 w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          
+          {/* Collaborators area skeleton */}
+          <div className="absolute top-2 left-2">
+            <div className="flex space-x-2">
+              <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+              </div>
+              <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  
+  // Loading screen
+  if (isLoading) {
+    return <MindMapSkeleton />;
   }
 
   // Error screen
@@ -4119,16 +4389,27 @@ export default function MindMap() {
                 updateSelectionBounds(selectedNodes);
               }
             }}
+           
+            
+
+            
+
+            
             fitView
             proOptions={{ hideAttribution: true }}
             deleteKeyCode="null"
+            snapToGrid={!isAltPressed}
+            snapGrid={[20, 20]}
+            onReconnectStart={onReconnectStart}
+            onReconnect={onReconnect}
+            onReconnectEnd={onReconnectEnd}
             multiSelectionKeyCode="Shift"
             selectionOnDrag={true}
             minZoom={0.1}
             maxZoom={2}
             elementsSelectable={true}
             selectNodesOnDrag={false}
-            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}          >            <Background color="#1e293b" gap={20} />
+            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}          >            <Background color="#1e293b" gap={20} size={2}/>
             <Controls />
               {/* Real-time collaboration cursors */}
             <CollaboratorCursors />
@@ -4235,7 +4516,6 @@ export default function MindMap() {
                   isOpen={isChatOpen}
                   onClose={() => setIsChatOpen(false)}
                   currentUserName={user.username || user.email || 'Anonymous'}
-                  currentUserAvatar={user.avatar_url}
                   mindMapId={currentMindMapId}
                 />
               )}

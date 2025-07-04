@@ -10,11 +10,15 @@ interface ChatMessage {
   avatar?: string;
 }
 
+interface UserProfile {
+  username: string;
+  avatar_url?: string;
+}
+
 interface CollaborationChatProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserName: string;
-  currentUserAvatar?: string;
   mindMapId: string; // Add mindMapId for unique channel
 }
 
@@ -22,15 +26,56 @@ export const CollaborationChat: React.FC<CollaborationChatProps> = ({
   isOpen,
   onClose,
   currentUserName,
-  currentUserAvatar,
   mindMapId
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [userProfiles, setUserProfiles] = useState<Record<string, UserProfile>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Fetch user profile from database
+  const fetchUserProfile = async (username: string): Promise<UserProfile | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('username', username)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  };
+
+  // Get avatar for a user (from cache or fetch from database)
+  const getUserAvatar = async (username: string): Promise<string | undefined> => {
+    // Check if we already have the profile cached
+    if (userProfiles[username]) {
+      return userProfiles[username].avatar_url;
+    }
+
+    // Fetch from database
+    const profile = await fetchUserProfile(username);
+    if (profile) {
+      setUserProfiles(prev => ({
+        ...prev,
+        [username]: profile
+      }));
+      return profile.avatar_url;
+    }
+
+    return undefined;
   };
 
   useEffect(() => {
@@ -66,13 +111,17 @@ export const CollaborationChat: React.FC<CollaborationChatProps> = ({
     });
 
     // Listen for incoming messages
-    channel.on('broadcast', { event: 'chat_message' }, (payload) => {
+    channel.on('broadcast', { event: 'chat_message' }, async (payload) => {
       const message = payload.payload as ChatMessage;
       // Convert timestamp string back to Date object
       message.timestamp = new Date(message.timestamp);
       
       // Only add message if it's from someone else (not current user)
       if (message.user !== currentUserName) {
+        // Fetch the correct avatar from database
+        const avatar = await getUserAvatar(message.user);
+        message.avatar = avatar;
+        
         setMessages(prev => [...prev, message]);
       }
     });
@@ -87,12 +136,15 @@ export const CollaborationChat: React.FC<CollaborationChatProps> = ({
 
   const handleSendMessage = async () => {
     if (newMessage.trim()) {
+      // Get the correct avatar from database for current user
+      const avatar = await getUserAvatar(currentUserName);
+      
       const message: ChatMessage = {
         id: Date.now().toString(),
         user: currentUserName,
         message: newMessage.trim(),
         timestamp: new Date(),
-        avatar: currentUserAvatar
+        avatar: avatar
       };
       
       // Add message to local state immediately
