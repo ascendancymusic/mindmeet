@@ -42,10 +42,7 @@ import {
   SquarePen,
   Youtube,
   Edit3,
-  Type,
-  Bold,
-  Italic,
-  Code
+
 } from "lucide-react"
 import {
   DndContext,
@@ -94,6 +91,9 @@ import { useCollaborationStore } from "../store/collaborationStore";
 import { CollaboratorCursors } from "../components/CollaboratorCursors";
 import { CollaboratorsList } from "../components/CollaboratorsList";
 import { CollaborationChat } from "../components/CollaborationChat";
+import EditDetailsModal from "../components/EditDetailsModal";
+import PublishSuccessModal from "../components/PublishSuccessModal";
+import TextNode, { DefaultTextNode } from "../components/TextNode";
 
 
 interface HistoryAction {
@@ -133,13 +133,14 @@ export interface YouTubeVideo {
 export default function MindMap() {
   const { username, id } = useParams()
   const navigate = useNavigate()
-  const { maps, updateMap, setMaps, acceptAIChanges } = useMindMapStore()
+  const { maps, updateMap, setMaps, acceptAIChanges, updateMapId } = useMindMapStore()
   
   // Toast notification state
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
   
   // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
+    default: DefaultTextNode,
     spotify: SpotifyNode,
     soundcloud: SoundCloudNode,
     instagram: (props: any) => <SocialMediaNode {...props} type="instagram" />,
@@ -203,7 +204,8 @@ export default function MindMap() {
   const user = useAuthStore((state) => state.user);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
-  const [showAdvancedTextEditor, setShowAdvancedTextEditor] = useState(false);
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const {
     initializeCollaboration,
     cleanupCollaboration,
@@ -223,6 +225,7 @@ export default function MindMap() {
   const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 });  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [isHoveringPlaylist, setIsHoveringPlaylist] = useState(false);
   const setIsAnimatingGeneration: React.Dispatch<React.SetStateAction<boolean>> = useState(false)[1];
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // AI Fill state
   const [showAIFillModal, setShowAIFillModal] = useState(false);
   const [aiFillPrompt, setAIFillPrompt] = useState("");
@@ -2574,7 +2577,10 @@ const onReconnectEnd = useCallback(
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && reactFlowWrapperRef.current) {
+      const isCurrentlyFullscreen = !!document.fullscreenElement
+      setIsFullscreen(isCurrentlyFullscreen)
+
+      if (!isCurrentlyFullscreen && reactFlowWrapperRef.current) {
         reactFlowWrapperRef.current.style.backgroundColor = ""
         const dotElements = reactFlowWrapperRef.current.querySelectorAll(".react-flow__background-dots circle")
         dotElements.forEach((dot: Element) => {
@@ -3171,6 +3177,64 @@ const onReconnectEnd = useCallback(
     setIsInitialLoad(false);
   }, [nodes, edges, addToHistory, isInitialLoad]);
 
+  // Handle text node resize events
+  const handleTextNodeResize = useCallback((event: CustomEvent) => {
+    const { nodeId, previousWidth, previousHeight, width, height } = event.detail;
+
+    // Create a history action for the resize
+    const action: HistoryAction = {
+      type: "resize_node",
+      data: {
+        nodeId,
+        width,
+        height
+      },
+      previousState: {
+        nodes: nodes.map(node => {
+          if (node.id === nodeId) {
+            return {
+              ...node,
+              width: typeof previousWidth === 'number' ? previousWidth : undefined,
+              height: typeof previousHeight === 'number' ? previousHeight : undefined,
+              style: {
+                ...node.style,
+                width: typeof previousWidth === 'number' ? previousWidth + 'px' : previousWidth,
+                height: typeof previousHeight === 'number' ? previousHeight + 'px' : previousHeight
+              }
+            };
+          }
+          return node;
+        }),
+        edges
+      }
+    };
+
+    // Update the nodes with the new width and height
+    setNodes(nodes =>
+      nodes.map(node => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            width: typeof width === 'number' ? width : undefined,
+            height: typeof height === 'number' ? height : undefined,
+            style: {
+              ...node.style,
+              width: typeof width === 'number' ? width + 'px' : width,
+              height: typeof height === 'number' ? height + 'px' : height
+            }
+          };
+        }
+        return node;
+      })
+    );
+
+    addToHistory(action);
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+    setIsInitialLoad(false);
+  }, [nodes, edges, addToHistory, isInitialLoad]);
+
   // Handle image node dimensions set when image is loaded
   const handleImageNodeDimensionsSet = useCallback((event: CustomEvent) => {
     const { nodeId, width, height, isNewUpload } = event.detail;
@@ -3287,6 +3351,7 @@ const onReconnectEnd = useCallback(
 
   useEffect(() => {
     document.addEventListener('image-node-resized', handleImageNodeResize as EventListener);
+    document.addEventListener('text-node-resized', handleTextNodeResize as EventListener);
     document.addEventListener('image-node-dimensions-set', handleImageNodeDimensionsSet as EventListener);
     document.addEventListener('audio-node-compressed', handleAudioNodeCompressed as EventListener);
     document.addEventListener('audio-node-duration', handleAudioNodeDuration as EventListener);
@@ -3295,6 +3360,7 @@ const onReconnectEnd = useCallback(
     document.addEventListener('audio-volume-hover', handleAudioVolumeHover as EventListener);
     return () => {
       document.removeEventListener('image-node-resized', handleImageNodeResize as EventListener);
+      document.removeEventListener('text-node-resized', handleTextNodeResize as EventListener);
       document.removeEventListener('image-node-dimensions-set', handleImageNodeDimensionsSet as EventListener);
       document.removeEventListener('audio-node-compressed', handleAudioNodeCompressed as EventListener);
       document.removeEventListener('audio-node-duration', handleAudioNodeDuration as EventListener);
@@ -3302,7 +3368,7 @@ const onReconnectEnd = useCallback(
       document.removeEventListener('playlist-hover', handlePlaylistHover as EventListener);
       document.removeEventListener('audio-volume-hover', handleAudioVolumeHover as EventListener);
     };
-  }, [handleImageNodeResize, handleImageNodeDimensionsSet, handleAudioNodeCompressed, handleAudioNodeDuration, handlePlaylistPlaybackAction, handlePlaylistHover, handleAudioVolumeHover])
+  }, [handleImageNodeResize, handleTextNodeResize, handleImageNodeDimensionsSet, handleAudioNodeCompressed, handleAudioNodeDuration, handlePlaylistPlaybackAction, handlePlaylistHover, handleAudioVolumeHover])
 
   const handleBeforeUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -4032,123 +4098,31 @@ const onReconnectEnd = useCallback(
       </div>
     );
   }  return (
-    <div className="fixed inset-0 flex items-start justify-center pt-20 -translate-y-2">
-      <div className="fixed left-0 top-[8.75rem] z-10">
-        <NodeTypesMenu
-          moveWithChildren={moveWithChildren}
-          setMoveWithChildren={setMoveWithChildren}
-          onDragStart={onDragStart}
-          maxHeight={`${mindMapHeight}px`}
-          onUndo={undo}
-          onRedo={redo}
-          canUndo={canUndo}
-          canRedo={canRedo}
-        />
-      </div>
-      
-      <div className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-4 pt-3 text-slate-100 w-[95vw] relative h-[90vh]">
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-        <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
+    <div className="fixed inset-0">
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+      <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
 
-        <div className="flex justify-between items-center mb-2 mt-1">
-          <button
-            onClick={() => {
-              if (hasUnsavedChanges) {
-                setShowUnsavedChangesModal(true)
-              } else {
-                navigate("/mindmap")
-              }
-            }}
-            disabled={isSaving}
-            className={`flex items-center transition-all duration-200 rounded-lg px-3 py-1.5 ${
-              isSaving 
-                ? 'text-slate-600 cursor-not-allowed' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
-            }`}
-          >
-            {isSmallScreen ? (
-              <ArrowLeft className="w-5 h-5" />
-            ) : (
-              <>
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Maps
-              </>
-            )}
-          </button>
-          {isEditingTitle ? (
-            <input
-              type="text"
-              ref={titleRef}
-              value={editedTitle}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              onBlur={() => {
-                setIsEditingTitle(false)
-                if (editedTitle.trim() === "") {
-                  setEditedTitle(originalTitle)
-                  setHasUnsavedChanges(false)
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                setIsEditingTitle(false)
-                if (editedTitle.trim() === "") {
-                  setEditedTitle(originalTitle)
-                  setHasUnsavedChanges(false)
-                }
-              }}
-              className="text-2xl font-bold text-center bg-transparent border-b border-slate-500 focus:outline-none focus:border-blue-500 text-white inline-block py-0.5"
-              autoFocus
-            />
-          ) : (
-            <h1
-              className="text-2xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors inline-block"
-              onClick={() => setIsEditingTitle(true)}
-            >
-              {editedTitle}
-            </h1>
-          )}
-          <button
-            onClick={handleSave}
-            className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg transition-all duration-200 ${
-              hasUnsavedChanges && !isSaving
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white transform hover:scale-105 shadow-lg"
-                : isSaving
-                ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
-                : "bg-slate-700/50 text-slate-400 cursor-not-allowed"
-            }`}
-            disabled={!hasUnsavedChanges || isSaving}
-          >
-            {isSaving ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                {isSmallScreen ? null : <span>Saving... Please wait</span>}
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                {isSmallScreen ? null : <span>Save Changes</span>}
-              </>
-            )}
-          </button>        </div>
+      {/* Node Types Menu - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <div className="fixed left-0 top-[8rem] z-10">
+          <NodeTypesMenu
+            moveWithChildren={moveWithChildren}
+            setMoveWithChildren={setMoveWithChildren}
+            onDragStart={onDragStart}
+            maxHeight={`${mindMapHeight}px`}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+        </div>
+      )}
 
-        {/* Banner for playlist selection mode */}
-        {isAddingToPlaylist && (
-          <div className="mb-1 px-4 py-1.5 bg-blue-600/20 border border-blue-500/30 rounded-xl text-sm text-blue-300 flex items-center justify-between backdrop-blur-sm">
-            <div className="flex items-center">
-              <ListMusic className="w-5 h-5 mr-2" />
-              <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
-            </div>
-            <button
-              onClick={() => toggleAddToPlaylistMode(null)}
-              className="px-3 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs"
-            >
-              Cancel
-            </button>
-          </div>
-        )}        <div
-          ref={reactFlowWrapperRef}
-          className={`h-[calc(100%-2rem)] w-full border border-slate-700/50 rounded-xl overflow-hidden relative backdrop-blur-sm ${isShiftPressed ? 'no-text-select' : ''}`}
-        ><ReactFlowProvider>
+      {/* ReactFlow Area - 100% width */}
+      <div
+        ref={reactFlowWrapperRef}
+        className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
+      ><ReactFlowProvider>
             <ReactFlow
               key={`reactflow-${currentMap?.id || 'default'}`}
             nodes={nodes.map((node) => {
@@ -4239,13 +4213,13 @@ const onReconnectEnd = useCallback(
                 style: {
                   ...nodeTypeStyle,
                   ...node.style, // Override defaults with existing style if present
-                  width: node.type === "image" ?
+                  width: (node.type === "image" || node.type === "default") ?
                     (typeof node.width === 'number' ? `${node.width}px` :
                      typeof node.style?.width === 'number' ? `${node.style.width}px` :
                      typeof node.style?.width === 'string' ? node.style.width :
-                     "100px") :
-                    nodeTypeStyle.width, // Ensure resizing works for ImageNode
-                  height: node.type === "image" ?
+                     node.type === "image" ? "100px" : nodeTypeStyle.width) :
+                    nodeTypeStyle.width, // Ensure resizing works for ImageNode and DefaultTextNode
+                  height: (node.type === "image" || node.type === "default") ?
                     (typeof node.height === 'number' ? `${node.height}px` :
                      typeof node.style?.height === 'number' ? `${node.style.height}px` :
                      typeof node.style?.height === 'string' ? node.style.height :
@@ -4469,18 +4443,167 @@ const onReconnectEnd = useCallback(
                     <img src="/assets/click/rightclick.svg" alt="Right Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
                   </div>
                 </div>
-              </div>            )}          </ReactFlow>
-          </ReactFlowProvider>
-          <button
-            onClick={handleFullscreen}
-            className="absolute top-2 right-2 p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
-            style={{ zIndex: 10 }}
-          >
-            <Maximize2 className="w-4 h-4 text-gray-300" />
-          </button>
+              </div>            )}
 
+            {/* Header Elements - Always visible, positioned over ReactFlow */}
+            {!isFullscreen && (
+              <>
+                {/* Back to Maps button - Top Left */}
+                <div className="absolute top-4 left-0 z-50">
+                  <button
+                    onClick={() => {
+                      if (hasUnsavedChanges) {
+                        setShowUnsavedChangesModal(true)
+                      } else {
+                        navigate("/mindmap")
+                      }
+                    }}
+                    disabled={isSaving}
+                    className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${
+                      isSaving
+                        ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
+                    }`}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    {isSmallScreen ? null : <span>Back to Maps</span>}
+                  </button>
+                </div>
+
+                {/* Collaborators List - positioned next to Back to Maps button */}
+                {currentMap && currentMap.creator && (
+                  <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-14' : 'left-36'}`}>
+                    <CollaboratorsList
+                      mindmapId={currentMap.id}
+                      collaboratorIds={currentMap.collaborators || []}
+                      creatorId={currentMap.creator}
+                      className="max-w-xs"
+                      onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
+                      isChatOpen={isChatOpen}
+                    />
+
+                    {/* Collaboration Chat - positioned under the collaborators menu */}
+                    {currentMindMapId && user && (
+                      <CollaborationChat
+                        isOpen={isChatOpen}
+                        onClose={() => setIsChatOpen(false)}
+                        currentUserName={user.username || user.email || 'Anonymous'}
+                        mindMapId={currentMindMapId}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Title - Top Center */}
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                  {isEditingTitle ? (
+                    <input
+                      type="text"
+                      ref={titleRef}
+                      value={editedTitle}
+                      onChange={(e) => handleTitleChange(e.target.value)}
+                      onBlur={() => {
+                        setIsEditingTitle(false)
+                        if (editedTitle.trim() === "") {
+                          setEditedTitle(originalTitle)
+                          setHasUnsavedChanges(false)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        setIsEditingTitle(false)
+                        if (editedTitle.trim() === "") {
+                          setEditedTitle(originalTitle)
+                          setHasUnsavedChanges(false)
+                        }
+                      }}
+                      className="text-xl font-bold text-center bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-white"
+                      autoFocus
+                    />
+                  ) : (
+                    <h1
+                      className="text-xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 text-white"
+                      onClick={() => setIsEditingTitle(true)}
+                    >
+                      {editedTitle}
+                    </h1>
+                  )}
+                </div>
+
+                {/* Action buttons group - Top Right */}
+                <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
+                  {/* Pen icon */}
+                  <button
+                    onClick={() => setShowEditDetailsModal(true)}
+                    className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+
+                  {/* Save button */}
+                  <button
+                    onClick={handleSave}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 backdrop-blur-sm border ${
+                      hasUnsavedChanges && !isSaving
+                        ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
+                        : isSaving
+                        ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
+                        : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
+                    }`}
+                    disabled={!hasUnsavedChanges || isSaving}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        {isSmallScreen ? null : <span>Saving...</span>}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        {isSmallScreen ? null : <span>Save</span>}
+                      </>
+                    )}
+                  </button>
+
+                  {/* Fullscreen button */}
+                  <button
+                    onClick={handleFullscreen}
+                    className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Playlist banner - Below title if active */}
+                {isAddingToPlaylist && (
+                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl">
+                    <div className="px-4 py-2 bg-blue-600/80 border border-blue-500/50 rounded-xl text-sm text-blue-100 flex items-center justify-between backdrop-blur-sm">
+                      <div className="flex items-center">
+                        <ListMusic className="w-4 h-4 mr-2" />
+                        <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
+                      </div>
+                      <button
+                        onClick={() => toggleAddToPlaylistMode(null)}
+                        className="px-2 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs ml-3"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+
+          </ReactFlow>
+          </ReactFlowProvider>
+        </div>
+
+      {/* UI Elements - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <>
           {/* Mind Map Customization button */}
-          <div className="absolute bottom-1.5 right-12" style={{ zIndex: 10 }}>
+          <div className="fixed bottom-4 right-16 z-30">
             <button
               onClick={() => setShowCustomizationModal(true)}
               className="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
@@ -4490,38 +4613,18 @@ const onReconnectEnd = useCallback(
             </button>
           </div>
 
+          {/* Help button */}
           <button
             onClick={() => setShowHelpModal(true)}
-            className="absolute bottom-2 right-2 p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
-            style={{ zIndex: 0 }}
+            className="fixed bottom-4 right-4 p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors z-30"
             title="Help"
           >
             <HelpCircle className="w-4 h-4 text-gray-300" />
           </button>
-            {/* Collaborators List - positioned in top left area */}
-          {currentMap && currentMap.creator && (
-            <div className="absolute top-2 left-2" style={{ zIndex: 10 }}>
-              <CollaboratorsList
-                mindmapId={currentMap.id}
-                collaboratorIds={currentMap.collaborators || []}
-                creatorId={currentMap.creator}
-                className="max-w-xs"
-                onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
-                isChatOpen={isChatOpen}
-              />
-              
-              {/* Collaboration Chat - positioned under the collaborators menu */}
-              {currentMindMapId && user && (
-                <CollaborationChat
-                  isOpen={isChatOpen}
-                  onClose={() => setIsChatOpen(false)}
-                  currentUserName={user.username || user.email || 'Anonymous'}
-                  mindMapId={currentMindMapId}
-                />
-              )}
-            </div>
-          )}
-        </div>
+
+
+        </>
+      )}
 
         {selectedNodeId && selectedNode && (
           <div className={`fixed bottom-8 right-8 ${nodeEditorClass}`}>
@@ -4827,227 +4930,13 @@ const onReconnectEnd = useCallback(
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {selectedNode.type === "default" && !showAdvancedTextEditor ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Type className="w-4 h-4 text-slate-400" />
-                          <span className="text-sm text-slate-400">Quick Edit</span>
-                        </div>
-                        <button
-                          onClick={() => setShowAdvancedTextEditor(true)}
-                          className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-lg transition-all duration-200"
-                          title="Advanced text editor"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <input
-                        autoFocus
-                        data-node-id={selectedNodeId}
-                        type="text"
-                        placeholder="Text..."
-                        value={selectedNode.data.label || ""}
-                        onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                        className={`px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 ${
-                          selectedNodeId === "1"
-                            ? "border-2 border-gradient-to-r from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25 font-bold"
-                            : "border-slate-600/30"
-                        }`}
-                        style={
-                          selectedNodeId === "1"
-                            ? {
-                                background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))",
-                                borderImage: "linear-gradient(90deg, #60a5fa, #3b82f6)",
-                                borderImageSlice: 1,
-                              }
-                            : {}
-                        }
-                      />
-                    </div>
-                  ) : selectedNode.type === "default" && showAdvancedTextEditor ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Edit3 className="w-4 h-4 text-blue-400" />
-                          <span className="text-sm text-blue-400">Advanced Editor</span>
-                        </div>
-                        <button
-                          onClick={() => setShowAdvancedTextEditor(false)}
-                          className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-lg transition-all duration-200"
-                          title="Simple editor"
-                        >
-                          <Type className="w-4 h-4" />
-                        </button>
-                      </div>
-                      
-                      {/* Formatting Toolbar */}
-                      <div className="flex items-center gap-1 p-2 bg-slate-800/30 rounded-lg border border-slate-700/30">
-                        <button
-                          onClick={() => {
-                            const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
-                            if (textarea) {
-                              const start = textarea.selectionStart;
-                              const end = textarea.selectionEnd;
-                              const selectedText = textarea.value.substring(start, end);
-                              const newText = selectedText ? `**${selectedText}**` : '**bold**';
-                              const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
-                              updateNodeLabel(selectedNodeId, newValue);
-                              setTimeout(() => {
-                                textarea.focus();
-                                textarea.setSelectionRange(start + 2, start + 2 + (selectedText ? selectedText.length : 4));
-                              }, 0);
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
-                          title="Bold (**text**)"
-                        >
-                          <Bold className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
-                            if (textarea) {
-                              const start = textarea.selectionStart;
-                              const end = textarea.selectionEnd;
-                              const selectedText = textarea.value.substring(start, end);
-                              const newText = selectedText ? `*${selectedText}*` : '*italic*';
-                              const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
-                              updateNodeLabel(selectedNodeId, newValue);
-                              setTimeout(() => {
-                                textarea.focus();
-                                textarea.setSelectionRange(start + 1, start + 1 + (selectedText ? selectedText.length : 6));
-                              }, 0);
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
-                          title="Italic (*text*)"
-                        >
-                          <Italic className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
-                            if (textarea) {
-                              const start = textarea.selectionStart;
-                              const end = textarea.selectionEnd;
-                              const selectedText = textarea.value.substring(start, end);
-                              const newText = selectedText ? `\`${selectedText}\`` : '`code`';
-                              const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
-                              updateNodeLabel(selectedNodeId, newValue);
-                              setTimeout(() => {
-                                textarea.focus();
-                                textarea.setSelectionRange(start + 1, start + 1 + (selectedText ? selectedText.length : 4));
-                              }, 0);
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
-                          title="Code (`text`)"
-                        >
-                          <Code className="w-4 h-4" />
-                        </button>
-                        
-                        {/* Divider */}
-                        <div className="w-px h-6 bg-slate-600/50 mx-1"></div>
-                        
-                        {/* Text Color Button with Dropdown */}
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              const isOpen = document.querySelector('[data-color-picker="true"]');
-                              if (isOpen) {
-                                isOpen.remove();
-                              } else {
-                                // Create color picker dropdown
-                                const colorPicker = document.createElement('div');
-                                colorPicker.setAttribute('data-color-picker', 'true');
-                                colorPicker.className = 'absolute top-full left-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg p-2 shadow-lg z-50 grid grid-cols-4 gap-1';
-                                colorPicker.style.minWidth = '120px';
-                                
-                                const colors = [
-                                  { name: 'Red', value: '#ef4444', class: 'bg-red-500' },
-                                  { name: 'Orange', value: '#f97316', class: 'bg-orange-500' },
-                                  { name: 'Yellow', value: '#eab308', class: 'bg-yellow-500' },
-                                  { name: 'Green', value: '#22c55e', class: 'bg-green-500' },
-                                  { name: 'Blue', value: '#3b82f6', class: 'bg-blue-500' },
-                                  { name: 'Purple', value: '#a855f7', class: 'bg-purple-500' },
-                                  { name: 'Pink', value: '#ec4899', class: 'bg-pink-500' },
-                                  { name: 'Black', value: '#000000', class: 'bg-black border-white' }
-                                ];
-                                
-                                colors.forEach(color => {
-                                  const colorButton = document.createElement('button');
-                                  colorButton.className = `w-6 h-6 rounded-md ${color.class} hover:scale-110 transition-transform border border-slate-600`;
-                                  colorButton.title = color.name;
-                                  colorButton.onclick = () => {
-                                    const textarea = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement;
-                                    if (textarea) {
-                                      const start = textarea.selectionStart;
-                                      const end = textarea.selectionEnd;
-                                      const selectedText = textarea.value.substring(start, end);
-                                      const newText = selectedText ? `<span style="color: ${color.value}">${selectedText}</span>` : `<span style="color: ${color.value}">text</span>`;
-                                      const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
-                                      updateNodeLabel(selectedNodeId, newValue);
-                                      setTimeout(() => {
-                                        textarea.focus();
-                                        const textStart = selectedText ? start + `<span style="color: ${color.value}">`.length : start + `<span style="color: ${color.value}">`.length;
-                                        const textEnd = selectedText ? textStart + selectedText.length : textStart + 4;
-                                        textarea.setSelectionRange(textStart, textEnd);
-                                      }, 0);
-                                    }
-                                    colorPicker.remove();
-                                  };
-                                  colorPicker.appendChild(colorButton);
-                                });
-                                
-                                // Add click outside listener
-                                setTimeout(() => {
-                                  const clickOutside = (event: Event) => {
-                                    if (!colorPicker.contains(event.target as HTMLElement)) {
-                                      colorPicker.remove();
-                                      document.removeEventListener('click', clickOutside);
-                                    }
-                                  };
-                                  document.addEventListener('click', clickOutside);
-                                }, 0);
-                                
-                                // Append to the button's parent
-                                const button = e.currentTarget as HTMLElement;
-                                button.parentElement?.appendChild(colorPicker);
-                              }
-                            }}
-                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
-                            title="Text Color"
-                          >
-                            <Palette className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Large Text Area */}
-                      <textarea
-                        autoFocus
-                        data-node-id={selectedNodeId}
-                        placeholder="Text..."
-                        value={selectedNode.data.label || ""}
-                        onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                        className={`px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none ${
-                          selectedNodeId === "1"
-                            ? "border-2 border-gradient-to-r from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25 font-bold"
-                            : "border-slate-600/30"
-                        }`}
-                        style={
-                          selectedNodeId === "1"
-                            ? {
-                                background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))",
-                                borderImage: "linear-gradient(90deg, #60a5fa, #3b82f6)",
-                                borderImageSlice: 1,
-                              }
-                            : {}
-                        }
-                        rows={4}
-                      />
-                    </div>
+                  {selectedNode.type === "default" ? (
+                    <TextNode
+                      nodeId={selectedNodeId}
+                      label={selectedNode.data.label || ""}
+                      onLabelChange={updateNodeLabel}
+                      isRootNode={selectedNodeId === "1"}
+                    />
                   ) : (
                     <input
                       autoFocus
@@ -5549,7 +5438,98 @@ const onReconnectEnd = useCallback(
         )}
 
         <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
-        
+
+        {/* Edit Details Modal */}
+        {currentMap && (
+          <EditDetailsModal
+            isOpen={showEditDetailsModal}
+            onClose={() => setShowEditDetailsModal(false)}
+            mapData={{
+              id: currentMap.id,
+              title: currentMap.title,
+              description: currentMap.description,
+              visibility: currentMap.visibility,
+              is_main: currentMap.is_main,
+              collaborators: currentMap.collaborators,
+              published_at: currentMap.published_at,
+            }}
+            username={username}
+            onSave={async (details) => {
+              try {
+                if (!user?.id || !currentMap) return;
+
+                // Check if the new permalink already exists for the current user
+                const conflictingMap = maps.find(
+                  (map) => map.id === details.permalink && map.id !== currentMap.id
+                );
+
+                if (conflictingMap) {
+                  throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
+                }
+
+                const isPermalinkChanged = currentMap.id !== details.permalink;
+                const updatedMapData = {
+                  title: details.title,
+                  visibility: details.visibility,
+                  description: details.description || "",
+                  is_main: details.is_main,
+                  collaborators: details.collaborators,
+                  published_at: details.published_at
+                };
+
+                // Check if this is a publish/republish action
+                const wasJustPublished = details.published_at &&
+                                       details.visibility === "public" &&
+                                       details.published_at !== currentMap.published_at;
+
+                if (isPermalinkChanged) {
+                  const updatedMap = {
+                    ...currentMap,
+                    ...updatedMapData
+                  };
+
+                  // Save the map with updated details
+                  await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+
+                  // Then update the ID (this creates a new record and deletes the old one)
+                  await updateMapId(currentMap.id, details.permalink);
+
+                  // Navigate to the new URL in edit mode and refresh
+                  navigate(`/${username}/${details.permalink}/edit`);
+                  window.location.reload();
+                } else {
+                  const updatedMap = {
+                    ...currentMap,
+                    ...updatedMapData
+                  };
+
+                  // Save the map with updated details
+                  await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+                }
+
+                // Update local title state
+                setEditedTitle(details.title);
+
+                // Show success popup if publishing/republishing
+                if (wasJustPublished) {
+                  setShowSuccessPopup(true);
+                  // Hide the popup after 3 seconds
+                  setTimeout(() => {
+                    setShowSuccessPopup(false);
+                  }, 3000);
+                }
+
+                setShowEditDetailsModal(false);
+              } catch (error) {
+                console.error('Error updating mindmap details:', error);
+                const errorMessage = error instanceof Error ? error.message : "Failed to update mindmap details";
+                useToastStore.getState().showToast(errorMessage, "error");
+              }
+            }}
+            showMainMapOption={true}
+          />
+        )}
+
         {/* Mind Map Customization Modal */}
         <MindMapCustomization
           isOpen={showCustomizationModal}
@@ -5565,7 +5545,9 @@ const onReconnectEnd = useCallback(
           isVisible={toastVisible}
           onClose={hideToast}
         />
-      </div>
+
+        {/* Publish Success Modal */}
+        <PublishSuccessModal isVisible={showSuccessPopup} />
     </div>
   )
 }

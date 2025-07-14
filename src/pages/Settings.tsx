@@ -54,9 +54,15 @@ const Settings: React.FC = () => {
     localStorage.setItem('showNegativeNotifications', show.toString());
   };
 
-  const handleDeleteAccount = () => {
-    deleteUserAccount();
-    setIsModalOpen(false);
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteUserAccount();
+      setIsModalOpen(false);
+      // The deleteUserAccount function handles navigation
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      // Keep modal open if there's an error
+    }
   };
 
   return (

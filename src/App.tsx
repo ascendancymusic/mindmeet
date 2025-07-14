@@ -19,7 +19,7 @@ import './styles/theme.css';
 import { useAuthStore } from './store/authStore';
 
 function App() {
-  const { isLoggedIn, validateSession } = useAuthStore();
+  const { isLoggedIn, validateSession, forceLoggedOut } = useAuthStore();
   const [username, setUsername] = useState<string | null>(null);
   const [isValidatingSession, setIsValidatingSession] = useState(true);
 
@@ -73,24 +73,27 @@ function App() {
     }
   }, [isLoggedIn, isValidatingSession]);
 
+  // Determine effective logged in state (force logged out overrides isLoggedIn)
+  const effectivelyLoggedIn = isLoggedIn && !forceLoggedOut;
+
   return (
     <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <div className="flex flex-col min-h-screen bg-fixed bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        {isLoggedIn && <LoggedInNavigation />}
-        {!isLoggedIn &&
+        {effectivelyLoggedIn && <LoggedInNavigation />}
+        {!effectivelyLoggedIn &&
           !['/', '/login', '/signup'].includes(window.location.pathname) && (
             <LoggedOutNavigation />
           )} {/* Show only when not logged in and not on home, login, or signup */}
         <main className="flex-1 min-h-0 container mx-auto px-1 py-0">
           <Routes>
-            <Route path="/" element={isLoggedIn ? <HomeLoggedIn /> : <Home />} />
+            <Route path="/" element={effectivelyLoggedIn ? <HomeLoggedIn /> : <Home />} />
             <Route path="/mindmap" element={<MindMapList />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/signup" element={isLoggedIn ? <Navigate to="/" /> : <SignUp />} />
+            <Route path="/signup" element={effectivelyLoggedIn ? <Navigate to="/" /> : <SignUp />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/chat" element={isLoggedIn ? <Chat /> : <Navigate to="/login" />} />
+            <Route path="/chat" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
             <Route path="/debug" element={<MindMapDebug />} />
-            <Route path="/login" element={isLoggedIn ? <Navigate to="/" /> : <Home />} />
+            <Route path="/login" element={effectivelyLoggedIn ? <Navigate to="/" /> : <Home />} />
             <Route path="/reset-password" element={<ForgotPassword />} />
             <Route path="/@:username" element={<UserProfile />} /> {/* Route for @username to redirect to main map */}
             <Route path="/:username" element={<UserProfile />} /> {/* Dynamic username route */}

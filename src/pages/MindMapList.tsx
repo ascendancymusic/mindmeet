@@ -11,6 +11,7 @@ import { prepareNodesForRendering } from "../utils/reactFlowUtils"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import { useAuthStore } from "../store/authStore"
 import EditDetailsModal from "../components/EditDetailsModal"
+import PublishSuccessModal from "../components/PublishSuccessModal"
 import { supabase } from "../supabaseClient"
 
 // Add shimmer animation styles
@@ -800,28 +801,31 @@ export default function MindMapList(): JSX.Element {
             }
           }}
         >
-          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center space-x-3 text-red-400 mb-6">
-              <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <h2 className="text-xl font-bold text-white">Delete Mindmap</h2>
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <h2 className="text-xl font-bold text-white">
+                Delete Mindmap
+              </h2>
             </div>
-            <p className="text-slate-300 mb-8 leading-relaxed">
-              Are you sure you want to delete this mindmap? This action cannot be undone and all data will be permanently lost.
+            <p className="text-slate-300 mb-2">
+              Are you sure you want to delete "{maps.find(map => map.id === mapToDelete)?.title}"?
             </p>
-            <div className="flex justify-end space-x-3">
+            <p className="text-slate-400 text-sm mb-6">
+              This action cannot be undone and all data will be permanently lost.
+            </p>
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setMapToDelete(null)}
-                className="px-6 py-3 text-slate-400 hover:text-slate-300 transition-colors font-medium"
+                className="px-6 py-2.5 text-slate-400 hover:text-slate-100 transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-500 hover:to-red-600 transition-all duration-200 font-medium transform hover:scale-105"
+                className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium"
               >
                 Delete Forever
               </button>
@@ -848,34 +852,8 @@ export default function MindMapList(): JSX.Element {
         />
       )}
 
-      {/* Enhanced Success Popup */}
-      {showSuccessPopup && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl text-white px-8 py-6 rounded-2xl shadow-2xl border border-slate-700/50 animate-in fade-in-50 slide-in-from-bottom-4 duration-300">
-            {/* Progress bar background */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-800/50 rounded-b-2xl overflow-hidden">
-              {/* Animated progress bar */}
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-b-2xl"
-                style={{
-                  width: '100%',
-                  animation: 'countdown-bar 3s linear forwards',
-                }}
-              />
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center backdrop-blur-sm">
-                <span className="text-2xl">🎉</span>
-              </div>
-              <div>
-                <div className="font-bold text-xl text-white mb-1">Mindmap Published!</div>
-                <div className="text-slate-400 text-sm">Successfully shared with the community</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Publish Success Modal */}
+      <PublishSuccessModal isVisible={showSuccessPopup} />
     </div>
   )
 }

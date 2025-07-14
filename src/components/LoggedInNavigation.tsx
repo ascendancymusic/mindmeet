@@ -6,15 +6,18 @@ import NotificationsDropdown from "./NotificationsDropdown"
 import { useAuthStore } from "../store/authStore"
 import { supabase } from "../supabaseClient"
 import { useNotificationStore } from "../store/notificationStore"
+import { useChatStore } from "../store/chatStore"
 
 const LoggedInNavigation: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user, setAvatarUrl: cacheAvatarUrl, avatarUrl: cachedAvatarUrl } = useAuthStore()
   const { notifications, fetchNotifications, markAllAsRead } = useNotificationStore()
+  const { getTotalUnreadCount, fetchConversations } = useChatStore()
   const unreadCount = notifications
     .filter(n => n.user_id === user?.id && !n.read)
     .length
+  const chatUnreadCount = getTotalUnreadCount()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(cachedAvatarUrl)
@@ -148,6 +151,21 @@ const LoggedInNavigation: React.FC = () => {
       notifications.length = 0;
     }
   }, [user?.id]);
+
+  // Fetch chat conversations for unread count
+  useEffect(() => {
+    if (user?.id) {
+      // Initial fetch
+      fetchConversations(true); // Skip auto-select to avoid interfering with current chat state
+
+      // Set up periodic refresh for chat conversations
+      const interval = setInterval(() => {
+        fetchConversations(true);
+      }, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, fetchConversations]);
 
   const handleLinkClick = () => {
     setShowDropdown(false)
@@ -289,10 +307,15 @@ const LoggedInNavigation: React.FC = () => {
               </Link>
               <Link
                 to="/chat"
-                className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/chat")}`}
+                className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
                 aria-label="Chat"
               >
                 <MessageSquare className="w-5 h-5 mx-auto" />
+                {chatUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-slate-700 shadow-lg">
+                    {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                  </span>
+                )}
               </Link>
             </>
           )}
@@ -452,11 +475,16 @@ const LoggedInNavigation: React.FC = () => {
                 <li>
                   <Link
                     to="/chat"
-                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/chat")}`}
+                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <MessageCircle className="w-5 h-5 mr-3" />
                     Chat
+                    {chatUnreadCount > 0 && (
+                      <span className="ml-auto bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                        {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
                 <li>

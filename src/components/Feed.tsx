@@ -43,6 +43,11 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
     triggerOnce: false // Keep observing
   });
 
+  // Handle mindmap deletion
+  const handleMindmapDelete = useCallback((mindmapId: string) => {
+    setMindmaps(prev => prev.filter(mindmap => mindmap.id !== mindmapId));
+  }, []);
+
   // Fetch user's following list
   const fetchFollowingIds = async () => {
     if (!user?.id) return [];
@@ -209,7 +214,7 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
     <div className="w-full">
       <div className="space-y-4">
         {mindmaps.map((mindmap) => (
-          <FeedMindMapNode key={mindmap.id} mindmap={mindmap} />
+          <FeedMindMapNode key={mindmap.id} mindmap={mindmap} onDelete={handleMindmapDelete} />
         ))}
       </div>
 

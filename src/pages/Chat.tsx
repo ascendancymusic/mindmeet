@@ -8,6 +8,7 @@ import AIHelpModal from "../components/AIHelpModal"
 import MindMapSelector from "../components/MindMapSelector"
 import "../styles/messageReactions.css"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { format } from 'date-fns'
 import {
   PlusCircle,
   Send,
@@ -834,48 +835,29 @@ const MessageMenu: React.FC<{
   isEmphasized: boolean
   onClose: () => void
   triggerRef?: React.RefObject<HTMLElement>
-}> = ({ messageId, text, isUserMessage, onEdit, onDelete, onEmphasize, isEmphasized, onClose, triggerRef }) => {
+}> = ({ messageId, text, isUserMessage, onEdit, onDelete, onEmphasize, isEmphasized, onClose}) => {
   const menuRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<{ top: number; left: number; right?: number }>({ top: 0, left: 0 })
-  const [isPositioned, setIsPositioned] = useState(false)
+  // Position relative to the trigger button
+  const getMenuPosition = () => {
+    const menuWidth = 144 // w-36 = 144px
 
-  // Calculate position based on trigger element
-  useEffect(() => {
-    if (triggerRef?.current) {
-      const triggerRect = triggerRef.current.getBoundingClientRect()
-      const menuWidth = 144 // w-36 = 144px
-      const menuHeight = isUserMessage ? 120 : 60 // approximate height
-      
-      let top = triggerRect.bottom + 8 // 8px margin
-      let left = triggerRect.left
-      let right: number | undefined = undefined
+    // Position relative to the trigger button
+    let top = 44 // Height of button + small gap
+    let left = 0
 
-      // Adjust horizontal position
-      if (isUserMessage) {
-        // For user messages, show menu to the left of the trigger
-        left = triggerRect.left - menuWidth
-        if (left < 8) {
-          // If it would go off the left edge, show it to the right instead
-          left = triggerRect.right + 8
-        }
-      } else {
-        // For other user messages, show menu to the right of the trigger
-        left = triggerRect.right + 8
-        if (left + menuWidth > window.innerWidth - 8) {
-          // If it would go off the right edge, show it to the left instead
-          left = triggerRect.left - menuWidth
-        }
-      }
-
-      // Adjust vertical position if it would go off the bottom
-      if (top + menuHeight > window.innerHeight - 8) {
-        top = triggerRect.top - menuHeight - 8
-      }
-
-      setPosition({ top, left, right })
-      setIsPositioned(true)
+    // Adjust horizontal position
+    if (isUserMessage) {
+      // For user messages, show menu to the left of the trigger
+      left = -menuWidth + 8 // Align right edge with button, small offset
+    } else {
+      // For other user messages, show menu to the right of the trigger
+      left = 8 // Small offset to the right
     }
-  }, [triggerRef, isUserMessage])
+
+    return { top, left }
+  }
+
+  const position = getMenuPosition()
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -892,17 +874,14 @@ const MessageMenu: React.FC<{
   }, [onClose])
 
   return (
-    <Portal>
-      {isPositioned && (
-        <div
-          ref={menuRef}
-          className="message-menu fixed w-36 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/30 rounded-xl shadow-2xl overflow-hidden z-[9999]"
-          style={{
-            top: `${position.top}px`,
-            left: `${position.left}px`,
-            right: position.right ? `${position.right}px` : undefined
-          }}
-        >
+    <div
+      ref={menuRef}
+      className="message-menu absolute w-36 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/30 rounded-xl shadow-2xl overflow-hidden z-[9999]"
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`
+      }}
+    >
           <div className="py-1.5">
           <button
             className={`w-full text-left px-4 py-2.5 hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-3 text-sm ${
@@ -941,9 +920,7 @@ const MessageMenu: React.FC<{
             </>
           )}
         </div>
-        </div>
-      )}
-    </Portal>
+    </div>
   )
 }
 
@@ -1234,8 +1211,6 @@ const Chat: React.FC = () => {
     }
   }, [userId, fetchMaps])
 
-  // Add a state variable to track conversations updates
-  const [conversationsVersion, setConversationsVersion] = useState(0)
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const {
@@ -1251,7 +1226,8 @@ const Chat: React.FC = () => {
     deleteConversation,
     setTypingStatus,
     getTypingStatus,
-    formatLastSeen
+    formatLastSeen,
+    typingUsers
   } = useChatStore()
   const { maps } = useMindMapStore()
   const [showConversations, setShowConversations] = useState(true)
@@ -1261,6 +1237,10 @@ const Chat: React.FC = () => {
   const [message, setMessage] = useState<string>("")
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGifMenu, setShowGifMenu] = useState(false)
+
+  // Get current messages and active conversation
+  const messages = getMessagesForActiveConversation()
+  const activeConversation = getActiveConversation()
 
   // Dynamic page title
   usePageTitle('Chat');
@@ -1291,6 +1271,16 @@ const Chat: React.FC = () => {
   const [showReactionMenu, setShowReactionMenu] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false)
   const [conversationSearchTerm, setConversationSearchTerm] = useState("")
+
+  // Memoize filtered and sorted conversations
+  const filteredConversations = useMemo(() => {
+    const sorted = [...conversations].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    })
+    return filterConversations(sorted, conversationSearchTerm)
+  }, [conversations, conversationSearchTerm])
 
   const pickerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -1456,11 +1446,7 @@ const Chat: React.FC = () => {
     }
   }, [])
 
-  // Update conversationsVersion when conversations change to force re-render
-  useEffect(() => {
-    // Increment the version to trigger re-renders of components that depend on conversations
-    setConversationsVersion(prev => prev + 1)
-  }, [conversations])
+
 
   const handleClickOutsideEmojiPickerFn = useCallback((event: MouseEvent) => {
     if (
@@ -1600,8 +1586,7 @@ const Chat: React.FC = () => {
     }
   }, [selectedMindMap])
 
-  const messages = getMessagesForActiveConversation()
-  const activeConversation = getActiveConversation()
+
 
   const scrollToMessage = (messageId: number) => {
     const messageElement = messageRefs.current.get(messageId)
@@ -1661,8 +1646,11 @@ const Chat: React.FC = () => {
     // Fetch messages for the active conversation
     if (activeConversationId) {
       setIsLoadingMessages(true);
-      useChatStore.getState().fetchMessages(activeConversationId)
-        .then(() => {
+
+      const fetchAndSetupConversation = async () => {
+        try {
+          await useChatStore.getState().fetchMessages(activeConversationId);
+
           // After fetching messages, check if there are unread messages
           const currentMessages = useChatStore.getState().getMessagesForActiveConversation();
           const unreadMessages = currentMessages.filter(m => m.senderId !== "me" && m.status !== "read");
@@ -1688,14 +1676,17 @@ const Chat: React.FC = () => {
               setTimeout(() => scrollToBottom(), 0);
             }
           }
+        } catch (error) {
+          console.error("Error fetching messages:", error);
+        } finally {
           setIsLoadingMessages(false);
-        });
+        }
+      };
+
+      fetchAndSetupConversation();
 
       // Set up real-time subscription for messages
       const unsubscribe = useChatStore.getState().subscribeToMessages(activeConversationId);
-
-      // Mark all messages as read when conversation is opened
-      useChatStore.getState().markMessagesAsRead(activeConversationId);
 
       // Clean up subscription when component unmounts or conversation changes
       return () => {
@@ -1710,7 +1701,7 @@ const Chat: React.FC = () => {
         unsubscribe();
       };
     }
-  }, [activeConversationId])
+  }, [activeConversationId, setTypingStatus])
 
   // Check if the messages container is scrollable
   const isScrollable = useCallback(() => {
@@ -1721,17 +1712,13 @@ const Chat: React.FC = () => {
     return container.scrollHeight > container.clientHeight
   }, [])
 
-  // Separate useEffect for scrolling
+  // Separate useEffect for managing unread messages indicator
   useEffect(() => {
-    if (isAtBottom && messagesContainerRef.current) {
-      scrollToBottom()
-    }
-
     // If the container is not scrollable, hide the "New messages" indicator
     if (hasUnreadMessages && !isScrollable()) {
       setHasUnreadMessages(false)
     }
-  }, [isAtBottom, hasUnreadMessages, isScrollable])
+  }, [hasUnreadMessages, isScrollable])
 
   // Set up Intersection Observer to detect when messages are visible
   useEffect(() => {
@@ -1824,12 +1811,39 @@ const Chat: React.FC = () => {
       emphasized: m.emphasized
     })))
 
+    // Auto-scroll to bottom only if user is already at bottom (standard chat behavior)
+    // This handles new messages from both the current user and other users
     if (lastProcessedMessagesRef.current !== messagesSignature) {
+      const wasAtBottom = isAtBottom
       lastProcessedMessagesRef.current = messagesSignature
       setMessageReactions(newReactions)
       setEmphasizedMessages(newEmphasized)
+
+      // If user was at bottom when new messages arrived, keep them at bottom
+      if (wasAtBottom && messagesContainerRef.current) {
+        setTimeout(() => scrollToBottom(), 0)
+      }
     }
   }, [messages, isAtBottom])
+
+  // Auto-scroll when thinking indicator appears/disappears (only if already at bottom)
+  useEffect(() => {
+    if (showThinkingIndicator && isAtBottom && messagesContainerRef.current) {
+      // Use a longer timeout to ensure the thinking indicator is fully rendered
+      setTimeout(() => scrollToBottom(), 100)
+    }
+  }, [showThinkingIndicator, isAtBottom])
+
+  // Auto-scroll when typing indicator appears/disappears (only if already at bottom)
+  useEffect(() => {
+    if (activeConversation && !activeConversation.isAI && isAtBottom && messagesContainerRef.current) {
+      const isTyping = getTypingStatus(activeConversation.id)
+      if (isTyping) {
+        // Use a longer timeout to ensure the typing indicator is fully rendered
+        setTimeout(() => scrollToBottom(), 100)
+      }
+    }
+  }, [activeConversation, isAtBottom, typingUsers, getTypingStatus])
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
@@ -1966,12 +1980,12 @@ const Chat: React.FC = () => {
     }
   }
 
-  const handleCreateConversation = (userId: string, userName: string, isOnline: boolean) => {
+  const handleCreateConversation = useCallback((userId: string, userName: string, isOnline: boolean) => {
     createConversation(userId, userName, isOnline)
     setShowNewConversationModal(false)
-  }
+  }, [createConversation])
 
-  const handleDeleteConversation = async () => {
+  const handleDeleteConversation = useCallback(async () => {
     if (activeConversationId) {
       try {
         // Show loading state if needed
@@ -1981,7 +1995,7 @@ const Chat: React.FC = () => {
         console.error("Error deleting conversation:", error)
       }
     }
-  }
+  }, [activeConversationId, deleteConversation])
 
   const handleEmojiSelect = (emojiData: EmojiClickData) => {
     setMessage((prev) => prev + emojiData.emoji)
@@ -1994,18 +2008,27 @@ const Chat: React.FC = () => {
     setShowGifMenu(false)
   }
 
-  const formatTime = (date: Date) => {
+  const formatTime = useCallback((date: Date) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
+  }, [])
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
     if (date.toDateString() === today.toDateString()) return "Today"
     if (date.toDateString() === yesterday.toDateString()) return "Yesterday"
-    return date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })
-  }
+
+    // Get user's preferred date format from localStorage
+    const savedDateFormat = localStorage.getItem('dateFormat') as 'month-day-year' | 'day-month-year' | null
+    const dateFormat = savedDateFormat || 'month-day-year'
+
+    if (dateFormat === 'day-month-year') {
+      return format(date, 'dd.MM.yyyy')
+    } else {
+      return format(date, 'MMM d, yyyy')
+    }
+  }, [])
 
   const handleMenuToggle = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -2528,11 +2551,6 @@ const Chat: React.FC = () => {
                   </p>
                 </div>
               ) : (() => {
-                const filteredConversations = filterConversations([...conversations].sort((a, b) => {
-                  if (a.pinned && !b.pinned) return -1
-                  if (!a.pinned && b.pinned) return 1
-                  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-                }), conversationSearchTerm)
                 
                 return filteredConversations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-64 text-center p-6">
@@ -2552,7 +2570,6 @@ const Chat: React.FC = () => {
                     isMobile={isMobile}
                     setShowConversations={setShowConversations}
                     getTypingStatus={getTypingStatus}
-                    version={conversationsVersion}
                     isLoading={isLoadingConversations && conversations.length > 0}
                     searchTerm={conversationSearchTerm}
                   />
@@ -3106,7 +3123,8 @@ const VirtualizedMessageList: React.FC<{
   const MessageItem = React.memo(({ index, style }: { index: number; style: React.CSSProperties }) => {
     const msg = messages[index]
     const isUser = msg.senderId === "me"
-    const showTimestamp = index === 0 || new Date(messages[index - 1].timestamp).getTime() - new Date(msg.timestamp).getTime() > 300000
+    // Show date stamp if it's the first message or if the date is different from the previous message
+    const showTimestamp = index === 0 || new Date(messages[index - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
     const isConsecutive = index > 0 && messages[index - 1].senderId === msg.senderId && !messages[index - 1].deleted
     const isLastUserMessage = isUser && !messages.slice(index + 1).some((m: any) => m.senderId === "me" && !m.deleted)
 
@@ -3115,7 +3133,7 @@ const VirtualizedMessageList: React.FC<{
         {showTimestamp && (
           <div className="flex justify-center my-6">
             <span className="text-xs text-slate-400 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-700/30 shadow-lg">
-              {formatDate(new Date(msg.timestamp))} at {formatTime(new Date(msg.timestamp))}
+              {formatDate(new Date(msg.timestamp))}
             </span>
           </div>
         )}
@@ -3178,7 +3196,8 @@ const VirtualizedMessageList: React.FC<{
     <>
       {messages.map((msg: any, i: number) => {
         const isUser = msg.senderId === "me"
-        const showTimestamp = i === 0 || new Date(messages[i - 1].timestamp).getTime() - new Date(msg.timestamp).getTime() > 300000
+        // Show date stamp if it's the first message or if the date is different from the previous message
+        const showTimestamp = i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
         const isConsecutive = i > 0 && messages[i - 1].senderId === msg.senderId && !messages[i - 1].deleted
         const isLastUserMessage = isUser && !messages.slice(i + 1).some((m: any) => m.senderId === "me" && !m.deleted)
 
@@ -3187,7 +3206,7 @@ const VirtualizedMessageList: React.FC<{
             {showTimestamp && (
               <div className="flex justify-center my-6">
                 <span className="text-xs text-slate-400 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-700/30 shadow-lg">
-                  {formatDate(new Date(msg.timestamp))} at {formatTime(new Date(msg.timestamp))}
+                  {formatDate(new Date(msg.timestamp))}
                 </span>
               </div>
             )}
@@ -3352,7 +3371,9 @@ const MessageBubble: React.FC<{
 
         {/* Enhanced Other User Messages */}
         {!isUser && (
-          <div className="max-w-[70%] md:max-w-[50%] flex-shrink-0 relative">
+          <div className="max-w-[70%] md:max-w-[50%] flex-shrink-0 relative group/hover-area">
+            {/* Extended hover area */}
+            <div className="absolute -right-16 top-0 bottom-0 w-16 pointer-events-none"></div>
             {isAITyping && index === messages.length - 1 ? (
               <div className="bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm text-slate-200 rounded-2xl p-4 border border-slate-600/30 shadow-lg relative flex items-center gap-3">
                 <div className="flex gap-1">
@@ -3469,7 +3490,7 @@ const MessageBubble: React.FC<{
 
                 {/* WhatsApp-style hover icons for other user messages */}
                 {!msg.deleted && (
-                  <div className="absolute -right-20 top-1/2 -translate-y-1/2 opacity-0 group-hover/message:opacity-100 transition-all duration-200 flex items-center gap-1 z-[9998]">
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full opacity-0 group-hover/hover-area:opacity-100 transition-all duration-200 flex items-center gap-1 z-[9998] ml-4">
                     <button
                       className="p-2 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
                       onClick={() => {
@@ -3489,8 +3510,8 @@ const MessageBubble: React.FC<{
                     </button>
                     <button
                       className={`p-2 rounded-full transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm ${
-                        emphasizedMessages.has(msg.id) 
-                          ? "text-yellow-400 bg-yellow-400/20 hover:bg-yellow-400/30 border-yellow-400/50" 
+                        emphasizedMessages.has(msg.id)
+                          ? "text-yellow-400 bg-yellow-400/20 hover:bg-yellow-400/30 border-yellow-400/50"
                           : "text-slate-400 hover:text-yellow-400 hover:bg-slate-800/80"
                       }`}
                       onClick={() => handleEmphasizeMessage(msg.id)}
@@ -3508,7 +3529,7 @@ const MessageBubble: React.FC<{
         {/* Enhanced User Messages */}
         {isUser && (
           <div
-            className={`relative p-4 rounded-2xl message-container user-message group/message transition-all duration-300 shadow-xl border ${
+            className={`relative p-4 rounded-2xl message-container user-message group/hover-area transition-all duration-300 shadow-xl border ${
               editingAnimationId === msg.id ? "scale-[1.02] bg-blue-500/20 border-blue-400/50" : ""
             } ${
               isEditing 
@@ -3526,6 +3547,8 @@ const MessageBubble: React.FC<{
               transition: "all 0.3s ease-out"
             }}
           >
+            {/* Extended hover area */}
+            <div className="absolute -left-16 top-0 bottom-0 w-16 pointer-events-none"></div>
             {isEditing ? (
               <div className="space-y-3">
                 <textarea
@@ -3636,16 +3659,23 @@ const MessageBubble: React.FC<{
 
                     {/* WhatsApp-style hover icons for user messages */}
                     {!msg.deleted && (
-                      <div className="absolute -left-20 top-1/2 -translate-y-1/2 opacity-0 group-hover/message:opacity-100 transition-all duration-200 flex items-center gap-1 z-[9998]">
+                      <div className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full transition-all duration-200 flex items-center gap-1 z-[9998] mr-4 ${
+                        showMessageMenu === msg.id ? 'opacity-100' : 'opacity-0 group-hover/hover-area:opacity-100'
+                      }`}>
                         <button
-                          className="p-2 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
-                          onClick={() => {
-                            setReactingToMessageId(msg.id)
-                            setShowReactionMenu(true)
+                          ref={menuTriggerRef}
+                          className={`p-2 rounded-full transition-all duration-200 shadow-lg border backdrop-blur-sm message-menu-trigger ${
+                            showMessageMenu === msg.id
+                              ? 'text-slate-200 bg-slate-700/90 border-slate-600/70'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border-slate-700/50'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowMessageMenu(showMessageMenu === msg.id ? null : msg.id)
                           }}
-                          title="React"
+                          title="More options"
                         >
-                          <Heart className="h-4 w-4" />
+                          <MoreVertical className="h-4 w-4" />
                         </button>
                         <button
                           className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
@@ -3655,15 +3685,14 @@ const MessageBubble: React.FC<{
                           <Reply className="h-4 w-4" />
                         </button>
                         <button
-                          ref={menuTriggerRef}
-                          className="p-2 rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm message-menu-trigger"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowMessageMenu(showMessageMenu === msg.id ? null : msg.id)
+                          className="p-2 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
+                          onClick={() => {
+                            setReactingToMessageId(msg.id)
+                            setShowReactionMenu(true)
                           }}
-                          title="More options"
+                          title="React"
                         >
-                          <MoreVertical className="h-4 w-4" />
+                          <Heart className="h-4 w-4" />
                         </button>
                         {showMessageMenu === msg.id && (
                           <MessageMenu
@@ -3698,7 +3727,6 @@ const VirtualizedConversationList: React.FC<{
   isMobile: boolean
   setShowConversations: (show: boolean) => void
   getTypingStatus: (id: number) => boolean
-  version?: number
   isLoading?: boolean
   searchTerm?: string
 }> = React.memo(({ conversations, activeConversationId, setActiveConversation, isMobile, setShowConversations, getTypingStatus, searchTerm = "" }) => {

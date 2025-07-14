@@ -17,6 +17,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   avatarUrl: string | null;
+  forceLoggedOut: boolean;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -35,12 +36,14 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       avatarUrl: null,
+      forceLoggedOut: false,
       setUser: (user) =>
         set((state) => ({
           user,
           isLoggedIn: !!user,
           error: null,
           avatarUrl: user?.avatar_url || state.avatarUrl,
+          forceLoggedOut: false,
         })),
       setLoading: (isLoading) => set({ isLoading }),
       setError: (error) => set({ error }),
@@ -91,7 +94,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         try {
           const currentUser = get().user;
-          
+
           // Mark user as offline before logging out
           if (currentUser?.id) {
             // Set last_seen to a time that's older than our online threshold (3 minutes)
@@ -101,9 +104,15 @@ export const useAuthStore = create<AuthState>()(
               .update({ last_seen: offlineTime.toISOString() })
               .eq('id', currentUser.id);
           }
-          
+
+          // Sign out from Supabase first
           await supabase.auth.signOut();
-          set({ user: null, isLoggedIn: false, error: null, avatarUrl: null });
+
+          // Clear all auth state
+          set({ user: null, isLoggedIn: false, error: null, avatarUrl: null, forceLoggedOut: false });
+
+          // Ensure localStorage is cleared (Zustand persist should handle this, but being explicit)
+          localStorage.removeItem('auth-storage');
         } catch (err) {
           console.error('Error during logout:', err);
           set({ error: 'Failed to log out. Please try again.' });
@@ -146,8 +155,24 @@ export const useAuthStore = create<AuthState>()(
           }
 
           console.log('User deleted successfully');
-          useAuthStore.getState().logout();
+
+          // Clear all localStorage data first
+          localStorage.removeItem('auth-storage');
+          localStorage.removeItem('supabase.auth.token');
+
+          // Sign out from Supabase to clear any remaining session
+          await supabase.auth.signOut();
+
+          // Clear all auth state immediately and force logged out state
+          set({ user: null, isLoggedIn: false, error: null, avatarUrl: null, isLoading: false, forceLoggedOut: true });
+
+          // Force a complete page reload to ensure all React state is cleared
           window.location.href = '/';
+
+          // As a backup, also try to reload after a short delay
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
         } catch (err) {
           console.error('Unexpected error:', err);
           set({ error: 'An unexpected error occurred.' });
@@ -158,7 +183,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user, isLoggedIn: state.isLoggedIn }),
+      partialize: (state) => ({ user: state.user, isLoggedIn: state.isLoggedIn, forceLoggedOut: state.forceLoggedOut }),
       // Add a custom storage handler to prevent direct manipulation
       storage: createJSONStorage(() => ({
         getItem: (name) => {

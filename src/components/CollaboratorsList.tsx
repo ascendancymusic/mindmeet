@@ -127,9 +127,16 @@ export const CollaboratorsList: React.FC<CollaboratorsListProps> = ({
         >
           <div className="relative">
             <Users className="w-4 h-4 text-gray-300" />
-            {onlineCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-gray-800 flex items-center justify-center">
-                <span className="text-xs text-white font-bold" style={{ fontSize: '8px' }}>
+            {onlineCount > 1 && (
+              <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                <span
+                  className="text-xs font-bold text-white"
+                  style={{
+                    fontSize: '10px',
+                    textShadow: '0 0 3px rgba(0, 0, 0, 0.8), 1px 1px 2px rgba(0, 0, 0, 0.9)',
+                    filter: 'drop-shadow(0 0 2px rgba(0, 0, 0, 0.8))'
+                  }}
+                >
                   {onlineCount}
                 </span>
               </div>

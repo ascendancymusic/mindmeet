@@ -451,7 +451,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           id: "1",
           type: "input",
           data: { label: title },
-          position: { x: 250, y: 0 },
+          position: { x: 240, y: 0 },
           style: { background: "#1f2937" },
           background: "#1f2937",
         },

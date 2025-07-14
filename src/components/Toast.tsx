@@ -55,7 +55,7 @@ export const Toast: React.FC<ToastProps> = ({
   };
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-top-2 duration-300">
+    <div className="fixed top-20 right-4 z-[9999] animate-in slide-in-from-top-2 duration-300">
       <div className={`
         ${getToastStyles()}
         backdrop-blur-xl rounded-xl shadow-2xl border 

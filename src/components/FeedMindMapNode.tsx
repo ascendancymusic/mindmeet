@@ -4,12 +4,14 @@ import "reactflow/dist/style.css";
 import { supabase } from "../supabaseClient";
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
 import { nodeTypes } from "../config/nodeTypes";
-import { Heart, MessageCircle, Bookmark, Share2, MoreVertical, Info } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, Share2, MoreVertical, Info, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useMindMapActions } from '../hooks/useMindMapActions';
 import ShareModal from './ShareModal';
 import InfoModal from './InfoModal';
+import EditDetailsModal from './EditDetailsModal';
 import { formatDateWithPreference } from "../utils/dateUtils";
+import { useMindMapStore } from '../store/mindMapStore';
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -56,9 +58,10 @@ interface FeedMindMapNodeProps {
     visibility?: 'public' | 'private';
     updated_at?: string;
   } | null;
+  onDelete?: (mindmapId: string) => void;
 }
 
-const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
+const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) => {
   const { user } = useAuthStore();
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [username, setUsername] = useState<string>("unknown");
@@ -67,9 +70,11 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
   const [localMindmap, setLocalMindmap] = useState<any>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080);
+  const [mapToDelete, setMapToDelete] = useState<string | null>(null);
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
@@ -84,6 +89,8 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
       );
     }
   });
+
+  const { deleteMap } = useMindMapStore();
 
   // Memoize nodeTypes to prevent recreation on each render
   const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []);
@@ -277,6 +284,78 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
       console.error("Missing data required for Info Modal");
     }
   }
+
+  function handleEditDetails() {
+    setIsEditModalOpen(true);
+    setOpenMenuId(null);
+  }
+
+  function handleDeleteMap() {
+    setMapToDelete(localMindmap?.id || null);
+    setOpenMenuId(null);
+  }
+
+  const confirmDelete = async () => {
+    if (mapToDelete && user?.id && localMindmap) {
+      try {
+        await deleteMap(mapToDelete, user.id);
+        setMapToDelete(null);
+        // Immediately remove from feed UI
+        onDelete?.(mapToDelete);
+      } catch (error) {
+        console.error('Error deleting mindmap:', error);
+        alert('Failed to delete mindmap. Please try again.');
+      }
+    }
+  };
+
+  const saveMapDetails = async (details: {
+    title: string;
+    permalink: string;
+    visibility: "public" | "private" | "linkOnly";
+    description: string;
+    is_main: boolean;
+    collaborators: string[];
+    published_at?: string | null;
+  }) => {
+    if (!localMindmap || !user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('mindmaps')
+        .update({
+          title: details.title,
+          id: details.permalink,
+          visibility: details.visibility,
+          description: details.description,
+          is_main: details.is_main,
+          collaborators: details.collaborators,
+          published_at: details.published_at,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', localMindmap.id)
+        .eq('creator', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setLocalMindmap(prev => prev ? {
+        ...prev,
+        title: details.title,
+        id: details.permalink,
+        visibility: details.visibility,
+        description: details.description,
+        is_main: details.is_main,
+        collaborators: details.collaborators,
+        published_at: details.published_at,
+        updated_at: new Date().toISOString()
+      } : null);
+
+    } catch (error) {
+      console.error('Error updating mindmap details:', error);
+      throw error;
+    }
+  };
 
   // Loading state
   if (isLoading) {
@@ -501,6 +580,20 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
                 </button>
                 {openMenuId === localMindmap.key && (
                   <div className="absolute right-0 top-full mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-50 min-w-[140px] overflow-hidden">
+                    {/* Show edit and info options, with delete at the end if user owns the mindmap */}
+                    {user?.id === localMindmap.creator && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleEditDetails();
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-slate-300 hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-purple-500/10 hover:text-white transition-all duration-200 flex items-center gap-3"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit Details
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -512,6 +605,19 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
                       <Info className="w-4 h-4" />
                       View Info
                     </button>
+                    {user?.id === localMindmap.creator && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteMap();
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-slate-300 hover:bg-gradient-to-r hover:from-red-500/10 hover:to-red-600/10 hover:text-red-400 transition-all duration-200 flex items-center gap-3"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -683,6 +789,56 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap }) => {
           onClose={() => setIsInfoModalOpen(false)}
           hideVisibility={true}
         />
+      )}
+      {isEditModalOpen && localMindmap && (
+        <EditDetailsModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          mapData={{
+            id: localMindmap.id,
+            title: localMindmap.title,
+            description: localMindmap.description || '',
+            visibility: localMindmap.visibility as "public" | "private" | "linkOnly",
+            is_main: localMindmap.is_main || false,
+            collaborators: localMindmap.collaborators || [],
+            published_at: localMindmap.published_at || null
+          }}
+          username={username}
+          onSave={saveMapDetails}
+          showMainMapOption={false}
+        />
+      )}
+      {mapToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <h2 className="text-xl font-bold text-white">
+                Delete Mindmap
+              </h2>
+            </div>
+            <p className="text-slate-300 mb-2">
+              Are you sure you want to delete "{localMindmap?.title}"?
+            </p>
+            <p className="text-slate-400 text-sm mb-6">
+              This action cannot be undone and all data will be permanently lost.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setMapToDelete(null)}
+                className="px-6 py-2.5 text-slate-400 hover:text-slate-100 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium"
+              >
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </ReactFlowProvider>
   );

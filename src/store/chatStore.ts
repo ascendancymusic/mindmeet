@@ -501,20 +501,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             unread: (updatedConversations[conversationIndex].unread || 0) + 1
           }
         } else {
-          // If the conversation is active, mark the message as read immediately
-          setTimeout(() => {
-            // Use setTimeout to ensure this runs after the message is added to the state
-            const newMessages = get().messages
-            const newMessageIndex = newMessages.findIndex(m =>
-              m.conversationId === conversation.id &&
-              m.senderId !== "me" &&
-              m.status !== "read"
-            )
-
-            if (newMessageIndex !== -1) {
-              get().updateMessageStatus(newMessages[newMessageIndex].id, "read")
-            }
-          }, 500)
+          // If the conversation is active, we'll mark the message as read when it's processed
+          // This will be handled by the message processing logic below
         }
       }
 
@@ -769,19 +757,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
 
   setActiveConversation: (id: number) => {
-    // First set the active conversation ID
+    // Validate that the conversation exists before setting it as active
+    const { conversations } = get()
+    const conversation = conversations.find(c => c.id === id)
+
+    if (!conversation) {
+      console.warn(`Attempted to set non-existent conversation ${id} as active`)
+      return
+    }
+
+    console.log(`Setting active conversation to ${id} (${conversation.name})`)
+
+    // Set the active conversation ID
     set({ activeConversationId: id })
 
-    // Then mark the conversation as read
-    // Use setTimeout to ensure the activeConversationId is set first
-    setTimeout(() => {
-      // Double-check that the active conversation ID is still the same
-      if (get().activeConversationId === id) {
-        get().markConversationAsRead(id)
-        // Mark all messages as read when opening a conversation
-        get().markMessagesAsRead(id)
-      }
-    }, 50)
+    // Mark the conversation and messages as read immediately
+    // This prevents race conditions and ensures consistent state
+    get().markConversationAsRead(id)
+    get().markMessagesAsRead(id)
   },
 
   getMessagesForActiveConversation: () => {
@@ -2418,13 +2411,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       )
 
       // Fetch user's deleted conversations
-      const { data: deletedData, error: deletedError } = await supabase
-        .from("deleted_conversations")
-        .select("conversation_id")
-        .eq("user_id", currentUser.id)
+      let deletedData: any[] = []
+      try {
+        const { data, error: deletedError } = await supabase
+          .from("deleted_conversations")
+          .select("conversation_id")
+          .eq("user_id", currentUser.id)
 
-      if (deletedError) {
-        console.error("Error fetching deleted conversations:", deletedError)
+        if (deletedError) {
+          console.warn("Could not fetch deleted conversations:", deletedError)
+        } else {
+          deletedData = data || []
+        }
+      } catch (error) {
+        console.warn("Deleted conversations table not available:", error)
       }
 
       // Create a set of deleted conversation IDs for quick lookup
@@ -2555,16 +2555,27 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           if (newActiveConv) {
             newActiveId = newActiveConv.id;
           } else {
-            // If we can't find the conversation, don't select anything
-            newActiveId = null;
+            // Only deselect if we're sure the conversation was actually deleted
+            // Keep the current selection if it might just be a temporary sync issue
+            console.warn("Active conversation not found in updated list, keeping current selection");
+            newActiveId = currentActiveId;
           }
-        } else {
-          // If the current active conversation doesn't have a Supabase ID, don't select anything
-          newActiveId = null;
+        } else if (currentActiveConv) {
+          // If the conversation exists but doesn't have a Supabase ID, try to find it by other means
+          const newActiveConv = formattedConversations.find(c =>
+            c.name === currentActiveConv.name &&
+            c.isAI === currentActiveConv.isAI &&
+            (c.isAI ? c.botId === currentActiveConv.botId : c.userId === currentActiveConv.userId)
+          );
+
+          if (newActiveConv) {
+            newActiveId = newActiveConv.id;
+          } else {
+            // Keep current selection to avoid random deselection
+            console.warn("Could not match active conversation, keeping current selection");
+            newActiveId = currentActiveId;
+          }
         }
-      } else {
-        // If there's no active conversation, don't automatically select one
-        newActiveId = null;
       }
 
       // If skipAutoSelect is true, don't set the activeConversationId
@@ -2635,17 +2646,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       let lastDeletionTime: string | null = null
       const currentUser = useAuthStore.getState().user
       if (currentUser) {
-        const { data: deletionHistory, error: deletionError } = await supabase
-          .from("deleted_conversations")
-          .select("created_at")
-          .eq("user_id", currentUser.id)
-          .eq("conversation_id", supabaseConvId)
-          .order("created_at", { ascending: false })
-          .limit(1)
+        try {
+          const { data: deletionHistory, error: deletionError } = await supabase
+            .from("deleted_conversations")
+            .select("created_at")
+            .eq("user_id", currentUser.id)
+            .eq("conversation_id", supabaseConvId)
+            .order("created_at", { ascending: false })
+            .limit(1)
 
-        if (!deletionError && deletionHistory && deletionHistory.length > 0) {
-          // Found a previous deletion, only show messages after this timestamp
-          lastDeletionTime = deletionHistory[0].created_at
+          if (!deletionError && deletionHistory && deletionHistory.length > 0) {
+            // Found a previous deletion, only show messages after this timestamp
+            lastDeletionTime = deletionHistory[0].created_at
+          }
+        } catch (error) {
+          // If deleted_conversations table doesn't exist or has issues, just continue without filtering
+          console.warn("Could not check deletion history:", error)
         }
       }
 

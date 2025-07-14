@@ -7,8 +7,8 @@ import type { Node } from 'reactflow';
  * @returns The width value
  */
 export const getNodeWidth = (node: Node, defaultWidth: number | string = 'auto'): number | string => {
-  // For image and audio nodes, width is stored directly on the node
-  if (node.type === 'image' || node.type === 'audio') {
+  // For image, audio, and default text nodes, width is stored directly on the node
+  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
     // First check if width is directly on the node (saved format)
     if (typeof node.width === 'number') {
       return node.width;
@@ -38,8 +38,8 @@ export const getNodeWidth = (node: Node, defaultWidth: number | string = 'auto')
  * @returns The height value
  */
 export const getNodeHeight = (node: Node, defaultHeight: number | string = 'auto'): number | string => {
-  // For image and audio nodes, height is stored directly on the node
-  if (node.type === 'image' || node.type === 'audio') {
+  // For image, audio, and default text nodes, height is stored directly on the node
+  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
     // First check if height is directly on the node (saved format)
     if (typeof node.height === 'number') {
       return node.height;
@@ -80,8 +80,8 @@ export const prepareNodeForRendering = (node: Node, defaultStyles: any = {}): No
     };
   }
 
-  // For image and audio nodes, ensure width and height are in the style
-  if (node.type === 'image' || node.type === 'audio') {
+  // For image, audio, and default text nodes, ensure width and height are in the style
+  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
     const width = getNodeWidth(node);
     const height = getNodeHeight(node);
 
@@ -111,8 +111,8 @@ export const prepareNodeForSaving = (node: Node): Node => {
   // Create a copy of the node to avoid mutating the original
   const preparedNode = { ...node };
 
-  // For image and audio nodes, extract width and height from style and save directly on the node
-  if (node.type === 'image' || node.type === 'audio') {
+  // For image, audio, and default text nodes, extract width and height from style and save directly on the node
+  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
     const width = node.style?.width
       ? typeof node.style.width === 'string'
         ? parseFloat(node.style.width)
