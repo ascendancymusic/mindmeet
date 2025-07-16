@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { Bell, User, Globe, Trash2, Eye, EyeOff, Calendar } from 'lucide-react';
+import { Bell, User, Globe, Trash2, Eye, EyeOff, Calendar, Network } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../supabaseClient';
 
@@ -14,6 +14,7 @@ const Settings: React.FC = () => {
   const [isEmailVisible, setIsEmailVisible] = useState(false);
   const [dateFormat, setDateFormat] = useState<'month-day-year' | 'day-month-year'>('month-day-year');
   const [showNegativeNotifications, setShowNegativeNotifications] = useState(true);
+  const [showTooltips, setShowTooltips] = useState(true);
 
   usePageTitle('Settings');
 
@@ -39,6 +40,12 @@ const Settings: React.FC = () => {
       setShowNegativeNotifications(savedShowNegativeNotifications === 'true');
     }
 
+    // Load tooltip preference from localStorage
+    const savedShowTooltips = localStorage.getItem('showTooltips');
+    if (savedShowTooltips !== null) {
+      setShowTooltips(savedShowTooltips === 'true');
+    }
+
     fetchUserEmail();
   }, []);
 
@@ -52,6 +59,12 @@ const Settings: React.FC = () => {
   const handleNegativeNotificationsChange = (show: boolean) => {
     setShowNegativeNotifications(show);
     localStorage.setItem('showNegativeNotifications', show.toString());
+  };
+
+  // Save tooltip preference when it changes
+  const handleTooltipChange = (show: boolean) => {
+    setShowTooltips(show);
+    localStorage.setItem('showTooltips', show.toString());
   };
 
   const handleDeleteAccount = async () => {
@@ -203,6 +216,31 @@ const Settings: React.FC = () => {
                 <option value="month-day-year">Month Day, Year ({format(new Date(), 'MMM d, yyyy')})</option>
                 <option value="day-month-year">Day.Month.Year ({format(new Date(), 'dd.MM.yyyy')})</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* General Mindmap Settings */}
+        <div className="mb-8">
+          <h2 className="text-lg md:text-base sm:text-base font-semibold text-slate-200 mb-4 flex items-center">
+            <Network className="w-5 h-5 mr-2 text-indigo-400" />
+            General Mindmap Settings
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 md:p-3 sm:p-2 bg-gradient-to-r from-slate-800/60 to-slate-700/60 backdrop-blur-sm rounded-xl border border-slate-600/30 hover:border-indigo-500/30 transition-all duration-200">
+              <div>
+                <h3 className="text-sm md:text-xs font-medium text-slate-200">Show Tooltips</h3>
+                <p className="text-sm md:text-xs text-slate-400">Display helpful tooltips when hovering over mindmap tools</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={showTooltips}
+                  onChange={(e) => handleTooltipChange(e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-indigo-500 peer-checked:to-purple-500"></div>
+              </label>
             </div>
           </div>
         </div>

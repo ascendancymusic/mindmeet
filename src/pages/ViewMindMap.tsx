@@ -18,6 +18,8 @@ import { PlaylistNode } from "../components/PlaylistNode"
 import { SocialMediaNode } from "../components/SocialMediaNode"
 import { LinkNode } from "../components/LinkNode"
 import { MindMapNode } from "../components/MindMapNode"
+import { DefaultTextNode } from "../components/TextNode"
+import MarkdownRenderer from "../components/MarkdownRenderer"
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
 import {
   ChevronDown,
@@ -67,6 +69,7 @@ if (typeof document !== "undefined") {
 }
 
 const nodeTypes: NodeTypes = {
+  default: DefaultTextNode,
   spotify: SpotifyViewNode,
   soundcloud: SoundCloudViewNode,
   "youtube-video": YouTubeViewNode,
@@ -1267,7 +1270,13 @@ const ViewMindMap: React.FC = () => {
                             className="break-words overflow-hidden"
                             style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
                           >
-                            {node.type === "default" && node.data.label === "" ? "Text..." : node.data.label}
+                            {node.type === "default" && node.data.label === "" ? (
+                              <span className="text-gray-400">Text...</span>
+                            ) : node.type === "default" ? (
+                              <MarkdownRenderer content={node.data.label} />
+                            ) : (
+                              node.data.label
+                            )}
                           </div>
                           <button
                             className="ml-2 p-1 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 z-10"
@@ -1282,7 +1291,9 @@ const ViewMindMap: React.FC = () => {
                           </button>
                         </div>
                       ) : node.type === "default" && node.data.label === "" ? (
-                        "Text..."
+                        <span className="text-gray-400">Text...</span>
+                      ) : node.type === "default" ? (
+                        <MarkdownRenderer content={node.data.label} />
                       ) : (
                         node.data.label
                       )

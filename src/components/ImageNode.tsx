@@ -79,8 +79,8 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
       processedUrlRef.current = null;
     } else if (data.imageUrl) {
       // If no file but imageUrl exists, use the imageUrl
-      // Check if we've already processed this exact URL
-      if (processedUrlRef.current === data.imageUrl && imageSrc === data.imageUrl) {
+      // Check if we've already processed this exact URL and it's currently displayed
+      if (processedUrlRef.current === data.imageUrl && imageSrc === data.imageUrl && imageSrc) {
         return;
       }
 
@@ -177,6 +177,16 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
     setShowError(true);
     setIsLoading(false);
   }, []);
+
+  // Reset state when node data changes significantly
+  useEffect(() => {
+    // If we have imageUrl but no current imageSrc, or if imageUrl changed
+    if (data.imageUrl && (!imageSrc || (imageSrc !== data.imageUrl && processedUrlRef.current !== data.imageUrl))) {
+      setImageSrc(null);
+      processedUrlRef.current = null;
+      processedFileRef.current = null;
+    }
+  }, [data.imageUrl, imageSrc]);
 
   useEffect(() => {
     // Only call loadImage if we actually have new data to process

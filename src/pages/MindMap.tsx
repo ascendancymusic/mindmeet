@@ -383,8 +383,9 @@ export default function MindMap() {
               width: typeof width === 'number' ? width : undefined,
               height: typeof height === 'number' ? height : undefined,
               data: {
-                ...node,
-                label: node.data.label || "",
+                ...node.data,
+                label: node.data?.label || "",
+                imageUrl: node.data?.imageUrl || undefined,
               }
             };
           }
@@ -2851,8 +2852,11 @@ const onReconnectEnd = useCallback(
                     }
                   }
                 } else {
+                  // For text nodes, handle both width/height properties and style
                   return {
                     ...node,
+                    width: typeof previousNode.width === 'number' ? previousNode.width : undefined,
+                    height: typeof previousNode.height === 'number' ? previousNode.height : undefined,
                     style: {
                       ...node.style,
                       width: previousNode.style?.width,
@@ -3060,35 +3064,51 @@ const onReconnectEnd = useCallback(
           break
         case "resize_node":
           // Handle redo for resize actions
-          setNodes((nodes) =>
-            nodes.map((node) => {
-              if (node.id === nextAction.data.nodeId) {
-                // For image nodes, handle width/height properly
-                if (node.type === 'image') {
-                  return {
-                    ...node,
-                    width: typeof nextAction.data.width === 'number' ? nextAction.data.width : undefined,
-                    height: typeof nextAction.data.height === 'number' ? nextAction.data.height : undefined,
-                    style: {
-                      ...node.style,
-                      width: nextAction.data.width,
-                      height: nextAction.data.height
-                    }
+          const updatedNodesForResize = nodes.map((node) => {
+            if (node.id === nextAction.data.nodeId) {
+              // For image nodes, handle width/height properly
+              if (node.type === 'image') {
+                return {
+                  ...node,
+                  width: typeof nextAction.data.width === 'number' ? nextAction.data.width : undefined,
+                  height: typeof nextAction.data.height === 'number' ? nextAction.data.height : undefined,
+                  style: {
+                    ...node.style,
+                    width: nextAction.data.width,
+                    height: nextAction.data.height
                   }
-                } else {
-                  return {
-                    ...node,
-                    style: {
-                      ...node.style,
-                      width: nextAction.data.width,
-                      height: nextAction.data.height
-                    }
+                }
+              } else {
+                // For text nodes, handle both width/height properties and style
+                return {
+                  ...node,
+                  width: typeof nextAction.data.width === 'number' ? nextAction.data.width : undefined,
+                  height: typeof nextAction.data.height === 'number' ? nextAction.data.height : undefined,
+                  style: {
+                    ...node.style,
+                    width: typeof nextAction.data.width === 'number' ? nextAction.data.width + 'px' : nextAction.data.width,
+                    height: typeof nextAction.data.height === 'number' ? nextAction.data.height + 'px' : nextAction.data.height
                   }
                 }
               }
-              return node
-            }),
-          )
+            }
+            return node
+          });
+
+          setNodes(updatedNodesForResize);
+
+          // Broadcast live changes to collaborators if we're in a collaborative session
+          if (currentMindMapId && broadcastLiveChange && nextAction.data.nodeId) {
+            const updatedNode = updatedNodesForResize.find(node => node.id === nextAction.data.nodeId);
+            if (updatedNode) {
+              broadcastLiveChange({
+                id: nextAction.data.nodeId,
+                type: 'node',
+                action: 'update',
+                data: updatedNode
+              });
+            }
+          }
           break
         case "connect_nodes":
           setEdges((edges) => {
@@ -3199,7 +3219,7 @@ const onReconnectEnd = useCallback(
       // This allows other users to see the mindmap changes without affecting their own undo/redo history
       if (broadcastLiveChange && nextAction) {
         // For node-based actions, broadcast the current state of affected nodes
-        if (nextAction.type === "move_node" || nextAction.type === "update_node" || nextAction.type === "resize_node") {
+        if (nextAction.type === "move_node" || nextAction.type === "update_node") {
           // Get current nodes state and broadcast affected nodes
           const currentNodes = nodes;
           if (nextAction.type === "move_node" && nextAction.data.position) {
@@ -3215,7 +3235,7 @@ const onReconnectEnd = useCallback(
                 });
               }
             });
-          } else if ((nextAction.type === "update_node" || nextAction.type === "resize_node") && nextAction.data.nodeId) {
+          } else if (nextAction.type === "update_node" && nextAction.data.nodeId) {
             const nodeId = nextAction.data.nodeId;
             const node = currentNodes.find(n => n.id === nodeId);
             if (node) {
@@ -3285,7 +3305,7 @@ const onReconnectEnd = useCallback(
         }
       }
     }
-  }, [history, currentHistoryIndex, getNodeDescendants, selectedNodeId, canRedo, lastSavedHistoryIndex, broadcastLiveChange, nodes, edges])
+  }, [history, currentHistoryIndex, getNodeDescendants, selectedNodeId, canRedo, lastSavedHistoryIndex, broadcastLiveChange, nodes, edges, currentMindMapId])
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -3408,30 +3428,43 @@ const onReconnectEnd = useCallback(
     };
 
     // Update the nodes with the new width and height
-    setNodes(nodes =>
-      nodes.map(node => {
-        if (node.id === nodeId) {
-          return {
-            ...node,
-            width: typeof width === 'number' ? width : undefined,
-            height: typeof height === 'number' ? height : undefined,
-            style: {
-              ...node.style,
-              width: typeof width === 'number' ? width + 'px' : width,
-              height: typeof height === 'number' ? height + 'px' : height
-            }
-          };
-        }
-        return node;
-      })
-    );
+    const updatedNodes = nodes.map(node => {
+      if (node.id === nodeId) {
+        return {
+          ...node,
+          width: typeof width === 'number' ? width : undefined,
+          height: typeof height === 'number' ? height : undefined,
+          style: {
+            ...node.style,
+            width: typeof width === 'number' ? width + 'px' : width,
+            height: typeof height === 'number' ? height + 'px' : height
+          }
+        };
+      }
+      return node;
+    });
+
+    setNodes(updatedNodes);
+
+    // Broadcast live changes to collaborators if we're in a collaborative session
+    if (currentMindMapId && broadcastLiveChange) {
+      const updatedNode = updatedNodes.find(node => node.id === nodeId);
+      if (updatedNode) {
+        broadcastLiveChange({
+          id: nodeId,
+          type: 'node',
+          action: 'update',
+          data: updatedNode
+        });
+      }
+    }
 
     addToHistory(action);
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [nodes, edges, addToHistory, isInitialLoad]);
+  }, [nodes, edges, addToHistory, isInitialLoad, currentMindMapId, broadcastLiveChange]);
 
   // Handle image node dimensions set when image is loaded
   const handleImageNodeDimensionsSet = useCallback((event: CustomEvent) => {

@@ -114,6 +114,10 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
 }) => {
   const { maps } = useMindMapStore()
   const { user } = useAuthStore()
+
+  // Debug logging
+  console.log('MindMapSelector: maps:', maps, 'user:', user?.id);
+
   // Filter and sort mindmaps based on search term and sort option
   const getFilteredAndSortedMaps = (): MindMap[] => {
     let filteredMaps = maps.filter(map => 

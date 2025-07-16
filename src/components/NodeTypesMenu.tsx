@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { createPortal } from "react-dom"
 import {
   TextCursor,
   Instagram,
@@ -76,7 +77,7 @@ const nodeTypes: NodeType[] = [
   {
     id: "mindmap",
     icon: <Network className="w-5 h-5" />,
-    label: "Add Mind Map",
+    label: "Add Mindmap",
     type: "mindmap",
   },
 ]
@@ -158,11 +159,31 @@ export function NodeTypesMenu({
   const [isMusicDropdownOpen, setIsMusicDropdownOpen] = useState(false)
   const [isSocialDropdownOpen, setIsSocialDropdownOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
-  //const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeTooltip, setActiveTooltip] = useState<{ text: string; element: HTMLElement } | null>(null)
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(true)
+
+  // Load tooltip setting from localStorage
+  useEffect(() => {
+    const savedShowTooltips = localStorage.getItem('showTooltips');
+    if (savedShowTooltips !== null) {
+      setTooltipsEnabled(savedShowTooltips === 'true');
+    }
+  }, []);
 
   // Calculate effective states for visual feedback
   const effectiveSnapToGrid = snapToGrid && !isAltPressed
   const effectiveMoveWithChildren = moveWithChildren || (!moveWithChildren && isCtrlPressed)
+
+  // Tooltip handlers
+  const showTooltip = useCallback((text: string, element: HTMLElement) => {
+    if (tooltipsEnabled) {
+      setActiveTooltip({ text, element })
+    }
+  }, [tooltipsEnabled])
+
+  const hideTooltip = useCallback(() => {
+    setActiveTooltip(null)
+  }, [])
 
 
 
@@ -170,6 +191,30 @@ export function NodeTypesMenu({
     onDragStart(type)
     event.dataTransfer.setData("application/reactflow-type", type)
     event.dataTransfer.effectAllowed = "move"
+  }
+
+  // Tooltip component that renders to document.body
+  const renderTooltip = () => {
+    if (!activeTooltip || !tooltipsEnabled) return null
+
+    const rect = activeTooltip.element.getBoundingClientRect()
+    const tooltipStyle = {
+      position: 'fixed' as const,
+      left: rect.right + 8,
+      top: rect.top + (rect.height / 2),
+      transform: 'translateY(-50%)',
+      zIndex: 9999,
+    }
+
+    return createPortal(
+      <div
+        className="px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md whitespace-nowrap"
+        style={tooltipStyle}
+      >
+        {activeTooltip.text}
+      </div>,
+      document.body
+    )
   }
 
   return (
@@ -190,6 +235,8 @@ export function NodeTypesMenu({
             onClick={onUndo}
             disabled={!canUndo}
             className={`p-1 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!canUndo ? "text-gray-400" : "text-white"}`}
+            onMouseEnter={(e) => showTooltip("Undo (Ctrl+Z)", e.currentTarget)}
+            onMouseLeave={hideTooltip}
           >
             <Undo className="w-5 h-5" />
           </button>
@@ -197,33 +244,32 @@ export function NodeTypesMenu({
             onClick={onRedo}
             disabled={!canRedo}
             className={`p-1 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!canRedo ? "text-gray-400" : "text-white"}`}
+            onMouseEnter={(e) => showTooltip("Redo (Ctrl+Y)", e.currentTarget)}
+            onMouseLeave={hideTooltip}
           >
             <Redo className="w-5 h-5" />
           </button>
         </div>
 
         {nodeTypes.map((nodeType) => (
-          <div key={nodeType.id} className="relative">
-            <div
-              draggable
-              onDragStart={(e) => handleDragStart(e, nodeType.type)}
-              className="group w-9 h-10 flex items-center justify-center text-white rounded-lg cursor-move shadow-md transition-all duration-300 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25"
-            >
-              {nodeType.icon}
-            </div>
-            <div
-              className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-              style={{ zIndex: 9999 }}
-            >
-              {nodeType.label}
-            </div>
+          <div
+            key={nodeType.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, nodeType.type)}
+            onMouseEnter={(e) => showTooltip(nodeType.label, e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className="w-9 h-10 flex items-center justify-center text-white rounded-lg cursor-move shadow-md transition-all duration-300 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25"
+          >
+            {nodeType.icon}
           </div>
         ))}
 
         <div className="relative">
           <button
             onClick={() => setIsMusicDropdownOpen((prev) => !prev)}
-            className={`group w-9 h-10 flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${
+            onMouseEnter={(e) => showTooltip("Add Music", e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className={`w-9 h-10 flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${
               isMusicDropdownOpen ? "ring-2 ring-slate-500/50" : ""
             } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
           >
@@ -234,12 +280,6 @@ export function NodeTypesMenu({
               />
             </div>
           </button>
-          <div
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-            style={{ zIndex: 9999 }}
-          >
-            Add Music
-          </div>
           {isMusicDropdownOpen && (
             <div
               className="mt-2 max-h-36 overflow-y-auto p-2 rounded-lg shadow-lg bg-slate-800/95 backdrop-blur-xl border border-slate-700/50"
@@ -250,20 +290,15 @@ export function NodeTypesMenu({
               }}
             >
               {musicTypes.map((musicType) => (
-                <div key={musicType.id} className="relative">
-                  <div
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, musicType.type)}
-                    className="group w-9 h-10 flex items-center justify-center text-white rounded-lg cursor-move shadow transition-all duration-300 mb-2 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25"
-                  >
-                    {musicType.icon}
-                  </div>
-                  <div
-                    className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-                    style={{ zIndex: 9999 }}
-                  >
-                    {musicType.label}
-                  </div>
+                <div
+                  key={musicType.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, musicType.type)}
+                  onMouseEnter={(e) => showTooltip(musicType.label, e.currentTarget)}
+                  onMouseLeave={hideTooltip}
+                  className="w-9 h-10 flex items-center justify-center text-white rounded-lg cursor-move shadow transition-all duration-300 mb-2 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25"
+                >
+                  {musicType.icon}
                 </div>
               ))}
             </div>
@@ -273,7 +308,9 @@ export function NodeTypesMenu({
         <div className="relative">
           <button
             onClick={() => setIsSocialDropdownOpen((prev) => !prev)}
-            className={`group w-9 h-10 flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${
+            onMouseEnter={(e) => showTooltip("Social Media", e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className={`w-9 h-10 flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${
               isSocialDropdownOpen ? "ring-2 ring-slate-500/50" : ""
             } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
           >
@@ -284,12 +321,6 @@ export function NodeTypesMenu({
               />
             </div>
           </button>
-          <div
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-            style={{ zIndex: 9999 }}
-          >
-            Social Media
-          </div>
           {isSocialDropdownOpen && (
             <div
               className="mt-2 max-h-36 overflow-y-auto p-2 rounded-lg shadow-lg bg-slate-800/95 backdrop-blur-xl border border-slate-700/50"
@@ -300,65 +331,74 @@ export function NodeTypesMenu({
               }}
             >
               {socialMediaTypes.map((socialType) => (
-                <div key={socialType.id} className="relative">
-                  <div
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, socialType.type)}
-                    className="group w-9 h-10 flex items-center justify-center text-white rounded-lg cursor-move shadow transition-all duration-300 mb-2 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25"
-                  >
-                    {socialType.icon}
-                  </div>
-                  <div
-                    className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-                    style={{ zIndex: 9999 }}
-                  >
-                    {socialType.label}
-                  </div>
+                <div
+                  key={socialType.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, socialType.type)}
+                  onMouseEnter={(e) => showTooltip(socialType.label, e.currentTarget)}
+                  onMouseLeave={hideTooltip}
+                  className="w-9 h-10 flex items-center justify-center text-white rounded-lg cursor-move shadow transition-all duration-300 mb-2 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25"
+                >
+                  {socialType.icon}
                 </div>
               ))}
             </div>
           )}
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setMoveWithChildren(!moveWithChildren)}
-            className={`mt-4 w-9 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
-              effectiveMoveWithChildren
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-                : "bg-slate-700/50 text-white hover:bg-slate-600/50"
-            } group`}
-            title={moveWithChildren ? "Disable moving subnodes together" : "Enable moving subnodes together"}
-          >
-            <GitBranch className="w-5 h-5" />
-          </button>
-          <div
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-            style={{ zIndex: 9999 }}
-          >
-            {effectiveMoveWithChildren ? "Subnodes Moving: On" : "Subnodes Moving: Off"}
-            {!moveWithChildren && isCtrlPressed && " (Ctrl)"}
-          </div>
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`mt-2 w-9 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
-              effectiveSnapToGrid
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-                : "bg-slate-700/50 text-white hover:bg-slate-600/50"
-            } group`}
-            title={snapToGrid ? "Disable snap to grid" : "Enable snap to grid"}
-          >
-            <Grid3X3 className="w-5 h-5" />
-          </button>
-          <div
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
-            style={{ zIndex: 9999 }}
-          >
-            {effectiveSnapToGrid ? "Snap to Grid: On" : "Snap to Grid: Off"}
-            {snapToGrid && isAltPressed && " (Alt)"}
-          </div>
-        </div>
+
+        {/* Separator line between draggable nodes and clickable options */}
+        <div className="my-3 border-t border-slate-600/50"></div>
+
+        <button
+          onClick={() => {
+            setMoveWithChildren(!moveWithChildren);
+            // Update tooltip immediately if it's currently showing for this button
+            if (activeTooltip && activeTooltip.element) {
+              const tooltipText = !effectiveMoveWithChildren ? "Subnodes Moving: On" : "Subnodes Moving: Off";
+              const modifierText = moveWithChildren && isCtrlPressed ? " (Ctrl)" : "";
+              setActiveTooltip({ text: tooltipText + modifierText, element: activeTooltip.element });
+            }
+          }}
+          onMouseEnter={(e) => {
+            const tooltipText = effectiveMoveWithChildren ? "Subnodes Moving: On" : "Subnodes Moving: Off";
+            const modifierText = !moveWithChildren && isCtrlPressed ? " (Ctrl)" : "";
+            showTooltip(tooltipText + modifierText, e.currentTarget);
+          }}
+          onMouseLeave={hideTooltip}
+          className={`w-9 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
+            effectiveMoveWithChildren
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+              : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+          }`}
+          title={moveWithChildren ? "Disable moving subnodes together" : "Enable moving subnodes together"}
+        >
+          <GitBranch className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => {
+            setSnapToGrid(!snapToGrid);
+            // Update tooltip immediately if it's currently showing for this button
+            if (activeTooltip && activeTooltip.element) {
+              const tooltipText = !effectiveSnapToGrid ? "Snap to Grid: On" : "Snap to Grid: Off";
+              const modifierText = !snapToGrid && isAltPressed ? " (Alt)" : "";
+              setActiveTooltip({ text: tooltipText + modifierText, element: activeTooltip.element });
+            }
+          }}
+          onMouseEnter={(e) => {
+            const tooltipText = effectiveSnapToGrid ? "Snap to Grid: On" : "Snap to Grid: Off";
+            const modifierText = snapToGrid && isAltPressed ? " (Alt)" : "";
+            showTooltip(tooltipText + modifierText, e.currentTarget);
+          }}
+          onMouseLeave={hideTooltip}
+          className={`mt-2 w-9 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
+            effectiveSnapToGrid
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+              : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+          }`}
+          title={snapToGrid ? "Disable snap to grid" : "Enable snap to grid"}
+        >
+          <Grid3X3 className="w-5 h-5" />
+        </button>
       </div>
       <button
         onClick={() => setIsMinimized(!isMinimized)}
@@ -370,6 +410,7 @@ export function NodeTypesMenu({
           }`}
         />
       </button>
+      {renderTooltip()}
     </div>
   )
 }

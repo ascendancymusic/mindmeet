@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Type, Edit3, Bold, Italic, Code, Palette } from 'lucide-react';
 import { Handle, Position, NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
 import MarkdownRenderer from './MarkdownRenderer';
