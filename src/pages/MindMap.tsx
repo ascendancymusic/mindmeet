@@ -166,6 +166,8 @@ export default function MindMap() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [visuallySelectedNodeId, setVisuallySelectedNodeId] = useState<string | null>(null)
   const [moveWithChildren, setMoveWithChildren] = useState(false)
+  const [snapToGrid, setSnapToGrid] = useState(true)
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080)
@@ -181,7 +183,7 @@ export default function MindMap() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPosition, setDragStartPosition] = useState<Record<string, { x: number; y: number }> | null>(null)
   const [isMultiDragging, setIsMultiDragging] = useState(false)
-  const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isAltPressed, setIsAltPressed] = useState(false)
   const edgeReconnectSuccessful = useRef(true);
 
 
@@ -246,6 +248,21 @@ export default function MindMap() {
   const [mindMapSearchTerm, setMindMapSearchTerm] = useState("");
   const [mindMapSortBy, setMindMapSortBy] = useState<'alphabetical' | 'lastEdited'>('lastEdited');
   const [showCreateMindMapForm, setShowCreateMindMapForm] = useState(false);
+
+  // Autosave state
+  const [showAutosaveMenu, setShowAutosaveMenu] = useState(false);
+  const [autosaveInterval, setAutosaveInterval] = useState<'off' | '5min' | '10min' | 'custom'>(() => {
+    // Load autosave preference from localStorage
+    const saved = localStorage.getItem('autosaveInterval') as 'off' | '5min' | '10min' | 'custom' | null;
+    return saved || 'off';
+  });
+  const [customAutosaveMinutes, setCustomAutosaveMinutes] = useState(() => {
+    // Load custom interval from localStorage
+    const saved = localStorage.getItem('customAutosaveMinutes');
+    return saved ? parseInt(saved, 10) : 15;
+  });
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [newMindMapTitle, setNewMindMapTitle] = useState("");
 
   // Edge type state
@@ -588,23 +605,84 @@ export default function MindMap() {
     [edges],
   )
 
-  
-
+  // Alt key handler for temporary snap to grid override
   useEffect(() => {
-    const handleAltDown = (e: KeyboardEvent) => {
-      if (e.altKey) setIsAltPressed(true);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') {
+        setIsAltPressed(true);
+      }
     };
-    const handleAltUp = (e: KeyboardEvent) => {
-      if (!e.altKey) setIsAltPressed(false);
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') {
+        setIsAltPressed(false);
+      }
     };
-    window.addEventListener('keydown', handleAltDown);
-    window.addEventListener('keyup', handleAltUp);
+
+    // Handle window focus/blur to reset Alt state
+    const handleWindowFocus = () => {
+      // Reset Alt state when window regains focus
+      setIsAltPressed(false);
+    };
+
+    const handleWindowBlur = () => {
+      // Reset Alt state when window loses focus
+      setIsAltPressed(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+
     return () => {
-      window.removeEventListener('keydown', handleAltDown);
-      window.removeEventListener('keyup', handleAltUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, []);
 
+  // Ctrl key handler for temporary move with children override
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlPressed(false);
+      }
+    };
+
+    // Handle window focus/blur to reset Ctrl state
+    const handleWindowFocus = () => {
+      // Reset Ctrl state when window regains focus
+      setIsCtrlPressed(false);
+    };
+
+    const handleWindowBlur = () => {
+      // Reset Ctrl state when window loses focus
+      setIsCtrlPressed(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
+
+  // Combined logic: button controls base preference, Ctrl provides temporary override (only when button is OFF)
+  const effectiveMoveWithChildren = moveWithChildren || (!moveWithChildren && isCtrlPressed);
 
   const toggleNodeCollapse = useCallback((nodeId: string, event: React.MouseEvent) => {
     event.stopPropagation()
@@ -693,11 +771,11 @@ export default function MindMap() {
   const onNodeDragStart = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setIsDragging(true)
-      const descendants = moveWithChildren ? getNodeDescendants(node.id) : []
+      const descendants = effectiveMoveWithChildren ? getNodeDescendants(node.id) : []
       const initialPositions = new Map()
       initialPositions.set(node.id, node.position)
 
-      if (moveWithChildren) {
+      if (effectiveMoveWithChildren) {
         descendants.forEach((descendantId) => {
           const descendantNode = nodes.find((n) => n.id === descendantId)
           if (descendantNode) {
@@ -708,17 +786,17 @@ export default function MindMap() {
 
       setDragStartPosition(Object.fromEntries(initialPositions))
     },
-    [nodes, moveWithChildren, getNodeDescendants],
+    [nodes, effectiveMoveWithChildren, getNodeDescendants],
   )
 
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       if (isDragging && dragStartPosition) {
-        const descendants = moveWithChildren ? getNodeDescendants(node.id) : []
+        const descendants = effectiveMoveWithChildren ? getNodeDescendants(node.id) : []
         const finalPositions = new Map()
         finalPositions.set(node.id, node.position)
 
-        if (moveWithChildren) {
+        if (effectiveMoveWithChildren) {
           descendants.forEach((descendantId) => {
             const descendantNode = nodes.find((n) => n.id === descendantId)
             if (descendantNode) {
@@ -755,6 +833,11 @@ export default function MindMap() {
           // This addresses ReactFlow edge rendering inconsistencies after node position changes
           setTimeout(() => {
             setEdges(currentEdges => [...currentEdges]);
+            // Force ReactFlow to recalculate internal state without changing viewport
+            if (reactFlowInstance) {
+              const currentViewport = reactFlowInstance.getViewport();
+              reactFlowInstance.setViewport(currentViewport);
+            }
           }, 0);
 
           // Create history action for node movement
@@ -782,7 +865,7 @@ export default function MindMap() {
       setIsDragging(false)
       setDragStartPosition(null)
     },
-    [isDragging, dragStartPosition, nodes, edges, addToHistory, moveWithChildren, getNodeDescendants],
+    [isDragging, dragStartPosition, nodes, edges, addToHistory, effectiveMoveWithChildren, getNodeDescendants, reactFlowInstance],
   )
 
 const onReconnectStart = useCallback(() => {
@@ -954,7 +1037,7 @@ const onReconnectEnd = useCallback(
         }
 
         // Apply changes to nodes
-        if (moveWithChildren && !isMultiSelectionDrag) {
+        if (effectiveMoveWithChildren && !isMultiSelectionDrag) {
           // This is a single node with children being moved
           const updatedChanges = positionChanges.flatMap((change) => {
 
@@ -1084,6 +1167,17 @@ const onReconnectEnd = useCallback(
           }
         }      } else {
         setNodes((nds) => applyNodeChanges(changes, nds));
+
+        // Force edge re-rendering when moving with children to prevent connection line issues
+        if (effectiveMoveWithChildren && positionChanges.length > 0) {
+          setTimeout(() => {
+            setEdges(currentEdges => [...currentEdges]);
+            if (reactFlowInstance) {
+              const currentViewport = reactFlowInstance.getViewport();
+              reactFlowInstance.setViewport(currentViewport);
+            }
+          }, 0);
+        }
       }      setIsInitialLoad(false);
       
       // Broadcast changes to collaborators if we're in a collaborative session
@@ -1129,7 +1223,7 @@ const onReconnectEnd = useCallback(
         });
       }
     },
-    [nodes, moveWithChildren, isInitialLoad, getNodeDescendants, isMultiDragging, multiDragStartPosition, edges, addToHistory, isDragging, currentMindMapId, broadcastLiveChange],
+    [nodes, effectiveMoveWithChildren, isInitialLoad, getNodeDescendants, isMultiDragging, multiDragStartPosition, edges, addToHistory, isDragging, currentMindMapId, broadcastLiveChange, reactFlowInstance],
   )
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
@@ -1163,19 +1257,98 @@ const onReconnectEnd = useCallback(
     },
     [isInitialLoad, currentMindMapId, broadcastLiveChange],
   )
+  // Enhanced connection validation for easy connect functionality
+  const isValidConnection = useCallback((connection: Connection) => {
+    // Prevent self-referential connections
+    if (connection.source === connection.target) {
+      return false;
+    }
+
+    // Get source and target nodes
+    const sourceNode = nodes.find(node => node.id === connection.source);
+    const targetNode = nodes.find(node => node.id === connection.target);
+
+    if (!sourceNode || !targetNode) {
+      return false;
+    }
+
+    // Auto-determine handles based on the original drag direction
+    // If sourceHandle is already set, it means user dragged from a specific handle
+    if (connection.sourceHandle) {
+      // User dragged from bottom handle (source) - target becomes child
+      if (connection.sourceHandle.includes('-source')) {
+        connection.targetHandle = `${connection.target}-target`;
+      }
+      // User dragged from top handle (target) - this shouldn't happen in normal flow
+      else if (connection.sourceHandle.includes('-target')) {
+        connection.targetHandle = `${connection.target}-source`;
+      }
+    } else {
+      // Fallback: default connection (source bottom to target top)
+      connection.sourceHandle = `${connection.source}-source`;
+      connection.targetHandle = `${connection.target}-target`;
+    }
+
+    // Check if this connection would create a cycle (but allow direct bidirectional connections)
+    const wouldCreateCycle = (sourceId: string, targetId: string, currentEdges: any[]) => {
+      // Allow direct bidirectional connections (A→B and B→A)
+      const directConnection = currentEdges.find(edge =>
+        edge.source === targetId && edge.target === sourceId
+      );
+      if (directConnection) {
+        // This is a direct bidirectional connection, which is allowed
+        return false;
+      }
+
+      // Check for longer cycles (A→B→C→A)
+      const visited = new Set();
+      const stack = [targetId];
+      let depth = 0;
+
+      while (stack.length > 0 && depth < 10) { // Limit depth to prevent infinite loops
+        const current = stack.pop();
+        depth++;
+
+        if (current === sourceId && depth > 1) {
+          // Found a cycle that's longer than direct bidirectional
+          return true;
+        }
+
+        if (visited.has(current)) continue;
+        visited.add(current);
+
+        // Find all nodes that this current node connects to
+        const outgoingEdges = currentEdges.filter(edge => edge.source === current);
+        outgoingEdges.forEach(edge => {
+          if (!visited.has(edge.target)) {
+            stack.push(edge.target);
+          }
+        });
+      }
+      return false;
+    };
+
+    // Prevent longer cycles but allow direct bidirectional connections
+    if (wouldCreateCycle(connection.source!, connection.target!, edges)) {
+      return false;
+    }
+
+    return true;
+  }, [nodes, edges]);
+
   const onConnect = useCallback(
     (params: Connection) => {
-      // Prevent self-referential connections which would create invalid graph structures
-      if (params.source === params.target) {
+      // Use enhanced validation that auto-determines handles
+      if (!isValidConnection(params)) {
         return;
       }
 
       setEdges((eds) => {
         const newEdges = addEdge(params, eds)
-        
+
         // Broadcast new edge creation to collaborators
         if (currentMindMapId) {
-          const newEdge = newEdges.find(edge => 
+          const newEdge = newEdges.find(edge =>
             edge.source === params.source && edge.target === params.target
           );
           if (newEdge) {
@@ -1187,7 +1360,7 @@ const onReconnectEnd = useCallback(
             });
           }
         }
-        
+
         // Create history action for connecting nodes
         const action = createHistoryAction(
           "connect_nodes",
@@ -1202,10 +1375,10 @@ const onReconnectEnd = useCallback(
       if (!isInitialLoad) {
         setHasUnsavedChanges(true)
       }
-      
+
       setIsInitialLoad(false)
     },
-    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange],
+    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange, isValidConnection],
   )
 
   const onDragStart = () => {
@@ -2526,6 +2699,31 @@ const onReconnectEnd = useCallback(
     setCanRedo(false)
   }, [id, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType]);
 
+  // Autosave function - uses the same save logic as manual save
+  const scheduleAutosave = useCallback(() => {
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    if (autosaveInterval !== 'off' && hasUnsavedChanges && isLoggedIn) {
+      let intervalMs: number;
+
+      if (autosaveInterval === '5min') {
+        intervalMs = 5 * 60 * 1000;
+      } else if (autosaveInterval === '10min') {
+        intervalMs = 10 * 60 * 1000;
+      } else if (autosaveInterval === 'custom') {
+        intervalMs = customAutosaveMinutes * 60 * 1000;
+      } else {
+        return; // Should not happen, but safety check
+      }
+
+      autosaveTimeoutRef.current = setTimeout(() => {
+        handleSave(); // Use the exact same save function
+      }, intervalMs);
+    }
+  }, [autosaveInterval, customAutosaveMinutes, hasUnsavedChanges, isLoggedIn, handleSave]);
+
   const handleTitleChange = (newTitle: string) => {
     const prevTitle = editedTitle
     const truncatedTitle = newTitle.substring(0, 20)
@@ -3403,6 +3601,46 @@ const onReconnectEnd = useCallback(
     };
   }, [showMindMapSelector]);
 
+  // Click outside handler for Autosave menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAutosaveMenu && !(event.target as Element).closest('.autosave-dropdown')) {
+        setShowAutosaveMenu(false);
+        setShowCustomInput(false);
+      }
+    };
+
+    if (showAutosaveMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAutosaveMenu]);
+
+  // Schedule autosave when changes occur or interval changes
+  useEffect(() => {
+    scheduleAutosave();
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [scheduleAutosave]);
+
+  // Save autosave preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('autosaveInterval', autosaveInterval);
+  }, [autosaveInterval]);
+
+  // Save custom autosave minutes to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('customAutosaveMinutes', customAutosaveMinutes.toString());
+  }, [customAutosaveMinutes]);
+
   const handleModalResponse = async (response: "yes" | "no" | "cancel") => {
     if (response === "yes") {
       await handleSave()
@@ -3919,7 +4157,7 @@ const onReconnectEnd = useCallback(
   
   // Skeleton loader for mind map interface
   const MindMapSkeleton = () => (
-    <div className="fixed inset-0 flex items-start justify-center pt-20 -translate-y-2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <style>{`
         @keyframes shimmer {
           0% { transform: translateX(-100%); }
@@ -3929,145 +4167,164 @@ const onReconnectEnd = useCallback(
           animation: shimmer 2s infinite;
         }
       `}</style>
-      
+
       {/* Left sidebar - Node Types Menu skeleton */}
-      <div className="fixed left-0 top-[8.75rem] z-10">
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-3 space-y-2" style={{ width: '80px' }}>
-          {/* Node type buttons skeleton */}
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="w-12 h-12 rounded-xl bg-slate-700/50 animate-pulse relative overflow-hidden" style={{ animationDelay: `${i * 100}ms` }}>
+      <div className="fixed left-0 top-[8rem] z-10">
+        <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-lg shadow-xl border border-slate-700/50 p-2 space-y-2" style={{ width: '60px' }}>
+          {/* Node type buttons skeleton - matching w-9 h-10 from real component */}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="w-9 h-10 rounded-lg bg-slate-700/50 animate-pulse relative overflow-hidden" style={{ animationDelay: `${i * 100}ms` }}>
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
             </div>
           ))}
-          
+
           {/* Undo/Redo buttons skeleton */}
           <div className="border-t border-slate-700/30 pt-2 mt-2">
             <div className="space-y-2">
-              <div className="w-12 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+              <div className="w-9 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
               </div>
-              <div className="w-12 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+              <div className="w-9 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Main container skeleton */}
-      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 p-4 pt-3 text-slate-100 w-[95vw] relative h-[90vh]">
-        
-        {/* Header skeleton */}
-        <div className="flex justify-between items-center mb-2 mt-1">
-          {/* Back button skeleton */}
-          <div className="flex items-center space-x-2 p-3 rounded-lg bg-slate-700/50 animate-pulse relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
-            <div className="w-5 h-5 bg-slate-600/50 rounded"></div>
-            <div className="h-4 bg-slate-600/50 rounded w-24"></div>
+
+      {/* Main ReactFlow area skeleton - Full screen with header overlay */}
+      <div className="fixed inset-0 pt-[4rem]">
+        {/* Background grid pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="w-full h-full" style={{
+            backgroundImage: 'radial-gradient(circle, #64748b 1px, transparent 1px)',
+            backgroundSize: '20px 20px'
+          }}></div>
+        </div>
+
+        {/* Simulated mind map nodes skeleton */}
+        <div className="absolute inset-0 p-8">
+          {/* Central node */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <div className="w-32 h-16 bg-slate-700/60 rounded-xl animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+            </div>
           </div>
-          
-          {/* Title skeleton */}
-          <div className="h-8 bg-slate-700/50 rounded-lg w-64 animate-pulse relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+
+          {/* Surrounding nodes */}
+          <div className="absolute left-1/4 top-1/3 w-24 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '200ms' }}>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
           </div>
-          
-          {/* Save button skeleton */}
-          <div className="flex items-center space-x-2 px-4 py-3 rounded-lg bg-slate-700/50 animate-pulse relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
-            <div className="w-5 h-5 bg-slate-600/50 rounded"></div>
-            <div className="h-4 bg-slate-600/50 rounded w-20"></div>
+          <div className="absolute right-1/4 top-1/4 w-28 h-14 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '400ms' }}>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="absolute left-1/3 bottom-1/3 w-20 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '600ms' }}>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="absolute right-1/3 bottom-1/4 w-26 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '800ms' }}>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+
+          {/* Connection lines skeleton */}
+          <svg className="absolute inset-0 w-full h-full">
+            <defs>
+              <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="transparent" />
+                <stop offset="50%" stopColor="rgba(148, 163, 184, 0.3)" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
+            </defs>
+
+            <line x1="50%" y1="50%" x2="25%" y2="33%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+            <line x1="50%" y1="50%" x2="75%" y2="25%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+            <line x1="50%" y1="50%" x2="33%" y2="67%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+            <line x1="50%" y1="50%" x2="67%" y2="75%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
+          </svg>
+        </div>
+
+        {/* ReactFlow Controls skeleton */}
+        <div className="absolute bottom-4 left-4 space-y-2">
+          <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
+          </div>
+          <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
           </div>
         </div>
 
-        {/* Main canvas area skeleton */}
-        <div className="h-[calc(100%-2rem)] w-full border border-slate-700/50 rounded-xl overflow-hidden relative backdrop-blur-sm bg-slate-900/30">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
-          
-          {/* Background grid pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="w-full h-full" style={{
-              backgroundImage: 'radial-gradient(circle, #64748b 1px, transparent 1px)',
-              backgroundSize: '20px 20px'
-            }}></div>
+        {/* Header Elements Overlay - positioned over ReactFlow */}
+        {/* Back to Maps button - Top Left */}
+        <div className="absolute top-4 left-0 z-50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+            <div className="w-4 h-4 bg-slate-600/50 rounded"></div>
+            <div className="h-4 bg-slate-600/50 rounded w-24"></div>
           </div>
-          
-          {/* Simulated mind map nodes skeleton */}
-          <div className="absolute inset-0 p-8">
-            {/* Central node */}
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-32 h-16 bg-slate-700/60 rounded-xl animate-pulse relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-              </div>
-            </div>
-            
-            {/* Surrounding nodes */}
-            <div className="absolute left-1/4 top-1/3 w-24 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '200ms' }}>
+        </div>
+
+        {/* Collaborators List skeleton - next to Back button */}
+        <div className="absolute top-4 left-36 z-50">
+          <div className="flex space-x-2">
+            <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
             </div>
-            <div className="absolute right-1/4 top-1/4 w-28 h-14 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '400ms' }}>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            </div>
-            <div className="absolute left-1/3 bottom-1/3 w-20 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '600ms' }}>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            </div>
-            <div className="absolute right-1/3 bottom-1/4 w-26 h-12 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden" style={{ animationDelay: '800ms' }}>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            </div>
-            
-            {/* Connection lines skeleton */}
-            <svg className="absolute inset-0 w-full h-full">
-              <defs>
-                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="transparent" />
-                  <stop offset="50%" stopColor="rgba(148, 163, 184, 0.3)" />
-                  <stop offset="100%" stopColor="transparent" />
-                </linearGradient>
-              </defs>
-              
-              <line x1="50%" y1="50%" x2="25%" y2="33%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
-              <line x1="50%" y1="50%" x2="75%" y2="25%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
-              <line x1="50%" y1="50%" x2="33%" y2="67%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
-              <line x1="50%" y1="50%" x2="67%" y2="75%" stroke="url(#lineGradient)" strokeWidth="2" className="animate-pulse" />
-            </svg>
-          </div>
-          
-          {/* Controls skeleton */}
-          <div className="absolute bottom-4 left-4 space-y-2">
-            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            </div>
-            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            </div>
-            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            </div>
-            <div className="w-10 h-10 bg-slate-700/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
             </div>
           </div>
-          
-          {/* Corner buttons skeleton */}
-          <div className="absolute top-2 right-2 w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+        </div>
+
+        {/* Title skeleton - Top Center */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="h-10 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 w-64 animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+          </div>
+        </div>
+
+        {/* Action buttons group skeleton - Top Right */}
+        <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
+          {/* Edit button skeleton - matches px-3 py-3 */}
+          <div className="w-10 h-10 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+          </div>
+
+          {/* Save button skeleton - matches split button design */}
+          <div className="flex">
+            {/* Main save button skeleton */}
+            <div className="flex items-center space-x-2 px-3 py-2 rounded-l-lg bg-slate-800/70 backdrop-blur-sm border border-r-0 border-slate-600/50 animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+              <div className="w-4 h-4 bg-slate-600/50 rounded"></div>
+              <div className="h-4 bg-slate-600/50 rounded w-10"></div>
+            </div>
+            {/* Chevron button skeleton */}
+            <div className="flex items-center px-2 py-2 rounded-r-lg bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 animate-pulse relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+              <div className="w-3 h-3 bg-slate-600/50 rounded"></div>
+            </div>
+          </div>
+
+          {/* Fullscreen button skeleton - matches px-3 py-3 */}
+          <div className="w-10 h-10 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg animate-pulse relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/10 to-transparent animate-shimmer"></div>
+          </div>
+        </div>
+
+        {/* Bottom right UI elements skeleton */}
+        <div className="absolute bottom-4 right-4 z-30">
+          <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
           </div>
-          <div className="absolute bottom-2 right-2 w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
+        </div>
+
+        <div className="absolute bottom-4 right-16 z-30">
+          <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-          </div>
-          <div className="absolute bottom-1.5 right-12 w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-          </div>
-          
-          {/* Collaborators area skeleton */}
-          <div className="absolute top-2 left-2">
-            <div className="flex space-x-2">
-              <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-              </div>
-              <div className="w-8 h-8 bg-slate-700/50 rounded-full animate-pulse relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -4108,6 +4365,10 @@ const onReconnectEnd = useCallback(
           <NodeTypesMenu
             moveWithChildren={moveWithChildren}
             setMoveWithChildren={setMoveWithChildren}
+            snapToGrid={snapToGrid}
+            setSnapToGrid={setSnapToGrid}
+            isAltPressed={isAltPressed}
+            isCtrlPressed={isCtrlPressed}
             onDragStart={onDragStart}
             maxHeight={`${mindMapHeight}px`}
             onUndo={undo}
@@ -4174,7 +4435,7 @@ const onReconnectEnd = useCallback(
                     )}
                   </div>
                   <button
-                    className="ml-2 p-1 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
+                    className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleNodeCollapse(node.id, e);
@@ -4225,6 +4486,39 @@ const onReconnectEnd = useCallback(
                      typeof node.style?.height === 'string' ? node.style.height :
                      "auto") :
                     (nodeTypeStyle as any).height || 'auto',
+                  minHeight: node.type === "default" ? (() => {
+                    // Dynamic height calculation using text measurement
+                    const textContent = typeof nodeData.label === 'string' ? nodeData.label : '';
+                    if (!textContent || textContent.trim() === '') {
+                      return "40px"; // Default minimum height for empty text
+                    }
+
+                    // Get current width for calculation
+                    const currentWidth = typeof node.width === 'number' ? node.width :
+                      (typeof node.style?.width === 'number' ? node.style.width :
+                      (typeof node.style?.width === 'string' ? parseFloat(node.style.width) : 120));
+
+                    // Create a temporary element to measure text height
+                    const tempDiv = document.createElement('div');
+                    tempDiv.style.position = 'absolute';
+                    tempDiv.style.visibility = 'hidden';
+                    tempDiv.style.width = `${currentWidth - 16 - (hasChildren ? 30 : 0)}px`; // Account for padding and chevron
+                    tempDiv.style.fontSize = '14px'; // Match node font size
+                    tempDiv.style.lineHeight = '1.4'; // Match text line height
+                    tempDiv.style.fontFamily = 'inherit';
+                    tempDiv.style.wordWrap = 'break-word';
+                    tempDiv.style.whiteSpace = 'pre-wrap';
+                    tempDiv.innerHTML = textContent.replace(/\n/g, '<br>');
+
+                    document.body.appendChild(tempDiv);
+                    const textHeight = tempDiv.offsetHeight;
+                    document.body.removeChild(tempDiv);
+
+                    // Add padding for node styling
+                    const minHeight = Math.max(40, textHeight + 20); // 20px for padding/border
+
+                    return `${minHeight}px`;
+                  })() : "auto",
                   minWidth: "auto",
                   // Special border radius handling for image nodes with titles
                   borderRadius: node.type === "image" && nodeData.label ? 
@@ -4291,7 +4585,8 @@ const onReconnectEnd = useCallback(
             connectionLineStyle={{
               strokeWidth: 2,
             }}
-            connectionRadius={8}
+            connectionRadius={50}
+            isValidConnection={isValidConnection}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -4372,7 +4667,7 @@ const onReconnectEnd = useCallback(
             fitView
             proOptions={{ hideAttribution: true }}
             deleteKeyCode="null"
-            snapToGrid={!isAltPressed}
+            snapToGrid={snapToGrid && !isAltPressed}
             snapGrid={[20, 20]}
             onReconnectStart={onReconnectStart}
             onReconnect={onReconnect}
@@ -4540,30 +4835,142 @@ const onReconnectEnd = useCallback(
                     <Edit3 className="w-4 h-4" />
                   </button>
 
-                  {/* Save button */}
-                  <button
-                    onClick={handleSave}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 backdrop-blur-sm border ${
-                      hasUnsavedChanges && !isSaving
-                        ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
-                        : isSaving
-                        ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
-                        : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
-                    }`}
-                    disabled={!hasUnsavedChanges || isSaving}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader className="w-4 h-4 animate-spin" />
-                        {isSmallScreen ? null : <span>Saving...</span>}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        {isSmallScreen ? null : <span>Save</span>}
-                      </>
+                  {/* Save button with dropdown */}
+                  <div className="relative autosave-dropdown">
+                    <div className="flex">
+                      {/* Main save button */}
+                      <button
+                        onClick={handleSave}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${
+                          hasUnsavedChanges && !isSaving
+                            ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
+                            : isSaving
+                            ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
+                            : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
+                        }`}
+                        disabled={!hasUnsavedChanges || isSaving}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader className="w-4 h-4 animate-spin" />
+                            {isSmallScreen ? null : <span>Saving...</span>}
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            {isSmallScreen ? null : <span>Save</span>}
+                          </>
+                        )}
+                      </button>
+
+                      {/* Chevron dropdown button */}
+                      <button
+                        onClick={() => setShowAutosaveMenu(!showAutosaveMenu)}
+                        className="flex items-center px-2 py-2 rounded-r-lg transition-all duration-200 backdrop-blur-sm border bg-slate-800/70 text-white hover:text-white hover:bg-slate-700/80 border-slate-600/50"
+                        disabled={isSaving}
+                      >
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAutosaveMenu ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Autosave dropdown menu */}
+                    {showAutosaveMenu && (
+                      <div className="absolute top-full right-0 mt-1 w-48 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
+                        <div className="p-2">
+                          <div className="flex items-center justify-between mb-2 px-2">
+                            <span className="text-xs text-slate-400">Autosave</span>
+                            <div className="relative group">
+                              <HelpCircle className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
+                              <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                <div className="text-xs text-slate-300 space-y-2">
+                                  <p>This setting applies to all your mindmaps globally.</p>
+                                  <p className="text-amber-400 font-medium">⚠️ After saving, you cannot undo changes, so use autosave with caution.</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setAutosaveInterval('off')
+                              setShowCustomInput(false)
+                              setShowAutosaveMenu(false)
+                            }}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
+                              autosaveInterval === 'off'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                            }`}
+                          >
+                            Off
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setAutosaveInterval('5min')
+                              setShowCustomInput(false)
+                              setShowAutosaveMenu(false)
+                            }}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
+                              autosaveInterval === '5min'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                            }`}
+                          >
+                            5 minutes
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setAutosaveInterval('10min')
+                              setShowCustomInput(false)
+                              setShowAutosaveMenu(false)
+                            }}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
+                              autosaveInterval === '10min'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                            }`}
+                          >
+                            10 minutes
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setAutosaveInterval('custom')
+                              setShowCustomInput(true)
+                            }}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
+                              autosaveInterval === 'custom'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                            }`}
+                          >
+                            Custom ({customAutosaveMinutes} min)
+                          </button>
+
+                          {/* Custom input field */}
+                          {showCustomInput && (
+                            <div className="mt-2 p-2 border-t border-slate-600/50">
+                              <div className="text-xs text-slate-400 mb-2">Custom interval (1-30 minutes)</div>
+                              <input
+                                type="number"
+                                min="1"
+                                max="30"
+                                value={customAutosaveMinutes}
+                                onChange={(e) => {
+                                  const value = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
+                                  setCustomAutosaveMinutes(value);
+                                }}
+                                className="w-full px-2 py-1 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white focus:outline-none focus:border-blue-500/50"
+                                autoFocus
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
-                  </button>
+                  </div>
 
                   {/* Fullscreen button */}
                   <button

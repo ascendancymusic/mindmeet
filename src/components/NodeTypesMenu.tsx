@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   TextCursor,
   Instagram,
@@ -20,6 +20,7 @@ import {
   Network,
   AudioWaveform,
   ListMusic,
+  Grid3X3,
 } from "lucide-react"
 import { TikTokIcon } from "./icons/TikTokIcon"
 import { SpotifyIcon } from "./icons/SpotifyIcon"
@@ -36,6 +37,10 @@ interface NodeTypesMenuProps {
   onDragStart: (type: string) => void
   moveWithChildren: boolean
   setMoveWithChildren: (moveWithChildren: boolean) => void
+  snapToGrid: boolean
+  setSnapToGrid: (snapToGrid: boolean) => void
+  isAltPressed: boolean
+  isCtrlPressed: boolean
   maxHeight: string
   onUndo: () => void
   onRedo: () => void
@@ -140,6 +145,10 @@ export function NodeTypesMenu({
   onDragStart,
   moveWithChildren,
   setMoveWithChildren,
+  snapToGrid,
+  setSnapToGrid,
+  isAltPressed,
+  isCtrlPressed,
   maxHeight,
   onUndo,
   onRedo,
@@ -151,27 +160,11 @@ export function NodeTypesMenu({
   const [isMinimized, setIsMinimized] = useState(false)
   //const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Control") {
-        setMoveWithChildren(true)
-      }
-    }
+  // Calculate effective states for visual feedback
+  const effectiveSnapToGrid = snapToGrid && !isAltPressed
+  const effectiveMoveWithChildren = moveWithChildren || (!moveWithChildren && isCtrlPressed)
 
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Control") {
-        setMoveWithChildren(false)
-      }
-    }
 
-    window.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("keyup", handleKeyUp)
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
-    }
-  }, [setMoveWithChildren])
 
   const handleDragStart = (event: React.DragEvent, type: string) => {
     onDragStart(type)
@@ -330,7 +323,7 @@ export function NodeTypesMenu({
           <button
             onClick={() => setMoveWithChildren(!moveWithChildren)}
             className={`mt-4 w-9 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
-              moveWithChildren
+              effectiveMoveWithChildren
                 ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
                 : "bg-slate-700/50 text-white hover:bg-slate-600/50"
             } group`}
@@ -342,7 +335,28 @@ export function NodeTypesMenu({
             className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
             style={{ zIndex: 9999 }}
           >
-            {moveWithChildren ? "Subnodes Moving: On" : "Subnodes Moving: Off"}
+            {effectiveMoveWithChildren ? "Subnodes Moving: On" : "Subnodes Moving: Off"}
+            {!moveWithChildren && isCtrlPressed && " (Ctrl)"}
+          </div>
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setSnapToGrid(!snapToGrid)}
+            className={`mt-2 w-9 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
+              effectiveSnapToGrid
+                ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+                : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+            } group`}
+            title={snapToGrid ? "Disable snap to grid" : "Enable snap to grid"}
+          >
+            <Grid3X3 className="w-5 h-5" />
+          </button>
+          <div
+            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1.5 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 shadow-xl text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap"
+            style={{ zIndex: 9999 }}
+          >
+            {effectiveSnapToGrid ? "Snap to Grid: On" : "Snap to Grid: Off"}
+            {snapToGrid && isAltPressed && " (Alt)"}
           </div>
         </div>
       </div>

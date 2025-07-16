@@ -128,9 +128,12 @@
 
 /* Markdown content styling for nodes */
 .markdown-content {
-  /* Ensure inline display for node content */
-  display: inline;
+  /* Allow proper text wrapping and height expansion */
+  display: block;
   line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
   /* Allow click events to pass through to the parent node */
   pointer-events: none;
 }

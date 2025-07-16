@@ -56,7 +56,7 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
   const processedFileRef = useRef<File | null>(null);
   const processedUrlRef = useRef<string | null>(null);
   const reactFlowInstance = useReactFlow();
-  const [initialSize, setInitialSize] = useState<{ width: number; height: number } | null>(null);
+  const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
   // Get the actual node to access its style/background
@@ -219,10 +219,10 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
             if (node) {
               const width = getNodeWidth(node, 100);
               const height = getNodeHeight(node, 100);
-              setInitialSize({
+              initialSizeRef.current = {
                 width: typeof width === 'string' ? parseFloat(width) : width,
                 height: typeof height === 'string' ? parseFloat(height) : height
-              });
+              };
             }
           }}
           onResize={() => {
@@ -231,15 +231,15 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
           }}
           onResizeEnd={(_event, params) => {
             // When resize ends, dispatch a custom event to track in history
-            if (initialSize) {
+            if (initialSizeRef.current) {
               // Only add to history if size actually changed
-              if (initialSize.width !== params.width || initialSize.height !== params.height) {
+              if (initialSizeRef.current.width !== params.width || initialSizeRef.current.height !== params.height) {
                 // Create a custom event with resize data
                 const customEvent = new CustomEvent('image-node-resized', {
                   detail: {
                     nodeId: id,
-                    previousWidth: initialSize.width,
-                    previousHeight: initialSize.height,
+                    previousWidth: initialSizeRef.current.width,
+                    previousHeight: initialSizeRef.current.height,
                     width: params.width,
                     height: params.height
                   },
@@ -248,7 +248,7 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
                 // Dispatch the event from the node element
                 document.dispatchEvent(customEvent);
               }
-              setInitialSize(null);
+              initialSizeRef.current = null;
             }
           }}
         >

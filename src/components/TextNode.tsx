@@ -17,6 +17,8 @@ const ResizeIcon = () => (
   </svg>
 );
 
+
+
 interface TextNodeProps {
   nodeId: string;
   label: string;
@@ -262,11 +264,11 @@ const TextNode: React.FC<TextNodeProps> = ({
 export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const label = data?.label;
   const reactFlowInstance = useReactFlow();
-  const [initialSize, setInitialSize] = useState<{ width: number; height: number } | null>(null);
+  const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
 
   return (
     <div className="relative overflow-visible no-node-overlay w-full h-full">
-      {/* ReactFlow handles */}
+      {/* ReactFlow handles positioned at the actual node boundaries */}
       <Handle
         type="target"
         position={Position.Top}
@@ -275,19 +277,21 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
         style={{ zIndex: 20 }}
       />
 
-      {/* Node content that fills the entire node */}
-      <div className="w-full h-full relative">
-        {/* If label is a React element (JSX), render it directly */}
-        {React.isValidElement(label) ? (
-          label
-        ) : (
-          /* If label is a string or empty, handle it appropriately */
-          !label || label === '' ? (
-            <span className="text-gray-400">Text...</span>
+      {/* Node content that expands with text */}
+      <div className="w-full relative">
+        <div className="w-full break-words whitespace-pre-wrap px-2 py-0">
+          {/* If label is a React element (JSX), render it directly */}
+          {React.isValidElement(label) ? (
+            label
           ) : (
-            <MarkdownRenderer content={String(label)} />
-          )
-        )}
+            /* If label is a string or empty, handle it appropriately */
+            !label || label === '' ? (
+              <span className="text-gray-400">Text...</span>
+            ) : (
+              <MarkdownRenderer content={String(label)} />
+            )
+          )}
+        </div>
       </div>
 
       {/* NodeResizeControl for actual resizing functionality */}
@@ -295,7 +299,7 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
         <NodeResizeControl
           nodeId={id}
           minWidth={100}
-          minHeight={42}
+          minHeight={40}
           maxWidth={600}
           maxHeight={400}
           style={{
@@ -315,11 +319,11 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
             const node = reactFlowInstance.getNode(id);
             if (node) {
               const width = getNodeWidth(node, 100);
-              const height = getNodeHeight(node, 42);
-              setInitialSize({
+              const height = getNodeHeight(node, 40);
+              initialSizeRef.current = {
                 width: typeof width === 'string' ? parseFloat(width) : width,
                 height: typeof height === 'string' ? parseFloat(height) : height
-              });
+              };
             }
           }}
           onResize={() => {
@@ -328,15 +332,29 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
           }}
           onResizeEnd={(_event, params) => {
             // When resize ends, dispatch a custom event to track in history
-            if (initialSize) {
+            // Get initial size if not available (fallback for when onResizeStart wasn't called)
+            let currentInitialSize = initialSizeRef.current;
+            if (!currentInitialSize) {
+              const node = reactFlowInstance.getNode(id);
+              if (node) {
+                const width = getNodeWidth(node, 100);
+                const height = getNodeHeight(node, 40);
+                currentInitialSize = {
+                  width: typeof width === 'string' ? parseFloat(width) : width,
+                  height: typeof height === 'string' ? parseFloat(height) : height
+                };
+              }
+            }
+
+            if (currentInitialSize) {
               // Only add to history if size actually changed
-              if (initialSize.width !== params.width || initialSize.height !== params.height) {
+              if (currentInitialSize.width !== params.width || currentInitialSize.height !== params.height) {
                 // Create a custom event with resize data
                 const customEvent = new CustomEvent('text-node-resized', {
                   detail: {
                     nodeId: id,
-                    previousWidth: initialSize.width,
-                    previousHeight: initialSize.height,
+                    previousWidth: currentInitialSize.width,
+                    previousHeight: currentInitialSize.height,
                     width: params.width,
                     height: params.height
                   },
@@ -345,11 +363,11 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
                 // Dispatch the event from the node element
                 document.dispatchEvent(customEvent);
               }
-              setInitialSize(null);
+              initialSizeRef.current = null;
             }
           }}
         >
-          <div className="p-2 hover:bg-gray-800/50 transition-colors duration-200 rounded-bl-lg cursor-se-resize">
+          <div className="p-2 rounded-bl-lg cursor-se-resize">
             <ResizeIcon />
           </div>
         </NodeResizeControl>

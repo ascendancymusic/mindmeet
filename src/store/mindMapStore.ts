@@ -755,6 +755,22 @@ updateMap: async (id, nodes, edges, title, userId, edgeType = 'default') => {
       };
     }
 
+    // For text nodes (default type), save width and height if they exist
+    if (node.type === 'default') {
+      const preparedNode = prepareNodeForSaving(node);
+      return {
+        id: preparedNode.id,
+        type: preparedNode.type,
+        position: preparedNode.position,
+        width: preparedNode.width,
+        height: preparedNode.height,
+        background: (node.background || node.style?.background) as string | undefined,
+        data: {
+          ...restData,
+        },
+      };
+    }
+
     return {
       id: node.id,
       type: node.type,

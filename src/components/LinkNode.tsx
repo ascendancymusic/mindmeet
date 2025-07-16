@@ -40,7 +40,7 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
   const [hasError, setHasError] = useState(false);
   const [nodeWidth, setNodeWidth] = useState(60);
 
-  const textRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLAnchorElement>(null);
 
   // Memoize the processed URL to avoid recalculating on every render
   const processedUrl = useMemo(() => {
@@ -54,9 +54,11 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
   }, [data.displayText, data.url]);
 
   // Memoize click handler to prevent recreation on every render
-  const handleNodeClick = useCallback(() => {
-    if (processedUrl) {
-      window.open(processedUrl, '_blank');
+  const handleNodeClick = useCallback((e: React.MouseEvent) => {
+    // Let the browser handle the link naturally via href
+    // Only prevent default if there's no valid URL
+    if (!processedUrl) {
+      e.preventDefault();
     }
   }, [processedUrl]);
 
@@ -182,16 +184,18 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
       />
       <div className="flex items-center">
         {iconComponent}
-        <span
+        <a
           ref={textRef}
+          href={processedUrl || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={handleNodeClick}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className={`ml-2 ${data.url === '' ? 'text-gray-400' : 'text-white'} cursor-pointer`}
-          title={data.url}
+          className={`ml-2 ${data.url === '' ? 'text-gray-400' : 'text-white'} cursor-pointer no-underline hover:no-underline`}
         >
           {displayText}
-        </span>
+        </a>
       </div>
       <Handle
         type="source"
