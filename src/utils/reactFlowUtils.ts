@@ -9,8 +9,8 @@ import defaultNodeStyles from '../config/defaultNodeStyles';
  */
 export const prepareNodesForRendering = (nodes: Node[]): Node[] => {
   return nodes.map((node) => {
-    // For image nodes, ensure width and height are properly set
-    if (node.type === 'image') {
+    // For image, audio, and default text nodes, ensure width and height are properly set
+    if (node.type === 'image' || node.type === 'default') {
       return prepareNodeForRendering(node, defaultNodeStyles);
     }
 

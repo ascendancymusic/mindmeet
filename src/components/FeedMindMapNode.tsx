@@ -12,6 +12,7 @@ import InfoModal from './InfoModal';
 import EditDetailsModal from './EditDetailsModal';
 import { formatDateWithPreference } from "../utils/dateUtils";
 import { useMindMapStore } from '../store/mindMapStore';
+import { processNodesForTextRendering } from '../utils/textNodeUtils';
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -646,7 +647,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
               }}></div>
               
               <ReactFlow
-                nodes={prepareNodesForRendering(localMindmap.json_data.nodes)}
+                nodes={processNodesForTextRendering(prepareNodesForRendering(localMindmap.json_data.nodes))}
                 edges={localMindmap.json_data.edges.map((edge: any) => {
                   // Find the source node to get its color
                   const sourceNode = localMindmap.json_data.nodes.find((node: any) => node.id === edge.source);

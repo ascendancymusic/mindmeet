@@ -57,6 +57,7 @@ import ReactFlow, { type NodeTypes } from "reactflow"
 import "reactflow/dist/style.css"
 import { nodeTypes } from "../config/nodeTypes"
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
+import { processNodesForTextRendering } from "../utils/textNodeUtils"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import UserListModal from "../components/UserListModal"
 import ShareModal from "../components/ShareModal"
@@ -912,7 +913,7 @@ const UserProfile: React.FC = () => {
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
-                            nodes={prepareNodesForRendering(map.json_data.nodes)}
+                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
                             edges={map.json_data.edges.map((edge: any) => {
                               // Find the source node to get its color
                               const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
@@ -1103,7 +1104,7 @@ const UserProfile: React.FC = () => {
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
-                            nodes={prepareNodesForRendering(map.json_data.nodes)}
+                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
                             edges={map.json_data.edges.map((edge: any) => {
                               // Find the source node to get its color
                               const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
@@ -1294,7 +1295,7 @@ const UserProfile: React.FC = () => {
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
-                            nodes={prepareNodesForRendering(map.json_data.nodes)}
+                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
                             edges={map.json_data.edges.map((edge: any) => {
                               // Find the source node to get its color
                               const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);

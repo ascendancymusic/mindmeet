@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient"
 import { useAuthStore } from "../store/authStore" 
 import { usePageTitle } from '../hooks/usePageTitle' 
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
+import { processNodesForTextRendering } from "../utils/textNodeUtils"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import eventEmitter from "../services/eventService"
 import {
@@ -1551,7 +1552,7 @@ export default function Profile() {
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
-                            nodes={prepareNodesForRendering(map.nodes)}
+                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                             edges={map.edges.map((edge: any) => {
                               // Find the source node to get its color
                               const sourceNode = map.nodes.find((node: any) => node.id === edge.source);
@@ -1746,7 +1747,7 @@ export default function Profile() {
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
-                            nodes={prepareNodesForRendering(map.nodes)}
+                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                             edges={map.edges.map((edge: any) => {
                               // Find the source node to get its color
                               const sourceNode = map.nodes.find((node: any) => node.id === edge.source);
@@ -1940,7 +1941,7 @@ export default function Profile() {
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
-                            nodes={prepareNodesForRendering(map.nodes)}
+                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                             edges={map.edges.map((edge: any) => {
                               // Find the source node to get its color
                               const sourceNode = map.nodes.find((node: any) => node.id === edge.source);

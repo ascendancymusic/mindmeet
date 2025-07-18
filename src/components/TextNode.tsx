@@ -261,13 +261,27 @@ const TextNode: React.FC<TextNodeProps> = ({
 };
 
 // DefaultTextNode component for ReactFlow canvas - shows resizable borders when selected
-export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => {
+export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: React.MouseEvent, nodeId: string) => void }> = ({
+  id,
+  data,
+  selected,
+  onContextMenu
+}) => {
   const label = data?.label;
   const reactFlowInstance = useReactFlow();
   const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
-    <div className="relative overflow-visible no-node-overlay w-full h-full">
+    <div
+      className="relative overflow-visible no-node-overlay w-full h-full"
+      onContextMenu={handleContextMenu}
+    >
       {/* ReactFlow handles positioned at the actual node boundaries */}
       <Handle
         type="target"
@@ -298,7 +312,7 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
       {selected && (
         <NodeResizeControl
           nodeId={id}
-          minWidth={100}
+          minWidth={120}
           minHeight={40}
           maxWidth={600}
           maxHeight={400}
@@ -318,7 +332,7 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
             // Store the initial size when resize starts
             const node = reactFlowInstance.getNode(id);
             if (node) {
-              const width = getNodeWidth(node, 100);
+              const width = getNodeWidth(node, 120);
               const height = getNodeHeight(node, 40);
               initialSizeRef.current = {
                 width: typeof width === 'string' ? parseFloat(width) : width,
@@ -337,7 +351,7 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
             if (!currentInitialSize) {
               const node = reactFlowInstance.getNode(id);
               if (node) {
-                const width = getNodeWidth(node, 100);
+                const width = getNodeWidth(node, 120);
                 const height = getNodeHeight(node, 40);
                 currentInitialSize = {
                   width: typeof width === 'string' ? parseFloat(width) : width,
@@ -380,6 +394,8 @@ export const DefaultTextNode: React.FC<NodeProps> = ({ id, data, selected }) => 
         className="!bottom-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
         style={{ zIndex: 20 }}
       />
+
+
     </div>
   );
 };

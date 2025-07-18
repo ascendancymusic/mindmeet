@@ -17,6 +17,7 @@ import { MindMapNode } from "./MindMapNode"
 import { aiService } from "../services/aiService"
 import { useChatStore } from "../store/chatStore"
 import defaultNodeStyles from "../config/defaultNodeStyles";
+import { processNodesForTextRendering } from "../utils/textNodeUtils";
 
 const CustomBackground = React.memo(() => {
   return (
@@ -52,8 +53,8 @@ const PreviewMindMapNode: React.FC<PreviewMindMapNodeProps> = React.memo(({ mapI
   // Memoized nodes to prevent unnecessary ReactFlow re-renders
   const memoizedNodes = useMemo(() => {
     if (!currentVersion?.nodes) return []
-    
-    return currentVersion.nodes.map((node: any) => ({
+
+    const processedNodes = currentVersion.nodes.map((node: any) => ({
       ...node,
       style: {
         ...(defaultNodeStyles as any)[node.type], // Apply default styles based on node type
@@ -62,6 +63,8 @@ const PreviewMindMapNode: React.FC<PreviewMindMapNodeProps> = React.memo(({ mapI
         width: node.type === "link" ? "auto" : node.style?.width || (defaultNodeStyles as any)[node.type]?.width,
       },
     }))
+
+    return processNodesForTextRendering(processedNodes)
   }, [currentVersion?.nodes])
 
   // Memoized edges with source node colors and edge type

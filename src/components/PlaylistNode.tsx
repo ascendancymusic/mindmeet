@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
 import { ListMusic, Play, Pause, SkipForward, SkipBack, RotateCcw, Loader, AudioWaveform } from 'lucide-react';
-import { useInView } from 'react-intersection-observer';
 import { AudioVisualizer } from 'react-audio-visualize';
-import { SpotifyIcon } from './icons/SpotifyIcon'; 
+import { SpotifyIcon } from './icons/SpotifyIcon';
 import { SoundCloudIcon } from './icons/SoundCloudIcon';
 import { Youtube } from 'lucide-react';
 
@@ -64,14 +63,6 @@ const formatSoundCloudUrl = (url?: string, fallbackLabel: string = 'SoundCloud T
 };
 
 export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
-  // Set up intersection observer for lazy loading
-  const { ref: nodeRef, inView } = useInView({
-    threshold: 0.1,
-    triggerOnce: false,
-    rootMargin: '100px',
-  });
-
-
   // Get ReactFlow instance to access nodes
   const reactFlowInstance = useReactFlow();
 
@@ -128,6 +119,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   }, [isHoveringTracks]);
 
   // Refs
+  const nodeRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMountedRef = useRef(true);
   const progressIntervalRef = useRef<number | null>(null);
@@ -136,8 +128,8 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   // Cache for audio blobs to avoid redundant fetches
   const audioBlobCacheRef = useRef<Map<string, Blob>>(new Map());
 
-  // Determine if we should load content based on visibility
-  const shouldLoadContent = inView;
+  // Always load content to prevent audio culling when out of view
+  const shouldLoadContent = true;
 
   // Build playlist from track IDs
   useEffect(() => {

@@ -6,6 +6,7 @@ import { useMindMapStore } from '../store/mindMapStore';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
+import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { supabase } from '../supabaseClient';
 import { nodeTypes } from '../config/nodeTypes';
 
@@ -82,7 +83,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
   // Memoized nodes and edges to prevent unnecessary ReactFlow re-renders
   const memoizedNodes = useMemo(() => {
     if (!selectedMap?.nodes || selectedMap.nodes.length === 0) return [];
-    return prepareNodesForRendering(selectedMap.nodes);
+    return processNodesForTextRendering(prepareNodesForRendering(selectedMap.nodes));
   }, [selectedMap?.nodes]);
 
   const memoizedEdges = useMemo(() => {

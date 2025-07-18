@@ -15,6 +15,7 @@ import { SocialMediaNode } from './SocialMediaNode';
 import { LinkNode } from './LinkNode';
 import { useNavigate } from 'react-router-dom';
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
+import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { supabase } from '../supabaseClient';
 
 const CustomBackground = React.memo(() => {
@@ -47,7 +48,7 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data }) => {
   // Memoized nodes and edges to prevent unnecessary ReactFlow re-renders
   const memoizedNodes = useMemo(() => {
     if (!selectedMap?.nodes || selectedMap.nodes.length === 0) return [];
-    return prepareNodesForRendering(selectedMap.nodes);
+    return processNodesForTextRendering(prepareNodesForRendering(selectedMap.nodes));
   }, [selectedMap?.nodes]);
 
   const memoizedEdges = useMemo(() => {

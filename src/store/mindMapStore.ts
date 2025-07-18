@@ -204,10 +204,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         return;
       }
 
-      // Clean edges by removing unwanted properties including style
+      // Clean edges by removing unwanted properties including style and type (since edgeType is stored globally)
       const cleanedEdges = edges.map(edge => {
         // Create a new edge object without the unwanted properties
-        const { selected, sourceHandle, targetHandle, style, ...cleanEdge } = edge;
+        const { selected, sourceHandle, targetHandle, style, type, ...cleanEdge } = edge;
         return cleanEdge;
       });
 
@@ -782,10 +782,10 @@ updateMap: async (id, nodes, edges, title, userId, edgeType = 'default') => {
     };
   });
 
-  // Clean edges by removing unwanted properties including style
+  // Clean edges by removing unwanted properties including style and type (since edgeType is stored globally)
   const cleanedEdges = edges.map(edge => {
     // Create a new edge object without the unwanted properties
-    const { selected, sourceHandle, targetHandle, style, ...cleanEdge } = edge;
+    const { selected, sourceHandle, targetHandle, style, type, ...cleanEdge } = edge;
     return cleanEdge;
   });
 

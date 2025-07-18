@@ -3,6 +3,7 @@ import ReactFlow, { ReactFlowProvider, ReactFlowInstance, NodeTypes } from "reac
 import "reactflow/dist/style.css";
 import { supabase } from "../supabaseClient";
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
+import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { formatDateWithPreference } from "../utils/dateUtils";
 import { nodeTypes } from "../config/nodeTypes";
 import { Info, Heart, MessageCircle, Bookmark, Share2, MoreHorizontal } from "lucide-react";
@@ -364,7 +365,7 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
               }}></div>
               
               <ReactFlow
-                nodes={prepareNodesForRendering(mindmap.json_data.nodes)}
+                nodes={processNodesForTextRendering(prepareNodesForRendering(mindmap.json_data.nodes))}
                 edges={mindmap.json_data.edges.map((edge: any) => {
                   // Find the source node to get its color
                   const sourceNode = mindmap.json_data.nodes.find((node: any) => node.id === edge.source);

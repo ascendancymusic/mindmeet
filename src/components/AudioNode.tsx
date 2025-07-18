@@ -4,7 +4,6 @@ import { AudioWaveform, Loader, RotateCcw } from 'lucide-react';
 // Fixed width node, no need for getNodeWidth and getNodeHeight
 import { compressAudioFile } from '../utils/compressAudio';
 import { AudioVisualizer } from 'react-audio-visualize';
-import { useInView } from 'react-intersection-observer';
 
 // Constants
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
@@ -38,12 +37,8 @@ const formatTime = (timeInSeconds: number): string => {
 };
 
 export function AudioNode({ id, data, isConnectable, background, style }: AudioNodeProps) {
-  // Set up intersection observer for lazy loading
-  const { ref: nodeRef, inView } = useInView({
-    threshold: 0.1, // Load when at least 10% of the node is visible
-    triggerOnce: false, // Keep observing in case node moves in/out of view
-    rootMargin: '100px', // Start loading when node is 100px from viewport
-  });
+  // Create a simple ref for the node container
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   // Get the node's background color directly from the DOM element
   const getNodeBackgroundColor = useCallback(() => {
@@ -64,8 +59,8 @@ export function AudioNode({ id, data, isConnectable, background, style }: AudioN
   // Use state to track the background color
   const [nodeBackground, setNodeBackground] = useState<string>(getNodeBackgroundColor());
 
-  // Track if we should load audio content
-  const [shouldLoadContent, setShouldLoadContent] = useState(false);
+  // Always load audio content to prevent culling when out of view
+  const shouldLoadContent = true;
 
   // Update the background color when props change or when the node is rendered
   useEffect(() => {
@@ -447,13 +442,7 @@ export function AudioNode({ id, data, isConnectable, background, style }: AudioN
     }
   }, [audioSrc, fetchAudioAsBlob]);
 
-  // Effect to update shouldLoadContent based on inView
-  useEffect(() => {
-    if (inView && !shouldLoadContent) {
-      console.log('AudioNode is in view, setting shouldLoadContent to true');
-      setShouldLoadContent(true);
-    }
-  }, [inView, shouldLoadContent]);
+  // Removed intersection observer effect since we always load content now
 
   // Always load duration data from JSON immediately (lightweight)
   useEffect(() => {
@@ -476,12 +465,8 @@ export function AudioNode({ id, data, isConnectable, background, style }: AudioN
     };
   }, [data.duration]);
 
-  // Optimized effect for loading audio - only runs when node is in view
+  // Effect for loading audio - always runs to prevent culling
   useEffect(() => {
-    // Only load audio if the node is in view (or has been in view)
-    if (!shouldLoadContent) {
-      return;
-    }
 
     // Step 2: Only proceed to load audio if we have a file or URL and haven't loaded it yet
     if ((data.file || data.audioUrl) && !initialLoadDoneRef.current) {
@@ -522,7 +507,7 @@ export function AudioNode({ id, data, isConnectable, background, style }: AudioN
       // Clean up audio blob reference
       setAudioBlob(null);
     };
-  }, [data.file, data.audioUrl, loadAudio, shouldLoadContent, id]);
+  }, [data.file, data.audioUrl, loadAudio, id]);
 
   // Effect for audio player events
   useEffect(() => {

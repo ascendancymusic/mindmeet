@@ -13,6 +13,7 @@ import { useAuthStore } from "../store/authStore"
 import EditDetailsModal from "../components/EditDetailsModal"
 import PublishSuccessModal from "../components/PublishSuccessModal"
 import { supabase } from "../supabaseClient"
+import { processNodesForTextRendering } from "../utils/textNodeUtils"
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -140,8 +141,7 @@ export default function MindMapList(): JSX.Element {
     fetchMaps,        
     fetchCollaborationMaps,
     addMap,           
-    deleteMap,        
-    setCurrentMap,    
+    deleteMap,          
     toggleMapPin,     
     updateMapId,      
   } = useMindMapStore()
@@ -709,7 +709,7 @@ export default function MindMapList(): JSX.Element {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ReactFlow
-                      nodes={prepareNodesForRendering(map.nodes)}
+                      nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                       edges={map.edges.map((edge: any) => {
                         // Find the source node to get its color
                         const sourceNode = map.nodes.find((node: any) => node.id === edge.source);

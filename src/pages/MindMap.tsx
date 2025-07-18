@@ -83,6 +83,7 @@ import { useToastStore } from "../store/toastStore";
 import { Toast } from "../components/Toast";
 import defaultNodeStyles from "../config/defaultNodeStyles";
 import { supabase } from "../supabaseClient";
+import { calculateTextNodeMinHeight, getNodeCurrentWidth } from "../utils/textNodeUtils";
 import { MindMapHelpModal } from "../components/MindMapHelpModal";
 import MindMapCustomization from "../components/MindMapCustomization";
 import SelectionToolbarWrapper from "../components/SelectionToolbarWrapper";
@@ -94,6 +95,7 @@ import { CollaborationChat } from "../components/CollaborationChat";
 import EditDetailsModal from "../components/EditDetailsModal";
 import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
+import { NodeContextMenu } from "../components/NodeContextMenu";
 
 
 interface HistoryAction {
@@ -138,23 +140,7 @@ export default function MindMap() {
   // Toast notification state
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
   
-  // Node types for ReactFlow
-  const nodeTypes = useMemo(() => ({
-    default: DefaultTextNode,
-    spotify: SpotifyNode,
-    soundcloud: SoundCloudNode,
-    instagram: (props: any) => <SocialMediaNode {...props} type="instagram" />,
-    twitter: (props: any) => <SocialMediaNode {...props} type="twitter" />,
-    facebook: (props: any) => <SocialMediaNode {...props} type="facebook" />,
-    youtube: (props: any) => <SocialMediaNode {...props} type="youtube" />,
-    tiktok: (props: any) => <SocialMediaNode {...props} type="tiktok" />,
-    "youtube-video": YouTubeNode,
-    image: ImageNode,
-    link: LinkNode,
-    mindmap: MindMapNode,
-    audio: AudioNode,
-    playlist: PlaylistNode,
-  }), [])
+
 
   const currentMap = maps.find((map) => map.id === id)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -167,6 +153,7 @@ export default function MindMap() {
   const [visuallySelectedNodeId, setVisuallySelectedNodeId] = useState<string | null>(null)
   const [moveWithChildren, setMoveWithChildren] = useState(false)
   const [snapToGrid, setSnapToGrid] = useState(true)
+  const [autocolorSubnodes, setAutocolorSubnodes] = useState(true)
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
@@ -224,7 +211,9 @@ export default function MindMap() {
   const [clipboardEdges, setClipboardEdges] = useState<Edge[]>([]);
   const [selectionBounds, setSelectionBounds] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
   const [showPasteToolbox, setShowPasteToolbox] = useState(false);
-  const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 });  const [isShiftPressed, setIsShiftPressed] = useState(false);
+  const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 });
+  const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [isHoveringPlaylist, setIsHoveringPlaylist] = useState(false);
   const setIsAnimatingGeneration: React.Dispatch<React.SetStateAction<boolean>> = useState(false)[1];
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -270,6 +259,52 @@ export default function MindMap() {
 
   // Collaboration chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    isVisible: boolean;
+    nodeId: string;
+  }>({
+    isVisible: false,
+    nodeId: ''
+  });
+
+  // Context menu handlers
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, nodeId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setContextMenu({
+      isVisible: true,
+      nodeId
+    });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu({
+      isVisible: false,
+      nodeId: ''
+    });
+  }, []);
+
+  // Node types for ReactFlow
+  const nodeTypes = useMemo(() => ({
+    default: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
+    input: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
+    spotify: SpotifyNode,
+    soundcloud: SoundCloudNode,
+    instagram: (props: any) => <SocialMediaNode {...props} type="instagram" />,
+    twitter: (props: any) => <SocialMediaNode {...props} type="twitter" />,
+    facebook: (props: any) => <SocialMediaNode {...props} type="facebook" />,
+    youtube: (props: any) => <SocialMediaNode {...props} type="youtube" />,
+    tiktok: (props: any) => <SocialMediaNode {...props} type="tiktok" />,
+    "youtube-video": YouTubeNode,
+    image: ImageNode,
+    link: LinkNode,
+    mindmap: MindMapNode,
+    audio: AudioNode,
+    playlist: PlaylistNode,
+  }), [handleNodeContextMenu]);
 
   // Set up sensors for drag and drop functionality
   const sensors = useSensors(
@@ -386,6 +421,36 @@ export default function MindMap() {
                 ...node.data,
                 label: node.data?.label || "",
                 imageUrl: node.data?.imageUrl || undefined,
+              }
+            };
+          }
+
+          // Handle text nodes (default type) with proper width/height restoration
+          if (node.type === 'default') {
+            // Extract width and height from node properties or style
+            const width = node.width || (node.style?.width ?
+              (typeof node.style.width === 'string' && node.style.width.endsWith('px') ?
+                parseInt(node.style.width) : node.style.width) : undefined);
+
+            const height = node.height || (node.style?.height ?
+              (typeof node.style.height === 'string' && node.style.height.endsWith('px') ?
+                parseInt(node.style.height) : node.style.height) : undefined);
+
+            return {
+              ...node,
+              background: node.background || node.style?.background || defaultNodeStyles[node.type]?.background,
+              style: {
+                ...defaultNodeStyles[node.type],
+                ...node.style,
+                background: node.background || node.style?.background || defaultNodeStyles[node.type]?.background,
+                width: typeof width === 'number' ? `${width}px` : width || defaultNodeStyles[node.type]?.width,
+                height: typeof height === 'number' ? `${height}px` : height || 'auto'
+              },
+              width: typeof width === 'number' ? width : undefined,
+              height: typeof height === 'number' ? height : undefined,
+              data: {
+                ...node.data,
+                label: node.data?.label || "",
               }
             };
           }
@@ -956,7 +1021,55 @@ const onReconnectEnd = useCallback(
   [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
 );
 
+  // Auto layout handler with proper history and collaboration support
+  const handleAutoLayout = useCallback((nodeId: string, originalNodes: Node[], updatedNodes: Node[]) => {
+    // Apply the updated nodes
+    setNodes(updatedNodes);
 
+    // Create position map for history by comparing original and updated nodes
+    const positionMap: Record<string, {x: number, y: number}> = {};
+    updatedNodes.forEach(updatedNode => {
+      const originalNode = originalNodes.find(n => n.id === updatedNode.id);
+      if (originalNode &&
+          (originalNode.position.x !== updatedNode.position.x ||
+           originalNode.position.y !== updatedNode.position.y)) {
+        positionMap[updatedNode.id] = updatedNode.position;
+      }
+    });
+
+    // Broadcast live changes to collaborators for each affected node
+    if (currentMindMapId && broadcastLiveChange) {
+      updatedNodes.forEach(updatedNode => {
+        const originalNode = originalNodes.find(n => n.id === updatedNode.id);
+        if (originalNode &&
+            (originalNode.position.x !== updatedNode.position.x ||
+             originalNode.position.y !== updatedNode.position.y)) {
+          broadcastLiveChange({
+            id: updatedNode.id,
+            type: 'node',
+            action: 'update',
+            data: updatedNode
+          });
+        }
+      });
+    }
+
+    // Create history action for autolayout
+    const action = createHistoryAction(
+      "move_node",
+      {
+        nodeId: nodeId,
+        position: positionMap,
+      },
+      originalNodes
+    );
+    addToHistory(action);
+
+    // Mark document as modified
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+  }, [currentMindMapId, broadcastLiveChange, addToHistory, createHistoryAction, isInitialLoad]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -1040,6 +1153,7 @@ const onReconnectEnd = useCallback(
         // Apply changes to nodes
         if (effectiveMoveWithChildren && !isMultiSelectionDrag) {
           // This is a single node with children being moved
+          let hasActualMovement = false;
           const updatedChanges = positionChanges.flatMap((change) => {
 
             const posChange = change as { id: string; position: { x: number; y: number }; dragging?: boolean }
@@ -1052,8 +1166,14 @@ const onReconnectEnd = useCallback(
             const deltaX = posChange.position?.x - node.position.x
             const deltaY = posChange.position?.y - node.position.y
 
+            // Check if there's actual movement
+            const hasMovement = Math.abs(deltaX) >= 0.1 || Math.abs(deltaY) >= 0.1;
+            if (hasMovement) {
+              hasActualMovement = true;
+            }
+
             // Only create changes for descendants if there's actual movement
-            if (Math.abs(deltaX) < 0.1 && Math.abs(deltaY) < 0.1) {
+            if (!hasMovement) {
               return [change];
             }
 
@@ -1084,12 +1204,12 @@ const onReconnectEnd = useCallback(
             // Apply the changes to get the updated nodes
             const updatedNodes = applyNodeChanges([...updatedChanges, ...selectionChanges] as NodeChange[], nds);
 
-            // If this is a drag stop (dragging=false), force an edge update
+            // Only force edge update if this is a drag stop AND there was actual movement
             const isDragStop = updatedChanges.some(change =>
               (change as any).type === 'position' && !(change as any).dragging
             );
 
-            if (isDragStop) {
+            if (isDragStop && hasActualMovement) {
               // Defer edge update to next event loop to ensure correct rendering after position changes
               setTimeout(() => {
                 setEdges(currentEdges => [...currentEdges]);
@@ -1344,6 +1464,46 @@ const onReconnectEnd = useCallback(
         return;
       }
 
+      // Autocolor functionality: color the target node with the source node's color
+      if (autocolorSubnodes && params.source && params.target) {
+        const sourceNode = nodes.find(node => node.id === params.source);
+        const targetNode = nodes.find(node => node.id === params.target);
+
+        if (sourceNode && targetNode) {
+          const sourceColor = (sourceNode as any).background || sourceNode.style?.background || "#1f2937";
+
+          // Update the target node's color
+          setNodes((nds) =>
+            nds.map((node) => {
+              if (node.id === params.target) {
+                const updatedNode = {
+                  ...node,
+                  background: sourceColor,
+                  style: {
+                    ...node.style,
+                    background: sourceColor,
+                    textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+                  },
+                };
+
+                // Broadcast live color change to collaborators
+                if (currentMindMapId && broadcastLiveChange) {
+                  broadcastLiveChange({
+                    id: node.id,
+                    type: 'node',
+                    action: 'update',
+                    data: updatedNode
+                  });
+                }
+
+                return updatedNode;
+              }
+              return node;
+            })
+          );
+        }
+      }
+
       setEdges((eds) => {
         const newEdges = addEdge(params, eds)
 
@@ -1379,7 +1539,7 @@ const onReconnectEnd = useCallback(
 
       setIsInitialLoad(false)
     },
-    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange, isValidConnection],
+    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange, isValidConnection, autocolorSubnodes],
   )
 
   const onDragStart = () => {
@@ -1491,6 +1651,8 @@ const onReconnectEnd = useCallback(
         position,
         data: getInitialNodeData(nodeType),
         style: defaultNodeStyles[nodeType as keyof typeof defaultNodeStyles] || defaultNodeStyles.default,
+        // Set initial width for text nodes (default type) to 120px
+        ...(nodeType === "default" && { width: 120 }),
       }
 
       setNodes((nds) => {
@@ -2326,6 +2488,19 @@ const onReconnectEnd = useCallback(
     handleDeleteOperation();
   }, [handleDeleteOperation]);
 
+  // Helper function to get the center of the ReactFlow viewport
+  const getViewportCenter = useCallback(() => {
+    if (!reactFlowInstance || !reactFlowWrapperRef.current) {
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    }
+
+    const rect = reactFlowWrapperRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    return { x: centerX, y: centerY };
+  }, [reactFlowInstance]);
+
   // Creates new nodes and edges from clipboard data at the specified position
   // Handles ID remapping, position calculations, and maintains relative node positions
   // Returns newly created elements ready to be added to the mindmap
@@ -2505,6 +2680,9 @@ const onReconnectEnd = useCallback(
 
         return {
           data: updatedData,
+          // Preserve the node's width and height properties when updating label
+          width: node.width,
+          height: node.height,
           style: {
             ...node.style,
             width: node.type === "spotify" || node.type === "soundcloud" ? "auto" : node.style?.width,
@@ -3688,7 +3866,7 @@ const onReconnectEnd = useCallback(
     }
   }
   const handleColorChange = (nodeId: string, color: string) => {
-    const descendantIds = getNodeDescendants(nodeId);
+    const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : [];
     const allNodesToUpdate = [nodeId, ...descendantIds];
 
     setNodes((nds) =>
@@ -3729,14 +3907,14 @@ const onReconnectEnd = useCallback(
   };
   const handleColorPickerChange = (nodeId: string, color: string) => {
     setPreviewColor(color);
-    
+
     // Broadcast live color preview changes to collaborators
     if (currentMindMapId && broadcastLiveChange) {
       const selectedNode = nodes.find(node => node.id === nodeId);
       if (selectedNode) {
-        const descendantIds = getNodeDescendants(nodeId);
+        const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : [];
         const allNodesToUpdate = [nodeId, ...descendantIds];
-        
+
         // Broadcast preview color for all affected nodes
         allNodesToUpdate.forEach(affectedNodeId => {
           const affectedNode = nodes.find(node => node.id === affectedNodeId);
@@ -3750,7 +3928,7 @@ const onReconnectEnd = useCallback(
                 textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
               },
             };
-            
+
             broadcastLiveChange({
               id: affectedNodeId,
               type: 'node',
@@ -3767,7 +3945,7 @@ const onReconnectEnd = useCallback(
     if (previewColor) {
       handleColorChange(nodeId, previewColor)
 
-      const descendantIds = getNodeDescendants(nodeId)
+      const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : []
       const allNodesToUpdate = [nodeId, ...descendantIds]
 
       // Create a snapshot of current node states for history
@@ -3803,12 +3981,12 @@ const onReconnectEnd = useCallback(
     // Find the parent node's color
     const parentEdge = edges.find(edge => edge.target === nodeId);
     const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
-    const defaultColor = parentNode 
+    const defaultColor = parentNode
       ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
       : "#1f2937";
     handleColorChange(nodeId, defaultColor)
 
-    const descendantIds = getNodeDescendants(nodeId)
+    const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : []
     const allNodesToUpdate = [nodeId, ...descendantIds]
 
     // Create a snapshot of current node states for history
@@ -3906,6 +4084,9 @@ const onReconnectEnd = useCallback(
 
     // Update paste toolbox position to follow cursor and track collaboration cursor
     const handleMouseMove = (e: MouseEvent) => {
+      // Always track last mouse position for image pasting
+      setLastMousePosition({ x: e.clientX, y: e.clientY });
+
       if (showPasteToolbox) {
         setPasteToolboxPosition({ x: e.clientX, y: e.clientY });
       }
@@ -4088,76 +4269,179 @@ const onReconnectEnd = useCallback(
 
       // Global keyboard shortcut for paste operation (Ctrl+V)
       // Works throughout the application regardless of focus state
-      if (e.ctrlKey && e.key === 'v' && clipboardNodes.length > 0) {
+      if (e.ctrlKey && e.key === 'v') {
         e.preventDefault();
 
-        // Validate clipboard and instance availability
-        if (clipboardNodes.length === 0 || !reactFlowInstance) {
-          return;
-        }        // Generate new elements at cursor position
-        const { newNodes, newEdges } = createPasteAction(
-          clipboardNodes,
-          clipboardEdges,
-          pasteToolboxPosition,
-          reactFlowInstance
-        );
+        // First check if there's an image in the clipboard
+        navigator.clipboard.read().then(clipboardItems => {
+          for (const clipboardItem of clipboardItems) {
+            for (const type of clipboardItem.types) {
+              if (type.startsWith('image/')) {
+                // Handle image paste
+                clipboardItem.getType(type).then(blob => {
+                  if (!reactFlowInstance) return;
 
-        // Update mindmap with new elements and record in history
-        setNodes(nds => {
-          const updatedNodes = [...nds, ...newNodes];
+                  // Convert blob to file
+                  const file = new File([blob], `pasted-image-${Date.now()}.${type.split('/')[1]}`, { type });
 
-          // Broadcast live node creation to collaborators for pasted nodes
-          if (currentMindMapId && broadcastLiveChange) {
-            newNodes.forEach(newNode => {
-              broadcastLiveChange({
-                id: newNode.id,
-                type: 'node',
-                action: 'create',
-                data: newNode
-              });
-            });
+                  // Check file size limit (3MB)
+                  if (file.size > 3 * 1024 * 1024) {
+                    console.error('Pasted image exceeds the 3MB limit');
+                    return;
+                  }
+
+                  // Get paste position - use last mouse position or viewport center as fallback
+                  const pastePosition = lastMousePosition.x !== 0 || lastMousePosition.y !== 0
+                    ? lastMousePosition
+                    : getViewportCenter();
+                  const position = reactFlowInstance.screenToFlowPosition(pastePosition);
+
+                  // Create new image node
+                  const newNode = {
+                    id: Date.now().toString(),
+                    type: "image",
+                    position,
+                    data: {
+                      label: "",
+                      file: file,
+                      type: "image",
+                    },
+                    style: defaultNodeStyles["image"],
+                  };
+
+                  // Add the image node
+                  setNodes((nds) => {
+                    const updatedNodes = [...nds, newNode as Node];
+                    if (updatedNodes.filter((node) => node.type === "image").length > 10) {
+                      setShowErrorModal(true);
+                      return nds;
+                    }
+                    setShowErrorModal(false);
+
+                    // Broadcast live node creation to collaborators
+                    if (currentMindMapId && broadcastLiveChange) {
+                      broadcastLiveChange({
+                        id: newNode.id,
+                        type: 'node',
+                        action: 'create',
+                        data: newNode as Node
+                      });
+                    }
+
+                    // Create history action for adding image node
+                    const action = createHistoryAction(
+                      "add_node",
+                      { nodes: updatedNodes },
+                      nds
+                    );
+                    addToHistory(action);
+
+                    return updatedNodes;
+                  });
+
+                  setSelectedNodeId(newNode.id);
+                  setVisuallySelectedNodeId(newNode.id);
+                  if (!isInitialLoad) setHasUnsavedChanges(true);
+                  setIsInitialLoad(false);
+                });
+                return; // Exit after handling image
+              }
+            }
           }
 
-          // Create history action for pasting nodes
-          const action = createHistoryAction(
-            "add_node",
-            { nodes: updatedNodes },
-            nds
-          );
-          addToHistory(action);
+          // If no image found, check for node clipboard data
+          if (clipboardNodes.length > 0) {
+            // Validate clipboard and instance availability
+            if (!reactFlowInstance) {
+              return;
+            }
 
-          return updatedNodes;
-        });
+            // Generate new elements at cursor position
+            const { newNodes, newEdges } = createPasteAction(
+              clipboardNodes,
+              clipboardEdges,
+              pasteToolboxPosition,
+              reactFlowInstance
+            );
 
-        setEdges(eds => {
-          const updatedEdges = [...eds, ...newEdges];
+            // Update mindmap with new elements and record in history
+            setNodes(nds => {
+              const updatedNodes = [...nds, ...newNodes];
 
-          // Broadcast live edge creation to collaborators for pasted edges
-          if (currentMindMapId && broadcastLiveChange) {
-            newEdges.forEach(newEdge => {
-              broadcastLiveChange({
-                id: newEdge.id,
-                type: 'edge',
-                action: 'create',
-                data: newEdge
-              });
+              // Broadcast live node creation to collaborators for pasted nodes
+              if (currentMindMapId && broadcastLiveChange) {
+                newNodes.forEach(newNode => {
+                  broadcastLiveChange({
+                    id: newNode.id,
+                    type: 'node',
+                    action: 'create',
+                    data: newNode
+                  });
+                });
+              }
+
+              // Create history action for pasting nodes
+              const action = createHistoryAction(
+                "add_node",
+                { nodes: updatedNodes },
+                nds
+              );
+              addToHistory(action);
+
+              return updatedNodes;
             });
+
+            setEdges(eds => {
+              const updatedEdges = [...eds, ...newEdges];
+
+              // Broadcast live edge creation to collaborators for pasted edges
+              if (currentMindMapId && broadcastLiveChange) {
+                newEdges.forEach(newEdge => {
+                  broadcastLiveChange({
+                    id: newEdge.id,
+                    type: 'edge',
+                    action: 'create',
+                    data: newEdge
+                  });
+                });
+              }
+
+              return updatedEdges;
+            });
+
+            if (!isInitialLoad) {
+              setHasUnsavedChanges(true);
+            }
+            setIsInitialLoad(false);
+
+            // Reset UI state and clear clipboard after paste operation
+            setShowPasteToolbox(false);
+            setClipboardNodes([]);
+            setClipboardEdges([]);
           }
+        }).catch(err => {
+          console.error('Error reading clipboard:', err);
 
-          return updatedEdges;
+          // Fallback to node clipboard if clipboard API fails
+          if (clipboardNodes.length > 0 && reactFlowInstance) {
+            const { newNodes, newEdges } = createPasteAction(
+              clipboardNodes,
+              clipboardEdges,
+              pasteToolboxPosition,
+              reactFlowInstance
+            );
+
+            setNodes(nds => [...nds, ...newNodes]);
+            setEdges(eds => [...eds, ...newEdges]);
+
+            if (!isInitialLoad) setHasUnsavedChanges(true);
+            setIsInitialLoad(false);
+
+            setShowPasteToolbox(false);
+            setClipboardNodes([]);
+            setClipboardEdges([]);
+          }
         });
-
-        if (!isInitialLoad) {
-          setHasUnsavedChanges(true);
-        }
-        setIsInitialLoad(false);
-
-
-
-        // Reset UI state and clear clipboard after paste operation
-        setShowPasteToolbox(false);
-        setClipboardNodes([]);
-        setClipboardEdges([]);
       }
 
       // Cancel paste operation with Escape key
@@ -4183,7 +4467,7 @@ const onReconnectEnd = useCallback(
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [clipboardNodes, clipboardEdges, edges, isInitialLoad, addToHistory, reactFlowInstance, pasteToolboxPosition, showPasteToolbox]);
+  }, [clipboardNodes, clipboardEdges, edges, isInitialLoad, addToHistory, reactFlowInstance, pasteToolboxPosition, showPasteToolbox, lastMousePosition, getViewportCenter]);
 
   const nodeEditorClass = isSmallScreen ? "w-full max-w-[160px]" : "w-full max-w-[250px]"
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
@@ -4400,6 +4684,8 @@ const onReconnectEnd = useCallback(
             setMoveWithChildren={setMoveWithChildren}
             snapToGrid={snapToGrid}
             setSnapToGrid={setSnapToGrid}
+            autocolorSubnodes={autocolorSubnodes}
+            setAutocolorSubnodes={setAutocolorSubnodes}
             isAltPressed={isAltPressed}
             isCtrlPressed={isCtrlPressed}
             onDragStart={onDragStart}
@@ -4519,39 +4805,12 @@ const onReconnectEnd = useCallback(
                      typeof node.style?.height === 'string' ? node.style.height :
                      "auto") :
                     (nodeTypeStyle as any).height || 'auto',
-                  minHeight: node.type === "default" ? (() => {
-                    // Dynamic height calculation using text measurement
-                    const textContent = typeof nodeData.label === 'string' ? nodeData.label : '';
-                    if (!textContent || textContent.trim() === '') {
-                      return "40px"; // Default minimum height for empty text
-                    }
-
-                    // Get current width for calculation
-                    const currentWidth = typeof node.width === 'number' ? node.width :
-                      (typeof node.style?.width === 'number' ? node.style.width :
-                      (typeof node.style?.width === 'string' ? parseFloat(node.style.width) : 120));
-
-                    // Create a temporary element to measure text height
-                    const tempDiv = document.createElement('div');
-                    tempDiv.style.position = 'absolute';
-                    tempDiv.style.visibility = 'hidden';
-                    tempDiv.style.width = `${currentWidth - 16 - (hasChildren ? 30 : 0)}px`; // Account for padding and chevron
-                    tempDiv.style.fontSize = '14px'; // Match node font size
-                    tempDiv.style.lineHeight = '1.4'; // Match text line height
-                    tempDiv.style.fontFamily = 'inherit';
-                    tempDiv.style.wordWrap = 'break-word';
-                    tempDiv.style.whiteSpace = 'pre-wrap';
-                    tempDiv.innerHTML = textContent.replace(/\n/g, '<br>');
-
-                    document.body.appendChild(tempDiv);
-                    const textHeight = tempDiv.offsetHeight;
-                    document.body.removeChild(tempDiv);
-
-                    // Add padding for node styling
-                    const minHeight = Math.max(40, textHeight + 20); // 20px for padding/border
-
-                    return `${minHeight}px`;
-                  })() : "auto",
+                  minHeight: node.type === "default" ?
+                    calculateTextNodeMinHeight(
+                      typeof nodeData.label === 'string' ? nodeData.label : '',
+                      getNodeCurrentWidth(node),
+                      hasChildren
+                    ) : "auto",
                   minWidth: "auto",
                   // Special border radius handling for image nodes with titles
                   borderRadius: node.type === "image" && nodeData.label ? 
@@ -4559,7 +4818,7 @@ const onReconnectEnd = useCallback(
                     nodeTypeStyle.borderRadius, // Use default for all other cases
                   background:
 
-                    (node.id === selectedNodeId || (selectedNodeId && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
+                    (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
                       ? previewColor
                       : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
 
@@ -5988,6 +6247,17 @@ const onReconnectEnd = useCallback(
 
         {/* Publish Success Modal */}
         <PublishSuccessModal isVisible={showSuccessPopup} />
+
+        {/* Node Context Menu */}
+        <NodeContextMenu
+          isVisible={contextMenu.isVisible}
+          nodeId={contextMenu.nodeId}
+          onClose={handleCloseContextMenu}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={setNodes}
+          onAutoLayout={handleAutoLayout}
+        />
     </div>
   )
 }

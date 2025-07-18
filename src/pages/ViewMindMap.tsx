@@ -21,6 +21,7 @@ import { MindMapNode } from "../components/MindMapNode"
 import { DefaultTextNode } from "../components/TextNode"
 import MarkdownRenderer from "../components/MarkdownRenderer"
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
+import { calculateTextNodeMinHeight, getNodeCurrentWidth } from "../utils/textNodeUtils"
 import {
   ChevronDown,
   Maximize2,
@@ -1279,7 +1280,7 @@ const ViewMindMap: React.FC = () => {
                             )}
                           </div>
                           <button
-                            className="ml-2 p-1 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 z-10"
+                            className="ml-2 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 z-10"
                             onClick={(e) => toggleNodeCollapse(node.id, e)}
                             title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
                           >
@@ -1320,8 +1321,25 @@ const ViewMindMap: React.FC = () => {
                             "tiktok",
                           ].includes(node.type || "")
                             ? "auto"
-                            : node.style?.width ||
+                            : (node.type === "default") ?
+                              (typeof node.width === 'number' ? `${node.width}px` :
+                               typeof node.style?.width === 'number' ? `${node.style.width}px` :
+                               typeof node.style?.width === 'string' ? node.style.width :
+                               (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.width)) :
+                              node.style?.width ||
                               (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.width),
+                          height: (node.type === "default") ?
+                            (typeof node.height === 'number' ? `${node.height}px` :
+                             typeof node.style?.height === 'number' ? `${node.style.height}px` :
+                             typeof node.style?.height === 'string' ? node.style.height :
+                             "auto") :
+                            node.style?.height || "auto",
+                          minHeight: node.type === "default" ?
+                            calculateTextNodeMinHeight(
+                              typeof node.data?.label === 'string' ? node.data.label : '',
+                              getNodeCurrentWidth(node),
+                              hasChildren
+                            ) : "auto",
                           padding:
                             node.type === "image"
                               ? "0"
