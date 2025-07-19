@@ -119,6 +119,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       is_main: map.is_main || false,
       visibility: map.visibility || 'private',
       description: map.description || '',
+      creator: map.creator,
       collaborators: map.collaborators || [],
       creatorAvatar: userAvatar,
       published_at: map.published_at,

@@ -541,16 +541,16 @@ export default function MindMap() {
       fetchMindMapFromSupabase();
     }  }, [currentMap, navigate, reactFlowInstance, fetchMindMapFromSupabase])
 
-  // Fetch all user's maps for MindMapSelector (only once when user logs in and no maps exist)
+  // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
   useEffect(() => {
     console.log('[MindMap] Checking if should fetch all maps', { userId: user?.id, isLoggedIn, mapsLength: maps.length, hasFetched: hasFetchedMapsRef.current });
-    if (user?.id && isLoggedIn && maps.length === 0 && !hasFetchedMapsRef.current) {
+    if (user?.id && isLoggedIn && !hasFetchedMapsRef.current) {
       console.log('[MindMap] Calling fetchMaps for userId:', user.id);
       hasFetchedMapsRef.current = true;
       fetchMaps(user.id);
     }
-  }, [user?.id, isLoggedIn]); // Removed fetchMaps and maps.length from deps to prevent infinite calls
+  }, [user?.id, isLoggedIn]); // Keep minimal dependencies to prevent loading interference
 
   // Log when maps are updated to track fetch results (debounced to avoid multiple logs)
   useEffect(() => {
@@ -5133,13 +5133,15 @@ const onReconnectEnd = useCallback(
 
                 {/* Action buttons group - Top Right */}
                 <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
-                  {/* Pen icon */}
-                  <button
-                    onClick={() => setShowEditDetailsModal(true)}
-                    className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
+                  {/* Pen icon - Only show for creator */}
+                  {user?.id === currentMap?.creator && (
+                    <button
+                      onClick={() => setShowEditDetailsModal(true)}
+                      className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                  )}
 
                   {/* Save button with dropdown */}
                   <div className="relative autosave-dropdown">
