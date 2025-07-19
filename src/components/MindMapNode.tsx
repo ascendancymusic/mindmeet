@@ -84,6 +84,14 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data }) => {
       const useKey = !!data.mapKey;
       const mapIdentifier = data.mapKey || data.mapId;
 
+      console.log('[MindMapNode] fetchMapData called', {
+        nodeId: id,
+        mapKey: data.mapKey,
+        mapId: data.mapId,
+        useKey,
+        mapIdentifier
+      });
+
       if (!mapIdentifier) {
         setSelectedMap(null);
         return;
@@ -93,6 +101,13 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data }) => {
       const localMap = useKey
         ? maps.find(m => m.key === data.mapKey)
         : maps.find(m => m.id === data.mapId);
+
+      console.log('[MindMapNode] Looking for map in store', {
+        useKey,
+        mapIdentifier,
+        mapsInStore: maps.length,
+        localMapFound: !!localMap
+      });
 
       if (localMap) {
         setSelectedMap(localMap);

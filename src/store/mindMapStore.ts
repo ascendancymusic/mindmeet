@@ -71,11 +71,13 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
   currentMapId: null,
   mapBackup: null,
   fetchMaps: async (userId) => {
+    console.log('[mindMapStore] fetchMaps called with userId:', userId);
     if (!userId || !/^[0-9a-fA-F-]{36}$/.test(userId)) {
       console.error("Invalid or undefined userId provided to fetchMaps.");
       return;
     }
 
+    console.log('[mindMapStore] Fetching mindmaps from Supabase for userId:', userId);
     const { data, error } = await supabase
       .from("mindmaps")
       .select("id, title, json_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, key, collaborators, published_at")
@@ -122,6 +124,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       published_at: map.published_at,
     }));
 
+    console.log('[mindMapStore] Setting maps in store, count:', maps?.length || 0);
     set({ maps: maps || [] });
   },
   fetchCollaborationMaps: async (userId) => {

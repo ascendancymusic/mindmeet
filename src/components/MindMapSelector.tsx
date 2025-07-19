@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import React, { useMemo } from "react"
 import {
   ArrowDownAZ,
   PlusCircle,
@@ -9,7 +9,7 @@ import {
   Link,
   X,
 } from "lucide-react"
-import { useMindMapStore, type MindMap } from "../store/mindMapStore"
+import { useMindMapStore } from "../store/mindMapStore"
 import { useAuthStore } from "../store/authStore"
 
 /**
@@ -113,33 +113,30 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   mode = 'inline',
   excludeMapId
 }) => {
-  const { maps, fetchMaps } = useMindMapStore()
+  const { maps } = useMindMapStore()
   const { user } = useAuthStore()
 
-  // Fetch maps when component mounts if maps array is empty
-  useEffect(() => {
-    if (user?.id && maps.length === 0) {
-      fetchMaps(user.id);
-    }
-  }, [user?.id, fetchMaps, maps.length]);
+  // Maps are fetched by parent components (MindMap.tsx, Chat.tsx, etc.)
+  // MindMapSelector just uses what's already in the store to avoid duplicate API calls
 
   // Filter and sort mindmaps based on search term and sort option
-  const getFilteredAndSortedMaps = (): MindMap[] => {
-    let filteredMaps = maps.filter(map => 
+  const filteredMaps = useMemo(() => {
+    let filtered = maps.filter(map => 
       map.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
       (excludeMapId ? map.id !== excludeMapId : true) // Only exclude if excludeMapId is provided
     )
 
-    return filteredMaps.sort((a, b) => {
+    return filtered.sort((a, b) => {
       if (sortBy === 'alphabetical') {
-        return a.title.localeCompare(b.title)      } else {
+        return a.title.localeCompare(b.title)
+      } else {
         // Sort by lastEdited (most recent first)
         const aDate = new Date(a.updatedAt || a.createdAt || 0)
         const bDate = new Date(b.updatedAt || b.createdAt || 0)
         return bDate.getTime() - aDate.getTime()
       }
     })
-  }
+  }, [maps, searchTerm, excludeMapId, sortBy])
 
   // Highlight search matches in text
   const highlightSearchTerm = (text: string, searchTerm: string) => {
@@ -282,51 +279,44 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
         )}
         
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {(() => {
-            const filteredMaps = getFilteredAndSortedMaps()
-            
-            if (filteredMaps.length > 0) {
-              return filteredMaps.map((map) => (
-                <button
-                  key={map.id}
-                  onClick={() => {
-                    onSelectMindMap(map.id)
-                    onClose()
-                  }}
-                  className="w-full flex items-center gap-3 p-3 text-sm text-slate-200 hover:text-slate-100 bg-slate-800/30 hover:bg-slate-700/50 rounded-xl transition-all duration-200 text-left border border-slate-700/30 hover:border-slate-600/50"
-                >
-                  {map.visibility === 'public' ? (
-                    <Eye className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                  ) : map.visibility === 'linkOnly' ? (
-                    <Link className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                  )}
-                  <span className="flex-1 truncate font-medium">
-                    {highlightSearchTerm(map.title, searchTerm)}
-                  </span>                  <span className="text-xs text-slate-500 whitespace-nowrap">
-                    {new Date(map.updatedAt || map.createdAt || 0).toLocaleDateString()}
-                  </span>
-                </button>
-              ))
-            } else if (searchTerm.trim()) {
-              return (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
-                  <Search className="h-10 w-10 mb-3 opacity-50" />
-                  <p className="text-sm font-medium">No mindmaps found</p>
-                  <p className="text-xs mt-1 opacity-75">Try a different search term</p>
-                </div>
-              )
-            } else {
-              return (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
-                  <Network className="h-10 w-10 mb-3 opacity-50" />
-                  <p className="text-sm font-medium">No mindmaps yet</p>
-                  <p className="text-xs mt-1 opacity-75">Create your first mindmap to share it</p>
-                </div>
-              )
-            }
-          })()}
+          {filteredMaps.length > 0 ? (
+            filteredMaps.map((map) => (
+              <button
+                key={map.id}
+                onClick={() => {
+                  onSelectMindMap(map.id)
+                  onClose()
+                }}
+                className="w-full flex items-center gap-3 p-3 text-sm text-slate-200 hover:text-slate-100 bg-slate-800/30 hover:bg-slate-700/50 rounded-xl transition-all duration-200 text-left border border-slate-700/30 hover:border-slate-600/50"
+              >
+                {map.visibility === 'public' ? (
+                  <Eye className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                ) : map.visibility === 'linkOnly' ? (
+                  <Link className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                ) : (
+                  <EyeOff className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                )}
+                <span className="flex-1 truncate font-medium">
+                  {highlightSearchTerm(map.title, searchTerm)}
+                </span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">
+                  {new Date(map.updatedAt || map.createdAt || 0).toLocaleDateString()}
+                </span>
+              </button>
+            ))
+          ) : searchTerm.trim() ? (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+              <Search className="h-10 w-10 mb-3 opacity-50" />
+              <p className="text-sm font-medium">No mindmaps found</p>
+              <p className="text-xs mt-1 opacity-75">Try a different search term</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+              <Network className="h-10 w-10 mb-3 opacity-50" />
+              <p className="text-sm font-medium">No mindmaps yet</p>
+              <p className="text-xs mt-1 opacity-75">Create your first mindmap to share it</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

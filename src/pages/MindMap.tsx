@@ -135,7 +135,7 @@ export interface YouTubeVideo {
 export default function MindMap() {
   const { username, id } = useParams()
   const navigate = useNavigate()
-  const { maps, updateMap, setMaps, acceptAIChanges, updateMapId, fetchMaps } = useMindMapStore()
+  const { maps, updateMap, acceptAIChanges, updateMapId, fetchMaps } = useMindMapStore()
   
   // Toast notification state
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
@@ -483,18 +483,9 @@ export default function MindMap() {
         collaborators: map.collaborators || [],
       };
 
-
-      const existingMapIndex = maps.findIndex(m => m.id === id);
-      if (existingMapIndex >= 0) {
-        // Update existing map in the store
-        const updatedMaps = [...maps];
-        updatedMaps[existingMapIndex] = processedMap;
-        setMaps(updatedMaps);
-      } else {
-        // Add new map to the store
-        setMaps([...maps, processedMap]);
-      }
-
+      // Don't modify the global maps store here - let fetchMaps handle that
+      // This function is only responsible for loading the current map's content
+      // The global maps store should be managed by fetchMaps for consistency
 
       setNodes(processedMap.nodes);
       setEdges(processedMap.edges);
@@ -519,7 +510,7 @@ export default function MindMap() {
     } finally {
       setIsLoading(false);
     }
-  }, [username, id, isLoggedIn, maps, setMaps, reactFlowInstance]);
+  }, [username, id, isLoggedIn, reactFlowInstance]);
 
   // Initializes mindmap data when component mounts or URL parameters change
   // Uses cached data from store when available or fetches from database
@@ -549,6 +540,29 @@ export default function MindMap() {
 
       fetchMindMapFromSupabase();
     }  }, [currentMap, navigate, reactFlowInstance, fetchMindMapFromSupabase])
+
+  // Fetch all user's maps for MindMapSelector (only once when user logs in and no maps exist)
+  const hasFetchedMapsRef = useRef(false);
+  useEffect(() => {
+    console.log('[MindMap] Checking if should fetch all maps', { userId: user?.id, isLoggedIn, mapsLength: maps.length, hasFetched: hasFetchedMapsRef.current });
+    if (user?.id && isLoggedIn && maps.length === 0 && !hasFetchedMapsRef.current) {
+      console.log('[MindMap] Calling fetchMaps for userId:', user.id);
+      hasFetchedMapsRef.current = true;
+      fetchMaps(user.id);
+    }
+  }, [user?.id, isLoggedIn]); // Removed fetchMaps and maps.length from deps to prevent infinite calls
+
+  // Log when maps are updated to track fetch results (debounced to avoid multiple logs)
+  useEffect(() => {
+    if (maps.length > 1 && user?.username) { // Only log when we have multiple maps
+      const timer = setTimeout(() => {
+        console.log(`[MindMap] Final count: ${maps.length} maps for username ${user.username}`);
+      }, 500); // Debounce to avoid multiple logs during rapid updates
+
+      return () => clearTimeout(timer);
+    }
+  }, [maps.length, user?.username]);
+
   // Initialize collaboration when component mounts with valid user and mind map
   useEffect(() => {
     if (id && user?.id && user.username && isLoggedIn) {
@@ -620,13 +634,6 @@ export default function MindMap() {
       window.removeEventListener('collaboration-live-change', handleLiveChange as EventListener);
     };
   }, [currentMindMapId, user?.id]);
-
-  // Fetch all user's maps when component mounts - needed for MindMapNodes to find maps in store
-  useEffect(() => {
-    if (user?.id && isLoggedIn) {
-      fetchMaps(user.id);
-    }
-  }, [user?.id, isLoggedIn, fetchMaps]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
