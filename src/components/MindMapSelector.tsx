@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 import {
   ArrowDownAZ,
   PlusCircle,
@@ -18,7 +18,7 @@ import { useAuthStore } from "../store/authStore"
  * A reusable component for selecting mindmaps with search, sort, and create functionality.
  *  * @example
  * ```tsx
- * const [searchTerm, setSearchTerm] = useState("")
+* const [searchTerm, setSearchTerm] = useState("")
  * const [sortBy, setSortBy] = useState<'alphabetical' | 'lastEdited'>('lastEdited')
  * const [showCreateForm, setShowCreateForm] = useState(false)
  * const [newMapTitle, setNewMapTitle] = useState("")
@@ -72,7 +72,8 @@ import { useAuthStore } from "../store/authStore"
  *     )}
  *   </div>
  * )
- * ```
+ *
+```
  */
 
 interface MindMapSelectorProps {
@@ -112,17 +113,21 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   mode = 'inline',
   excludeMapId
 }) => {
-  const { maps } = useMindMapStore()
+  const { maps, fetchMaps } = useMindMapStore()
   const { user } = useAuthStore()
 
-  // Debug logging
-  console.log('MindMapSelector: maps:', maps, 'user:', user?.id);
+  // Fetch maps when component mounts if maps array is empty
+  useEffect(() => {
+    if (user?.id && maps.length === 0) {
+      fetchMaps(user.id);
+    }
+  }, [user?.id, fetchMaps, maps.length]);
 
   // Filter and sort mindmaps based on search term and sort option
   const getFilteredAndSortedMaps = (): MindMap[] => {
     let filteredMaps = maps.filter(map => 
       map.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      map.id !== excludeMapId // Exclude the current map being edited
+      (excludeMapId ? map.id !== excludeMapId : true) // Only exclude if excludeMapId is provided
     )
 
     return filteredMaps.sort((a, b) => {
@@ -179,16 +184,16 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   }
     // Determine container classes based on mode
   const containerClasses = mode === 'overlay' 
-    ? "absolute bottom-12 left-0 z-50 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden mindmap-selector"
-    : "w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden mindmap-selector"
+    ? "absolute bottom-12 left-0 z-50 w-80 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden mindmap-selector"
+    : "w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden mindmap-selector"
   
   return (
-    <div className={containerClasses}>      <div className="p-3">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-200">{title}</h3>
+    <div className={containerClasses}>      <div className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-700/50 text-slate-400 hover:text-slate-200 transition-all duration-200"
             title="Close"
           >
             <X className="h-4 w-4" />
@@ -196,21 +201,21 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
         </div>
         
         {/* Search and Sort Controls */}
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-3 mb-4">
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search mindmaps..."
-              className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200"
             />
           </div>
           <button
             type="button"
             onClick={() => setSortBy(sortBy === 'alphabetical' ? 'lastEdited' : 'alphabetical')}
-            className="p-1.5 rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 hover:text-gray-200 transition-colors"
+            className="p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 border border-slate-600/50 hover:border-slate-500/50 text-slate-300 hover:text-slate-200 transition-all duration-200"
             title={sortBy === 'alphabetical' ? 'Sorted alphabetically - click for last edited' : 'Sorted by last edited - click for alphabetical'}
           >
             {sortBy === 'alphabetical' ? (
@@ -224,15 +229,15 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
         </div>
         
         {showCreateForm ? (
-          <div className="border-b border-gray-700 mb-3 pb-3">
-            <div className="flex flex-col gap-2">
+          <div className="border-b border-slate-700/50 mb-4 pb-4">
+            <div className="flex flex-col gap-3">
               <input
                 type="text"
                 value={newMapTitle}
                 onChange={(e) => setNewMapTitle(e.target.value)}
                 placeholder="Enter mindmap title..."
                 maxLength={25}
-                className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 text-sm bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -247,14 +252,14 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
                   type="button"
                   onClick={handleCreateMindMapAccept}
                   disabled={!newMapTitle.trim() || newMapTitle.length > 25}
-                  className="flex-1 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded transition-colors"
+                  className="flex-1 px-3 py-2 text-sm bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-50 text-white rounded-xl transition-all duration-200 font-medium"
                 >
                   Create
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateMindMapReject}
-                  className="flex-1 px-2 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                  className="flex-1 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-600/50 text-slate-200 rounded-xl transition-all duration-200 font-medium"
                 >
                   Cancel
                 </button>
@@ -267,16 +272,16 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
             {isAIConversation && (
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="w-full flex items-center gap-2 p-2 text-sm text-blue-400 hover:bg-blue-500/20 rounded transition-colors mb-2"
+                className="w-full flex items-center gap-3 p-3 text-sm text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl transition-all duration-200 mb-3 border border-purple-500/20 hover:border-purple-500/30"
               >
                 <PlusCircle className="h-4 w-4" />
-                <span>Create new mindmap</span>
+                <span className="font-medium">Create new mindmap</span>
               </button>
             )}
           </>
         )}
         
-        <div className="space-y-1 max-h-48 overflow-y-auto">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
           {(() => {
             const filteredMaps = getFilteredAndSortedMaps()
             
@@ -288,36 +293,36 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
                     onSelectMindMap(map.id)
                     onClose()
                   }}
-                  className="w-full flex items-center gap-2 p-2 text-sm text-gray-200 hover:bg-gray-700/70 rounded transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3 text-sm text-slate-200 hover:text-slate-100 bg-slate-800/30 hover:bg-slate-700/50 rounded-xl transition-all duration-200 text-left border border-slate-700/30 hover:border-slate-600/50"
                 >
                   {map.visibility === 'public' ? (
-                    <Eye className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <Eye className="h-4 w-4 text-slate-400 flex-shrink-0" />
                   ) : map.visibility === 'linkOnly' ? (
-                    <Link className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <Link className="h-4 w-4 text-slate-400 flex-shrink-0" />
                   ) : (
-                    <EyeOff className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <EyeOff className="h-4 w-4 text-slate-400 flex-shrink-0" />
                   )}
-                  <span className="flex-1 truncate">
+                  <span className="flex-1 truncate font-medium">
                     {highlightSearchTerm(map.title, searchTerm)}
-                  </span>                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                  </span>                  <span className="text-xs text-slate-500 whitespace-nowrap">
                     {new Date(map.updatedAt || map.createdAt || 0).toLocaleDateString()}
                   </span>
                 </button>
               ))
             } else if (searchTerm.trim()) {
               return (
-                <div className="flex flex-col items-center justify-center py-6 text-gray-400">
-                  <Search className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No mindmaps found</p>
-                  <p className="text-xs mt-1">Try a different search term</p>
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                  <Search className="h-10 w-10 mb-3 opacity-50" />
+                  <p className="text-sm font-medium">No mindmaps found</p>
+                  <p className="text-xs mt-1 opacity-75">Try a different search term</p>
                 </div>
               )
             } else {
               return (
-                <div className="flex flex-col items-center justify-center py-6 text-gray-400">
-                  <Network className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No mindmaps yet</p>
-                  <p className="text-xs mt-1">Create your first mindmap to share it</p>
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                  <Network className="h-10 w-10 mb-3 opacity-50" />
+                  <p className="text-sm font-medium">No mindmaps yet</p>
+                  <p className="text-xs mt-1 opacity-75">Create your first mindmap to share it</p>
                 </div>
               )
             }

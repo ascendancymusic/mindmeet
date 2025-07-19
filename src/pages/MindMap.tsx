@@ -135,7 +135,7 @@ export interface YouTubeVideo {
 export default function MindMap() {
   const { username, id } = useParams()
   const navigate = useNavigate()
-  const { maps, updateMap, setMaps, acceptAIChanges, updateMapId } = useMindMapStore()
+  const { maps, updateMap, setMaps, acceptAIChanges, updateMapId, fetchMaps } = useMindMapStore()
   
   // Toast notification state
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
@@ -620,6 +620,13 @@ export default function MindMap() {
       window.removeEventListener('collaboration-live-change', handleLiveChange as EventListener);
     };
   }, [currentMindMapId, user?.id]);
+
+  // Fetch all user's maps when component mounts - needed for MindMapNodes to find maps in store
+  useEffect(() => {
+    if (user?.id && isLoggedIn) {
+      fetchMaps(user.id);
+    }
+  }, [user?.id, isLoggedIn, fetchMaps]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -5623,7 +5630,7 @@ const onReconnectEnd = useCallback(
                       onClose={() => setShowMindMapSelector(false)}
                       title="Choose a mindmap"
                       mode="inline"
-                      excludeMapId={currentMap?.id}
+                      excludeMapId={id} // Exclude the current map from the selection list
                     />
                   )}
                 </div>
