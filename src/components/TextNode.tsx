@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Type, Edit3, Bold, Italic, Code, Palette } from 'lucide-react';
 import { Handle, Position, NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -33,6 +33,17 @@ const TextNode: React.FC<TextNodeProps> = ({
   isRootNode = false 
 }) => {
   const [showAdvancedEditor, setShowAdvancedEditor] = useState(false);
+
+  // Auto-resize textareas when label changes
+  useEffect(() => {
+    const textareas = document.querySelectorAll(`textarea[data-node-id="${nodeId}"]`);
+    textareas.forEach((textarea) => {
+      const target = textarea as HTMLTextAreaElement;
+      target.style.height = 'auto';
+      const minHeight = showAdvancedEditor ? 96 : 48;
+      target.style.height = `${Math.max(minHeight, target.scrollHeight)}px`;
+    });
+  }, [label, nodeId, showAdvancedEditor]);
 
   const handleFormatText = (formatType: 'bold' | 'italic' | 'code') => {
     const textarea = document.querySelector(`textarea[data-node-id="${nodeId}"]`) as HTMLTextAreaElement;
@@ -146,7 +157,7 @@ const TextNode: React.FC<TextNodeProps> = ({
   };
 
   const getInputClassName = () => {
-    const baseClass = "px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200";
+    const baseClass = "px-4 py-3 bg-slate-800/50 text-white border rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none";
     return isRootNode 
       ? `${baseClass} border-2 border-gradient-to-r from-blue-400 to-blue-600 shadow-lg shadow-blue-500/25 font-bold`
       : `${baseClass} border-slate-600/30`;
@@ -176,15 +187,31 @@ const TextNode: React.FC<TextNodeProps> = ({
             <Edit3 className="w-4 h-4" />
           </button>
         </div>
-        <input
+        <textarea
           autoFocus
           data-node-id={nodeId}
-          type="text"
           placeholder="Text..."
           value={label || ""}
           onChange={(e) => onLabelChange(nodeId, e.target.value)}
-          className={getInputClassName()}
-          style={getInputStyle()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              // Allow normal Enter behavior for line breaks
+              // Don't prevent default to allow natural line break
+            }
+          }}
+          className={`${getInputClassName()} resize-none overflow-hidden`}
+          style={{
+            ...getInputStyle(),
+            minHeight: '48px',
+            height: 'auto',
+          }}
+          rows={1}
+          onInput={(e) => {
+            // Auto-resize textarea based on content
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = `${Math.max(48, target.scrollHeight)}px`;
+          }}
         />
       </div>
     );
@@ -252,9 +279,25 @@ const TextNode: React.FC<TextNodeProps> = ({
         placeholder="Text..."
         value={label || ""}
         onChange={(e) => onLabelChange(nodeId, e.target.value)}
-        className={`${getInputClassName()} resize-none`}
-        style={getInputStyle()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            // Allow normal Enter behavior for line breaks
+            // Don't prevent default to allow natural line break
+          }
+        }}
+        className={`${getInputClassName()} resize-none overflow-hidden`}
+        style={{
+          ...getInputStyle(),
+          minHeight: '96px',
+          height: 'auto',
+        }}
         rows={4}
+        onInput={(e) => {
+          // Auto-resize textarea based on content
+          const target = e.target as HTMLTextAreaElement;
+          target.style.height = 'auto';
+          target.style.height = `${Math.max(96, target.scrollHeight)}px`;
+        }}
       />
     </div>
   );
@@ -293,7 +336,7 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
 
       {/* Node content that expands with text */}
       <div className="w-full relative">
-        <div className="w-full break-words whitespace-pre-wrap px-2 py-0">
+        <div className="w-full break-words whitespace-pre-wrap px-2 py-0 leading-relaxed">
           {/* If label is a React element (JSX), render it directly */}
           {React.isValidElement(label) ? (
             label

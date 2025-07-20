@@ -173,6 +173,11 @@ export default function MindMap() {
   const [isAltPressed, setIsAltPressed] = useState(false)
   const edgeReconnectSuccessful = useRef(true);
 
+  // Node editor resize state
+  const [nodeEditorWidth, setNodeEditorWidth] = useState(isSmallScreen ? 160 : 250)
+  const [isResizingNodeEditor, setIsResizingNodeEditor] = useState(false)
+  const [resizeStartX, setResizeStartX] = useState(0)
+  const [resizeStartWidth, setResizeStartWidth] = useState(0)
 
   // Dynamic page title
   usePageTitle(currentMap ? `Editing: ${currentMap.title || 'Untitled'}` : 'Loading...');
@@ -321,10 +326,18 @@ export default function MindMap() {
 ;
 
   useLayoutEffect(() => {
-    const handleResize = () => setIsSmallScreen(window.innerWidth < 1080)
+    const handleResize = () => {
+      const newIsSmallScreen = window.innerWidth < 1080
+      setIsSmallScreen(newIsSmallScreen)
+      
+      // Reset node editor width based on screen size if it's at the default values
+      if ((isSmallScreen && nodeEditorWidth === 160) || (!isSmallScreen && nodeEditorWidth === 250)) {
+        setNodeEditorWidth(newIsSmallScreen ? 160 : 250)
+      }
+    }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [])
+  }, [isSmallScreen, nodeEditorWidth])
 
   useEffect(() => {
     const updateHeight = () => {
@@ -2943,6 +2956,45 @@ const onReconnectEnd = useCallback(
     setIsInitialLoad(false)
   }
 
+  // Node editor resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizingNodeEditor(true)
+    setResizeStartX(e.clientX)
+    setResizeStartWidth(nodeEditorWidth)
+  }
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!isResizingNodeEditor) return
+    
+    const deltaX = resizeStartX - e.clientX // Subtract because we're resizing from the left
+    const minWidth = isSmallScreen ? 140 : 180 // Slightly smaller minimum for mobile
+    const maxWidth = Math.min(600, window.innerWidth * 0.4) // Max 40% of screen width or 600px
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartWidth + deltaX))
+    setNodeEditorWidth(newWidth)
+  }
+
+  const handleResizeEnd = () => {
+    setIsResizingNodeEditor(false)
+  }
+
+  // Add global mouse event listeners for resize
+  useEffect(() => {
+    if (isResizingNodeEditor) {
+      document.body.style.cursor = 'ew-resize'
+      document.body.style.userSelect = 'none'
+      document.addEventListener('mousemove', handleResizeMove)
+      document.addEventListener('mouseup', handleResizeEnd)
+    }
+
+    return () => {
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleResizeMove)
+      document.removeEventListener('mouseup', handleResizeEnd)
+    }
+  }, [isResizingNodeEditor, resizeStartX, resizeStartWidth, nodeEditorWidth])
+
   // Helper function to format SoundCloud URLs into readable text
   const formatSoundCloudUrl = (url?: string, fallbackLabel: string = 'SoundCloud Track'): string => {
     if (!url) return fallbackLabel;
@@ -4483,7 +4535,8 @@ const onReconnectEnd = useCallback(
     };
   }, [clipboardNodes, clipboardEdges, edges, isInitialLoad, addToHistory, reactFlowInstance, pasteToolboxPosition, showPasteToolbox, lastMousePosition, getViewportCenter]);
 
-  const nodeEditorClass = isSmallScreen ? "w-full max-w-[160px]" : "w-full max-w-[250px]"
+  const nodeEditorClass = `w-full`
+  const nodeEditorStyle = { maxWidth: `${nodeEditorWidth}px`, width: `${nodeEditorWidth}px` }
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
   
   // Skeleton loader for mind map interface
@@ -5342,8 +5395,23 @@ const onReconnectEnd = useCallback(
       )}
 
         {selectedNodeId && selectedNode && (
-          <div className={`fixed bottom-8 right-8 ${nodeEditorClass}`}>
+          <div 
+            className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`} 
+            style={{
+              ...nodeEditorStyle,
+              cursor: isResizingNodeEditor ? 'ew-resize' : 'default'
+            }}
+          >
             <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
+              {/* Resize handle */}
+              <div
+                className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-500/30 transition-all group rounded-l-2xl ${isResizingNodeEditor ? 'bg-blue-500/50' : ''}`}
+                onMouseDown={handleResizeStart}
+              >
+                <div className={`absolute left-1/2 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-3 h-8 bg-slate-600/70 rounded-full transition-opacity flex items-center justify-center ${isResizingNodeEditor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div className="w-0.5 h-4 bg-slate-300 rounded-full"></div>
+                </div>
+              </div>
               {selectedNode.type === "spotify" ? (
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3">

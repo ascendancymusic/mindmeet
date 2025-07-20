@@ -8,13 +8,26 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+  // Check if content contains markdown formatting (bold, italic, code, etc.)
+  const hasMarkdownFormatting = /[*_`#\[\]()]/g.test(content) || /<[^>]*>/g.test(content);
+  
+  // If it's just plain text with newlines, render it directly to preserve empty lines
+  if (!hasMarkdownFormatting) {
+    return (
+      <div className={`markdown-content whitespace-pre-wrap ${className}`} style={{ pointerEvents: 'none' }}>
+        {content}
+      </div>
+    );
+  }
+
+  // For content with markdown formatting, use ReactMarkdown
   return (
     <div className={`markdown-content ${className}`} style={{ pointerEvents: 'none' }}>
       <ReactMarkdown
         rehypePlugins={[rehypeRaw]}
         components={{
           // Customize markdown elements to match your design
-          p: ({ children }) => <span className="inline">{children}</span>,
+          p: ({ children }) => <div className="whitespace-pre-wrap">{children}</div>,
           strong: ({ children }) => <strong className="font-bold">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
           code: ({ children }) => (
