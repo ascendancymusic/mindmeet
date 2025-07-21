@@ -64,7 +64,7 @@ export function SocialMediaNode(props: any) {
           if (url) window.open(url, "_blank");
         }
       }}
-      className="relative bg-gray-900/75 rounded-lg p-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
+      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
       style={{ wordWrap: "break-word", whiteSpace: "normal" }} // Ensure text wraps properly
     >
       <Handle 
