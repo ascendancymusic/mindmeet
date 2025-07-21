@@ -173,7 +173,7 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
 
   return (
     <div 
-      className="relative bg-gray-900/75 rounded-lg p-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
+      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
       style={{ minWidth: nodeWidth, transition: 'min-width 0.2s ease-in-out' }}
     >
       <Handle

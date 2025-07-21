@@ -47,7 +47,7 @@ export const calculateTextNodeMinHeight = (
 export const getNodeCurrentWidth = (node: any): number => {
   return typeof node.width === 'number' ? node.width :
     (typeof node.style?.width === 'number' ? node.style.width :
-    (typeof node.style?.width === 'string' ? parseFloat(node.style.width) : 120));
+      (typeof node.style?.width === 'string' ? parseFloat(node.style.width) : 120));
 };
 
 /**

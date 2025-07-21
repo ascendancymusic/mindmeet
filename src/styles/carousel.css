@@ -1,0 +1,12 @@
+@keyframes continuousScroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.continuous-scroll {
+  animation: continuousScroll 30s linear infinite;
+}

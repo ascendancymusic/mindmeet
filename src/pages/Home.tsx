@@ -6,6 +6,7 @@ import { usePageTitle } from "../hooks/usePageTitle"
 import { LoginForm } from "../components/LoginForm"
 import { ChatMindMapNode } from "../components/ChatMindMapNode"
 import { supabase } from "../supabaseClient"
+import "../styles/carousel.css"
 
 // Move mindmap keys outside component to prevent recreation
 const MINDMAP_KEYS = [
@@ -65,6 +66,8 @@ export default function Home() {
     }
   }, []) // Remove mindmapKeys dependency
 
+
+
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Enhanced Left Panel */}
@@ -90,12 +93,8 @@ export default function Home() {
 
       {/* Enhanced Right Panel */}
       {showCarousel && (
-        <div className="hidden lg:flex lg:w-1/2 items-center justify-center px-8 relative">
-          {/* Background gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-l from-slate-900/60 to-transparent"></div>
-
-          <div className="w-[400px] h-[600px] relative z-10 flex flex-col items-center">
-            {/* Carousel container */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center relative">
+          <div className="w-full max-w-md px-6 lg:px-8 relative z-10" style={{ maxHeight: '95vh', overflowY: 'hidden' }}>
             {isLoading ? (
               <div className="text-slate-400 text-center flex items-center justify-center h-full">
                 Loading public mindmaps...
@@ -105,44 +104,28 @@ export default function Home() {
                 No mindmaps available
               </div>
             ) : (
-              <>
-                {/* Header */}
-                <div className="text-center mb-4">
-                  <h3 className="text-xl font-semibold text-white mb-2">Explore Public Mindmaps</h3>
-                  <p className="text-slate-400 text-sm">Scroll to discover more</p>
+              <div className="h-full relative overflow-hidden">
+                <div className="flex flex-col space-y-6 continuous-scroll">
+                  {/* First set of mindmaps */}
+                  {publicMaps.map((map) => (
+                    <div key={`first-${map.id}`} className="w-full min-h-[280px] flex items-center justify-center flex-shrink-0">
+                      <ChatMindMapNode id={map.id} data={{ label: map.title, mapId: map.id }} isConnectable={false} />
+                    </div>
+                  ))}
+                  {/* Duplicate set for seamless loop */}
+                  {publicMaps.map((map) => (
+                    <div key={`second-${map.id}`} className="w-full min-h-[280px] flex items-center justify-center flex-shrink-0">
+                      <ChatMindMapNode id={map.id} data={{ label: map.title, mapId: map.id }} isConnectable={false} />
+                    </div>
+                  ))}
                 </div>
-
-                {/* Scrollable container */}
-                <div className="flex-1 w-full overflow-y-auto scrollbar-hide scroll-smooth">
-                  <div className="space-y-6 pb-4">
-                    {publicMaps.map((map, index) => (
-                      <div
-                        key={map.id}
-                        className="bg-gradient-to-br from-slate-800/20 to-slate-900/20 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/20 shadow-2xl w-full min-h-[280px] flex items-center justify-center scroll-snap-align-start"
-                      >
-                        <ChatMindMapNode id={map.id} data={{ label: map.title, mapId: map.id }} isConnectable={false} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Scroll indicator */}
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="w-1 h-8 bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="w-full bg-gradient-to-b from-blue-500 to-purple-500 rounded-full transition-all duration-300"
-                      style={{ height: `${Math.min(100, (2 / publicMaps.length) * 100)}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-slate-400 text-xs">{publicMaps.length} mindmaps</span>
-                </div>
-              </>
+              </div>
             )}
-
-            {/* Decorative elements */}
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-xl"></div>
-            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full blur-xl"></div>
           </div>
+
+          {/* Decorative elements */}
+          <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-xl"></div>
+          <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full blur-xl"></div>
         </div>
       )}
     </div>

@@ -336,7 +336,7 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
 
       {/* Node content that expands with text */}
       <div className="w-full relative">
-        <div className="w-full break-words whitespace-pre-wrap px-2 py-0 leading-relaxed">
+        <div className="w-full break-words whitespace-pre-wrap leading-relaxed">
           {/* If label is a React element (JSX), render it directly */}
           {React.isValidElement(label) ? (
             label
