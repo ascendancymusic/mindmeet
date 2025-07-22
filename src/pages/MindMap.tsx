@@ -303,6 +303,7 @@ export default function MindMap() {
     facebook: (props: any) => <SocialMediaNode {...props} type="facebook" />,
     youtube: (props: any) => <SocialMediaNode {...props} type="youtube" />,
     tiktok: (props: any) => <SocialMediaNode {...props} type="tiktok" />,
+    mindmeet: (props: any) => <SocialMediaNode {...props} type="mindmeet" />,
     "youtube-video": YouTubeNode,
     image: ImageNode,
     link: LinkNode,
@@ -1581,7 +1582,7 @@ const onReconnectEnd = useCallback(
   // Node types with auto width are defined in defaultNodeStyles.ts
 
   // Define social media node types for consistent handling
-  const SOCIAL_MEDIA_NODE_TYPES = useMemo(() => ["instagram", "twitter", "facebook", "youtube", "tiktok"], []);
+  const SOCIAL_MEDIA_NODE_TYPES = useMemo(() => ["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"], []);
   // Define default placeholder texts for different node types
   const DEFAULT_NODE_LABELS = useMemo(() => ({
     "default": "",
@@ -3400,7 +3401,7 @@ const onReconnectEnd = useCallback(
 
                   if (nextAction.data.label !== undefined) {
                     // For social media nodes, update username property
-                    if (["instagram", "twitter", "facebook", "youtube", "tiktok"].includes(node.type || '')) {
+                    if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type || '')) {
                       updatedData.username = nextAction.data.label
                     } else {
                       // For other node types, update label as before
@@ -5736,9 +5737,11 @@ const onReconnectEnd = useCallback(
                                 ? "username"
                                 : selectedNode.type === "tiktok"
                                   ? "username"
-                                  : "Text..."
+                                  : selectedNode.type === "mindmeet"
+                                    ? "username"
+                                    : "Text..."
                       }
-                      value={["instagram", "twitter", "facebook", "youtube", "tiktok"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
+                      value={["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
                       onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
                       className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
                     />

@@ -143,6 +143,29 @@ const socialMediaTypes: NodeType[] = [
     label: "TikTok",
     type: "tiktok",
   },
+  {
+    id: "mindmeet",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-5 h-5"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M16 8c2.828 0 4-1.172 4-4" />
+        <path d="M8 8C5.172 8 4 6.828 4 4" />
+        <path d="M8 16c-2.828 0-4 1.172-4 4" />
+        <path d="M16 16c2.828 0 4 1.172 4 4" />
+      </svg>
+    ),
+    label: "MindMeet",
+    type: "mindmeet",
+  },
 ]
 
 export function NodeTypesMenu({
@@ -236,9 +259,8 @@ export function NodeTypesMenu({
   return (
     <div className="relative" style={{ isolation: "isolate" }}>
       <div
-        className={`${isCompactMode ? 'space-y-1 p-1.5' : 'space-y-2 p-2'} rounded-lg shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${
-          isMinimized ? "w-0 p-0 opacity-0" : "w-auto opacity-100"
-        } bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-xl`}
+        className={`${isCompactMode ? 'space-y-1 p-1.5' : 'space-y-2 p-2'} rounded-lg shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${isMinimized ? "w-0 p-0 opacity-0" : "w-auto opacity-100"
+          } bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-xl`}
         style={{
           maxHeight,
           scrollbarColor: "rgb(147, 34, 192) rgb(34, 34, 44)",
@@ -287,9 +309,8 @@ export function NodeTypesMenu({
             onClick={() => setIsMusicDropdownOpen((prev) => !prev)}
             onMouseEnter={(e) => showTooltip("Add Music", e.currentTarget)}
             onMouseLeave={hideTooltip}
-            className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${
-              isMusicDropdownOpen ? "ring-2 ring-slate-500/50" : ""
-            } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
+            className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${isMusicDropdownOpen ? "ring-2 ring-slate-500/50" : ""
+              } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
           >
             <div className={`flex items-center ${isCompactMode ? 'scale-90' : ''}`}>
               <Music className="w-5 h-5" />
@@ -330,9 +351,8 @@ export function NodeTypesMenu({
             onClick={() => setIsSocialDropdownOpen((prev) => !prev)}
             onMouseEnter={(e) => showTooltip("Social Media", e.currentTarget)}
             onMouseLeave={hideTooltip}
-            className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${
-              isSocialDropdownOpen ? "ring-2 ring-slate-500/50" : ""
-            } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
+            className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${isSocialDropdownOpen ? "ring-2 ring-slate-500/50" : ""
+              } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
           >
             <div className={`flex items-center ${isCompactMode ? 'scale-90' : ''}`}>
               <Users className="w-5 h-5" />
@@ -399,11 +419,10 @@ export function NodeTypesMenu({
             showTooltip(tooltipContent, e.currentTarget);
           }}
           onMouseLeave={hideTooltip}
-          className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${
-            effectiveMoveWithChildren
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-slate-700/50 text-white hover:bg-slate-600/50"
-          }`}
+          className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${effectiveMoveWithChildren
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+            }`}
         >
           <GitBranch className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
         </button>
@@ -435,11 +454,10 @@ export function NodeTypesMenu({
             showTooltip(tooltipContent, e.currentTarget);
           }}
           onMouseLeave={hideTooltip}
-          className={`${isCompactMode ? 'mt-1 w-8 h-8' : 'mt-2 w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${
-            effectiveSnapToGrid
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-slate-700/50 text-white hover:bg-slate-600/50"
-          }`}
+          className={`${isCompactMode ? 'mt-1 w-8 h-8' : 'mt-2 w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${effectiveSnapToGrid
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+            }`}
         >
           <Grid3X3 className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
         </button>
@@ -457,11 +475,10 @@ export function NodeTypesMenu({
             showTooltip(tooltipText, e.currentTarget);
           }}
           onMouseLeave={hideTooltip}
-          className={`${isCompactMode ? 'mt-1 w-8 h-8' : 'mt-2 w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${
-            autocolorSubnodes
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-slate-700/50 text-white hover:bg-slate-600/50"
-          }`}
+          className={`${isCompactMode ? 'mt-1 w-8 h-8' : 'mt-2 w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${autocolorSubnodes
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+            }`}
         >
           <Palette className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
         </button>
@@ -471,9 +488,8 @@ export function NodeTypesMenu({
         className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-105 bg-gradient-to-r from-slate-700 to-slate-800 border border-slate-600/30 rounded-r-lg"
       >
         <ChevronRight
-          className={`w-4 h-4 text-white transform transition-transform duration-300 ${
-            isMinimized ? "" : "rotate-180"
-          }`}
+          className={`w-4 h-4 text-white transform transition-transform duration-300 ${isMinimized ? "" : "rotate-180"
+            }`}
         />
       </button>
       {renderTooltip()}
