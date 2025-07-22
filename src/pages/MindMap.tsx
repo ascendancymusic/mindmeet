@@ -32,7 +32,7 @@ import {
   Palette,
   Check,
   X,
-  Network,  ChevronDown,
+  Network, ChevronDown,
   Loader,
   HelpCircle,
   AudioWaveform,
@@ -42,6 +42,7 @@ import {
   SquarePen,
   Youtube,
   Edit3,
+  Search,
 
 } from "lucide-react"
 import {
@@ -136,10 +137,10 @@ export default function MindMap() {
   const { username, id } = useParams()
   const navigate = useNavigate()
   const { maps, updateMap, acceptAIChanges, updateMapId, fetchMaps } = useMindMapStore()
-  
+
   // Toast notification state
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
-  
+
 
 
   const currentMap = maps.find((map) => map.id === id)
@@ -226,7 +227,7 @@ export default function MindMap() {
   const [showAIFillModal, setShowAIFillModal] = useState(false);
   const [aiFillPrompt, setAIFillPrompt] = useState("");
   const [isAIFillLoading, setIsAIFillLoading] = useState(false);
-    // AI Generation Progress State
+  // AI Generation Progress State
   const [generationProgress, setGenerationProgress] = useState({
     stage: 'idle' as 'idle' | 'analyzing' | 'generating' | 'processing' | 'animating' | 'complete' | 'error',
     message: '',
@@ -235,8 +236,8 @@ export default function MindMap() {
     nodesGenerated: 0,
     totalNodes: 0,
     isError: false
-  });  const [isHoveringAudioVolume, setIsHoveringAudioVolume] = useState(false);
-  
+  }); const [isHoveringAudioVolume, setIsHoveringAudioVolume] = useState(false);
+
   // MindMap selector state
   const [showMindMapSelector, setShowMindMapSelector] = useState(false);
   const [mindMapSearchTerm, setMindMapSearchTerm] = useState("");
@@ -274,6 +275,13 @@ export default function MindMap() {
     nodeId: ''
   });
 
+  // Search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // Context menu handlers
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, nodeId: string) => {
     event.preventDefault();
@@ -291,6 +299,121 @@ export default function MindMap() {
       nodeId: ''
     });
   }, []);
+
+  // Search functionality
+  const handleSearchOpen = useCallback(() => {
+    setShowSearch(true);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  }, []);
+
+  const handleSearchClose = useCallback(() => {
+    setShowSearch(false);
+    setSearchTerm("");
+    setSearchResults([]);
+    setCurrentSearchIndex(0);
+  }, []);
+
+  const performSearch = useCallback((term: string) => {
+    if (!term.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      return;
+    }
+
+    const results: string[] = [];
+    const searchLower = term.toLowerCase();
+
+    nodes.forEach(node => {
+      let searchableText = "";
+
+      // Extract searchable text based on node type
+      if (node.type === "default" || !node.type) {
+        searchableText = node.data?.label || "";
+      } else if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type)) {
+        searchableText = node.data?.username || "";
+      } else if (node.type === "spotify") {
+        searchableText = node.data?.label || "";
+      } else if (node.type === "soundcloud") {
+        searchableText = node.data?.soundCloudUrl || node.data?.label || "";
+      } else if (node.type === "youtube-video") {
+        searchableText = node.data?.label || "";
+      } else if (node.type === "link") {
+        searchableText = `${node.data?.displayText || ""} ${node.data?.url || ""}`;
+      } else if (node.type === "audio" || node.type === "playlist") {
+        searchableText = node.data?.label || "";
+      } else {
+        searchableText = node.data?.label || "";
+      }
+
+      // Check if the searchable text contains the search term
+      if (searchableText.toLowerCase().includes(searchLower)) {
+        results.push(node.id);
+      }
+    });
+
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
+  }, [nodes]);
+
+  const navigateToSearchResult = useCallback((index: number) => {
+    if (searchResults.length === 0 || !reactFlowInstance) return;
+
+    const nodeId = searchResults[index];
+    const node = nodes.find(n => n.id === nodeId);
+
+    if (node) {
+      // Zoom to the node
+      reactFlowInstance.setCenter(node.position.x, node.position.y, { zoom: 1.2, duration: 800 });
+
+      // Highlight the node by selecting it, but preserve input focus
+      setVisuallySelectedNodeId(nodeId);
+      // Don't set selectedNodeId to avoid opening the node editor which might steal focus
+    }
+  }, [searchResults, nodes, reactFlowInstance]);
+
+  const handleSearchNext = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const nextIndex = (currentSearchIndex + 1) % searchResults.length;
+    setCurrentSearchIndex(nextIndex);
+    navigateToSearchResult(nextIndex);
+    // Restore focus to search input after navigation
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  }, [currentSearchIndex, searchResults.length, navigateToSearchResult]);
+
+  const handleSearchPrevious = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const prevIndex = currentSearchIndex === 0 ? searchResults.length - 1 : currentSearchIndex - 1;
+    setCurrentSearchIndex(prevIndex);
+    navigateToSearchResult(prevIndex);
+    // Restore focus to search input after navigation
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  }, [currentSearchIndex, searchResults.length, navigateToSearchResult]);
+
+  // Handle search input changes
+  useEffect(() => {
+    performSearch(searchTerm);
+  }, [searchTerm, performSearch]);
+
+  // Navigate to first result when search results change and highlight as you type
+  useEffect(() => {
+    if (searchResults.length > 0 && searchTerm.trim()) {
+      setCurrentSearchIndex(0);
+      navigateToSearchResult(0);
+    } else if (searchTerm.trim() && searchResults.length === 0) {
+      setCurrentSearchIndex(0);
+      // Only clear visual selection when actively searching but no results found
+      setVisuallySelectedNodeId(null);
+    } else if (!searchTerm.trim()) {
+      setCurrentSearchIndex(0);
+      // Don't clear visual selection when search is empty - let normal node selection work
+    }
+  }, [searchResults, searchTerm, navigateToSearchResult]);
 
   // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
@@ -324,13 +447,13 @@ export default function MindMap() {
     })
   );
 
-;
+  ;
 
   useLayoutEffect(() => {
     const handleResize = () => {
       const newIsSmallScreen = window.innerWidth < 1080
       setIsSmallScreen(newIsSmallScreen)
-      
+
       // Reset node editor width based on screen size if it's at the default values
       if ((isSmallScreen && nodeEditorWidth === 160) || (!isSmallScreen && nodeEditorWidth === 250)) {
         setNodeEditorWidth(newIsSmallScreen ? 160 : 250)
@@ -352,7 +475,7 @@ export default function MindMap() {
     return () => window.removeEventListener("resize", updateHeight)
   }, [])
 
-    useEffect(() => {
+  useEffect(() => {
     if (nodes.length > 0 && reactFlowWrapperRef.current) {
       setTimeout(() => {
         setMindMapHeight(reactFlowWrapperRef.current?.clientHeight || 0)
@@ -381,7 +504,7 @@ export default function MindMap() {
         setLoadError("Could not find the user profile.");
         setIsLoading(false);
         return;
-      }      const { data: map, error: mapError } = await supabase
+      } const { data: map, error: mapError } = await supabase
         .from("mindmaps")
         .select("key, id, title, json_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
         .eq("id", id)
@@ -392,21 +515,21 @@ export default function MindMap() {
         setLoadError("Could not find the requested mind map.");
         setIsLoading(false);
         return;
-      }      const { data: { user } } = await supabase.auth.getUser();
+      } const { data: { user } } = await supabase.auth.getUser();
 
       // Check if user is creator or collaborator
       const isCreator = user?.id === map.creator;
-      const isCollaborator = map.collaborators && user?.id ? 
+      const isCollaborator = map.collaborators && user?.id ?
         map.collaborators.includes(user.id) : false;
 
       if (!isCreator && !isCollaborator) {
         // Redirect to view-only mode if user is neither creator nor collaborator
         navigate(`/${username}/${id}`);
         return;
-      }      const processedMap = {
+      } const processedMap = {
         id: map.id,
         title: map.title,
-        nodes: map.json_data?.nodes.map((node: { type: keyof typeof defaultNodeStyles; [key: string]: any }) => {
+        nodes: map.json_data?.nodes.map((node: { type: keyof typeof defaultNodeStyles;[key: string]: any }) => {
 
           if (node.type === 'image') {
             // Extract width and height from node properties or style
@@ -553,7 +676,8 @@ export default function MindMap() {
     } else {
 
       fetchMindMapFromSupabase();
-    }  }, [currentMap, navigate, reactFlowInstance, fetchMindMapFromSupabase])
+    }
+  }, [currentMap, navigate, reactFlowInstance, fetchMindMapFromSupabase])
 
   // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
@@ -591,16 +715,16 @@ export default function MindMap() {
 
   // Handle receiving live changes from other collaborators
   useEffect(() => {
-    if (!currentMindMapId) return;    const handleLiveChange = (event: CustomEvent) => {
+    if (!currentMindMapId) return; const handleLiveChange = (event: CustomEvent) => {
       const { id: changeId, type, action, data, user_id } = event.detail;
-      
+
       // Don't apply changes if we're the one who made them
       if (user_id === user?.id) return;
 
       if (type === 'node') {
         if (action === 'update') {
-          setNodes(currentNodes => 
-            currentNodes.map(node => 
+          setNodes(currentNodes =>
+            currentNodes.map(node =>
               node.id === changeId ? { ...node, ...data } : node
             )
           );
@@ -614,11 +738,11 @@ export default function MindMap() {
             return currentNodes;
           });
         } else if (action === 'delete') {
-          setNodes(currentNodes => 
+          setNodes(currentNodes =>
             currentNodes.filter(node => node.id !== changeId)
           );
-          setEdges(currentEdges => 
-            currentEdges.filter(edge => 
+          setEdges(currentEdges =>
+            currentEdges.filter(edge =>
               edge.source !== changeId && edge.target !== changeId
             )
           );
@@ -634,7 +758,7 @@ export default function MindMap() {
             return currentEdges;
           });
         } else if (action === 'delete') {
-          setEdges(currentEdges => 
+          setEdges(currentEdges =>
             currentEdges.filter(edge => edge.id !== changeId)
           );
         }
@@ -962,67 +1086,20 @@ export default function MindMap() {
     [isDragging, dragStartPosition, nodes, edges, addToHistory, effectiveMoveWithChildren, getNodeDescendants, reactFlowInstance],
   )
 
-const onReconnectStart = useCallback(() => {
-  edgeReconnectSuccessful.current = false;
-}, []);
+  const onReconnectStart = useCallback(() => {
+    edgeReconnectSuccessful.current = false;
+  }, []);
 
-const onReconnect = useCallback(
-  (oldEdge: Edge, newConnection: Connection) => {
-    edgeReconnectSuccessful.current = true;
-    setEdges((eds) => {
-      const updatedEdges = reconnectEdge(oldEdge, newConnection, eds);
-
-      // --- HISTORY ---
-      const action = createHistoryAction(
-        "connect_nodes",
-        { connection: newConnection, replacedEdgeId: oldEdge.id }, // <-- add replacedEdgeId
-        nodes,
-        eds
-      );
-      addToHistory(action);
-
-      // --- LIVE BROADCAST ---
-      if (currentMindMapId && broadcastLiveChange) {
-        // Remove old edge
-        broadcastLiveChange({
-          id: oldEdge.id,
-          type: 'edge',
-          action: 'delete',
-          data: { id: oldEdge.id }
-        });
-        // Add new edge
-        const newEdge = updatedEdges.find(
-          edge => edge.source === newConnection.source && edge.target === newConnection.target
-        );
-        if (newEdge) {
-          broadcastLiveChange({
-            id: newEdge.id,
-            type: 'edge',
-            action: 'create',
-            data: newEdge
-          });
-        }
-      }
-
-      return updatedEdges;
-    });
-
-    if (!isInitialLoad) setHasUnsavedChanges(true);
-    setIsInitialLoad(false);
-  },
-  [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
-);
-
-const onReconnectEnd = useCallback(
-  (_: unknown, edge: Edge) => {
-    if (!edgeReconnectSuccessful.current) {
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      edgeReconnectSuccessful.current = true;
       setEdges((eds) => {
-        const updatedEdges = eds.filter((e) => e.id !== edge.id);
+        const updatedEdges = reconnectEdge(oldEdge, newConnection, eds);
 
         // --- HISTORY ---
         const action = createHistoryAction(
-          "disconnect_nodes",
-          { nodeId: edge.id },
+          "connect_nodes",
+          { connection: newConnection, replacedEdgeId: oldEdge.id }, // <-- add replacedEdgeId
           nodes,
           eds
         );
@@ -1030,12 +1107,25 @@ const onReconnectEnd = useCallback(
 
         // --- LIVE BROADCAST ---
         if (currentMindMapId && broadcastLiveChange) {
+          // Remove old edge
           broadcastLiveChange({
-            id: edge.id,
+            id: oldEdge.id,
             type: 'edge',
             action: 'delete',
-            data: { id: edge.id }
+            data: { id: oldEdge.id }
           });
+          // Add new edge
+          const newEdge = updatedEdges.find(
+            edge => edge.source === newConnection.source && edge.target === newConnection.target
+          );
+          if (newEdge) {
+            broadcastLiveChange({
+              id: newEdge.id,
+              type: 'edge',
+              action: 'create',
+              data: newEdge
+            });
+          }
         }
 
         return updatedEdges;
@@ -1043,11 +1133,45 @@ const onReconnectEnd = useCallback(
 
       if (!isInitialLoad) setHasUnsavedChanges(true);
       setIsInitialLoad(false);
-    }
-    edgeReconnectSuccessful.current = true;
-  },
-  [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
-);
+    },
+    [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
+  );
+
+  const onReconnectEnd = useCallback(
+    (_: unknown, edge: Edge) => {
+      if (!edgeReconnectSuccessful.current) {
+        setEdges((eds) => {
+          const updatedEdges = eds.filter((e) => e.id !== edge.id);
+
+          // --- HISTORY ---
+          const action = createHistoryAction(
+            "disconnect_nodes",
+            { nodeId: edge.id },
+            nodes,
+            eds
+          );
+          addToHistory(action);
+
+          // --- LIVE BROADCAST ---
+          if (currentMindMapId && broadcastLiveChange) {
+            broadcastLiveChange({
+              id: edge.id,
+              type: 'edge',
+              action: 'delete',
+              data: { id: edge.id }
+            });
+          }
+
+          return updatedEdges;
+        });
+
+        if (!isInitialLoad) setHasUnsavedChanges(true);
+        setIsInitialLoad(false);
+      }
+      edgeReconnectSuccessful.current = true;
+    },
+    [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
+  );
 
   // Auto layout handler with proper history and collaboration support
   const handleAutoLayout = useCallback((nodeId: string, originalNodes: Node[], updatedNodes: Node[]) => {
@@ -1055,12 +1179,12 @@ const onReconnectEnd = useCallback(
     setNodes(updatedNodes);
 
     // Create position map for history by comparing original and updated nodes
-    const positionMap: Record<string, {x: number, y: number}> = {};
+    const positionMap: Record<string, { x: number, y: number }> = {};
     updatedNodes.forEach(updatedNode => {
       const originalNode = originalNodes.find(n => n.id === updatedNode.id);
       if (originalNode &&
-          (originalNode.position.x !== updatedNode.position.x ||
-           originalNode.position.y !== updatedNode.position.y)) {
+        (originalNode.position.x !== updatedNode.position.x ||
+          originalNode.position.y !== updatedNode.position.y)) {
         positionMap[updatedNode.id] = updatedNode.position;
       }
     });
@@ -1070,8 +1194,8 @@ const onReconnectEnd = useCallback(
       updatedNodes.forEach(updatedNode => {
         const originalNode = originalNodes.find(n => n.id === updatedNode.id);
         if (originalNode &&
-            (originalNode.position.x !== updatedNode.position.x ||
-             originalNode.position.y !== updatedNode.position.y)) {
+          (originalNode.position.x !== updatedNode.position.x ||
+            originalNode.position.y !== updatedNode.position.y)) {
           broadcastLiveChange({
             id: updatedNode.id,
             type: 'node',
@@ -1212,15 +1336,15 @@ const onReconnectEnd = useCallback(
                   const descendantNode = nodes.find((n) => n.id === descendantId)
                   return descendantNode
                     ? {
-                        type: "position" as const,
-                        id: descendantId,
-                        position: {
-                          x: descendantNode.position.x + deltaX,
-                          y: descendantNode.position.y + deltaY,
-                        },
-                        // Synchronize dragging state with parent to maintain consistent visual feedback
-                        dragging: posChange.dragging,
-                      }
+                      type: "position" as const,
+                      id: descendantId,
+                      position: {
+                        x: descendantNode.position.x + deltaX,
+                        y: descendantNode.position.y + deltaY,
+                      },
+                      // Synchronize dragging state with parent to maintain consistent visual feedback
+                      dragging: posChange.dragging,
+                    }
                     : null
                 })
                 .filter(Boolean),
@@ -1314,7 +1438,8 @@ const onReconnectEnd = useCallback(
           if (shouldMarkUnsaved) {
             setHasUnsavedChanges(true);
           }
-        }      } else {
+        }
+      } else {
         setNodes((nds) => applyNodeChanges(changes, nds));
 
         // Force edge re-rendering when moving with children to prevent connection line issues
@@ -1327,22 +1452,22 @@ const onReconnectEnd = useCallback(
             }
           }, 0);
         }
-      }      setIsInitialLoad(false);
-      
+      } setIsInitialLoad(false);
+
       // Broadcast changes to collaborators if we're in a collaborative session
       if (currentMindMapId && changes.length > 0) {
         changes.forEach(change => {
           if (change.type === 'position') {
             const positionChange = change as any;
             const nodeData = nodes.find(n => n.id === change.id);
-            
+
             if (nodeData) {
               // Create updated node data with new position
               const updatedNodeData = {
                 ...nodeData,
                 position: positionChange.position
               };
-              
+
               // Broadcast live position updates (including dragging)
               broadcastLiveChange({
                 id: change.id,
@@ -1380,16 +1505,16 @@ const onReconnectEnd = useCallback(
       const significantChanges = changes.filter(change =>
         change.type === 'remove'
       )
-      
+
       setEdges((eds) => applyEdgeChanges(changes, eds))
 
       // Track document modifications only for meaningful structural changes
       if (significantChanges.length > 0 && !isInitialLoad) {
         setHasUnsavedChanges(true)
       }
-      
+
       setIsInitialLoad(false)
-      
+
       // Broadcast edge changes to collaborators
       if (currentMindMapId && significantChanges.length > 0) {
         significantChanges.forEach(change => {
@@ -1670,7 +1795,7 @@ const onReconnectEnd = useCallback(
         if (!isInitialLoad) setHasUnsavedChanges(true)
         setIsInitialLoad(false)
         return
-      }      const nodeType = event.dataTransfer.getData("application/reactflow-type")
+      } const nodeType = event.dataTransfer.getData("application/reactflow-type")
       if (!nodeType) return
 
       const newNode = {
@@ -1731,25 +1856,25 @@ const onReconnectEnd = useCallback(
         nds.map((node) =>
           node.id === selectedNodeId
             ? {
-                ...node,
-                // Remove dimension constraints to enable responsive sizing
+              ...node,
+              // Remove dimension constraints to enable responsive sizing
+              width: undefined,
+              height: undefined,
+              style: {
+                ...node.style,
                 width: undefined,
-                height: undefined,
-                style: {
-                  ...node.style,
-                  width: undefined,
-                  height: undefined
-                },
-                data: {
-                  ...node.data,
-                  file,
-                  label: "",
-                  // Preserve original remote URL while prioritizing local file
-                  // This enables reverting changes and maintains reference for upload replacement
-                  originalImageUrl: node.data.imageUrl,
-                  imageUrl: undefined,
-                },
-              }
+                height: undefined
+              },
+              data: {
+                ...node.data,
+                file,
+                label: "",
+                // Preserve original remote URL while prioritizing local file
+                // This enables reverting changes and maintains reference for upload replacement
+                originalImageUrl: node.data.imageUrl,
+                imageUrl: undefined,
+              },
+            }
             : node,
         ),
       )
@@ -1767,18 +1892,18 @@ const onReconnectEnd = useCallback(
         nds.map((node) =>
           node.id === selectedNodeId
             ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  file,
-                  // Preserve custom labels but apply default for new or unmodified nodes
-                  label: !node.data.label || node.data.label === "Audio" ? "Audio" : node.data.label,
-                  // Preserve remote audio reference while prioritizing local file
-                  // Enables undo functionality and maintains server-side reference
-                  originalAudioUrl: node.data.audioUrl,
-                  audioUrl: undefined,
-                },
-              }
+              ...node,
+              data: {
+                ...node.data,
+                file,
+                // Preserve custom labels but apply default for new or unmodified nodes
+                label: !node.data.label || node.data.label === "Audio" ? "Audio" : node.data.label,
+                // Preserve remote audio reference while prioritizing local file
+                // Enables undo functionality and maintains server-side reference
+                originalAudioUrl: node.data.audioUrl,
+                audioUrl: undefined,
+              },
+            }
             : node,
         ),
       )
@@ -1840,26 +1965,26 @@ const onReconnectEnd = useCallback(
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };  // Simple AI Generation Animation Function
   const createGenerationAnimation = async (
-    existingNodes: Node[], 
-    newNodes: Node[], 
-    newEdges: Edge[], 
+    existingNodes: Node[],
+    newNodes: Node[],
+    newEdges: Edge[],
     onProgress?: (currentIndex: number, total: number) => void
   ) => {
     if (newNodes.length === 0) return { finalNodes: existingNodes, finalEdges: edges };
-    
+
     // Start with existing nodes
     let currentNodes = [...existingNodes];
     let currentEdges = [...edges];
-    
+
     // Add new nodes one by one with simple animation
     for (let i = 0; i < newNodes.length; i++) {
       const nodeToAdd = newNodes[i];
-      
+
       // Call progress callback if provided
       if (onProgress) {
         onProgress(i, newNodes.length);
       }
-      
+
       // Add the node with a simple fade-in effect
       const newNode = {
         ...nodeToAdd,
@@ -1869,13 +1994,13 @@ const onReconnectEnd = useCallback(
           transition: 'opacity 0.3s ease-in-out',
         }
       };
-      
+
       currentNodes = [...currentNodes, newNode];
       setNodes(currentNodes);
-      
+
       // Wait a brief moment
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Fade in the node
       const visibleNode = {
         ...nodeToAdd,
@@ -1885,29 +2010,29 @@ const onReconnectEnd = useCallback(
           transition: 'opacity 0.3s ease-in-out',
         }
       };
-      
-      currentNodes = currentNodes.map(n => 
+
+      currentNodes = currentNodes.map(n =>
         n.id === nodeToAdd.id ? visibleNode : n
       );
       setNodes(currentNodes);
-      
+
       // Add connected edges
-      const nodeEdges = newEdges.filter(edge => 
+      const nodeEdges = newEdges.filter(edge =>
         edge.source === nodeToAdd.id || edge.target === nodeToAdd.id
       );
-      
+
       if (nodeEdges.length > 0) {
         currentEdges = [...currentEdges, ...nodeEdges];
         setEdges(currentEdges);
       }
-      
+
       // Brief pause between nodes
       await new Promise(resolve => setTimeout(resolve, 200));
     }
-    
+
     // Final cleanup
     setIsAnimatingGeneration(false);
-    
+
     return { finalNodes: currentNodes, finalEdges: currentEdges };
   };
   // Removed complex pulsing indicator - using simple animation instead
@@ -1945,21 +2070,21 @@ const onReconnectEnd = useCallback(
 
     setIsAIFillLoading(true);
     resetProgress();
-    
+
     try {
       const isRootNode = selectedNodeId === "1";
-      
+
       // Stage 1: Analyzing mindmap structure
       updateProgress('analyzing', 'Analyzing mindmap structure...', 5);
       await new Promise(resolve => setTimeout(resolve, 500)); // Give user visual feedback
-      
+
       // Prepare mindmap data for AI service
       let mindMapData;
       let prompt;
-      
+
       if (isRootNode) {
         updateProgress('analyzing', 'Preparing for full mindmap generation...', 10);
-        
+
         // For root node, send entire mindmap for full regeneration
         mindMapData = {
           id: id || '',
@@ -1968,40 +2093,40 @@ const onReconnectEnd = useCallback(
           edges,
           isFullGeneration: true
         };
-        
+
         prompt = aiFillPrompt.trim() || "Generate a comprehensive mindmap structure with relevant nodes and connections.";
-        
+
         // Estimate total nodes for full generation
         updateProgress('analyzing', 'Ready to generate complete mindmap', 15, 15000, 0, 12);
       } else {
         updateProgress('analyzing', 'Analyzing selected branch...', 10);
-        
+
         // For specific node, send COMPLETE mindmap context with expansion target info
         if (!selectedNodeId) {
           console.error("No node selected for hierarchical AI Fill");
           return;
         }
-        
+
         const selectedNode = nodes.find(node => node.id === selectedNodeId);
         const descendantIds = getNodeDescendants(selectedNodeId);
         const relevantNodeIds = [selectedNodeId, ...descendantIds];
-        
+
         // Get branch-specific nodes for analysis but send complete mindmap
         const branchNodes = nodes.filter(node => relevantNodeIds.includes(node.id));
-        const branchEdges = edges.filter(edge => 
+        const branchEdges = edges.filter(edge =>
           relevantNodeIds.includes(edge.source) && relevantNodeIds.includes(edge.target)
         );
 
         // Analyze existing structure for better AI context
-        const childNodes = branchNodes.filter(node => 
+        const childNodes = branchNodes.filter(node =>
           branchEdges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
         );
         const hasExistingChildren = childNodes.length > 0;
-        
+
         // Estimate expansion nodes based on existing structure
         const estimatedNewNodes = hasExistingChildren ? Math.max(3, childNodes.length * 2) : 6;
         updateProgress('analyzing', `Analyzing "${selectedNode?.data?.label}" branch...`, 12, 8000, 0, estimatedNewNodes);
-        
+
         mindMapData = {
           id: id || '',
           title: editedTitle,
@@ -2026,7 +2151,7 @@ const onReconnectEnd = useCallback(
             directChildNodes: childNodes
           }
         };
-        
+
         // Enhance the prompt based on existing structure
         let basePrompt = aiFillPrompt.trim();
         if (!basePrompt) {
@@ -2041,7 +2166,7 @@ const onReconnectEnd = useCallback(
             basePrompt = `${basePrompt}\n\nNote: This node already has ${childNodes.length} existing child node(s): ${childNodes.map(child => `"${child.data?.label}"`).join(', ')}. Consider this existing structure when adding new content.`;
           }
         }
-        
+
         prompt = basePrompt;
       }
 
@@ -2055,12 +2180,12 @@ const onReconnectEnd = useCallback(
       // Stage 2: AI Generation
       updateProgress('generating', 'Sending request to AI...', 25);
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       updateProgress('generating', 'AI is analyzing your mindmap...', 35);
-      
+
       // Generate AI response using the dedicated mindmap method with progress simulation
       const generationPromise = aiService.generateMindMapContent(prompt, mindMapData);
-      
+
       // Simulate progress during AI generation
       const progressInterval = setInterval(() => {
         setGenerationProgress(prev => {
@@ -2075,51 +2200,51 @@ const onReconnectEnd = useCallback(
           return prev;
         });
       }, 800);
-      
+
       await generationPromise;
       clearInterval(progressInterval);
-      
+
       updateProgress('generating', 'AI generation complete', 75);
-      
+
       // Stage 3: Processing results
       updateProgress('processing', 'Retrieving generated content...', 80);
-      
+
       // Retrieve the generated content from the preview store
       const { usePreviewMindMapStore } = await import("../store/previewMindMapStore");
       const previewStore = usePreviewMindMapStore.getState();
       const generatedVersion = previewStore.getCurrentVersion(mindMapData.id);
-      
+
       if (generatedVersion) {
         console.log("Retrieved generated content from preview store:", generatedVersion);
-        
-        const totalNewNodes = isRootNode 
+
+        const totalNewNodes = isRootNode
           ? generatedVersion.nodes.filter((node: any) => node.id !== "1").length
           : generatedVersion.nodes.filter((node: any) => !nodes.some(existing => existing.id === node.id)).length;
-        
+
         updateProgress('processing', `Processing ${totalNewNodes} new nodes...`, 85, undefined, 0, totalNewNodes);
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Stage 4: Animation
         updateProgress('animating', 'Starting mindmap animation...', 90);
-        
+
         if (isRootNode) {
           // For root node, replace entire mindmap with animation
           const existingNodes = nodes.filter(node => node.id === "1"); // Keep only root
           const newNodes = generatedVersion.nodes.filter((node: any) => node.id !== "1");
-          
+
           updateProgress('animating', `Animating ${newNodes.length} new nodes...`, 92, undefined, 0, newNodes.length);
-          
+
           // Animate the generation of new nodes with progress updates
           const { finalNodes, finalEdges } = await createGenerationAnimation(
-            existingNodes, 
-            newNodes, 
+            existingNodes,
+            newNodes,
             generatedVersion.edges,
             (currentIndex, total) => {
               const animationProgress = 92 + (currentIndex / total) * 6;
               updateProgress('animating', `Animating node ${currentIndex + 1} of ${total}...`, animationProgress, undefined, currentIndex + 1, total);
             }
           );
-          
+
           // Apply the final state
           await acceptAIChanges(finalNodes, finalEdges, generatedVersion.title);
           setEditedTitle(generatedVersion.title);
@@ -2127,32 +2252,32 @@ const onReconnectEnd = useCallback(
           // For hierarchical expansion with live animation
           const existingNodeIds = new Set(nodes.map(node => node.id));
           const returnedNodeIds = new Set(generatedVersion.nodes.map((node: any) => node.id));
-          
+
           // Check if all existing nodes are preserved
           const allExistingNodesPreserved = Array.from(existingNodeIds).every(id => returnedNodeIds.has(id));
-          
+
           if (allExistingNodesPreserved) {
             // Separate existing and new nodes for animation
             const existingNodes = generatedVersion.nodes.filter((node: any) => existingNodeIds.has(node.id));
             const newNodes = generatedVersion.nodes.filter((node: any) => !existingNodeIds.has(node.id));
-            const newEdges = generatedVersion.edges.filter((edge: any) => 
+            const newEdges = generatedVersion.edges.filter((edge: any) =>
               !edges.some(existingEdge => existingEdge.id === edge.id)
             );
-            
+
             console.log(`Starting live animation for ${newNodes.length} new nodes`);
             updateProgress('animating', `Animating ${newNodes.length} new nodes...`, 92, undefined, 0, newNodes.length);
-            
+
             // Animate the generation of new content with progress tracking
             const { finalNodes, finalEdges } = await createGenerationAnimation(
-              existingNodes, 
-              newNodes, 
+              existingNodes,
+              newNodes,
               newEdges,
               (currentIndex, total) => {
                 const animationProgress = 92 + (currentIndex / total) * 6;
                 updateProgress('animating', `Animating node ${currentIndex + 1} of ${total}...`, animationProgress, undefined, currentIndex + 1, total);
               }
             );
-            
+
             // Apply final changes
             await acceptAIChanges(finalNodes, finalEdges, editedTitle);
             console.log("Applied complete AI-enhanced mindmap structure with animation");
@@ -2160,53 +2285,54 @@ const onReconnectEnd = useCallback(
             // Fallback: merge only new content with animation
             console.warn("AI didn't preserve all existing nodes, falling back to merge approach");
             const newNodes = generatedVersion.nodes.filter((node: any) => !existingNodeIds.has(node.id));
-            const newEdges = generatedVersion.edges.filter((edge: any) => 
+            const newEdges = generatedVersion.edges.filter((edge: any) =>
               !edges.some(existingEdge => existingEdge.id === edge.id)
             );
-            
+
             updateProgress('animating', `Animating ${newNodes.length} new nodes...`, 92, undefined, 0, newNodes.length);
-            
+
             // Animate the generation of new content
             const { finalNodes, finalEdges } = await createGenerationAnimation(
-              nodes, 
-              newNodes, 
+              nodes,
+              newNodes,
               newEdges,
               (currentIndex, total) => {
                 const animationProgress = 92 + (currentIndex / total) * 6;
                 updateProgress('animating', `Animating node ${currentIndex + 1} of ${total}...`, animationProgress, undefined, currentIndex + 1, total);
               }
             );
-            
+
             await acceptAIChanges(finalNodes, finalEdges, editedTitle);
           }
         }
-        
+
         // Mark as having unsaved changes
         if (!isInitialLoad) {
           setHasUnsavedChanges(true);
         }
-          // Stage 5: Complete
+        // Stage 5: Complete
         updateProgress('complete', 'AI Fill completed successfully!', 100);
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         console.log("AI Fill applied successfully to mindmap");
       } else {
         updateProgress('complete', 'No content generated', 100);
-        console.warn("No generated content found in preview store");      }
-      
+        console.warn("No generated content found in preview store");
+      }
+
       // Close modal and reset state after successful completion
       setTimeout(() => {
         setShowAIFillModal(false);
         setAIFillPrompt("");
         resetProgress();
       }, 2000); // Give user time to see success message
-      
+
     } catch (error) {
       console.error("Error generating AI content:", error);
-      
+
       // Determine error type and provide appropriate user message
       let errorMessage = 'An unexpected error occurred during generation';
-      
+
       if (error instanceof Error) {
         if (error.message.includes('network') || error.message.includes('fetch')) {
           errorMessage = 'Network error - Please check your connection and try again';
@@ -2220,19 +2346,19 @@ const onReconnectEnd = useCallback(
           errorMessage = error.message || errorMessage;
         }
       }
-      
+
       updateProgress('error', errorMessage, 100);
       setGenerationProgress(prev => ({
         ...prev,
         isError: true
       }));
-      
+
       // Show error state for longer to give user time to read
       setTimeout(() => {
         resetProgress();
         // Don't auto-close modal on error - let user decide
       }, 5000);
-      
+
     } finally {
       setIsAIFillLoading(false);
     }
@@ -2322,7 +2448,7 @@ const onReconnectEnd = useCallback(
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
     }
-    
+
     setIsInitialLoad(false);
   }, [isInitialLoad]);
 
@@ -2667,7 +2793,7 @@ const onReconnectEnd = useCallback(
       if (!isInitialLoad) {
         setHasUnsavedChanges(true);
       }
-      
+
       setIsInitialLoad(false);
     },
     [nodes, isInitialLoad, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange]
@@ -2679,8 +2805,8 @@ const onReconnectEnd = useCallback(
 
     const labelLimit =
       selectedNode &&
-      selectedNode.type &&
-      SOCIAL_MEDIA_NODE_TYPES.includes(selectedNode.type)
+        selectedNode.type &&
+        SOCIAL_MEDIA_NODE_TYPES.includes(selectedNode.type)
         ? 25
         : 200
     const truncatedLabel = newLabel.slice(0, labelLimit)
@@ -2839,11 +2965,11 @@ const onReconnectEnd = useCallback(
 
         // If the clicked node is an audio, spotify, soundcloud, or youtube-video node, add it to the playlist
         if (clickedNode && (
-            (clickedNode.type === 'audio' && clickedNode.data.audioUrl) || 
-            (clickedNode.type === 'spotify' && clickedNode.data.spotifyUrl) ||
-            (clickedNode.type === 'soundcloud' && clickedNode.data.soundCloudUrl) ||
-            (clickedNode.type === 'youtube-video' && clickedNode.data.videoUrl)
-          )) {
+          (clickedNode.type === 'audio' && clickedNode.data.audioUrl) ||
+          (clickedNode.type === 'spotify' && clickedNode.data.spotifyUrl) ||
+          (clickedNode.type === 'soundcloud' && clickedNode.data.soundCloudUrl) ||
+          (clickedNode.type === 'youtube-video' && clickedNode.data.videoUrl)
+        )) {
           handleAddTrackToPlaylist(activePlaylistNodeId, clickedNode);
           return;
         }
@@ -2967,7 +3093,7 @@ const onReconnectEnd = useCallback(
 
   const handleResizeMove = (e: MouseEvent) => {
     if (!isResizingNodeEditor) return
-    
+
     const deltaX = resizeStartX - e.clientX // Subtract because we're resizing from the left
     const minWidth = isSmallScreen ? 140 : 180 // Slightly smaller minimum for mobile
     const maxWidth = Math.min(600, window.innerWidth * 0.4) // Max 40% of screen width or 600px
@@ -2999,15 +3125,15 @@ const onReconnectEnd = useCallback(
   // Helper function to format SoundCloud URLs into readable text
   const formatSoundCloudUrl = (url?: string, fallbackLabel: string = 'SoundCloud Track'): string => {
     if (!url) return fallbackLabel;
-    
+
     try {
       // Improved regex to remove protocol, www prefix, and domain completely
       let path = url.replace(/^(?:https?:\/\/)?(?:www\.)?soundcloud\.com\//, '');
-      
+
       // Split artist and song parts
       const [artist, ...songParts] = path.split('/');
       const song = songParts.join('-');
-      
+
       if (artist && song) {
         return `${artist} - ${song}`;
       } else if (artist) {
@@ -3164,7 +3290,7 @@ const onReconnectEnd = useCallback(
 
         if (action.previousState?.edges) {
           setEdges(action.previousState.edges)
-        }        const newHistoryIndex = currentHistoryIndex - 1
+        } const newHistoryIndex = currentHistoryIndex - 1
         setCurrentHistoryIndex(newHistoryIndex)
         // Check if we've reached the last saved point
         const reachedSavePoint = newHistoryIndex === lastSavedHistoryIndex
@@ -3192,7 +3318,7 @@ const onReconnectEnd = useCallback(
             // For add operations, when undoing we're removing nodes, so broadcast 'delete' actions
             const currentNodes = nodes;
             const previousNodes = action.previousState.nodes || [];
-            
+
             // Find nodes that were in current state but not in previous state (i.e., were added)
             currentNodes.forEach(currentNode => {
               const wasInPrevious = previousNodes.some(prevNode => prevNode.id === currentNode.id);
@@ -3218,7 +3344,7 @@ const onReconnectEnd = useCallback(
               });
             }
           }
-          
+
           // Handle edge changes during undo
           if (action.type === "delete_node" && action.previousState.edges) {
             // For delete operations, when undoing we're restoring edges, so broadcast 'create' actions
@@ -3238,7 +3364,7 @@ const onReconnectEnd = useCallback(
             // For connect operations, when undoing we're removing edges, so broadcast 'delete' actions
             const currentEdges = edges;
             const previousEdges = action.previousState.edges || [];
-            
+
             // Find edges that were in current state but not in previous state (i.e., were added)
             currentEdges.forEach(currentEdge => {
               const wasInPrevious = previousEdges.some(prevEdge => prevEdge.id === currentEdge.id);
@@ -3297,7 +3423,7 @@ const onReconnectEnd = useCallback(
             setNodes((nodes) =>
               nodes.map((node) => {
 
-                const positionMap = nextAction.data.position as Record<string, {x: number, y: number}>
+                const positionMap = nextAction.data.position as Record<string, { x: number, y: number }>
                 const newPosition = positionMap[node.id]
                 if (newPosition) {
                   return { ...node, position: newPosition }
@@ -3468,7 +3594,7 @@ const onReconnectEnd = useCallback(
           // Get current nodes state and broadcast affected nodes
           const currentNodes = nodes;
           if (nextAction.type === "move_node" && nextAction.data.position) {
-            const positionMap = nextAction.data.position as Record<string, {x: number, y: number}>;
+            const positionMap = nextAction.data.position as Record<string, { x: number, y: number }>;
             Object.keys(positionMap).forEach(nodeId => {
               const node = currentNodes.find(n => n.id === nodeId);
               if (node) {
@@ -3491,7 +3617,8 @@ const onReconnectEnd = useCallback(
                 data: node
               });
             }
-          }        } else if (nextAction.type === "add_node" && nextAction.data.nodes) {
+          }
+        } else if (nextAction.type === "add_node" && nextAction.data.nodes) {
           // Broadcast new nodes from add_node actions
           nextAction.data.nodes.forEach((node: Node) => {
             broadcastLiveChange({
@@ -3504,8 +3631,8 @@ const onReconnectEnd = useCallback(
         } else if (nextAction.type === "connect_nodes" && nextAction.data.connection) {
           // Broadcast new edge creation
           const connection = nextAction.data.connection;
-          const newEdge = edges.find(edge => 
-            edge.source === connection.source && 
+          const newEdge = edges.find(edge =>
+            edge.source === connection.source &&
             edge.target === connection.target
           );
           if (newEdge) {
@@ -3520,12 +3647,12 @@ const onReconnectEnd = useCallback(
           // For disconnect operations, broadcast the removal of edges connected to the node
           const nodeId = nextAction.data.nodeId;
           const currentEdges = edges;
-          
+
           // Find edges that are connected to this node and should be removed
-          const edgesToRemove = currentEdges.filter(edge => 
+          const edgesToRemove = currentEdges.filter(edge =>
             edge.source === nodeId || edge.target === nodeId
           );
-          
+
           edgesToRemove.forEach(edge => {
             broadcastLiveChange({
               id: edge.id,
@@ -3538,7 +3665,7 @@ const onReconnectEnd = useCallback(
           // Broadcast node deletion for both the main node and its children
           const nodeId = nextAction.data.nodeId;
           const allNodesToDelete = [nodeId, ...getNodeDescendants(nodeId)];
-          
+
           allNodesToDelete.forEach(deletedNodeId => {
             broadcastLiveChange({
               id: deletedNodeId,
@@ -3569,9 +3696,12 @@ const onReconnectEnd = useCallback(
         if (hasUnsavedChanges && !isSaving) {
           handleSave()
         }
+      } else if (event.ctrlKey && event.key === "f") {
+        event.preventDefault()
+        handleSearchOpen()
       }
     },
-    [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo, isSaving],
+    [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo, isSaving, handleSearchOpen],
   )
 
   useEffect(() => {
@@ -3717,7 +3847,7 @@ const onReconnectEnd = useCallback(
 
     setNodes(nodes =>
       nodes.map(node => {
-                             if (node.id === nodeId) {
+        if (node.id === nodeId) {
           // For new uploads, always update the dimensions
           // For existing images, only update if the node doesn't have dimensions yet
           const shouldUpdateDimensions = isNewUpload ||
@@ -4122,7 +4252,7 @@ const onReconnectEnd = useCallback(
     const throttledBroadcast = (position: { x: number; y: number }) => {
       const now = Date.now();
       const timeSinceLastBroadcast = now - lastBroadcastTime;
-      
+
       // Throttle to maximum 60 FPS (16.67ms between broadcasts)
       if (timeSinceLastBroadcast >= 16.67) {
         broadcastCursorPosition(position);
@@ -4131,12 +4261,12 @@ const onReconnectEnd = useCallback(
       } else {
         // Store the latest position for deferred broadcast
         pendingBroadcast = position;
-        
+
         // Cancel previous animation frame if exists
         if (animationFrameId) {
           cancelAnimationFrame(animationFrameId);
         }
-        
+
         // Schedule broadcast for next available frame
         animationFrameId = requestAnimationFrame(() => {
           if (pendingBroadcast) {
@@ -4157,25 +4287,25 @@ const onReconnectEnd = useCallback(
       if (showPasteToolbox) {
         setPasteToolboxPosition({ x: e.clientX, y: e.clientY });
       }
-        // Track cursor position for collaboration if we're in a collaborative session
+      // Track cursor position for collaboration if we're in a collaborative session
       if (currentMindMapId && reactFlowInstance && reactFlowWrapperRef.current?.contains(e.target as Element)) {
         const rect = reactFlowWrapperRef.current.getBoundingClientRect();
         const clientX = e.clientX - rect.left;
         const clientY = e.clientY - rect.top;
-        
+
         // Get current viewport state
         const viewport = reactFlowInstance.getViewport();
-        
+
         // Convert to viewport-independent coordinates (world coordinates)
         // This accounts for zoom and pan so coordinates work across different viewports
         const worldX = (clientX - viewport.x) / viewport.zoom;
         const worldY = (clientY - viewport.y) / viewport.zoom;
-        
+
         const worldPosition = { x: worldX, y: worldY };
-        
+
         // Update local cursor position immediately (no throttling for local updates)
         updateCursorPosition(worldPosition);
-        
+
         // Throttle network broadcasts to reduce lag
         throttledBroadcast(worldPosition);
       }
@@ -4230,7 +4360,7 @@ const onReconnectEnd = useCallback(
 
         if (!reactFlowInstance) {
           return;
-        }        const { newNodes, newEdges } = createPasteAction(
+        } const { newNodes, newEdges } = createPasteAction(
           clipboardNodes,
           clipboardEdges,
           pasteToolboxPosition,
@@ -4311,13 +4441,13 @@ const onReconnectEnd = useCallback(
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('click', handleMouseClick);
-    document.addEventListener('contextmenu', handleContextMenu);    return () => {
+    document.addEventListener('contextmenu', handleContextMenu); return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('click', handleMouseClick);
       document.removeEventListener('contextmenu', handleContextMenu);
-      
+
       // Clean up animation frame if exists
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -4539,7 +4669,7 @@ const onReconnectEnd = useCallback(
   const nodeEditorClass = `w-full`
   const nodeEditorStyle = { maxWidth: `${nodeEditorWidth}px`, width: `${nodeEditorWidth}px` }
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
-  
+
   // Skeleton loader for mind map interface
   const MindMapSkeleton = () => (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -4715,7 +4845,7 @@ const onReconnectEnd = useCallback(
       </div>
     </div>
   );
-  
+
   // Loading screen
   if (isLoading) {
     return <MindMapSkeleton />;
@@ -4739,7 +4869,7 @@ const onReconnectEnd = useCallback(
         </div>
       </div>
     );
-  }  return (
+  } return (
     <div className="fixed inset-0">
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
       <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
@@ -4771,8 +4901,8 @@ const onReconnectEnd = useCallback(
         ref={reactFlowWrapperRef}
         className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
       ><ReactFlowProvider>
-            <ReactFlow
-              key={`reactflow-${currentMap?.id || 'default'}`}
+          <ReactFlow
+            key={`reactflow-${currentMap?.id || 'default'}`}
             nodes={nodes.map((node) => {
               // Check if this node has children
               const hasChildren = edges.some((edge) => edge.source === node.id);
@@ -4831,9 +4961,8 @@ const onReconnectEnd = useCallback(
                     key={node.id}
                   >
                     <ChevronDown
-                      className={`w-4 h-4 text-gray-300 transition-transform ${
-                        collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                      }`}
+                      className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
+                        }`}
                     />
                   </button>
                 </div>
@@ -4863,15 +4992,15 @@ const onReconnectEnd = useCallback(
                   ...node.style, // Override defaults with existing style if present
                   width: (node.type === "image" || node.type === "default") ?
                     (typeof node.width === 'number' ? `${node.width}px` :
-                     typeof node.style?.width === 'number' ? `${node.style.width}px` :
-                     typeof node.style?.width === 'string' ? node.style.width :
-                     node.type === "image" ? "100px" : nodeTypeStyle.width) :
+                      typeof node.style?.width === 'number' ? `${node.style.width}px` :
+                        typeof node.style?.width === 'string' ? node.style.width :
+                          node.type === "image" ? "100px" : nodeTypeStyle.width) :
                     nodeTypeStyle.width, // Ensure resizing works for ImageNode and DefaultTextNode
                   height: (node.type === "image" || node.type === "default") ?
                     (typeof node.height === 'number' ? `${node.height}px` :
-                     typeof node.style?.height === 'number' ? `${node.style.height}px` :
-                     typeof node.style?.height === 'string' ? node.style.height :
-                     "auto") :
+                      typeof node.style?.height === 'number' ? `${node.style.height}px` :
+                        typeof node.style?.height === 'string' ? node.style.height :
+                          "auto") :
                     (nodeTypeStyle as any).height || 'auto',
                   minHeight: node.type === "default" ?
                     calculateTextNodeMinHeight(
@@ -4881,7 +5010,7 @@ const onReconnectEnd = useCallback(
                     ) : "auto",
                   minWidth: "auto",
                   // Special border radius handling for image nodes with titles
-                  borderRadius: node.type === "image" && nodeData.label ? 
+                  borderRadius: node.type === "image" && nodeData.label ?
                     "14px 14px 0 0" : // Only round top corners when image has title
                     nodeTypeStyle.borderRadius, // Use default for all other cases
                   background:
@@ -4892,16 +5021,16 @@ const onReconnectEnd = useCallback(
 
                   borderColor: node.id === visuallySelectedNodeId
                     ? "skyblue"
-                    : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) || 
-                                            (node.type === 'spotify' && nodeData.spotifyUrl) || 
-                                            (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                                            (node.type === 'youtube-video' && nodeData.videoUrl)))
+                    : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                      (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                      (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                      (node.type === 'youtube-video' && nodeData.videoUrl)))
                       ? "#4ade80" // Highlight audio, spotify, soundcloud and YouTube nodes with green border when in add to playlist mode
                       : "#374151",
-                  borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) || 
-                                                       (node.type === 'spotify' && nodeData.spotifyUrl) || 
-                                                       (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                                                       (node.type === 'youtube-video' && nodeData.videoUrl)))
+                  borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                    (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                    (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                    (node.type === 'youtube-video' && nodeData.videoUrl)))
                     ? "3px" // Thicker border for audio, spotify, soundcloud and YouTube nodes when in add to playlist mode
                     : "2px", // Always show a border for all nodes
 
@@ -4912,7 +5041,7 @@ const onReconnectEnd = useCallback(
                   whiteSpace: "normal",
                   wordWrap: "break-word",
                   overflowWrap: "break-word",
-                  
+
                   // Make root node text bold
                   fontWeight: node.id === "1" ? "bold" : "normal",
                 },
@@ -5018,12 +5147,12 @@ const onReconnectEnd = useCallback(
                 updateSelectionBounds(selectedNodes);
               }
             }}
-           
-            
 
-            
 
-            
+
+
+
+
             fitView
             proOptions={{ hideAttribution: true }}
             deleteKeyCode="null"
@@ -5038,11 +5167,11 @@ const onReconnectEnd = useCallback(
             maxZoom={2}
             elementsSelectable={true}
             selectNodesOnDrag={false}
-            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}          >            <Background color="#1e293b" gap={20} size={2}/>
+            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}          >            <Background color="#1e293b" gap={20} size={2} />
             <Controls />
-              {/* Real-time collaboration cursors */}
+            {/* Real-time collaboration cursors */}
             <CollaboratorCursors />
-            
+
             {/* Simple animation system - no visual indicators needed */}
 
             {/* Selection Toolbar */}
@@ -5098,13 +5227,13 @@ const onReconnectEnd = useCallback(
                     <img src="/assets/click/rightclick.svg" alt="Right Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
                   </div>
                 </div>
-              </div>            )}
+              </div>)}
 
             {/* Header Elements - Always visible, positioned over ReactFlow */}
             {!isFullscreen && (
               <>
-                {/* Back to Maps button - Top Left */}
-                <div className="absolute top-4 left-0 z-50">
+                {/* Back to Maps button and Search - Top Left */}
+                <div className="absolute top-4 left-0 z-50 flex items-center space-x-2">
                   <button
                     onClick={() => {
                       if (hasUnsavedChanges) {
@@ -5114,20 +5243,28 @@ const onReconnectEnd = useCallback(
                       }
                     }}
                     disabled={isSaving}
-                    className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${
-                      isSaving
-                        ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
-                    }`}
+                    className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${isSaving
+                      ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
+                      }`}
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     {isSmallScreen ? null : <span>Back to Maps</span>}
                   </button>
+
+                  {/* Search button */}
+                  <button
+                    onClick={handleSearchOpen}
+                    className="flex items-center justify-center w-10 h-10 transition-all duration-200 rounded-lg backdrop-blur-sm border text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50"
+                    title="Search nodes"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {/* Collaborators List - positioned next to Back to Maps button */}
+                {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
                 {currentMap && currentMap.creator && (
-                  <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-14' : 'left-36'}`}>
+                  <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
                     <CollaboratorsList
                       mindmapId={currentMap.id}
                       collaboratorIds={currentMap.collaborators || []}
@@ -5203,13 +5340,12 @@ const onReconnectEnd = useCallback(
                       {/* Main save button */}
                       <button
                         onClick={handleSave}
-                        className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${
-                          hasUnsavedChanges && !isSaving
-                            ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
-                            : isSaving
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
+                          ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
+                          : isSaving
                             ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
                             : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
-                        }`}
+                          }`}
                         disabled={!hasUnsavedChanges || isSaving}
                       >
                         {isSaving ? (
@@ -5258,11 +5394,10 @@ const onReconnectEnd = useCallback(
                               setShowCustomInput(false)
                               setShowAutosaveMenu(false)
                             }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
-                              autosaveInterval === 'off'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                            }`}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'off'
+                              ? 'bg-blue-600/20 text-blue-300'
+                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                              }`}
                           >
                             Off
                           </button>
@@ -5273,11 +5408,10 @@ const onReconnectEnd = useCallback(
                               setShowCustomInput(false)
                               setShowAutosaveMenu(false)
                             }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
-                              autosaveInterval === '5min'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                            }`}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '5min'
+                              ? 'bg-blue-600/20 text-blue-300'
+                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                              }`}
                           >
                             5 minutes
                           </button>
@@ -5288,11 +5422,10 @@ const onReconnectEnd = useCallback(
                               setShowCustomInput(false)
                               setShowAutosaveMenu(false)
                             }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
-                              autosaveInterval === '10min'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                            }`}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '10min'
+                              ? 'bg-blue-600/20 text-blue-300'
+                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                              }`}
                           >
                             10 minutes
                           </button>
@@ -5302,11 +5435,10 @@ const onReconnectEnd = useCallback(
                               setAutosaveInterval('custom')
                               setShowCustomInput(true)
                             }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${
-                              autosaveInterval === 'custom'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                            }`}
+                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'custom'
+                              ? 'bg-blue-600/20 text-blue-300'
+                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                              }`}
                           >
                             Custom ({customAutosaveMinutes} min)
                           </button>
@@ -5365,8 +5497,8 @@ const onReconnectEnd = useCallback(
 
 
           </ReactFlow>
-          </ReactFlowProvider>
-        </div>
+        </ReactFlowProvider>
+      </div>
 
       {/* UI Elements - Hidden in fullscreen */}
       {!isFullscreen && (
@@ -5395,956 +5527,1025 @@ const onReconnectEnd = useCallback(
         </>
       )}
 
-        {selectedNodeId && selectedNode && (
-          <div 
-            className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`} 
-            style={{
-              ...nodeEditorStyle,
-              cursor: isResizingNodeEditor ? 'ew-resize' : 'default'
-            }}
-          >
-            <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
-              {/* Resize handle */}
-              <div
-                className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-500/30 transition-all group rounded-l-2xl ${isResizingNodeEditor ? 'bg-blue-500/50' : ''}`}
-                onMouseDown={handleResizeStart}
-              >
-                <div className={`absolute left-1/2 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-3 h-8 bg-slate-600/70 rounded-full transition-opacity flex items-center justify-center ${isResizingNodeEditor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  <div className="w-0.5 h-4 bg-slate-300 rounded-full"></div>
-                </div>
+      {selectedNodeId && selectedNode && (
+        <div
+          className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`}
+          style={{
+            ...nodeEditorStyle,
+            cursor: isResizingNodeEditor ? 'ew-resize' : 'default'
+          }}
+        >
+          <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
+            {/* Resize handle */}
+            <div
+              className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-500/30 transition-all group rounded-l-2xl ${isResizingNodeEditor ? 'bg-blue-500/50' : ''}`}
+              onMouseDown={handleResizeStart}
+            >
+              <div className={`absolute left-1/2 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-3 h-8 bg-slate-600/70 rounded-full transition-opacity flex items-center justify-center ${isResizingNodeEditor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                <div className="w-0.5 h-4 bg-slate-300 rounded-full"></div>
               </div>
-              {selectedNode.type === "spotify" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-green-500/10 rounded-xl">
-                      <Music className="w-5 h-5 text-green-400" />
-                    </div>
-                    <span className="text-slate-200 font-medium">Select a song</span>
+            </div>
+            {selectedNode.type === "spotify" ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-500/10 rounded-xl">
+                    <Music className="w-5 h-5 text-green-400" />
                   </div>
-                  <SpotifySearch onSelect={(track) => handleSpotifyTrackSelect(selectedNodeId, track)} />
+                  <span className="text-slate-200 font-medium">Select a song</span>
                 </div>
-              ) : selectedNode.type === "soundcloud" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-orange-500/10 rounded-xl">
-                      <Music className="w-5 h-5 text-orange-400" />
-                    </div>
-                    <span className="text-slate-200 font-medium">{isSmallScreen ? "SoundCloud" : "SoundCloud URL"}</span>
+                <SpotifySearch onSelect={(track) => handleSpotifyTrackSelect(selectedNodeId, track)} />
+              </div>
+            ) : selectedNode.type === "soundcloud" ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-orange-500/10 rounded-xl">
+                    <Music className="w-5 h-5 text-orange-400" />
                   </div>
-                  <input
-                    type="text"
-                    placeholder={isSmallScreen ? "URL" : "Enter SoundCloud URL"}
-                    value={selectedNode.data.soundCloudUrl || ""}
-                    onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                    className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                  />
+                  <span className="text-slate-200 font-medium">{isSmallScreen ? "SoundCloud" : "SoundCloud URL"}</span>
                 </div>
-              ) : selectedNode.type === "youtube-video" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-red-500/10 rounded-xl">
-                      <Youtube className="w-5 h-5 text-red-400" />
-                    </div>
-                    <span className="text-slate-200 font-medium">Search YouTube Video</span>
+                <input
+                  type="text"
+                  placeholder={isSmallScreen ? "URL" : "Enter SoundCloud URL"}
+                  value={selectedNode.data.soundCloudUrl || ""}
+                  onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                />
+              </div>
+            ) : selectedNode.type === "youtube-video" ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-500/10 rounded-xl">
+                    <Youtube className="w-5 h-5 text-red-400" />
                   </div>
-                  <YouTubeSearch onSelect={(video) => handleYouTubeVideoSelect(selectedNodeId, video)} />
+                  <span className="text-slate-200 font-medium">Search YouTube Video</span>
                 </div>
-              ) : selectedNode.type === "image" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-slate-500/10 rounded-xl">
-                      <ImageIcon className="w-5 h-5 text-slate-400" />
-                    </div>
-                    <span className="text-slate-200 font-medium">
-                      {selectedNode.data.imageUrl || selectedNode.data.file ? 'Image Settings' : 'Add Image'}
-                    </span>
+                <YouTubeSearch onSelect={(video) => handleYouTubeVideoSelect(selectedNodeId, video)} />
+              </div>
+            ) : selectedNode.type === "image" ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-slate-500/10 rounded-xl">
+                    <ImageIcon className="w-5 h-5 text-slate-400" />
                   </div>
-                  
-                  {/* Title Editor - Always show when image exists */}
-                  {(selectedNode.data.imageUrl || selectedNode.data.file) && (
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Enter image caption..."
-                      value={selectedNode.data.label || ""}
-                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                    />
-                  )}
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                  >
-                    {selectedNode.data.imageUrl ? 'Replace Image' : 'Choose Image'}
-                  </button>
+                  <span className="text-slate-200 font-medium">
+                    {selectedNode.data.imageUrl || selectedNode.data.file ? 'Image Settings' : 'Add Image'}
+                  </span>
                 </div>
-              ) : selectedNode.type === "audio" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-purple-500/10 rounded-xl">
-                      <AudioWaveform className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <span className="text-slate-200 font-medium">
-                      {selectedNode.data.audioUrl || selectedNode.data.file ? 'Edit audio label' : 'Change audio'}
-                    </span>
-                  </div>
-                  {selectedNode.data.audioUrl || selectedNode.data.file ? (
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Audio label"
-                      value={selectedNode.data.label || ""}
-                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                    />
-                  ) : (
-                    <button
-                      onClick={() => audioFileInputRef.current?.click()}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                    >
-                      Choose Audio
-                    </button>
-                  )}
-                  <input
-                    ref={audioFileInputRef}
-                    type="file"
-                    accept="audio/*"
-                    onChange={handleAudioFileChange}
-                    className="hidden"
-                  />
-                </div>
-              ) : selectedNode.type === "playlist" ? (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <ListMusic className="w-4 h-4 text-slate-400" />
-                    </div>
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Playlist name"
-                      value={selectedNode.data.label || ""}
-                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                      className="pl-12 pr-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                    />
-                  </div>
 
-                  <div className="space-y-3">
-                    <div className="text-sm text-slate-300 font-medium">Audio tracks:</div>
-                    <div
-                      className="max-h-[140px] overflow-y-auto bg-slate-800/30 rounded-xl p-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent border border-slate-700/30"
-                      onMouseEnter={() => setIsHoveringPlaylist(true)}
-                      onMouseLeave={() => setIsHoveringPlaylist(false)}
-                      ref={(el) => {
-                        // Add non-passive wheel event listener to the element
-                        if (el) {
-                          const wheelHandler = (e: WheelEvent) => {
-                            // When hovering over tracks, we want to scroll the tracks, not zoom the mindmap
-                            if (isHoveringPlaylist) {
-                              e.preventDefault();
-                              e.stopPropagation();
-
-                              // Manually handle scrolling
-                              el.scrollTop += e.deltaY;
-                            }
-                          };
-
-                          // Remove any existing listener first to avoid duplicates
-                          el.removeEventListener('wheel', wheelHandler);
-                          // Add the event listener with passive: false to allow preventDefault
-                          el.addEventListener('wheel', wheelHandler, { passive: false });
-                        }
-                      }}
-                    >
-                      {selectedNode.data.trackIds && selectedNode.data.trackIds.length > 0 ? (
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(event: DragEndEvent) => {
-                            const { active, over } = event;
-                            if (over && active.id !== over.id) {
-                              // Extract the indices from the IDs (format: "trackId-index")
-                              const oldIndex = parseInt(active.id.toString().split('-')[1]);
-                              const newIndex = parseInt(over.id.toString().split('-')[1]);
-                              handleReorderPlaylistTracks(selectedNodeId, oldIndex, newIndex);
-                            }
-                          }}
-                        >
-                          <SortableContext
-                            items={selectedNode.data.trackIds.map((id: string, index: number) => `${id}-${index}`)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <div className="space-y-1">
-                              {selectedNode.data.trackIds.map((trackId: string, index: number) => {
-                                // Find the audio, spotify, soundcloud, or youtube-video node with this ID
-                                const trackNode = nodes.find(node => node.id === trackId && 
-                                  (node.type === 'audio' || node.type === 'spotify' || 
-                                   node.type === 'soundcloud' || node.type === 'youtube-video'));
-                                if (!trackNode) return null;
-
-                                // Count occurrences of this track ID before this index
-                                const trackOccurrences = selectedNode.data.trackIds
-                                  .slice(0, index)
-                                  .filter((id: string) => id === trackId).length;
-
-                                // Create a label with counter for duplicate tracks
-                                let displayLabel = trackNode.data.label || (
-                                  trackNode.type === 'audio' ? "Audio" : 
-                                  trackNode.type === 'spotify' ? "Spotify Track" : 
-                                  trackNode.type === 'soundcloud' ? "SoundCloud Track" :
-                                  trackNode.type === 'youtube-video' ? "YouTube Video" :
-                                  "Track"
-                                );
-                                
-                                // Format SoundCloud URLs into readable labels
-                                if (trackNode.type === 'soundcloud' && trackNode.data.soundCloudUrl) {
-                                  displayLabel = formatSoundCloudUrl(trackNode.data.soundCloudUrl, displayLabel);
-                                }
-                                
-                                if (trackOccurrences > 0) {
-                                  displayLabel = `${displayLabel} (${trackOccurrences + 1})`;
-                                }
-
-                                // Determine duration based on node type
-                                const duration = trackNode.data.duration || 0;
-
-
-                                return (
-                                  <SortableTrackItem
-                                    key={`${trackId}-${index}`}
-                                    id={`${trackId}-${index}`}
-                                    trackId={trackId}
-                                    index={index}
-                                    label={displayLabel}
-                                    duration={duration}
-                                    onRemove={(trackId, index) => handleRemoveTrackFromPlaylist(selectedNodeId, trackId, index)}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                      ) : (
-                        <div className="text-slate-500 text-xs p-3 text-center bg-slate-800/20 rounded-lg border border-slate-700/30">
-                          No tracks added to playlist
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Add song button */}
-                  <div>
-                    {isAddingToPlaylist && activePlaylistNodeId === selectedNodeId ? (
-                      <div className="flex flex-col space-y-3">
-                        <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-sm text-blue-300">
-                          <p>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</p>
-                        </div>
-                        <button
-                          onClick={() => toggleAddToPlaylistMode(null)}
-                          className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                        >
-                          Cancel Selection
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => toggleAddToPlaylistMode(selectedNodeId)}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl transition-all duration-200 font-medium flex items-center justify-center shadow-lg shadow-blue-500/25"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : selectedNode.type === "link" ? (
-                <div className="space-y-4">
+                {/* Title Editor - Always show when image exists */}
+                {(selectedNode.data.imageUrl || selectedNode.data.file) && (
                   <input
                     autoFocus
                     type="text"
-                    placeholder="URL"
-                    value={selectedNode.data.url || ''}
+                    placeholder="Enter image caption..."
+                    value={selectedNode.data.label || ""}
                     onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
                     className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
                   />
+                )}
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                >
+                  {selectedNode.data.imageUrl ? 'Replace Image' : 'Choose Image'}
+                </button>
+              </div>
+            ) : selectedNode.type === "audio" ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-500/10 rounded-xl">
+                    <AudioWaveform className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-slate-200 font-medium">
+                    {selectedNode.data.audioUrl || selectedNode.data.file ? 'Edit audio label' : 'Change audio'}
+                  </span>
+                </div>
+                {selectedNode.data.audioUrl || selectedNode.data.file ? (
                   <input
+                    autoFocus
                     type="text"
-                    placeholder="Display Text"
-                    value={selectedNode.data.displayText || ""}
-                    onChange={(e) => updateNodeDisplayText(selectedNodeId, e.target.value)}
+                    placeholder="Audio label"
+                    value={selectedNode.data.label || ""}
+                    onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
                     className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
                   />
-                </div>
-              ) : selectedNode.type === "mindmap" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-500/10 rounded-xl">
-                      <Network className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <span className="text-slate-200 font-medium">Select a Mind Map</span>
+                ) : (
+                  <button
+                    onClick={() => audioFileInputRef.current?.click()}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                  >
+                    Choose Audio
+                  </button>
+                )}
+                <input
+                  ref={audioFileInputRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAudioFileChange}
+                  className="hidden"
+                />
+              </div>
+            ) : selectedNode.type === "playlist" ? (
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <ListMusic className="w-4 h-4 text-slate-400" />
                   </div>
-                  {!showMindMapSelector ? (
-                    <button
-                      onClick={() => setShowMindMapSelector(true)}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                    >
-                      {selectedNode.data.mapKey
-                        ? maps.find(m => m.key === selectedNode.data.mapKey)?.title || "Select a map"
-                        : "Select a map"
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Playlist name"
+                    value={selectedNode.data.label || ""}
+                    onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                    className="pl-12 pr-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="text-sm text-slate-300 font-medium">Audio tracks:</div>
+                  <div
+                    className="max-h-[140px] overflow-y-auto bg-slate-800/30 rounded-xl p-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent border border-slate-700/30"
+                    onMouseEnter={() => setIsHoveringPlaylist(true)}
+                    onMouseLeave={() => setIsHoveringPlaylist(false)}
+                    ref={(el) => {
+                      // Add non-passive wheel event listener to the element
+                      if (el) {
+                        const wheelHandler = (e: WheelEvent) => {
+                          // When hovering over tracks, we want to scroll the tracks, not zoom the mindmap
+                          if (isHoveringPlaylist) {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            // Manually handle scrolling
+                            el.scrollTop += e.deltaY;
+                          }
+                        };
+
+                        // Remove any existing listener first to avoid duplicates
+                        el.removeEventListener('wheel', wheelHandler);
+                        // Add the event listener with passive: false to allow preventDefault
+                        el.addEventListener('wheel', wheelHandler, { passive: false });
                       }
-                    </button>                  ) : (                    <MindMapSelector
-                      searchTerm={mindMapSearchTerm}
-                      setSearchTerm={setMindMapSearchTerm}
-                      sortBy={mindMapSortBy}
-                      setSortBy={setMindMapSortBy}
-                      showCreateForm={showCreateMindMapForm}
-                      setShowCreateForm={setShowCreateMindMapForm}
-                      newMapTitle={newMindMapTitle}
-                      setNewMapTitle={setNewMindMapTitle}
-                      onSelectMindMap={handleSelectMindMap}                      onCreateMindMap={handleCreateMindMapAccept}
-                      onCancelCreate={handleCreateMindMapReject}
-                      isAIConversation={false}
-                      onClose={() => setShowMindMapSelector(false)}
-                      title="Choose a mindmap"
-                      mode="inline"
-                      excludeMapId={id} // Exclude the current map from the selection list
-                    />
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {selectedNode.type === "default" ? (
-                    <TextNode
-                      nodeId={selectedNodeId}
-                      label={selectedNode.data.label || ""}
-                      onLabelChange={updateNodeLabel}
-                      isRootNode={selectedNodeId === "1"}
-                    />
-                  ) : (
-                    <input
-                      autoFocus
-                      data-node-id={selectedNodeId}
-                      type="text"
-                      placeholder={
-                        selectedNode.type === "instagram"
-                          ? "username"
-                          : selectedNode.type === "twitter"
-                            ? "username"
-                            : selectedNode.type === "facebook"
-                              ? "username"
-                              : selectedNode.type === "youtube"
-                                ? "username"
-                                : selectedNode.type === "tiktok"
-                                  ? "username"
-                                  : selectedNode.type === "mindmeet"
-                                    ? "username"
-                                    : "Text..."
-                      }
-                      value={["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
-                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                    />
-                  )}
-                </div>
-              )}              {/* Root node controls */}
-              {selectedNodeId === "1" && (
-                <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
-                  <button
-                    onClick={() => handleDetachConnections(selectedNodeId)}
-                    className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
-                    title="Detach node's connections"
+                    }}
                   >
-                    <Unlink className="w-5 h-5" />
-                  </button>
-
-                  <div className="relative" ref={colorPickerRef}>
-                    <button
-                      onClick={() => setShowColorPicker(!showColorPicker)}
-                      className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
-                      title="Change node color"
-                    >
-                      <Palette className="w-5 h-5" />
-                    </button>
-
-                    {showColorPicker && (
-                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => {
-                              handleDefaultColorChange(selectedNodeId)
-                              setShowColorPicker(false)
-                            }}
-                            className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
-                          >
-                            <div 
-                              className="w-4 h-4 rounded border border-slate-600"
-                              style={{
-                                backgroundColor: (() => {
-                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
-                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
-                                  return parentNode 
-                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-                                    : "#1f2937";
-                                })()
-                              }}
-                            ></div>
-                            <span>Default</span>
-                          </button>
-
-                          <HexColorPicker
-                            color={selectedColor}
-                            onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
-                            className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
-                          />
-                          <div className="flex justify-between gap-2">
-                            <button
-                              onClick={() => handleColorPickerConfirm(selectedNodeId)}
-                              className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                              title="Confirm color change"
-                            >
-                              <Check className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleColorPickerCancel(selectedNodeId)}
-                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                              title="Cancel color change"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setShowAIFillModal(true)}
-                    className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                    title="AI fill - Generate the entire mindmap automatically"
-                  >
-                    <Brain className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              {selectedNodeId !== "1" && (
-                <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
-                  <button
-                    onClick={() => handleDetachConnections(selectedNodeId)}
-                    className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
-                    title="Detach node's connections"
-                  >
-                    <Unlink className="w-5 h-5" />
-                  </button>
-
-                  <div className="relative" ref={colorPickerRef}>
-                    <button
-                      onClick={() => setShowColorPicker(!showColorPicker)}
-                      className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
-                      title="Change node color"
-                    >
-                      <Palette className="w-5 h-5" />
-                    </button>
-
-                    {showColorPicker && (
-                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => {
-                              handleDefaultColorChange(selectedNodeId)
-                              setShowColorPicker(false)
-                            }}
-                            className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
-                          >
-                            <div 
-                              className="w-4 h-4 rounded border border-slate-600"
-                              style={{
-                                backgroundColor: (() => {
-                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
-                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
-                                  return parentNode 
-                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-                                    : "#1f2937";
-                                })()
-                              }}
-                            ></div>
-                            <span>Default</span>
-                          </button>
-
-                          <HexColorPicker
-                            color={selectedColor}
-                            onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
-                            className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
-                          />
-                          <div className="flex justify-between gap-2">
-                            <button
-                              onClick={() => handleColorPickerConfirm(selectedNodeId)}
-                              className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                              title="Confirm color change"
-                            >
-                              <Check className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleColorPickerCancel(selectedNodeId)}
-                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                              title="Cancel color change"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setShowAIFillModal(true)}
-                    className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                    title="AI fill - Add AI-generated child nodes"
-                  >
-                    <Brain className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    onClick={() => deleteNodeAndChildren(selectedNodeId)}
-                    className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                    title="Delete node and its children"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        <ProPopup isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />        {showUnsavedChangesModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center space-x-3 text-amber-400 mb-6">
-                <div className="p-2 bg-amber-400/10 rounded-xl">
-                  <AlertCircle className="w-6 h-6" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Unsaved Changes</h2>
-              </div>
-              <p className="text-slate-300 mb-8 leading-relaxed">You have unsaved changes to your mind map. Would you like to save them before leaving?</p>              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => handleModalResponse("yes")}
-                  className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                    hasUnsavedChanges && !isSaving
-                      ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white shadow-lg hover:shadow-green-500/25 transform hover:scale-105" 
-                      : isSaving
-                      ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
-                      : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
-                  }`}
-                  disabled={!hasUnsavedChanges || isSaving}
-                >
-                  {isSaving ? (
-                    <div className="flex items-center space-x-2">
-                      <Loader className="w-4 h-4 animate-spin" />
-                      <span>Saving... Please wait</span>
-                    </div>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModalResponse("no")}
-                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
-                >
-                  Discard Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModalResponse("cancel")}
-                  className="px-4 py-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-xl font-medium transition-all duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {showLoginPrompt && (
-          <ConditionalLoginPrompt onClose={() => setShowLoginPrompt(false)} />
-        )}        {/* AI Fill Modal */}
-        {showAIFillModal && (
-          <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && !isAIFillLoading) {
-                setShowAIFillModal(false);
-                setAIFillPrompt("");
-                resetProgress();
-              }
-              if (e.key === 'Enter' && e.ctrlKey && !isAIFillLoading) {
-                e.preventDefault();
-                handleAIFill();
-              }
-            }}
-          >
-            <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center space-x-3 text-green-500 mb-4">
-                <Brain className="w-6 h-6" />
-                <h2 className="text-xl font-semibold text-gray-100">AI Fill</h2>
-              </div>
-              
-              {/* Progress Display - Only show when loading */}
-              {isAIFillLoading && (
-                <div className="mb-6">
-                  {/* Progress Bar */}
-                  <div className="mb-4">                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-300">
-                        {generationProgress.stage === 'idle' ? 'Preparing...' : 
-                         generationProgress.stage === 'analyzing' ? 'Analyzing' :
-                         generationProgress.stage === 'generating' ? 'Generating' :
-                         generationProgress.stage === 'processing' ? 'Processing' :
-                         generationProgress.stage === 'animating' ? 'Animating' :
-                         generationProgress.stage === 'error' ? 'Error' :
-                         'Complete'}
-                      </span>
-                      <span className="text-sm text-gray-400">{Math.round(generationProgress.progress)}%</span>
-                    </div>
-                    
-                    {/* Animated Progress Bar */}
-                    <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                      <div                        className={`h-full rounded-full transition-all duration-500 ease-out relative ${
-                          generationProgress.isError 
-                            ? 'bg-gradient-to-r from-red-500 to-red-600' 
-                            : 'bg-gradient-to-r from-sky-400 to-blue-600'
-                        }`}
-                        style={{ width: `${generationProgress.progress}%` }}
+                    {selectedNode.data.trackIds && selectedNode.data.trackIds.length > 0 ? (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event: DragEndEvent) => {
+                          const { active, over } = event;
+                          if (over && active.id !== over.id) {
+                            // Extract the indices from the IDs (format: "trackId-index")
+                            const oldIndex = parseInt(active.id.toString().split('-')[1]);
+                            const newIndex = parseInt(over.id.toString().split('-')[1]);
+                            handleReorderPlaylistTracks(selectedNodeId, oldIndex, newIndex);
+                          }
+                        }}
                       >
-                        {/* Animated shimmer effect */}
-                        <div className={`absolute inset-0 animate-pulse ${
-                          generationProgress.isError
-                            ? 'bg-gradient-to-r from-transparent via-red-200/20 to-transparent'
-                            : 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
-                        }`}></div>
+                        <SortableContext
+                          items={selectedNode.data.trackIds.map((id: string, index: number) => `${id}-${index}`)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-1">
+                            {selectedNode.data.trackIds.map((trackId: string, index: number) => {
+                              // Find the audio, spotify, soundcloud, or youtube-video node with this ID
+                              const trackNode = nodes.find(node => node.id === trackId &&
+                                (node.type === 'audio' || node.type === 'spotify' ||
+                                  node.type === 'soundcloud' || node.type === 'youtube-video'));
+                              if (!trackNode) return null;
+
+                              // Count occurrences of this track ID before this index
+                              const trackOccurrences = selectedNode.data.trackIds
+                                .slice(0, index)
+                                .filter((id: string) => id === trackId).length;
+
+                              // Create a label with counter for duplicate tracks
+                              let displayLabel = trackNode.data.label || (
+                                trackNode.type === 'audio' ? "Audio" :
+                                  trackNode.type === 'spotify' ? "Spotify Track" :
+                                    trackNode.type === 'soundcloud' ? "SoundCloud Track" :
+                                      trackNode.type === 'youtube-video' ? "YouTube Video" :
+                                        "Track"
+                              );
+
+                              // Format SoundCloud URLs into readable labels
+                              if (trackNode.type === 'soundcloud' && trackNode.data.soundCloudUrl) {
+                                displayLabel = formatSoundCloudUrl(trackNode.data.soundCloudUrl, displayLabel);
+                              }
+
+                              if (trackOccurrences > 0) {
+                                displayLabel = `${displayLabel} (${trackOccurrences + 1})`;
+                              }
+
+                              // Determine duration based on node type
+                              const duration = trackNode.data.duration || 0;
+
+
+                              return (
+                                <SortableTrackItem
+                                  key={`${trackId}-${index}`}
+                                  id={`${trackId}-${index}`}
+                                  trackId={trackId}
+                                  index={index}
+                                  label={displayLabel}
+                                  duration={duration}
+                                  onRemove={(trackId, index) => handleRemoveTrackFromPlaylist(selectedNodeId, trackId, index)}
+                                />
+                              );
+                            })}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    ) : (
+                      <div className="text-slate-500 text-xs p-3 text-center bg-slate-800/20 rounded-lg border border-slate-700/30">
+                        No tracks added to playlist
                       </div>
-                    </div>
+                    )}
                   </div>
-                    {/* Status Message */}
-                  <div className="text-center">
-                    <p className={`mb-2 ${generationProgress.isError ? 'text-red-400' : 'text-gray-300'}`}>
-                      {generationProgress.message}
-                    </p>
-                    
-                    {/* Error Recovery Options */}
-                    {generationProgress.isError && (
-                      <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                        <div className="text-sm text-red-300 mb-3">
-                          Suggestions to resolve this issue:
-                        </div>
-                        <div className="space-y-2 text-xs text-red-200">
-                          <div>• Try a simpler or shorter prompt</div>
-                          <div>• Check your internet connection</div>
-                          <div>• Wait a moment and try again</div>
-                          <div>• Clear the prompt and use automatic generation</div>
-                        </div>
+                </div>
+
+                {/* Add song button */}
+                <div>
+                  {isAddingToPlaylist && activePlaylistNodeId === selectedNodeId ? (
+                    <div className="flex flex-col space-y-3">
+                      <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-sm text-blue-300">
+                        <p>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</p>
+                      </div>
+                      <button
+                        onClick={() => toggleAddToPlaylistMode(null)}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                      >
+                        Cancel Selection
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => toggleAddToPlaylistMode(selectedNodeId)}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl transition-all duration-200 font-medium flex items-center justify-center shadow-lg shadow-blue-500/25"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : selectedNode.type === "link" ? (
+              <div className="space-y-4">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="URL"
+                  value={selectedNode.data.url || ''}
+                  onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                />
+                <input
+                  type="text"
+                  placeholder="Display Text"
+                  value={selectedNode.data.displayText || ""}
+                  onChange={(e) => updateNodeDisplayText(selectedNodeId, e.target.value)}
+                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                />
+              </div>
+            ) : selectedNode.type === "mindmap" ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-500/10 rounded-xl">
+                    <Network className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-slate-200 font-medium">Select a Mind Map</span>
+                </div>
+                {!showMindMapSelector ? (
+                  <button
+                    onClick={() => setShowMindMapSelector(true)}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                  >
+                    {selectedNode.data.mapKey
+                      ? maps.find(m => m.key === selectedNode.data.mapKey)?.title || "Select a map"
+                      : "Select a map"
+                    }
+                  </button>) : (<MindMapSelector
+                    searchTerm={mindMapSearchTerm}
+                    setSearchTerm={setMindMapSearchTerm}
+                    sortBy={mindMapSortBy}
+                    setSortBy={setMindMapSortBy}
+                    showCreateForm={showCreateMindMapForm}
+                    setShowCreateForm={setShowCreateMindMapForm}
+                    newMapTitle={newMindMapTitle}
+                    setNewMapTitle={setNewMindMapTitle}
+                    onSelectMindMap={handleSelectMindMap} onCreateMindMap={handleCreateMindMapAccept}
+                    onCancelCreate={handleCreateMindMapReject}
+                    isAIConversation={false}
+                    onClose={() => setShowMindMapSelector(false)}
+                    title="Choose a mindmap"
+                    mode="inline"
+                    excludeMapId={id} // Exclude the current map from the selection list
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {selectedNode.type === "default" ? (
+                  <TextNode
+                    nodeId={selectedNodeId}
+                    label={selectedNode.data.label || ""}
+                    onLabelChange={updateNodeLabel}
+                    isRootNode={selectedNodeId === "1"}
+                  />
+                ) : (
+                  <input
+                    autoFocus
+                    data-node-id={selectedNodeId}
+                    type="text"
+                    placeholder={
+                      selectedNode.type === "instagram"
+                        ? "username"
+                        : selectedNode.type === "twitter"
+                          ? "username"
+                          : selectedNode.type === "facebook"
+                            ? "username"
+                            : selectedNode.type === "youtube"
+                              ? "username"
+                              : selectedNode.type === "tiktok"
+                                ? "username"
+                                : selectedNode.type === "mindmeet"
+                                  ? "username"
+                                  : "Text..."
+                    }
+                    value={["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
+                    onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                    className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                  />
+                )}
+              </div>
+            )}              {/* Root node controls */}
+            {selectedNodeId === "1" && (
+              <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
+                <button
+                  onClick={() => handleDetachConnections(selectedNodeId)}
+                  className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
+                  title="Detach node's connections"
+                >
+                  <Unlink className="w-5 h-5" />
+                </button>
+
+                <div className="relative" ref={colorPickerRef}>
+                  <button
+                    onClick={() => setShowColorPicker(!showColorPicker)}
+                    className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
+                    title="Change node color"
+                  >
+                    <Palette className="w-5 h-5" />
+                  </button>
+
+                  {showColorPicker && (
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
+                      <div className="space-y-3">
                         <button
                           onClick={() => {
-                            resetProgress();
-                            setIsAIFillLoading(false);
+                            handleDefaultColorChange(selectedNodeId)
+                            setShowColorPicker(false)
                           }}
-                          className="mt-3 px-3 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded text-xs text-red-300 transition-colors"
+                          className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
                         >
-                          Try Again
+                          <div
+                            className="w-4 h-4 rounded border border-slate-600"
+                            style={{
+                              backgroundColor: (() => {
+                                const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                return parentNode
+                                  ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+                                  : "#1f2937";
+                              })()
+                            }}
+                          ></div>
+                          <span>Default</span>
                         </button>
-                      </div>
-                    )}
-                      {/* Node Progress Display */}
-                    {!generationProgress.isError && generationProgress.totalNodes > 0 && (
-                      <div className="text-sm text-gray-400">
-                        {generationProgress.stage === 'animating' ? (
-                          <>Animated {generationProgress.nodesGenerated} of {generationProgress.totalNodes} nodes</>
-                        ) : generationProgress.stage === 'processing' && generationProgress.totalNodes > 0 ? (
-                          <>Processing {generationProgress.totalNodes} new nodes</>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>{/* Loading Animation */}
-                  <div className="flex justify-center mt-4">
-                    {generationProgress.isError ? (
-                      <div className="relative">
-                        {/* Error icon */}
-                        <div className="rounded-full h-8 w-8 border-2 border-red-500 bg-red-500/10 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+
+                        <HexColorPicker
+                          color={selectedColor}
+                          onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
+                          className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
+                        />
+                        <div className="flex justify-between gap-2">
+                          <button
+                            onClick={() => handleColorPickerConfirm(selectedNodeId)}
+                            className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                            title="Confirm color change"
+                          >
+                            <Check className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleColorPickerCancel(selectedNodeId)}
+                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                            title="Cancel color change"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
                         </div>
                       </div>
-                    ) : generationProgress.stage === 'complete' && generationProgress.progress === 100 ? (
-                      <div className="relative">
-                        {/* Success checkmark with celebration animation */}
-                        <div className="rounded-full h-8 w-8 border-2 border-green-500 bg-green-500/10 flex items-center justify-center animate-pulse">
-                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        {/* Celebration particles */}
-                        <div className="absolute inset-0 pointer-events-none">
-                          {[...Array(6)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="absolute w-1 h-1 bg-green-400 rounded-full animate-ping"
-                              style={{
-                                left: `${50 + 25 * Math.cos((i * 60) * Math.PI / 180)}%`,
-                                top: `${50 + 25 * Math.sin((i * 60) * Math.PI / 180)}%`,
-                                animationDelay: `${i * 0.1}s`,
-                                animationDuration: '1s'
-                              }}
-                            />
-                          ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowAIFillModal(true)}
+                  className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                  title="AI fill - Generate the entire mindmap automatically"
+                >
+                  <Brain className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {selectedNodeId !== "1" && (
+              <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
+                <button
+                  onClick={() => handleDetachConnections(selectedNodeId)}
+                  className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
+                  title="Detach node's connections"
+                >
+                  <Unlink className="w-5 h-5" />
+                </button>
+
+                <div className="relative" ref={colorPickerRef}>
+                  <button
+                    onClick={() => setShowColorPicker(!showColorPicker)}
+                    className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
+                    title="Change node color"
+                  >
+                    <Palette className="w-5 h-5" />
+                  </button>
+
+                  {showColorPicker && (
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => {
+                            handleDefaultColorChange(selectedNodeId)
+                            setShowColorPicker(false)
+                          }}
+                          className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
+                        >
+                          <div
+                            className="w-4 h-4 rounded border border-slate-600"
+                            style={{
+                              backgroundColor: (() => {
+                                const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                return parentNode
+                                  ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+                                  : "#1f2937";
+                              })()
+                            }}
+                          ></div>
+                          <span>Default</span>
+                        </button>
+
+                        <HexColorPicker
+                          color={selectedColor}
+                          onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
+                          className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
+                        />
+                        <div className="flex justify-between gap-2">
+                          <button
+                            onClick={() => handleColorPickerConfirm(selectedNodeId)}
+                            className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                            title="Confirm color change"
+                          >
+                            <Check className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleColorPickerCancel(selectedNodeId)}
+                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                            title="Cancel color change"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
                         </div>
                       </div>
-                    ) : (
-                      <div className="relative">
-                        {/* Spinning brain icon */}
-                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
-                        <Brain className="w-4 h-4 text-blue-400 absolute inset-0 m-auto animate-pulse" />
-                      </div>
-                    )}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowAIFillModal(true)}
+                  className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                  title="AI fill - Add AI-generated child nodes"
+                >
+                  <Brain className="w-5 h-5" />
+                </button>
+
+                <button
+                  onClick={() => deleteNodeAndChildren(selectedNodeId)}
+                  className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                  title="Delete node and its children"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <ProPopup isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />        {showUnsavedChangesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center space-x-3 text-amber-400 mb-6">
+              <div className="p-2 bg-amber-400/10 rounded-xl">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Unsaved Changes</h2>
+            </div>
+            <p className="text-slate-300 mb-8 leading-relaxed">You have unsaved changes to your mind map. Would you like to save them before leaving?</p>              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => handleModalResponse("yes")}
+                className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${hasUnsavedChanges && !isSaving
+                  ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white shadow-lg hover:shadow-green-500/25 transform hover:scale-105"
+                  : isSaving
+                    ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
+                    : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                  }`}
+                disabled={!hasUnsavedChanges || isSaving}
+              >
+                {isSaving ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Saving... Please wait</span>
+                  </div>
+                ) : (
+                  "Save Changes"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModalResponse("no")}
+                className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
+              >
+                Discard Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModalResponse("cancel")}
+                className="px-4 py-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-xl font-medium transition-all duration-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showLoginPrompt && (
+        <ConditionalLoginPrompt onClose={() => setShowLoginPrompt(false)} />
+      )}        {/* AI Fill Modal */}
+      {showAIFillModal && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isAIFillLoading) {
+              setShowAIFillModal(false);
+              setAIFillPrompt("");
+              resetProgress();
+            }
+            if (e.key === 'Enter' && e.ctrlKey && !isAIFillLoading) {
+              e.preventDefault();
+              handleAIFill();
+            }
+          }}
+        >
+          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center space-x-3 text-green-500 mb-4">
+              <Brain className="w-6 h-6" />
+              <h2 className="text-xl font-semibold text-gray-100">AI Fill</h2>
+            </div>
+
+            {/* Progress Display - Only show when loading */}
+            {isAIFillLoading && (
+              <div className="mb-6">
+                {/* Progress Bar */}
+                <div className="mb-4">                    <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-300">
+                    {generationProgress.stage === 'idle' ? 'Preparing...' :
+                      generationProgress.stage === 'analyzing' ? 'Analyzing' :
+                        generationProgress.stage === 'generating' ? 'Generating' :
+                          generationProgress.stage === 'processing' ? 'Processing' :
+                            generationProgress.stage === 'animating' ? 'Animating' :
+                              generationProgress.stage === 'error' ? 'Error' :
+                                'Complete'}
+                  </span>
+                  <span className="text-sm text-gray-400">{Math.round(generationProgress.progress)}%</span>
+                </div>
+
+                  {/* Animated Progress Bar */}
+                  <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ease-out relative ${generationProgress.isError
+                      ? 'bg-gradient-to-r from-red-500 to-red-600'
+                      : 'bg-gradient-to-r from-sky-400 to-blue-600'
+                      }`}
+                      style={{ width: `${generationProgress.progress}%` }}
+                    >
+                      {/* Animated shimmer effect */}
+                      <div className={`absolute inset-0 animate-pulse ${generationProgress.isError
+                        ? 'bg-gradient-to-r from-transparent via-red-200/20 to-transparent'
+                        : 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
+                        }`}></div>
+                    </div>
                   </div>
                 </div>
-              )}
-              
-              {/* Form Content - Hide when loading */}
-              {!isAIFillLoading && (
-                <>
-                  <p className="text-gray-300 mb-4">
-                    {(() => {
+                {/* Status Message */}
+                <div className="text-center">
+                  <p className={`mb-2 ${generationProgress.isError ? 'text-red-400' : 'text-gray-300'}`}>
+                    {generationProgress.message}
+                  </p>
+
+                  {/* Error Recovery Options */}
+                  {generationProgress.isError && (
+                    <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                      <div className="text-sm text-red-300 mb-3">
+                        Suggestions to resolve this issue:
+                      </div>
+                      <div className="space-y-2 text-xs text-red-200">
+                        <div>• Try a simpler or shorter prompt</div>
+                        <div>• Check your internet connection</div>
+                        <div>• Wait a moment and try again</div>
+                        <div>• Clear the prompt and use automatic generation</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          resetProgress();
+                          setIsAIFillLoading(false);
+                        }}
+                        className="mt-3 px-3 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded text-xs text-red-300 transition-colors"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  )}
+                  {/* Node Progress Display */}
+                  {!generationProgress.isError && generationProgress.totalNodes > 0 && (
+                    <div className="text-sm text-gray-400">
+                      {generationProgress.stage === 'animating' ? (
+                        <>Animated {generationProgress.nodesGenerated} of {generationProgress.totalNodes} nodes</>
+                      ) : generationProgress.stage === 'processing' && generationProgress.totalNodes > 0 ? (
+                        <>Processing {generationProgress.totalNodes} new nodes</>
+                      ) : null}
+                    </div>
+                  )}
+                </div>{/* Loading Animation */}
+                <div className="flex justify-center mt-4">
+                  {generationProgress.isError ? (
+                    <div className="relative">
+                      {/* Error icon */}
+                      <div className="rounded-full h-8 w-8 border-2 border-red-500 bg-red-500/10 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    </div>
+                  ) : generationProgress.stage === 'complete' && generationProgress.progress === 100 ? (
+                    <div className="relative">
+                      {/* Success checkmark with celebration animation */}
+                      <div className="rounded-full h-8 w-8 border-2 border-green-500 bg-green-500/10 flex items-center justify-center animate-pulse">
+                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      {/* Celebration particles */}
+                      <div className="absolute inset-0 pointer-events-none">
+                        {[...Array(6)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="absolute w-1 h-1 bg-green-400 rounded-full animate-ping"
+                            style={{
+                              left: `${50 + 25 * Math.cos((i * 60) * Math.PI / 180)}%`,
+                              top: `${50 + 25 * Math.sin((i * 60) * Math.PI / 180)}%`,
+                              animationDelay: `${i * 0.1}s`,
+                              animationDuration: '1s'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {/* Spinning brain icon */}
+                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
+                      <Brain className="w-4 h-4 text-blue-400 absolute inset-0 m-auto animate-pulse" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Form Content - Hide when loading */}
+            {!isAIFillLoading && (
+              <>
+                <p className="text-gray-300 mb-4">
+                  {(() => {
+                    if (selectedNodeId === "1") {
+                      return "Generate an entire mindmap structure automatically";
+                    } else {
+                      const selectedNode = nodes.find(n => n.id === selectedNodeId);
+                      const childNodes = nodes.filter(node =>
+                        edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
+                      );
+                      const hasChildren = childNodes.length > 0;
+
+                      if (hasChildren) {
+                        return `Add AI-generated content to the "${selectedNode?.data?.label}" branch. This node already has ${childNodes.length} child node(s). AI will intelligently expand the existing structure.`;
+                      } else {
+                        return `Add AI-generated child nodes to the "${selectedNode?.data?.label}" branch`;
+                      }
+                    }
+                  })()}
+                </p>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Instructions (optional)
+                  </label>
+                  <textarea
+                    value={aiFillPrompt}
+                    onChange={(e) => setAIFillPrompt(e.target.value)}
+                    placeholder={(() => {
                       if (selectedNodeId === "1") {
-                        return "Generate an entire mindmap structure automatically";
+                        return "Describe what kind of mindmap you want to create...";
                       } else {
                         const selectedNode = nodes.find(n => n.id === selectedNodeId);
-                        const childNodes = nodes.filter(node => 
+                        const childNodes = nodes.filter(node =>
                           edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
                         );
                         const hasChildren = childNodes.length > 0;
-                        
+
                         if (hasChildren) {
-                          return `Add AI-generated content to the "${selectedNode?.data?.label}" branch. This node already has ${childNodes.length} child node(s). AI will intelligently expand the existing structure.`;
+                          return `Describe how to expand the existing structure under "${selectedNode?.data?.label}" (currently has ${childNodes.length} child nodes)...`;
                         } else {
-                          return `Add AI-generated child nodes to the "${selectedNode?.data?.label}" branch`;
+                          return `Describe what content should be added to the "${selectedNode?.data?.label}" branch...`;
                         }
                       }
                     })()}
+                    className="w-full px-3 py-2 bg-gray-800 text-white border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                    rows={3}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave empty for automatic content generation
                   </p>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Instructions (optional)
-                    </label>
-                    <textarea
-                      value={aiFillPrompt}
-                      onChange={(e) => setAIFillPrompt(e.target.value)}
-                      placeholder={(() => {
-                        if (selectedNodeId === "1") {
-                          return "Describe what kind of mindmap you want to create...";
-                        } else {
-                          const selectedNode = nodes.find(n => n.id === selectedNodeId);
-                          const childNodes = nodes.filter(node => 
-                            edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
-                          );
-                          const hasChildren = childNodes.length > 0;
-                          
-                          if (hasChildren) {
-                            return `Describe how to expand the existing structure under "${selectedNode?.data?.label}" (currently has ${childNodes.length} child nodes)...`;
-                          } else {
-                            return `Describe what content should be added to the "${selectedNode?.data?.label}" branch...`;
-                          }
-                        }
-                      })()}
-                      className="w-full px-3 py-2 bg-gray-800 text-white border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                      rows={3}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Leave empty for automatic content generation
-                    </p>
-                  </div>
-                  
-                  {/* Context information for hierarchical expansion */}
-                  {selectedNodeId !== "1" && (() => {
-                    const selectedNode = nodes.find(n => n.id === selectedNodeId);
-                    const childNodes = nodes.filter(node => 
-                      edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
-                    );
-                    const hasChildren = childNodes.length > 0;
-                    
-                    if (hasChildren) {
-                      return (
-                        <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
-                          <div className="text-sm text-gray-300 mb-2">
-                            <span className="font-medium text-blue-400">Context:</span> Current structure under "{selectedNode?.data?.label}"
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            Existing children: {childNodes.map(child => `"${child.data?.label}"`).join(', ')}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-2">
-                            AI will intelligently expand this structure by adding complementary content
-                          </div>
+                </div>
+
+                {/* Context information for hierarchical expansion */}
+                {selectedNodeId !== "1" && (() => {
+                  const selectedNode = nodes.find(n => n.id === selectedNodeId);
+                  const childNodes = nodes.filter(node =>
+                    edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
+                  );
+                  const hasChildren = childNodes.length > 0;
+
+                  if (hasChildren) {
+                    return (
+                      <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                        <div className="text-sm text-gray-300 mb-2">
+                          <span className="font-medium text-blue-400">Context:</span> Current structure under "{selectedNode?.data?.label}"
                         </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </>
-              )}
-              
-              <div className="flex justify-end space-x-3">
+                        <div className="text-xs text-gray-400">
+                          Existing children: {childNodes.map(child => `"${child.data?.label}"`).join(', ')}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          AI will intelligently expand this structure by adding complementary content
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAIFillModal(false);
+                  setAIFillPrompt("");
+                  resetProgress();
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-gray-100 transition-colors"
+                disabled={isAIFillLoading}
+              >
+                {isAIFillLoading ? 'Processing...' : 'Cancel'}
+              </button>
+
+              {!isAIFillLoading && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAIFillModal(false);
-                    setAIFillPrompt("");
-                    resetProgress();
-                  }}
-                  className="px-4 py-2 text-gray-400 hover:text-gray-100 transition-colors"
-                  disabled={isAIFillLoading}
+                  onClick={handleAIFill}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
-                  {isAIFillLoading ? 'Processing...' : 'Cancel'}
+                  <Brain className="w-4 h-4 mr-2" />
+                  Generate
                 </button>
-                
-                {!isAIFillLoading && (
-                  <button
-                    type="button"
-                    onClick={handleAIFill}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    <Brain className="w-4 h-4 mr-2" />
-                    Generate
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+      <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
 
-        {/* Edit Details Modal */}
-        {currentMap && (
-          <EditDetailsModal
-            isOpen={showEditDetailsModal}
-            onClose={() => setShowEditDetailsModal(false)}
-            mapData={{
-              id: currentMap.id,
-              title: currentMap.title,
-              description: currentMap.description,
-              visibility: currentMap.visibility,
-              is_main: currentMap.is_main,
-              collaborators: currentMap.collaborators,
-              published_at: currentMap.published_at,
-            }}
-            username={username}
-            onSave={async (details) => {
-              try {
-                if (!user?.id || !currentMap) return;
+      {/* Edit Details Modal */}
+      {currentMap && (
+        <EditDetailsModal
+          isOpen={showEditDetailsModal}
+          onClose={() => setShowEditDetailsModal(false)}
+          mapData={{
+            id: currentMap.id,
+            title: currentMap.title,
+            description: currentMap.description,
+            visibility: currentMap.visibility,
+            is_main: currentMap.is_main,
+            collaborators: currentMap.collaborators,
+            published_at: currentMap.published_at,
+          }}
+          username={username}
+          onSave={async (details) => {
+            try {
+              if (!user?.id || !currentMap) return;
 
-                // Check if the new permalink already exists for the current user
-                const conflictingMap = maps.find(
-                  (map) => map.id === details.permalink && map.id !== currentMap.id
-                );
+              // Check if the new permalink already exists for the current user
+              const conflictingMap = maps.find(
+                (map) => map.id === details.permalink && map.id !== currentMap.id
+              );
 
-                if (conflictingMap) {
-                  throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
-                }
+              if (conflictingMap) {
+                throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
+              }
 
-                const isPermalinkChanged = currentMap.id !== details.permalink;
-                const updatedMapData = {
-                  title: details.title,
-                  visibility: details.visibility,
-                  description: details.description || "",
-                  is_main: details.is_main,
-                  collaborators: details.collaborators,
-                  published_at: details.published_at
+              const isPermalinkChanged = currentMap.id !== details.permalink;
+              const updatedMapData = {
+                title: details.title,
+                visibility: details.visibility,
+                description: details.description || "",
+                is_main: details.is_main,
+                collaborators: details.collaborators,
+                published_at: details.published_at
+              };
+
+              // Check if this is a publish/republish action
+              const wasJustPublished = details.published_at &&
+                details.visibility === "public" &&
+                details.published_at !== currentMap.published_at;
+
+              if (isPermalinkChanged) {
+                const updatedMap = {
+                  ...currentMap,
+                  ...updatedMapData
                 };
 
-                // Check if this is a publish/republish action
-                const wasJustPublished = details.published_at &&
-                                       details.visibility === "public" &&
-                                       details.published_at !== currentMap.published_at;
+                // Save the map with updated details
+                await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
 
-                if (isPermalinkChanged) {
-                  const updatedMap = {
-                    ...currentMap,
-                    ...updatedMapData
-                  };
+                // Then update the ID (this creates a new record and deletes the old one)
+                await updateMapId(currentMap.id, details.permalink);
 
-                  // Save the map with updated details
-                  await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+                // Navigate to the new URL in edit mode and refresh
+                navigate(`/${username}/${details.permalink}/edit`);
+                window.location.reload();
+              } else {
+                const updatedMap = {
+                  ...currentMap,
+                  ...updatedMapData
+                };
 
-                  // Then update the ID (this creates a new record and deletes the old one)
-                  await updateMapId(currentMap.id, details.permalink);
-
-                  // Navigate to the new URL in edit mode and refresh
-                  navigate(`/${username}/${details.permalink}/edit`);
-                  window.location.reload();
-                } else {
-                  const updatedMap = {
-                    ...currentMap,
-                    ...updatedMapData
-                  };
-
-                  // Save the map with updated details
-                  await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
-                }
-
-                // Update local title state
-                setEditedTitle(details.title);
-
-                // Show success popup if publishing/republishing
-                if (wasJustPublished) {
-                  setShowSuccessPopup(true);
-                  // Hide the popup after 3 seconds
-                  setTimeout(() => {
-                    setShowSuccessPopup(false);
-                  }, 3000);
-                }
-
-                setShowEditDetailsModal(false);
-              } catch (error) {
-                console.error('Error updating mindmap details:', error);
-                const errorMessage = error instanceof Error ? error.message : "Failed to update mindmap details";
-                useToastStore.getState().showToast(errorMessage, "error");
+                // Save the map with updated details
+                await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
               }
-            }}
-            showMainMapOption={true}
-          />
-        )}
 
-        {/* Mind Map Customization Modal */}
-        <MindMapCustomization
-          isOpen={showCustomizationModal}
-          onClose={() => setShowCustomizationModal(false)}
-          edgeType={edgeType}
-          onEdgeTypeChange={handleEdgeTypeChange}
-        />
-        
-        {/* Toast Notification */}
-        <Toast
-          message={toastMessage}
-          type={toastType}
-          isVisible={toastVisible}
-          onClose={hideToast}
-        />
+              // Update local title state
+              setEditedTitle(details.title);
 
-        {/* Publish Success Modal */}
-        <PublishSuccessModal isVisible={showSuccessPopup} />
+              // Show success popup if publishing/republishing
+              if (wasJustPublished) {
+                setShowSuccessPopup(true);
+                // Hide the popup after 3 seconds
+                setTimeout(() => {
+                  setShowSuccessPopup(false);
+                }, 3000);
+              }
 
-        {/* Node Context Menu */}
-        <NodeContextMenu
-          isVisible={contextMenu.isVisible}
-          nodeId={contextMenu.nodeId}
-          onClose={handleCloseContextMenu}
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={setNodes}
-          onAutoLayout={handleAutoLayout}
+              setShowEditDetailsModal(false);
+            } catch (error) {
+              console.error('Error updating mindmap details:', error);
+              const errorMessage = error instanceof Error ? error.message : "Failed to update mindmap details";
+              useToastStore.getState().showToast(errorMessage, "error");
+            }
+          }}
+          showMainMapOption={true}
         />
+      )}
+
+      {/* Mind Map Customization Modal */}
+      <MindMapCustomization
+        isOpen={showCustomizationModal}
+        onClose={() => setShowCustomizationModal(false)}
+        edgeType={edgeType}
+        onEdgeTypeChange={handleEdgeTypeChange}
+      />
+
+      {/* Toast Notification */}
+      <Toast
+        message={toastMessage}
+        type={toastType}
+        isVisible={toastVisible}
+        onClose={hideToast}
+      />
+
+      {/* Publish Success Modal */}
+      <PublishSuccessModal isVisible={showSuccessPopup} />
+
+      {/* Node Context Menu */}
+      <NodeContextMenu
+        isVisible={contextMenu.isVisible}
+        nodeId={contextMenu.nodeId}
+        onClose={handleCloseContextMenu}
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={setNodes}
+        onAutoLayout={handleAutoLayout}
+      />
+
+      {/* Search Bar - VS Code style */}
+      {showSearch && (
+        <div className="fixed top-20 left-4 z-50 animate-in slide-in-from-top-2 duration-200">
+          <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg shadow-xl border border-slate-700/50 p-3 w-80">
+            <div className="flex items-center space-x-2">
+              <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search nodes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                      handleSearchPrevious();
+                    } else {
+                      handleSearchNext();
+                    }
+                  } else if (e.key === 'Escape') {
+                    handleSearchClose();
+                  }
+                }}
+                className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-slate-400"
+                autoFocus
+              />
+
+              {searchTerm && (
+                <div className="flex items-center space-x-1 text-xs text-slate-400">
+                  <span className="whitespace-nowrap">
+                    {searchResults.length > 0
+                      ? `${currentSearchIndex + 1}/${searchResults.length}`
+                      : '0/0'
+                    }
+                  </span>
+                  {searchResults.length > 1 && (
+                    <>
+                      <button
+                        onClick={handleSearchPrevious}
+                        className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                        title="Previous (Shift+Enter)"
+                        onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+                      >
+                        <ChevronDown className="w-3 h-3 rotate-180" />
+                      </button>
+                      <button
+                        onClick={handleSearchNext}
+                        className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                        title="Next (Enter)"
+                        onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+                      >
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={handleSearchClose}
+                className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded transition-all duration-200"
+                title="Close (Escape)"
+                onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
