@@ -23,7 +23,7 @@ export const getNodeWidth = (node: Node, defaultWidth: number | string = 'auto')
   }
 
   // For link nodes and other auto-width nodes, return 'auto'
-  if (['link', 'mindmap', 'spotify', 'soundcloud', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok', 'playlist'].includes(node.type || '')) {
+  if (['link', 'mindmap', 'spotify', 'soundcloud', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok', 'mindmeet', 'playlist'].includes(node.type || '')) {
     return 'auto';
   }
 

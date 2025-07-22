@@ -329,6 +329,7 @@ const nodeTypes = {
   facebook: SocialMediaNode,
   youtube: SocialMediaNode,
   tiktok: SocialMediaNode,
+  mindmeet: SocialMediaNode,
   link: LinkNode,
   mindmap: MindMapNode,
 } as const;

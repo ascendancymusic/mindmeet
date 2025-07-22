@@ -82,6 +82,7 @@ const nodeTypes: NodeTypes = {
   facebook: SocialMediaNode as unknown as React.FC<NodeProps>,
   youtube: SocialMediaNode as unknown as React.FC<NodeProps>,
   tiktok: SocialMediaNode as unknown as React.FC<NodeProps>,
+  mindmeet: SocialMediaNode as unknown as React.FC<NodeProps>,
   link: LinkNode,
   mindmap: MindMapNode,
 }
