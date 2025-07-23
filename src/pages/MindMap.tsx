@@ -6473,6 +6473,7 @@ export default function MindMap() {
         edges={edges}
         onNodesChange={setNodes}
         onAutoLayout={handleAutoLayout}
+        updateNodeData={updateNodeData}
       />
 
       {/* Search Bar - VS Code style */}

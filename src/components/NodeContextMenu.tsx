@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Network } from 'lucide-react';
+import { Network, Bold } from 'lucide-react';
 import { Node as FlowNode, Edge } from 'reactflow';
 
 interface NodeContextMenuProps {
@@ -11,6 +11,7 @@ interface NodeContextMenuProps {
   edges: Edge[];
   onNodesChange: (nodes: FlowNode[]) => void;
   onAutoLayout: (nodeId: string, originalNodes: FlowNode[], updatedNodes: FlowNode[]) => void;
+  updateNodeData: (nodeId: string, updateFn: (node: FlowNode) => Partial<FlowNode>, historyData: any) => void;
 }
 
 export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
@@ -20,10 +21,47 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   nodes,
   edges,
   onNodesChange,
-  onAutoLayout
+  onAutoLayout,
+  updateNodeData
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const handleBold = () => {
+    const currentNode = nodes.find(node => node.id === nodeId);
+    if (!currentNode) return;
+
+    const currentLabel = currentNode.data?.label || '';
+    
+    // Check if the text is already bold (wrapped in **)
+    const isBold = currentLabel.startsWith('**') && currentLabel.endsWith('**');
+    
+    let newLabel: string;
+    if (isBold) {
+      // Remove bold formatting
+      newLabel = currentLabel.slice(2, -2); // Remove ** from start and end
+    } else {
+      // Add bold formatting
+      newLabel = `**${currentLabel}**`;
+    }
+
+    // Use updateNodeData for proper history and collaboration integration
+    updateNodeData(
+      nodeId,
+      (node) => ({
+        data: {
+          ...node.data,
+          label: newLabel
+        }
+      }),
+      {
+        label: newLabel,
+        oldLabel: currentLabel
+      }
+    );
+
+    onClose();
+  };
 
   const handleAutoLayout = () => {
     // Find the parent node
@@ -405,6 +443,16 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
 
   if (!isVisible) return null;
 
+  // Get the current node to check its type
+  const currentNode = nodes.find(node => node.id === nodeId);
+  const isTextNode = currentNode?.type === 'default' || !currentNode?.type;
+  const isRootNode = nodeId === "1";
+  const showBoldOption = isTextNode && !isRootNode;
+  
+  // Check if text is currently bold
+  const currentLabel = currentNode?.data?.label || '';
+  const isBold = currentLabel.startsWith('**') && currentLabel.endsWith('**');
+
   // Use portal to render at document level but position relative to node
   return createPortal(
     <div
@@ -425,6 +473,15 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
         <Network className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
         Autolayout
       </button>
+      {showBoldOption && (
+        <button
+          onClick={handleBold}
+          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
+        >
+          <Bold className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+          {isBold ? 'Unbold' : 'Bold'}
+        </button>
+      )}
     </div>,
     document.body
   );
