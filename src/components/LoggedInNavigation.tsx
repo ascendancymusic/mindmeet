@@ -156,11 +156,13 @@ const LoggedInNavigation: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       // Initial fetch
+      console.log('[LoggedInNavigation] Initial conversation fetch for unread count')
       fetchConversations(true); // Skip auto-select to avoid interfering with current chat state
 
       // Set up periodic refresh for chat conversations
       const interval = setInterval(() => {
-        fetchConversations(true);
+        console.log('[LoggedInNavigation] Periodic conversation fetch for unread count')
+        fetchConversations(true); // This won't reset activeConversationId if one is already set
       }, 30000); // Refresh every 30 seconds
 
       return () => clearInterval(interval);

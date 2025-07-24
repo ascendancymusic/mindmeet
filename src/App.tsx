@@ -92,6 +92,7 @@ function App() {
             <Route path="/signup" element={effectivelyLoggedIn ? <Navigate to="/" /> : <SignUp />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/chat" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
+            <Route path="/chat/:supabaseId" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
             <Route path="/debug" element={<MindMapDebug />} />
             <Route path="/login" element={effectivelyLoggedIn ? <Navigate to="/" /> : <Home />} />
             <Route path="/reset-password" element={<ForgotPassword />} />

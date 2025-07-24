@@ -7,7 +7,7 @@ import AISettingsModal from "../components/AISettingsModal"
 import AIHelpModal from "../components/AIHelpModal"
 import MindMapSelector from "../components/MindMapSelector"
 import "../styles/messageReactions.css"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams, useParams } from "react-router-dom"
 import { format } from 'date-fns'
 import {
   PlusCircle,
@@ -1168,6 +1168,7 @@ const TypingIndicator: React.FC<{ name: string; avatar?: string }> = ({ name, av
 const Chat: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { supabaseId: urlSupabaseId } = useParams<{ supabaseId: string }>()
   const { user, avatarUrl: cachedAvatarUrl, setAvatarUrl: cacheAvatarUrl } = useAuthStore()
   const { fetchMaps } = useMindMapStore() // Import fetchMaps from mindMapStore
   const userId = user?.id // Extract user ID
@@ -1242,6 +1243,33 @@ const Chat: React.FC = () => {
   const messages = getMessagesForActiveConversation()
   const activeConversation = getActiveConversation()
 
+  // Create a wrapper function to update both conversation and URL
+  const setActiveConversationWithUrl = useCallback((conversationId: number) => {
+    // Find the conversation to get its Supabase ID
+    const conversation = conversations.find(c => c.id === conversationId)
+    
+    // Set the active conversation first
+    setActiveConversation(conversationId)
+    
+    // Then update URL based on whether we have a Supabase ID
+    if (conversation?.supabaseId) {
+      // Existing conversation with Supabase ID
+      setTimeout(() => {
+        navigate(`/chat/${conversation.supabaseId}`, { replace: true })
+      }, 0)
+    } else {
+      // New conversation without Supabase ID yet, navigate to base chat
+      setTimeout(() => {
+        navigate('/chat', { replace: true })
+      }, 0)
+    }
+  }, [setActiveConversation, navigate, conversations])
+
+  // Track activeConversationId changes (no URL updates here to prevent loops)
+  useEffect(() => {
+    // This effect tracks conversation changes for potential future features
+  }, [activeConversationId, conversations])
+
   // Dynamic page title
   usePageTitle('Chat');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
@@ -1290,7 +1318,9 @@ const Chat: React.FC = () => {
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const [isMounted, setIsMounted] = useState(false)
   const lastProcessedMessagesRef = useRef<string | null>(null)
+  const isTypingRef = useRef<boolean>(false)
 
+  // Ref for the intersection observer
   // Ref for the intersection observer
   const observerRef = useRef<IntersectionObserver | null>(null)
 
@@ -1398,7 +1428,7 @@ const Chat: React.FC = () => {
 
           if (existingConversation) {
             // If conversation exists, set it as active
-            useChatStore.getState().setActiveConversation(existingConversation.id)
+            setActiveConversationWithUrl(existingConversation.id)
           } else {
             // Create a new conversation with this user
             useChatStore.getState().createConversation(
@@ -1414,6 +1444,28 @@ const Chat: React.FC = () => {
       })
     }
   }, [searchParams, user?.id, navigate])
+
+  // Handle conversation ID from URL - optimized to reduce unnecessary runs
+  useEffect(() => {
+    // Only run if we have a URL supabase ID and conversations are loaded
+    if (!urlSupabaseId || conversations.length === 0) return
+    
+    // Find conversation by Supabase ID (UUID)
+    const conversation = conversations.find(c => c.supabaseId === urlSupabaseId)
+    
+    if (conversation) {
+      // Only update if it's different from current active conversation
+      const currentActiveId = useChatStore.getState().activeConversationId
+      if (currentActiveId !== conversation.id) {
+        console.log('[DEBUG] URL effect setting active conversation:', conversation.id)
+        setActiveConversation(conversation.id)
+      }
+    } else {
+      // Navigate back to general chat if conversation doesn't exist
+      console.log('[DEBUG] URL effect: conversation not found, navigating to chat')
+      navigate('/chat', { replace: true })
+    }
+  }, [urlSupabaseId, conversations.length]) // Only run when URL changes or conversations are first loaded
 
   // Fetch conversations when component mounts and set up real-time subscriptions
   useEffect(() => {
@@ -1445,6 +1497,25 @@ const Chat: React.FC = () => {
       unsubscribeFromConversations()
     }
   }, [])
+
+  // Listen for conversation creation events to update URL
+  useEffect(() => {
+    const handleConversationCreated = (event: CustomEvent) => {
+      const { conversationId, supabaseId } = event.detail
+      
+      // Only update URL if this is the currently active conversation
+      if (conversationId === activeConversationId && supabaseId) {
+        console.log('[DEBUG] Updating URL for new conversation:', supabaseId)
+        navigate(`/chat/${supabaseId}`, { replace: true })
+      }
+    }
+
+    window.addEventListener('conversationCreated', handleConversationCreated as EventListener)
+    
+    return () => {
+      window.removeEventListener('conversationCreated', handleConversationCreated as EventListener)
+    }
+  }, [activeConversationId, navigate])
 
 
 
@@ -1524,41 +1595,75 @@ const Chat: React.FC = () => {
 
   const handleInput = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "20px"
+      textareaRef.current.style.height = "24px"
       const newHeight = Math.min(textareaRef.current.scrollHeight, 120)
       textareaRef.current.style.height = `${newHeight}px`
       textareaRef.current.style.overflowY = newHeight >= 120 ? "auto" : "hidden"
-
-      // Set typing status based on whether there's text in the input
-      // Skip for AI conversations
-      if (activeConversationId && activeConversation && !activeConversation.isAI) {
-        const hasText = textareaRef.current.value.trim().length > 0
-        setTypingStatus(activeConversationId, hasText)
-      }
     }
   }
 
   useEffect(() => {
     handleInput()
+  }, [message])
 
-    // Update typing status whenever message changes
-    // Skip for AI conversations
-    if (activeConversationId && activeConversation && !activeConversation.isAI) {
-      const hasText = message.trim().length > 0
-      setTypingStatus(activeConversationId, hasText)
+  // Debounced typing status effect - only for non-AI conversations
+  useEffect(() => {
+    // Skip for AI conversations or if no active conversation
+    if (!activeConversationId || !activeConversation || activeConversation.isAI) {
+      // Clear typing status if switching from non-AI to AI conversation
+      if (isTypingRef.current) {
+        isTypingRef.current = false
+      }
+      return
     }
-  }, [message, activeConversationId])
+
+    const hasText = message.trim().length > 0
+    
+    // Only update if typing status actually changed
+    if (isTypingRef.current === hasText) return
+    
+    // Debounce typing status updates to prevent spam
+    const timeoutId = setTimeout(async () => {
+      // Double-check that the conversation hasn't changed and status is still different
+      if (isTypingRef.current !== hasText && activeConversationId && activeConversation && !activeConversation.isAI) {
+        isTypingRef.current = hasText
+        try {
+          await setTypingStatus(activeConversationId, hasText)
+        } catch (error) {
+          console.error("Error updating typing status:", error)
+          // Revert local state if broadcast failed
+          isTypingRef.current = !hasText
+        }
+      }
+    }, 150) // 150ms debounce for better UX
+
+    return () => clearTimeout(timeoutId)
+  }, [message, activeConversationId, activeConversation?.isAI, setTypingStatus])
+
+  // Cleanup typing status when conversation changes
+  useEffect(() => {
+    // Clear typing status for previous conversation when switching
+    return () => {
+      if (isTypingRef.current && activeConversationId && activeConversation && !activeConversation.isAI) {
+        isTypingRef.current = false
+        setTypingStatus(activeConversationId, false).catch(err =>
+          console.error("Error clearing typing status on conversation change:", err)
+        )
+      }
+    }
+  }, [activeConversationId])
 
   // Initialize textarea height when component mounts
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "20px"
+      textareaRef.current.style.height = "24px"
     }
 
     // Clean up typing status when component unmounts
     return () => {
       // Clear typing status when unmounting (skip for AI conversations)
-      if (activeConversationId && activeConversation && !activeConversation.isAI) {
+      if (activeConversationId && activeConversation && !activeConversation.isAI && isTypingRef.current) {
+        isTypingRef.current = false
         setTypingStatus(activeConversationId, false).catch(err =>
           console.error("Error clearing typing status on unmount:", err)
         )
@@ -1692,7 +1797,8 @@ const Chat: React.FC = () => {
       return () => {
         // Clear typing status for the previous conversation (skip for AI conversations)
         const currentConversation = useChatStore.getState().conversations.find(c => c.id === activeConversationId);
-        if (currentConversation && !currentConversation.isAI) {
+        if (currentConversation && !currentConversation.isAI && isTypingRef.current) {
+          isTypingRef.current = false
           setTypingStatus(activeConversationId, false).catch(err =>
             console.error("Error clearing typing status on conversation change:", err)
           );
@@ -1899,6 +2005,7 @@ const Chat: React.FC = () => {
 
       // Clear typing status after sending a message
       if (activeConversationId) {
+        isTypingRef.current = false
         setTypingStatus(activeConversationId, false).catch(err =>
           console.error("Error clearing typing status after sending message:", err)
         )
@@ -1967,9 +2074,18 @@ const Chat: React.FC = () => {
     )
   }
 
-  const handleNewAIConversation = () => {
-    const currentBot = aiService.getCurrentBot()
-    useChatStore.getState().createAIConversation(currentBot.name)
+  const handleNewAIConversation = async () => {
+    try {
+      const currentBot = aiService.getCurrentBot()
+      const conversationId = await useChatStore.getState().createAIConversation(currentBot.name)
+      
+      // Ensure the conversation is properly selected with URL navigation
+      if (conversationId && conversationId !== -1) {
+        setActiveConversationWithUrl(conversationId)
+      }
+    } catch (error) {
+      console.error("Error creating AI conversation:", error)
+    }
   }
 
   const handleBotChange = (botId: string) => {
@@ -1980,10 +2096,23 @@ const Chat: React.FC = () => {
     }
   }
 
-  const handleCreateConversation = useCallback((userId: string, userName: string, isOnline: boolean) => {
-    createConversation(userId, userName, isOnline)
-    setShowNewConversationModal(false)
-  }, [createConversation])
+  const handleCreateConversation = useCallback(async (userId: string, userName: string, isOnline: boolean) => {
+    try {
+      console.log('[DEBUG] Creating conversation with user:', userName)
+      const conversationId = await createConversation(userId, userName, isOnline)
+      console.log('[DEBUG] Conversation created, ID:', conversationId)
+      
+      setShowNewConversationModal(false)
+      
+      // Ensure the conversation is properly selected with URL navigation
+      if (conversationId && conversationId !== -1) {
+        setActiveConversationWithUrl(conversationId)
+      }
+    } catch (error) {
+      console.error("Error creating conversation:", error)
+      setShowNewConversationModal(false)
+    }
+  }, [createConversation, setActiveConversationWithUrl])
 
   const handleDeleteConversation = useCallback(async () => {
     if (activeConversationId) {
@@ -2230,7 +2359,6 @@ const Chat: React.FC = () => {
     const replyToMessage = getMessageById(replyToId)
     if (!replyToMessage) {
       // If we can't find the message being replied to, show a placeholder
-      console.log('Reply message not found:', replyToId)
       return (
         <div className="mb-1 text-xs">
           <div className="flex items-center gap-1 text-gray-400">
@@ -2566,10 +2694,11 @@ const Chat: React.FC = () => {
                   <VirtualizedConversationList
                     conversations={filteredConversations}
                     activeConversationId={activeConversationId}
-                    setActiveConversation={setActiveConversation}
+                    setActiveConversation={setActiveConversationWithUrl}
                     isMobile={isMobile}
                     setShowConversations={setShowConversations}
                     getTypingStatus={getTypingStatus}
+                    typingUsers={typingUsers}
                     isLoading={isLoadingConversations && conversations.length > 0}
                     searchTerm={conversationSearchTerm}
                   />
@@ -2912,7 +3041,7 @@ const Chat: React.FC = () => {
                                 : "Type a message..."
                           }
                           className="w-full bg-transparent border-none focus:outline-none resize-none overflow-hidden placeholder:text-slate-400 text-slate-200"
-                          style={{ height: "auto", minHeight: "20px", maxHeight: "120px" }}
+                          style={{ height: "24px", minHeight: "24px", maxHeight: "120px" }}
                         />
                       </div>
                       
@@ -3471,7 +3600,19 @@ const MessageBubble: React.FC<{
                         </div>
                       ) : (
                         <div className="flex flex-col">
-                          <MessageText text={msg.text} />
+                          {msg.error ? (
+                            <div className="flex flex-col space-y-2">
+                              <MessageText text={msg.text} />
+                              <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                <X className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                                <div className="text-sm text-red-300">
+                                  <span className="font-medium">Error:</span> {msg.error}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <MessageText text={msg.text} />
+                          )}
                           <div className="flex items-center justify-start gap-2 mt-1">
                             {msg.edited && (
                               <span className="text-xs text-slate-400/70">(edited)</span>
@@ -3727,9 +3868,10 @@ const VirtualizedConversationList: React.FC<{
   isMobile: boolean
   setShowConversations: (show: boolean) => void
   getTypingStatus: (id: number) => boolean
+  typingUsers: Record<number, string[]>
   isLoading?: boolean
   searchTerm?: string
-}> = React.memo(({ conversations, activeConversationId, setActiveConversation, isMobile, setShowConversations, getTypingStatus, searchTerm = "" }) => {
+}> = React.memo(({ conversations, activeConversationId, setActiveConversation, isMobile, setShowConversations, getTypingStatus, typingUsers, searchTerm = "" }) => {
   const listRef = useRef<List>(null)
   const [listHeight, setListHeight] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -3751,11 +3893,14 @@ const VirtualizedConversationList: React.FC<{
 
   // Memoize conversation items to prevent unnecessary re-renders
   const conversationItems = useMemo(() => 
-    conversations.map(conversation => ({
-      ...conversation,
-      isActive: conversation.id === activeConversationId,
-      isTyping: getTypingStatus(conversation.id)
-    })), [conversations, activeConversationId, getTypingStatus]
+    conversations.map(conversation => {
+      const isTyping = getTypingStatus(conversation.id)
+      return {
+        ...conversation,
+        isActive: conversation.id === activeConversationId,
+        isTyping: isTyping
+      }
+    }), [conversations, activeConversationId, getTypingStatus, typingUsers]
   )
 
   const handleConversationClick = useCallback((conversationId: number) => {
@@ -3848,13 +3993,13 @@ const VirtualizedConversationList: React.FC<{
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     {conversation.isTyping ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <div className="flex gap-1">
-                          <div className="w-1 h-1 bg-blue-400 rounded-full typing-dot"></div>
-                          <div className="w-1 h-1 bg-blue-400 rounded-full typing-dot"></div>
-                          <div className="w-1 h-1 bg-blue-400 rounded-full typing-dot"></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full typing-dot animate-pulse"></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full typing-dot animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full typing-dot animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                         </div>
-                        <span className="text-xs text-blue-400 font-medium ml-1">typing...</span>
+                        <span className="text-xs text-blue-400 font-medium">typing...</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">

@@ -61,6 +61,7 @@ export interface Message {
   ai_map_status?: "accepted" | "rejected" | null
   status?: "sent" | "delivered" | "read"
   readAt?: Date
+  error?: string // Error message for failed AI responses
 }
 
 export interface User {
@@ -113,6 +114,8 @@ interface ChatStore {
   markMessagesAsRead: (conversationId: number) => Promise<void>
   setTypingStatus: (conversationId: number, isTyping: boolean) => Promise<void>
   getTypingStatus: (conversationId: number) => boolean
+  setupTypingChannelsForAllConversations: () => Promise<void>
+  setupTypingChannelsForNewConversations: (newConversations: Conversation[]) => Promise<void>
 
   // Supabase interactions
   fetchConversations: (skipAutoSelect?: boolean) => Promise<void>
@@ -183,7 +186,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     console.log(`Subscribing to messages for conversation ${conversationId} (Supabase ID: ${conversation.supabaseId})`)
 
-    // Create a channel for messages
+    // Create a channel for messages only - don't create typing channel since we have persistent ones
     const messageChannel = supabase
       .channel(`messages-${conversation.supabaseId}`)
       .on(
@@ -196,58 +199,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       )
       .subscribe()
 
-    // Create a channel for typing status only for non-AI conversations
-    let typingChannel = null
-    if (!conversation.isAI) {
-      typingChannel = supabase
-        .channel(`typing-${conversation.supabaseId}`)
-        .on(
-          'broadcast',
-          { event: 'typing' },
-          (payload) => {
-            console.log('Typing status received:', payload)
-
-            const currentUser = useAuthStore.getState().user
-            if (!currentUser) return
-
-            const userId = payload.payload.user_id
-            const isTyping = payload.payload.is_typing
-
-            // Get current typing users for this conversation
-            const typingUsers = get().typingUsers
-            const currentTypingUsers = typingUsers[conversationId] || []
-
-            if (isTyping) {
-              // Add user to typing users if not already there and it's not the current user
-              if (!currentTypingUsers.includes(userId) && userId !== currentUser.id) {
-                set({
-                  typingUsers: {
-                    ...typingUsers,
-                    [conversationId]: [...currentTypingUsers, userId]
-                  }
-                })
-              }
-            } else {
-              // Remove user from typing users
-              set({
-                typingUsers: {
-                  ...typingUsers,
-                  [conversationId]: currentTypingUsers.filter(id => id !== userId)
-                }
-              })
-            }
-          }
-        )
-        .subscribe()
-    }
+    // Note: We don't create typing channels here anymore since we have persistent ones
+    // created by setupTypingChannelsForAllConversations
 
     // Return a cleanup function
     return () => {
       console.log(`Unsubscribing from messages for conversation ${conversationId}`)
       supabase.removeChannel(messageChannel)
-      if (typingChannel) {
-        supabase.removeChannel(typingChannel)
-      }
+      // Note: We don't remove typing channels here since they should persist
     }
   },
 
@@ -369,6 +328,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
               // Add the new conversation to our state
               set({ conversations: [...conversations, newConversation] })
+              
+              // Set up typing channel for the new conversation (only for non-AI conversations)
+              get().setupTypingChannelsForNewConversations([newConversation])
             })
         } else {
           // This conversation doesn't involve the current user, ignore it
@@ -762,11 +724,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const conversation = conversations.find(c => c.id === id)
 
     if (!conversation) {
-      console.warn(`Attempted to set non-existent conversation ${id} as active`)
+      console.warn(`[ChatStore] Attempted to set non-existent conversation ${id} as active`)
       return
     }
-
-    console.log(`Setting active conversation to ${id} (${conversation.name})`)
 
     // Set the active conversation ID
     set({ activeConversationId: id })
@@ -937,6 +897,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
         // Use the updated conversation for the rest of the function
         activeConversation = updatedActiveConversation
+
+        // Trigger URL update by setting a flag that the Chat component can react to
+        // We'll use a setTimeout to ensure the state update happens after the conversation is updated
+        setTimeout(() => {
+          // This will be picked up by the Chat component to update the URL
+          window.dispatchEvent(new CustomEvent('conversationCreated', { 
+            detail: { 
+              conversationId: activeConversationId, 
+              supabaseId: newConvData[0].id 
+            } 
+          }))
+        }, 0)
       } catch (error) {
         console.error("Error creating conversation in Supabase:", error)
         return // Don't proceed if there was an error
@@ -1130,7 +1102,41 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }
       } catch (error) {
         console.error("Error generating AI response:", error)
-        set({ isAITyping: false })
+        
+        // Create an error message for the user
+        const errorMessageId = get().messages.length > 0
+          ? Math.max(...get().messages.map((m) => (typeof m.id === "number" ? m.id : 0))) + 1
+          : 1
+
+        const errorMessage: Message = {
+          id: errorMessageId,
+          conversationId: activeConversationId,
+          senderId: "ai",
+          text: "I'm sorry, I encountered an error while processing your request.",
+          timestamp: new Date(),
+          replyToId: newId, // AI error message replies to the user's message
+          type: "ai-message",
+          status: "sent",
+          error: error instanceof Error ? error.message : "Unknown error occurred"
+        }
+
+        const updatedConversationsWithError = get().conversations.map((conversation) =>
+          conversation.id === activeConversationId
+            ? {
+                ...conversation,
+                lastMessage: errorMessage.text,
+                timestamp: new Date(),
+                lastMessageSentBy: conversation.name,
+                lastMessageType: "text"
+              }
+            : conversation,
+        )
+
+        set({
+          messages: [...get().messages, errorMessage],
+          conversations: updatedConversationsWithError,
+          isAITyping: false,
+        })
       }
     }
   },
@@ -1150,11 +1156,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const existingConversation = conversations.find(c => c.userId === userId && !c.isAI)
 
       if (existingConversation) {
-        // We already have a conversation with this user, just activate it
-        // Store the ID first, then set it to ensure it's preserved
-        const existingId = existingConversation.id;
-        set({ activeConversationId: existingId })
-        return existingId
+        // We already have a conversation with this user, just return its ID
+        // Don't set it as active here - let the caller handle that
+        return existingConversation.id
       }
 
       // If not found in local state, check in Supabase for any existing conversation
@@ -1225,16 +1229,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           avatar: avatarUrl
         }
 
-        // Store the new conversation ID first
-        const newConversationId = newId;
-
-        // Update the state with the new conversation and set it as active
+        // Update the state with the new conversation (don't set as active here)
         set({
           conversations: [...conversations, newConversation],
-          activeConversationId: newConversationId,
         })
 
-        return newConversationId
+        return newId
       }
 
       // Fetch the user's avatar URL first
@@ -1271,10 +1271,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Store the new conversation ID first
       const newConversationId = newId;
 
-      // Update the state with the new conversation and set it as active
+      // Update the state with the new conversation (don't set as active here)
       set({
         conversations: [...conversations, newConversation],
-        activeConversationId: newConversationId,
       })
 
       return newConversationId
@@ -1300,11 +1299,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const existingConversation = conversations.find(c => c.isAI && c.botId === currentBot.id)
 
     if (existingConversation) {
-      // We already have a conversation with this bot, just activate it
-      // Store the ID first, then set it to ensure it's preserved
-      const existingId = existingConversation.id;
-      set({ activeConversationId: existingId })
-      return existingId
+      // We already have a conversation with this bot, just return its ID
+      // Don't set it as active here - let the caller handle that
+      return existingConversation.id
     }
 
     // If not found in local state, check in Supabase for any existing conversation
@@ -1382,10 +1379,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Store the new conversation ID first
       const newConversationId = newId;
 
-      // Update the state with the new conversation and set it as active
+      // Update the state with the new conversation (don't set as active here)
       set({
         conversations: [...conversations, newConversation],
-        activeConversationId: newConversationId,
         messages: [...messages, newMessage],
       })
 
@@ -1472,10 +1468,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Store the new conversation ID first
       const newConversationId = newId;
 
-      // Update the state with the new conversation and set it as active
+      // Update the state with the new conversation (don't set as active here)
       set({
         conversations: [...conversations, newConversation],
-        activeConversationId: newConversationId,
         messages: [...messages, newMessage],
       })
 
@@ -2349,9 +2344,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const currentUser = useAuthStore.getState().user
     if (!currentUser) return
 
+    const { activeConversationId } = get()
+
+    // Store previous conversation IDs to check for new ones
+    const previousConversations = get().conversations
+    const previousSupabaseIds = new Set(previousConversations.map(c => c.supabaseId).filter(Boolean))
+
     // If skipAutoSelect is true, temporarily set activeConversationId to null
     // This prevents any automatic selection of conversations during initial load
-    if (skipAutoSelect) {
+    // But only if there's no active conversation already
+    if (skipAutoSelect && activeConversationId === null) {
       set({ activeConversationId: null })
     }
 
@@ -2557,7 +2559,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           } else {
             // Only deselect if we're sure the conversation was actually deleted
             // Keep the current selection if it might just be a temporary sync issue
-            console.warn("Active conversation not found in updated list, keeping current selection");
             newActiveId = currentActiveId;
           }
         } else if (currentActiveConv) {
@@ -2572,7 +2573,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             newActiveId = newActiveConv.id;
           } else {
             // Keep current selection to avoid random deselection
-            console.warn("Could not match active conversation, keeping current selection");
             newActiveId = currentActiveId;
           }
         }
@@ -2591,6 +2591,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           activeConversationId: newActiveId
         })
       }
+
+      // Only set up typing channels for NEW conversations (not all conversations)
+      const newConversations = formattedConversations.filter(conv => 
+        conv.supabaseId && !previousSupabaseIds.has(conv.supabaseId)
+      )
+
+      if (newConversations.length > 0) {
+        console.log(`[DEBUG] Setting up typing channels for ${newConversations.length} new conversations`)
+        await get().setupTypingChannelsForNewConversations(newConversations)
+      }
+
+      // Only run full setup on initial load (when there were no previous conversations)
+      if (previousConversations.length === 0 && formattedConversations.length > 0) {
+        console.log('[DEBUG] Initial load: Setting up typing channels for all conversations')
+        await get().setupTypingChannelsForAllConversations()
+      }
+
     } catch (error) {
       console.error("Error in fetchConversations:", error)
       set({ isLoading: false })
@@ -3057,13 +3074,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // Clear existing timeout for this user/conversation
     if (typingTimeouts[timeoutKey]) {
       clearTimeout(typingTimeouts[timeoutKey])
-      delete typingTimeouts[timeoutKey]
+      const { [timeoutKey]: _, ...remainingTimeouts } = typingTimeouts
+      set({ typingTimeouts: remainingTimeouts })
     }
 
     // Get current typing users for this conversation
     const currentTypingUsers = typingUsers[conversationId] || []
 
-    // Update typing status locally
+    // Update typing status locally first
     if (isTyping) {
       // Add current user to typing users if not already there
       if (!currentTypingUsers.includes(currentUser.id)) {
@@ -3091,11 +3109,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const { typingTimeouts: currentTimeouts } = get()
         const { [timeoutKey]: _, ...remainingTimeouts } = currentTimeouts
         set({ typingTimeouts: remainingTimeouts })
+
+        // Also broadcast the stop typing event
+        const conv = get().conversations.find(c => c.id === conversationId)
+        if (conv?.supabaseId) {
+          const channel = get().typingChannels[conv.supabaseId]
+          if (channel) {
+            channel.send({
+              type: 'broadcast',
+              event: 'typing',
+              payload: {
+                user_id: currentUser.id,
+                conversation_id: conv.supabaseId,
+                is_typing: false
+              }
+            }).catch((error: any) => {
+              console.error("Error broadcasting automatic typing stop:", error)
+            })
+          }
+        }
       }, TYPING_INDICATOR_TIMEOUT)
 
       set({
         typingTimeouts: {
-          ...typingTimeouts,
+          ...get().typingTimeouts,
           [timeoutKey]: timeoutId
         }
       })
@@ -3117,8 +3154,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const channelKey = conversation.supabaseId
       let channel = typingChannels[channelKey]
 
-      // Create or reuse channel for this conversation
+      // If channel doesn't exist, try to create it as a fallback
       if (!channel) {
+        console.warn(`[DEBUG] No typing channel found for conversation ${conversationId}. Creating fallback channel.`)
+        
+        // Create the channel as fallback
         channel = supabase.channel(`typing-${channelKey}`, {
           config: {
             broadcast: { self: false }, // Don't receive our own broadcasts
@@ -3128,10 +3168,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
         // Subscribe to typing events from other users
         channel.on('broadcast', { event: 'typing' }, (payload: any) => {
-          const { user_id, is_typing } = payload.payload
+          console.log(`[DEBUG] [setTypingStatus-fallback] Received typing broadcast for conversation ${conversationId}:`, payload)
+          const { user_id, conversation_id, is_typing } = payload.payload
+          
+          // Validate that this typing event is for the correct conversation
+          if (conversation_id !== conversation.supabaseId) {
+            console.warn(`[DEBUG] [setTypingStatus-fallback] Received typing event for conversation ${conversation_id} but expected ${conversation.supabaseId}, ignoring`)
+            return
+          }
           
           // Ignore our own typing events
-          if (user_id === currentUser.id) return
+          if (user_id === currentUser.id) {
+            console.log(`[DEBUG] [setTypingStatus-fallback] Ignoring own typing event for user ${user_id}`)
+            return
+          }
 
           const { typingUsers: currentTypingUsers } = get()
           const conversationTypingUsers = currentTypingUsers[conversationId] || []
@@ -3139,6 +3189,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           if (is_typing) {
             // Add user to typing list if not already there
             if (!conversationTypingUsers.includes(user_id)) {
+              console.log(`[DEBUG] [setTypingStatus-fallback] User ${user_id} started typing in conversation ${conversationId}`)
               set({
                 typingUsers: {
                   ...currentTypingUsers,
@@ -3148,6 +3199,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             }
           } else {
             // Remove user from typing list
+            console.log(`[DEBUG] [setTypingStatus-fallback] User ${user_id} stopped typing in conversation ${conversationId}`)
             set({
               typingUsers: {
                 ...currentTypingUsers,
@@ -3162,13 +3214,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // Store the channel
         set({
           typingChannels: {
-            ...typingChannels,
+            ...get().typingChannels,
             [channelKey]: channel
           }
         })
       }
 
       // Broadcast typing status to other users
+      console.log(`[DEBUG] Broadcasting typing status: user=${currentUser.id}, conversation=${conversation.supabaseId}, isTyping=${isTyping}`)
       await channel.send({
         type: 'broadcast',
         event: 'typing',
@@ -3178,9 +3231,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           is_typing: isTyping
         }
       })
+      console.log(`[DEBUG] Typing status broadcast sent successfully`)
 
     } catch (error) {
       console.error("Error managing typing status:", error)
+      // On broadcast failure, revert local typing status
+      if (isTyping) {
+        const updatedTypingUsers = (get().typingUsers[conversationId] || [])
+          .filter(id => id !== currentUser.id)
+        set({
+          typingUsers: {
+            ...get().typingUsers,
+            [conversationId]: updatedTypingUsers
+          }
+        })
+      }
+      throw error // Re-throw so the UI can handle it
     }
   },
 
@@ -3194,6 +3260,180 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // Return true only if there are typing users other than the current user
     return typingUserIds.some(id => id !== currentUser.id)
+  },
+
+  // Function to set up typing channels for all conversations to receive typing indicators
+  setupTypingChannelsForAllConversations: async () => {
+    const { conversations, typingChannels } = get()
+    const currentUser = useAuthStore.getState().user
+    if (!currentUser) return
+
+    console.log('[DEBUG] Setting up typing channels for all conversations')
+
+    for (const conversation of conversations) {
+      // Skip AI conversations and conversations without Supabase IDs
+      if (conversation.isAI || !conversation.supabaseId) continue
+
+      const channelKey = conversation.supabaseId
+
+      // Skip if channel already exists
+      if (typingChannels[channelKey]) continue
+
+      try {
+        const channel = supabase.channel(`typing-${channelKey}`, {
+          config: {
+            broadcast: { self: false }, // Don't receive our own broadcasts
+            presence: { key: currentUser.id }
+          }
+        })
+
+        // Subscribe to typing events from other users
+        channel.on('broadcast', { event: 'typing' }, (payload: any) => {
+          console.log(`[DEBUG] Received typing broadcast for conversation ${conversation.id}:`, payload)
+          const { user_id, conversation_id, is_typing } = payload.payload
+          
+          // Validate that this typing event is for the correct conversation
+          if (conversation_id !== conversation.supabaseId) {
+            console.warn(`[DEBUG] Received typing event for conversation ${conversation_id} but expected ${conversation.supabaseId}, ignoring`)
+            return
+          }
+          
+          // Ignore our own typing events
+          if (user_id === currentUser.id) {
+            console.log(`[DEBUG] Ignoring own typing event for user ${user_id}`)
+            return
+          }
+
+          const { typingUsers: currentTypingUsers } = get()
+          const conversationTypingUsers = currentTypingUsers[conversation.id] || []
+
+          if (is_typing) {
+            // Add user to typing list if not already there
+            if (!conversationTypingUsers.includes(user_id)) {
+              console.log(`[DEBUG] User ${user_id} started typing in conversation ${conversation.id}`)
+              set({
+                typingUsers: {
+                  ...currentTypingUsers,
+                  [conversation.id]: [...conversationTypingUsers, user_id]
+                }
+              })
+            } else {
+              console.log(`[DEBUG] User ${user_id} already in typing list for conversation ${conversation.id}`)
+            }
+          } else {
+            // Remove user from typing list
+            console.log(`[DEBUG] User ${user_id} stopped typing in conversation ${conversation.id}`)
+            set({
+              typingUsers: {
+                ...currentTypingUsers,
+                [conversation.id]: conversationTypingUsers.filter(id => id !== user_id)
+              }
+            })
+          }
+        })
+
+        await channel.subscribe()
+        
+        // Store the channel
+        set({
+          typingChannels: {
+            ...get().typingChannels,
+            [channelKey]: channel
+          }
+        })
+
+        console.log(`[DEBUG] Set up typing channel for conversation: ${conversation.name}`)
+      } catch (error) {
+        console.error(`Error setting up typing channel for conversation ${conversation.id}:`, error)
+      }
+    }
+  },
+
+  // Function to set up typing channels for specific new conversations
+  setupTypingChannelsForNewConversations: async (newConversations: Conversation[]) => {
+    const { typingChannels } = get()
+    const currentUser = useAuthStore.getState().user
+    if (!currentUser) return
+
+    console.log(`[DEBUG] Setting up typing channels for ${newConversations.length} new conversations`)
+
+    for (const conversation of newConversations) {
+      // Skip AI conversations and conversations without Supabase IDs
+      if (conversation.isAI || !conversation.supabaseId) continue
+
+      const channelKey = conversation.supabaseId
+
+      // Skip if channel already exists
+      if (typingChannels[channelKey]) continue
+
+      try {
+        const channel = supabase.channel(`typing-${channelKey}`, {
+          config: {
+            broadcast: { self: false }, // Don't receive our own broadcasts
+            presence: { key: currentUser.id }
+          }
+        })
+
+        // Subscribe to typing events from other users
+        channel.on('broadcast', { event: 'typing' }, (payload: any) => {
+          console.log(`[DEBUG] [New] Received typing broadcast for conversation ${conversation.id}:`, payload)
+          const { user_id, conversation_id, is_typing } = payload.payload
+          
+          // Validate that this typing event is for the correct conversation
+          if (conversation_id !== conversation.supabaseId) {
+            console.warn(`[DEBUG] [New] Received typing event for conversation ${conversation_id} but expected ${conversation.supabaseId}, ignoring`)
+            return
+          }
+          
+          // Ignore our own typing events
+          if (user_id === currentUser.id) {
+            console.log(`[DEBUG] [New] Ignoring own typing event for user ${user_id}`)
+            return
+          }
+
+          const { typingUsers: currentTypingUsers } = get()
+          const conversationTypingUsers = currentTypingUsers[conversation.id] || []
+
+          if (is_typing) {
+            // Add user to typing list if not already there
+            if (!conversationTypingUsers.includes(user_id)) {
+              console.log(`[DEBUG] [New] User ${user_id} started typing in conversation ${conversation.id}`)
+              set({
+                typingUsers: {
+                  ...currentTypingUsers,
+                  [conversation.id]: [...conversationTypingUsers, user_id]
+                }
+              })
+            } else {
+              console.log(`[DEBUG] [New] User ${user_id} already in typing list for conversation ${conversation.id}`)
+            }
+          } else {
+            // Remove user from typing list
+            console.log(`[DEBUG] [New] User ${user_id} stopped typing in conversation ${conversation.id}`)
+            set({
+              typingUsers: {
+                ...currentTypingUsers,
+                [conversation.id]: conversationTypingUsers.filter(id => id !== user_id)
+              }
+            })
+          }
+        })
+
+        await channel.subscribe()
+        
+        // Store the channel
+        set({
+          typingChannels: {
+            ...get().typingChannels,
+            [channelKey]: channel
+          }
+        })
+
+        console.log(`[DEBUG] Set up typing channel for new conversation: ${conversation.name}`)
+      } catch (error) {
+        console.error(`Error setting up typing channel for new conversation ${conversation.id}:`, error)
+      }
+    }
   },
 
   // Function to get the total unread count for the current user
