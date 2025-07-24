@@ -79,6 +79,7 @@ interface ChatStore {
   conversations: Conversation[]
   messages: Message[]
   activeConversationId: number | null
+  pendingConversation: Conversation | null // Temporary conversation that doesn't appear in sidebar until first message
   replyingToMessage: Message | null
   isLoading: boolean
   isAITyping: boolean
@@ -168,6 +169,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   conversations: [],
   messages: [],
   activeConversationId: null,
+  pendingConversation: null,
   replyingToMessage: null,
   isLoading: false,
   isAITyping: false,
@@ -744,7 +746,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   getActiveConversation: () => {
-    const { activeConversationId, conversations } = get()
+    const { activeConversationId, conversations, pendingConversation } = get()
+    
+    // First check if the active conversation is the pending one
+    if (pendingConversation && activeConversationId === pendingConversation.id) {
+      return pendingConversation
+    }
+    
+    // Otherwise look in the regular conversations list
     return conversations.find((conversation) => conversation.id === activeConversationId)
   },
 
@@ -761,10 +770,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   // Update the sendMessage function to handle replies
   sendMessage: async (text: string, mindMapId?: string) => {
-    const { activeConversationId, messages, conversations, replyingToMessage } = get()
+    const { activeConversationId, messages, conversations, replyingToMessage, pendingConversation } = get()
     if (!activeConversationId) return
 
-    let activeConversation = conversations.find((c) => c.id === activeConversationId)
+    // Check if the active conversation is a pending conversation
+    let activeConversation = pendingConversation && activeConversationId === pendingConversation.id 
+      ? pendingConversation 
+      : conversations.find((c) => c.id === activeConversationId)
+      
     if (!activeConversation) return
 
     const currentUser = useAuthStore.getState().user
@@ -818,97 +831,113 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       status: "delivered" // Initial status is 'delivered'
     }
 
-    // Update last message in conversation
-    const updatedConversations = conversations.map((conversation) => {
-      if (conversation.id === activeConversationId) {
-        // Get mindmap title if this is a mindmap message
-        let mindmapTitle = undefined;
-        if (mindMapId) {
-          const { maps } = useMindMapStore.getState();
-          const selectedMap = maps.find((m) => m.id === mindMapId);
-          if (selectedMap) {
-            mindmapTitle = selectedMap.title;
-          }
-        }
+    // Handle conversation updates differently for pending vs existing conversations
+    let updatedConversations
+    let clearPendingConversation = false
 
-        return {
-          ...conversation,
-          lastMessage: text,
-          timestamp: new Date(),
-          lastMessageSentBy: useAuthStore.getState().user?.username,
-          lastMessageStatus: "sent" as const,
-          lastMessageType: mindMapId ? "mindmap" : "text",
-          mindmapTitle: mindMapId ? mindmapTitle : undefined
-        };
+    if (activeConversation.pendingCreation && pendingConversation && activeConversationId === pendingConversation.id) {
+      // This is a pending conversation - add it to the conversations list now
+      // Get mindmap title if this is a mindmap message
+      let mindmapTitle = undefined;
+      if (mindMapId) {
+        const { maps } = useMindMapStore.getState();
+        const selectedMap = maps.find((m) => m.id === mindMapId);
+        if (selectedMap) {
+          mindmapTitle = selectedMap.title;
+        }
       }
-      return conversation;
-    })
+
+      const conversationToAdd = {
+        ...activeConversation,
+        lastMessage: text,
+        timestamp: new Date(),
+        lastMessageSentBy: useAuthStore.getState().user?.username,
+        lastMessageStatus: "sent" as const,
+        lastMessageType: mindMapId ? "mindmap" : "text",
+        mindmapTitle: mindMapId ? mindmapTitle : undefined
+      };
+
+      updatedConversations = [conversationToAdd, ...conversations]
+      clearPendingConversation = true
+    } else {
+      // This is an existing conversation - update it normally
+      updatedConversations = conversations.map((conversation) => {
+        if (conversation.id === activeConversationId) {
+          // Get mindmap title if this is a mindmap message
+          let mindmapTitle = undefined;
+          if (mindMapId) {
+            const { maps } = useMindMapStore.getState();
+            const selectedMap = maps.find((m) => m.id === mindMapId);
+            if (selectedMap) {
+              mindmapTitle = selectedMap.title;
+            }
+          }
+
+          return {
+            ...conversation,
+            lastMessage: text,
+            timestamp: new Date(),
+            lastMessageSentBy: useAuthStore.getState().user?.username,
+            lastMessageStatus: "sent" as const,
+            lastMessageType: mindMapId ? "mindmap" : "text",
+            mindmapTitle: mindMapId ? mindmapTitle : undefined
+          };
+        }
+        return conversation;
+      })
+    }
 
     set({
       messages: [...messages, newMessage],
       conversations: updatedConversations,
+      pendingConversation: clearPendingConversation ? null : get().pendingConversation,
       replyingToMessage: null, // Clear the replying state after sending
     })
 
     // Check if we need to create the conversation in Supabase first (for non-AI conversations)
     if (activeConversation.pendingCreation && !activeConversation.isAI) {
       try {
-        // Create the conversation in Supabase
-        const { data: newConvData, error } = await supabase
+        // Create the conversation in Supabase using the pending UUID as the actual ID
+        const { error } = await supabase
           .from("conversations")
           .insert({
+            id: activeConversation.supabaseId, // Use the pending UUID as the actual ID
             name: activeConversation.name,
             last_message: text,
             creator_id: currentUser.id,
             participant_id: activeConversation.userId,
             online: activeConversation.online || false,
-            last_message_sent_by: currentUser.username, // Make sure we use the current user's username
+            last_message_sent_by: currentUser.username,
             pinned: false
           })
-          .select()
 
         if (error) {
           console.error("Error creating conversation in Supabase:", error)
           return // Don't proceed if we couldn't create the conversation
         }
 
-        if (!newConvData || newConvData.length === 0) {
-          console.error("No data returned when creating conversation")
-          return // Don't proceed if we didn't get a conversation ID
-        }
-
-        // Update the conversation in local state with the Supabase ID
+        // Update the conversation in local state to remove pending flag
         const updatedConversationsWithId = conversations.map(conv =>
           conv.id === activeConversationId
-            ? { ...conv, supabaseId: newConvData[0].id, pendingCreation: false }
+            ? { ...conv, pendingCreation: false }
             : conv
         )
 
         set({ conversations: updatedConversationsWithId })
 
-        // Get the updated conversation with the Supabase ID
+        // Get the updated conversation
         const updatedActiveConversation = updatedConversationsWithId.find(c => c.id === activeConversationId)
 
         // Continue with the updated conversation
         if (!updatedActiveConversation || !updatedActiveConversation.supabaseId) {
-          console.error("Failed to update conversation with Supabase ID")
+          console.error("Failed to update conversation")
           return
         }
 
         // Use the updated conversation for the rest of the function
         activeConversation = updatedActiveConversation
 
-        // Trigger URL update by setting a flag that the Chat component can react to
-        // We'll use a setTimeout to ensure the state update happens after the conversation is updated
-        setTimeout(() => {
-          // This will be picked up by the Chat component to update the URL
-          window.dispatchEvent(new CustomEvent('conversationCreated', { 
-            detail: { 
-              conversationId: activeConversationId, 
-              supabaseId: newConvData[0].id 
-            } 
-          }))
-        }, 0)
+        // No need to trigger URL update since the URL already has the correct supabaseId
       } catch (error) {
         console.error("Error creating conversation in Supabase:", error)
         return // Don't proceed if there was an error
@@ -1251,10 +1280,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         console.error("Error fetching user avatar:", userError)
       }
 
-      // For non-AI conversations, we'll create a local conversation first
-      // and only save to Supabase when the first message is sent
+      // For non-AI conversations, we'll create a pending conversation that only exists
+      // in activeConversation state but NOT in the conversations list until first message is sent
+      // Generate a UUID for the pending conversation so URL routing works
+      const pendingSupabaseId = crypto.randomUUID()
       const newId = conversations.length > 0 ? Math.max(...conversations.map((c) => c.id)) + 1 : 1
-      const newConversation = {
+      const pendingConversation = {
         id: newId,
         name: userName,
         lastMessage: "",
@@ -1263,20 +1294,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         lastMessageSentBy: undefined,
         pinned: false,
         userId: userId,
-        supabaseId: undefined,
+        supabaseId: pendingSupabaseId,
         avatar: avatarUrl,
         pendingCreation: true
       }
 
-      // Store the new conversation ID first
-      const newConversationId = newId;
-
-      // Update the state with the new conversation (don't set as active here)
+      // Store the pending conversation in a separate state that won't appear in the sidebar
+      // but can be retrieved by getActiveConversation()
       set({
-        conversations: [...conversations, newConversation],
+        pendingConversation: pendingConversation,
+        activeConversationId: newId
       })
 
-      return newConversationId
+      return newId
     } catch (error) {
       console.error("Error in createConversation:", error)
       return -1
@@ -2615,9 +2645,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   fetchMessages: async (conversationId: number) => {
-    const { conversations } = get()
-    const conversation = conversations.find(c => c.id === conversationId)
+    const { conversations, messages, pendingConversation } = get()
+    
+    // Check if this is a pending conversation
+    const conversation = pendingConversation && conversationId === pendingConversation.id 
+      ? pendingConversation 
+      : conversations.find(c => c.id === conversationId)
+      
     if (!conversation) return
+
+    // If this is a pending conversation, there are no messages yet
+    if (conversation.pendingCreation) {
+      console.log("Pending conversation, no messages to fetch yet")
+      set({ 
+        messages: messages.filter(m => m.conversationId !== conversationId),
+        isLoading: false 
+      })
+      return
+    }
 
     set({ isLoading: true })
 
@@ -2696,6 +2741,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const { data, error } = await query.order("timestamp", { ascending: true })
 
       if (error) {
+        // If the conversation doesn't exist in Supabase yet (e.g., pending conversation), 
+        // just return empty messages instead of erroring
+        if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.log("Conversation not yet created in Supabase, returning empty messages")
+          set({
+            messages: messages.filter(m => m.conversationId !== conversationId),
+            isLoading: false
+          })
+          return
+        }
+        
         console.error("Error fetching messages:", error)
         set({ isLoading: false })
         return

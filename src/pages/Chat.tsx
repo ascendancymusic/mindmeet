@@ -45,7 +45,6 @@ import EmojiPicker, { type EmojiClickData } from "emoji-picker-react"
 import emojiRegex from "emoji-regex"
 import ReactMarkdown from "react-markdown"
 import { useMediaQuery } from "../hooks/use-media-query"
-import { FixedSizeList as List } from "react-window"
 import { usePreviewMindMapStore } from "../store/previewMindMapStore"
 import { PreviewMindMapNode } from "../components/PreviewMindMapNode"
 import { supabase } from "../supabaseClient"
@@ -1214,6 +1213,10 @@ const Chat: React.FC = () => {
 
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
+  const [isConversationTransitioning, setIsConversationTransitioning] = useState(false)
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false)
+  const [messagesLoaded, setMessagesLoaded] = useState(false)
   const {
     conversations,
     activeConversationId,
@@ -1238,59 +1241,17 @@ const Chat: React.FC = () => {
   const [message, setMessage] = useState<string>("")
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGifMenu, setShowGifMenu] = useState(false)
-
-  // Get current messages and active conversation
-  const messages = getMessagesForActiveConversation()
-  const activeConversation = getActiveConversation()
-
-  // Create a wrapper function to update both conversation and URL
-  const setActiveConversationWithUrl = useCallback((conversationId: number) => {
-    // Find the conversation to get its Supabase ID
-    const conversation = conversations.find(c => c.id === conversationId)
-    
-    // Set the active conversation first
-    setActiveConversation(conversationId)
-    
-    // Then update URL based on whether we have a Supabase ID
-    if (conversation?.supabaseId) {
-      // Existing conversation with Supabase ID
-      setTimeout(() => {
-        navigate(`/chat/${conversation.supabaseId}`, { replace: true })
-      }, 0)
-    } else {
-      // New conversation without Supabase ID yet, navigate to base chat
-      setTimeout(() => {
-        navigate('/chat', { replace: true })
-      }, 0)
-    }
-  }, [setActiveConversation, navigate, conversations])
-
-  // Track activeConversationId changes (no URL updates here to prevent loops)
-  useEffect(() => {
-    // This effect tracks conversation changes for potential future features
-  }, [activeConversationId, conversations])
-
-  // Dynamic page title
-  usePageTitle('Chat');
+  
+  // Additional state
+  const [showMindMapSelector, setShowMindMapSelector] = useState(false)
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
   const [showConversationMenu, setShowConversationMenu] = useState(false)
-  const conversationMenuTriggerRef = useRef<HTMLButtonElement>(null)
-  const [showAISettingsModal, setShowAISettingsModal] = useState(false)
-  const [showAIHelpModal, setShowAIHelpModal] = useState(false)
-  const [showBotMenu, setShowBotMenu] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isAITyping, setIsAITyping] = useState(false)
-  const [showMindMapSelector, setShowMindMapSelector] = useState(false)
-  // Maps are already fetched above
-  const [selectedMindMap, setSelectedMindMap] = useState<{ id: string; title: string; visibility?: string } | null>(null)
   const [showCreateMindMapForm, setShowCreateMindMapForm] = useState(false)
-  const [newMindMapTitle, setNewMindMapTitle] = useState("")
-  const [mindMapSearchTerm, setMindMapSearchTerm] = useState("")
-  const [mindMapSortBy, setMindMapSortBy] = useState<'alphabetical' | 'lastEdited'>('lastEdited')
+  const [showAIChatMenu, setShowAIChatMenu] = useState(false)
+  const [selectedMindMap, setSelectedMindMap] = useState<any>(null)
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null)
   const [editingAnimationId, setEditingAnimationId] = useState<number | null>(null)
   const [editText, setEditText] = useState("")
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [showMessageMenu, setShowMessageMenu] = useState<number | null>(null)
   const [showThinkingIndicator, setShowThinkingIndicator] = useState(false)
   const [messageReactions, setMessageReactions] = useState<{[messageId: number]: {[reactionType: string]: string[]}}>({})
@@ -1298,33 +1259,37 @@ const Chat: React.FC = () => {
   const [reactingToMessageId, setReactingToMessageId] = useState<number | null>(null)
   const [showReactionMenu, setShowReactionMenu] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false)
+  const [isAITyping, setIsAITyping] = useState(false)
   const [conversationSearchTerm, setConversationSearchTerm] = useState("")
+  
+  // Additional missing state
+  const [newMindMapTitle, setNewMindMapTitle] = useState("")
+  const [showBotMenu, setShowBotMenu] = useState(false)
+  const [filteredConversations, setFilteredConversations] = useState<any[]>([])
+  const [showAIHelpModal, setShowAIHelpModal] = useState(false)
+  const [showAISettingsModal, setShowAISettingsModal] = useState(false)
+  const [mindMapSearchTerm, setMindMapSearchTerm] = useState("")
+  const [mindMapSortBy, setMindMapSortBy] = useState<"alphabetical" | "lastEdited">("lastEdited")
+  
+  // Additional refs
+  const conversationMenuTriggerRef = useRef<HTMLButtonElement>(null)
 
-  // Memoize filtered and sorted conversations
-  const filteredConversations = useMemo(() => {
-    const sorted = [...conversations].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1
-      if (!a.pinned && b.pinned) return 1
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    })
-    return filterConversations(sorted, conversationSearchTerm)
-  }, [conversations, conversationSearchTerm])
-
+  // Refs
   const pickerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
-  const [isAtBottom, setIsAtBottom] = useState(true)
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
-  const [isMounted, setIsMounted] = useState(false)
-  const lastProcessedMessagesRef = useRef<string | null>(null)
-  const isTypingRef = useRef<boolean>(false)
-
-  // Ref for the intersection observer
-  // Ref for the intersection observer
   const observerRef = useRef<IntersectionObserver | null>(null)
-
-
+  const isTypingRef = useRef<boolean>(false)
+  const lastProcessedMessagesRef = useRef<string | null>(null)
+  
+  // State for tracking scroll position
+  const [isAtBottom, setIsAtBottom] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // Click outside handlers
   const [handleClickOutsideEmojiPicker, setHandleClickOutsideEmojiPicker] = useState<
     ((event: MouseEvent) => void) | null
   >(null)
@@ -1335,154 +1300,114 @@ const Chat: React.FC = () => {
     ((event: MouseEvent) => void) | null
   >(null)
 
+  // Get current messages and active conversation
+  const messages = getMessagesForActiveConversation()
+  const activeConversation = getActiveConversation()
+
+  // Handle URL conversation parameter
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Presence tracking: Update last_seen when component mounts and set up interval
-  useEffect(() => {
-    if (!user?.id) return
-
-    // Update last_seen immediately when entering chat
-    updateLastSeen(user.id)
-
-    // Set up interval to update last_seen every 1 minute while in chat
-    const interval = setInterval(() => {
-      updateLastSeen(user.id)
-    }, 1 * 60 * 1000) // 1 minute
-
-    // Update last_seen on page visibility change (when user comes back to tab)
-    const handleVisibilityChange = () => {
-      if (!document.hidden && user?.id) {
-        updateLastSeen(user.id)
-      } else if (document.hidden && user?.id) {
-        // When tab becomes hidden, mark as slightly less active
-        // but not completely offline
-        markUserOffline(user.id)
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    // Mark as offline when leaving the chat page
-    const handleBeforeUnload = () => {
-      if (user?.id) {
-        markUserOffline(user.id)
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-
-    return () => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
+    if (urlSupabaseId) {
+      // Check both regular conversations and pending conversation
+      const pendingConversation = useChatStore.getState().pendingConversation
+      let conversation = conversations.find(c => c.supabaseId === urlSupabaseId)
       
-      // Clean up typing channels and timeouts
-      useChatStore.getState().cleanupTypingChannels()
-      useChatStore.getState().cleanupAllTimeouts()
-      
-      // Mark as offline when component unmounts (leaving chat page)
-      if (user?.id) {
-        markUserOffline(user.id)
+      // If not found in regular conversations, check pending conversation
+      if (!conversation && pendingConversation && pendingConversation.supabaseId === urlSupabaseId) {
+        conversation = pendingConversation
       }
-    }
-  }, [user?.id])
-
-  // Refresh online statuses periodically
-  useEffect(() => {
-    if (!user?.id) return
-
-    // Refresh online statuses every 30 seconds (more balanced with 3-minute threshold)
-    const interval = setInterval(() => {
-      useChatStore.getState().refreshOnlineStatuses()
-    }, 30 * 1000) // 30 seconds
-
-    return () => clearInterval(interval)
-  }, [user?.id])
-
-  // Handle user query parameter from URL
-  useEffect(() => {
-    const userParam = searchParams.get('user')
-
-    if (userParam && user?.id) {
-      // First fetch all users to ensure we have the latest data
-      useChatStore.getState().fetchUsers().then(async () => {
-        // Find the user by username
-        const users = useChatStore.getState().users
-        let targetUser = users.find(u => u.username === userParam)
-
-        // If user not found in initial list, search for them
-        if (!targetUser) {
-          const searchResults = await useChatStore.getState().searchUsers(userParam)
-          targetUser = searchResults.find(u => u.username === userParam)
-        }
-
-        if (targetUser) {
-          // Check if a conversation with this user already exists
-          await useChatStore.getState().fetchConversations()
-          const conversations = useChatStore.getState().conversations
-          const existingConversation = conversations.find(c =>
-            !c.isAI && c.userId === targetUser.id
-          )
-
-          if (existingConversation) {
-            // If conversation exists, set it as active
-            setActiveConversationWithUrl(existingConversation.id)
-          } else {
-            // Create a new conversation with this user
-            useChatStore.getState().createConversation(
-              targetUser.id,
-              targetUser.username || targetUser.full_name || "User",
-              false
-            )
-          }
-
-          // Clean up the URL by removing the query parameter
-          navigate('/chat', { replace: true })
-        }
-      })
-    }
-  }, [searchParams, user?.id, navigate])
-
-  // Handle conversation ID from URL - optimized to reduce unnecessary runs
-  useEffect(() => {
-    // Only run if we have a URL supabase ID and conversations are loaded
-    if (!urlSupabaseId || conversations.length === 0) return
-    
-    // Find conversation by Supabase ID (UUID)
-    const conversation = conversations.find(c => c.supabaseId === urlSupabaseId)
-    
-    if (conversation) {
-      // Only update if it's different from current active conversation
-      const currentActiveId = useChatStore.getState().activeConversationId
-      if (currentActiveId !== conversation.id) {
-        console.log('[DEBUG] URL effect setting active conversation:', conversation.id)
+      
+      if (conversation && conversation.id !== activeConversationId) {
+        setIsFetchingMessages(true) // Set fetching state when loading from URL
         setActiveConversation(conversation.id)
       }
+    }
+  }, [urlSupabaseId, conversations, activeConversationId, setActiveConversation])
+
+  // Simple conversation selection function that handles pending conversations
+  const selectConversation = useCallback((conversationId: number) => {
+    setIsConversationTransitioning(true)
+    setIsFetchingMessages(true) // Immediately set fetching state
+    setMessagesLoaded(false) // Reset messages loaded state
+    setActiveConversation(conversationId)
+    
+    // Check both regular conversations and pending conversation
+    const pendingConversation = useChatStore.getState().pendingConversation
+    const conversation = pendingConversation && conversationId === pendingConversation.id 
+      ? pendingConversation 
+      : conversations.find(c => c.id === conversationId)
+    
+    if (conversation?.supabaseId) {
+      // Navigate to the conversation using its supabaseId (works for both pending and real conversations)
+      navigate(`/chat/${conversation.supabaseId}`, { replace: true })
     } else {
-      // Navigate back to general chat if conversation doesn't exist
-      console.log('[DEBUG] URL effect: conversation not found, navigating to chat')
+      // Fallback - this shouldn't happen anymore since all conversations have supabaseId
       navigate('/chat', { replace: true })
     }
-  }, [urlSupabaseId, conversations.length]) // Only run when URL changes or conversations are first loaded
+    
+    // Clear transitioning state after a short delay, but keep fetching state
+    setTimeout(() => {
+      setIsConversationTransitioning(false)
+    }, 200)
+  }, [setActiveConversation, navigate, conversations])
+
+  // Filter conversations based on search term
+  useEffect(() => {
+    if (conversationSearchTerm) {
+      const filtered = conversations.filter(conv => 
+        conv.name.toLowerCase().includes(conversationSearchTerm.toLowerCase()) ||
+        conv.lastMessage.toLowerCase().includes(conversationSearchTerm.toLowerCase())
+      )
+      setFilteredConversations(filtered)
+    } else {
+      setFilteredConversations(conversations)
+    }
+  }, [conversations, conversationSearchTerm])
+
+  // Set mounted flag
+  useEffect(() => {
+    setIsMounted(true)
+    return () => setIsMounted(false)
+  }, [])
 
   // Fetch conversations when component mounts and set up real-time subscriptions
   useEffect(() => {
     const fetchData = async () => {
       setIsLoadingConversations(true)
-      await useChatStore.getState().fetchConversations()
+      setIsInitialLoadComplete(false)
       
-      // Refresh online statuses after fetching conversations
-      await useChatStore.getState().refreshOnlineStatuses()
-      
-      setIsLoadingConversations(false)
+      try {
+        // Fetch conversations first
+        await useChatStore.getState().fetchConversations()
+        
+        // Small delay to ensure conversations are fully loaded in state
+        await new Promise(resolve => setTimeout(resolve, 50))
+        
+        // Refresh online statuses after fetching conversations
+        await useChatStore.getState().refreshOnlineStatuses()
 
-      // If there's an active conversation, fetch its messages
-      const activeId = useChatStore.getState().activeConversationId
-      if (activeId) {
-        setIsLoadingMessages(true)
-        await useChatStore.getState().fetchMessages(activeId)
+        // If there's an active conversation, fetch its messages
+        const activeId = useChatStore.getState().activeConversationId
+        if (activeId) {
+          setIsLoadingMessages(true)
+          await useChatStore.getState().fetchMessages(activeId)
+          setIsLoadingMessages(false)
+          
+          // Ensure conversations are fully loaded before showing content
+          setTimeout(() => {
+            setIsLoadingConversations(false)
+            setIsInitialLoadComplete(true)
+          }, 150)
+        } else {
+          // Even without active conversation, ensure conversations are loaded
+          setTimeout(() => {
+            setIsLoadingConversations(false)
+            setIsInitialLoadComplete(true)
+          }, 100)
+        }
+      } catch (error) {
+        console.error("Error loading data:", error)
+        setIsLoadingConversations(false)
+        setIsInitialLoadComplete(true)
         setIsLoadingMessages(false)
       }
     }
@@ -1749,12 +1674,17 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     // Fetch messages for the active conversation
-    if (activeConversationId) {
+    if (activeConversationId && isInitialLoadComplete) {
       setIsLoadingMessages(true);
+      setMessagesLoaded(false); // Reset messages loaded state
 
       const fetchAndSetupConversation = async () => {
         try {
+          // Fetch messages
           await useChatStore.getState().fetchMessages(activeConversationId);
+
+          // Longer delay to ensure state is fully updated
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // After fetching messages, check if there are unread messages
           const currentMessages = useChatStore.getState().getMessagesForActiveConversation();
@@ -1773,18 +1703,26 @@ const Chat: React.FC = () => {
                 messageElement.classList.add("bg-gray-700/30");
                 setTimeout(() => messageElement.classList.remove("bg-gray-700/30"), 1500);
               }
-            }, 100);
+            }, 150);
           } else {
             // If no unread messages, scroll to bottom
             setIsAtBottom(true);
             if (messagesContainerRef.current) {
-              setTimeout(() => scrollToBottom(), 0);
+              setTimeout(() => scrollToBottom(), 150);
             }
           }
+          
+          // Mark messages as loaded
+          setMessagesLoaded(true);
         } catch (error) {
           console.error("Error fetching messages:", error);
+          setMessagesLoaded(true); // Still mark as loaded even on error
         } finally {
-          setIsLoadingMessages(false);
+          // Clear both loading states with proper timing
+          setTimeout(() => {
+            setIsLoadingMessages(false);
+            setIsFetchingMessages(false);
+          }, 150);
         }
       };
 
@@ -1807,7 +1745,7 @@ const Chat: React.FC = () => {
         unsubscribe();
       };
     }
-  }, [activeConversationId, setTypingStatus])
+  }, [activeConversationId, setTypingStatus, isInitialLoadComplete])
 
   // Check if the messages container is scrollable
   const isScrollable = useCallback(() => {
@@ -2081,7 +2019,7 @@ const Chat: React.FC = () => {
       
       // Ensure the conversation is properly selected with URL navigation
       if (conversationId && conversationId !== -1) {
-        setActiveConversationWithUrl(conversationId)
+        selectConversation(conversationId)
       }
     } catch (error) {
       console.error("Error creating AI conversation:", error)
@@ -2106,13 +2044,13 @@ const Chat: React.FC = () => {
       
       // Ensure the conversation is properly selected with URL navigation
       if (conversationId && conversationId !== -1) {
-        setActiveConversationWithUrl(conversationId)
+        selectConversation(conversationId)
       }
     } catch (error) {
       console.error("Error creating conversation:", error)
       setShowNewConversationModal(false)
     }
-  }, [createConversation, setActiveConversationWithUrl])
+  }, [createConversation, selectConversation])
 
   const handleDeleteConversation = useCallback(async () => {
     if (activeConversationId) {
@@ -2662,48 +2600,49 @@ const Chat: React.FC = () => {
             
             {/* Enhanced Conversations List Content */}
             <div className="flex-1 overflow-hidden py-4 px-4">
-              {isLoadingConversations && conversations.length === 0 ? (
+              {isLoadingConversations || !isInitialLoadComplete ? (
                 <div className="space-y-3">
                   {Array(5).fill(0).map((_, index) => (
                     <ConversationSkeletonLoader key={`skeleton-${index}`} />
                   ))}
                 </div>
-              ) : conversations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-4 border border-slate-600/30">
-                    <PlusCircle className="h-8 w-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-300 mb-2">No conversations yet</h3>
-                  <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-                    Start a new conversation by clicking the + button above.
-                  </p>
-                </div>
-              ) : (() => {
-                
-                return filteredConversations.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-4 border border-slate-600/30">
-                      <Search className="h-8 w-8 text-slate-400" />
+              ) : (
+                <div className="h-full">
+                  {conversations.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-4 border border-slate-600/30">
+                        <PlusCircle className="h-8 w-8 text-slate-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-300 mb-2">No conversations yet</h3>
+                      <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+                        Start a new conversation by clicking the + button above.
+                      </p>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-300 mb-2">No matches found</h3>
-                    <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-                      Try a different search term or clear the search to see all conversations.
-                    </p>
-                  </div>
-                ) : (
-                  <VirtualizedConversationList
-                    conversations={filteredConversations}
-                    activeConversationId={activeConversationId}
-                    setActiveConversation={setActiveConversationWithUrl}
-                    isMobile={isMobile}
-                    setShowConversations={setShowConversations}
-                    getTypingStatus={getTypingStatus}
-                    typingUsers={typingUsers}
-                    isLoading={isLoadingConversations && conversations.length > 0}
-                    searchTerm={conversationSearchTerm}
-                  />
-                )
-              })()}
+                  ) : filteredConversations.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-4 border border-slate-600/30">
+                        <Search className="h-8 w-8 text-slate-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-300 mb-2">No matches found</h3>
+                      <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+                        Try a different search term or clear the search to see all conversations.
+                      </p>
+                    </div>
+                  ) : (
+                    <VirtualizedConversationList
+                      conversations={filteredConversations}
+                      activeConversationId={activeConversationId}
+                      setActiveConversation={selectConversation}
+                      isMobile={isMobile}
+                      setShowConversations={setShowConversations}
+                      getTypingStatus={getTypingStatus}
+                      typingUsers={typingUsers}
+                      isLoading={false}
+                      searchTerm={conversationSearchTerm}
+                    />
+                  )}
+                </div>
+              )}
             </div>
             
             {/* Enhanced Settings Footer */}
@@ -2901,7 +2840,7 @@ const Chat: React.FC = () => {
               )}
 
               {/* Enhanced Loading State */}
-              {isLoadingMessages && activeConversation && (
+              {(isLoadingMessages || isConversationTransitioning || isFetchingMessages || !messagesLoaded) && activeConversation && (
                 <div className="space-y-6 px-4">
                   <MessageSkeletonLoader isUser={false} />
                   <MessageSkeletonLoader isUser={true} />
@@ -2912,39 +2851,64 @@ const Chat: React.FC = () => {
               )}
 
               {/* Enhanced Messages with Performance Optimizations */}
-              {!isLoadingMessages && activeConversation && (
-                <VirtualizedMessageList
-                  messages={messages}
-                  activeConversation={activeConversation}
-                  isLoadingMessages={isLoadingMessages}
-                  messageRefs={messageRefs}
-                  formatDate={formatDate}
-                  formatTime={formatTime}
-                  handleReplyMessage={handleReplyMessage}
-                  handleReactToMessage={handleReactToMessage}
-                  handleEmphasizeMessage={handleEmphasizeMessage}
-                  emphasizedMessages={emphasizedMessages}
-                  messageReactions={messageReactions}
-                  renderReplyContext={renderReplyContext}
-                  renderMessageReactions={renderMessageReactions}
-                  navigate={navigate}
-                  isAITyping={isAITyping}
-                  aiService={aiService}
-                  previewMaps={previewMaps}
-                  setReactingToMessageId={setReactingToMessageId}
-                  setShowReactionMenu={setShowReactionMenu}
-                  showMessageMenu={showMessageMenu}
-                  setShowMessageMenu={setShowMessageMenu}
-                  handleStartEdit={handleStartEdit}
-                  handleDeleteMessage={handleDeleteMessage}
-                  editingMessageId={editingMessageId}
-                  editingAnimationId={editingAnimationId}
-                  editText={editText}
-                  editTextareaRef={editTextareaRef}
-                  setEditText={setEditText}
-                  setEditingMessageId={setEditingMessageId}
-                  handleSaveEdit={handleSaveEdit}
-                />
+              {!isLoadingMessages && !isConversationTransitioning && !isFetchingMessages && messagesLoaded && activeConversation && (
+                <>
+                  {messages.map((msg: any, i: number) => {
+                    const isUser = msg.senderId === "me"
+                    // Show date stamp if it's the first message or if the date is different from the previous message
+                    const showTimestamp = i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
+                    const isConsecutive = i > 0 && messages[i - 1].senderId === msg.senderId && !messages[i - 1].deleted
+                    const isLastUserMessage = isUser && !messages.slice(i + 1).some((m: any) => m.senderId === "me" && !m.deleted)
+
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {showTimestamp && (
+                          <div className="flex justify-center my-6">
+                            <div className="bg-slate-800/60 text-slate-400 text-xs px-4 py-2 rounded-full border border-slate-700/30 backdrop-blur-sm">
+                              {formatDate(new Date(msg.timestamp))}
+                            </div>
+                          </div>
+                        )}
+                        <MessageBubble
+                          msg={msg}
+                          index={i}
+                          isUser={isUser}
+                          isConsecutive={isConsecutive}
+                          isEditing={editingMessageId === msg.id}
+                          showTimestamp={showTimestamp}
+                          isLastUserMessage={isLastUserMessage}
+                          activeConversation={activeConversation}
+                          messageRefs={messageRefs}
+                          reactingToMessageId={reactingToMessageId}
+                          emphasizedMessages={emphasizedMessages}
+                          messageReactions={messageReactions}
+                          formatTime={formatTime}
+                          handleReplyMessage={handleReplyMessage}
+                          handleEmphasizeMessage={handleEmphasizeMessage}
+                          renderReplyContext={renderReplyContext}
+                          renderMessageReactions={renderMessageReactions}
+                          navigate={navigate}
+                          isAITyping={isAITyping}
+                          editingAnimationId={editingAnimationId}
+                          setEditText={setEditText}
+                          editText={editText}
+                          editTextareaRef={editTextareaRef}
+                          handleSaveEdit={handleSaveEdit}
+                          setEditingMessageId={setEditingMessageId}
+                          setReactingToMessageId={setReactingToMessageId}
+                          setShowReactionMenu={setShowReactionMenu}
+                          aiService={aiService}
+                          previewMaps={previewMaps}
+                          messages={messages}
+                          showMessageMenu={showMessageMenu}
+                          setShowMessageMenu={setShowMessageMenu}
+                          handleStartEdit={handleStartEdit}
+                          handleDeleteMessage={handleDeleteMessage}
+                        />
+                      </React.Fragment>
+                    )
+                  })}
+                </>
               )}
               {showThinkingIndicator && activeConversation?.isAI && (
                 <ThinkingIndicator
@@ -3184,203 +3148,8 @@ const MessageSkeletonLoader: React.FC<{ isUser?: boolean }> = ({ isUser = false 
 };
 
 
-const VirtualizedMessageList: React.FC<{
-  messages: any[]
-  activeConversation: any
-  isLoadingMessages: boolean
-  messageRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
-  formatDate: (date: Date) => string
-  formatTime: (date: Date) => string
-  handleReplyMessage: (messageId: number) => void
-  handleReactToMessage: (messageId: number, reaction: string) => void
-  handleEmphasizeMessage: (messageId: number) => void
-  emphasizedMessages: Set<number>
-  messageReactions: {[messageId: number]: {[reactionType: string]: string[]}}
-  renderReplyContext: (replyToId: number | undefined) => React.ReactNode
-  renderMessageReactions: (messageId: number, isUser?: boolean) => React.ReactNode
-  navigate: (path: string) => void
-  isAITyping: boolean
-  aiService: any
-  previewMaps: any
-  setReactingToMessageId: (id: number | null) => void
-  setShowReactionMenu: (show: boolean) => void
-  showMessageMenu: number | null
-  setShowMessageMenu: (id: number | null) => void
-  handleStartEdit: (messageId: number, text: string) => void
-  handleDeleteMessage: (messageId: number) => void
-  editingMessageId: number | null
-  editingAnimationId: number | null
-  editText: string
-  editTextareaRef: React.RefObject<HTMLTextAreaElement>
-  setEditText: (text: string) => void
-  setEditingMessageId: (id: number | null) => void
-  handleSaveEdit: (messageId: number) => void
-}> = React.memo((props: any) => {
-  const {
-    messages, activeConversation, isLoadingMessages, messageRefs,
-    formatDate, formatTime, handleReplyMessage,
-    handleEmphasizeMessage, emphasizedMessages, messageReactions,
-    renderReplyContext,
-    renderMessageReactions, navigate, isAITyping,
-    aiService, previewMaps, setReactingToMessageId, setShowReactionMenu,
-    showMessageMenu, setShowMessageMenu, handleStartEdit, handleDeleteMessage,
-    editingMessageId, editingAnimationId, editText, editTextareaRef,
-    setEditText, setEditingMessageId, handleSaveEdit
-  } = props
-  
-  if (isLoadingMessages) {
-    return (
-      <div className="space-y-6 px-4">
-        <MessageSkeletonLoader isUser={false} />
-        <MessageSkeletonLoader isUser={true} />
-        <MessageSkeletonLoader isUser={false} />
-        <MessageSkeletonLoader isUser={true} />
-        <MessageSkeletonLoader isUser={false} />
-      </div>
-    )
-  }
-
-  if (messages.length === 0) {
-    return null
-  }
-
-  // For large message lists (> 100 messages), use virtualization
-  // For smaller lists, render normally for better UX
-  const useVirtualization = messages.length > 100
-
-  // Message item renderer for virtualization
-  const MessageItem = React.memo(({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const msg = messages[index]
-    const isUser = msg.senderId === "me"
-    // Show date stamp if it's the first message or if the date is different from the previous message
-    const showTimestamp = index === 0 || new Date(messages[index - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
-    const isConsecutive = index > 0 && messages[index - 1].senderId === msg.senderId && !messages[index - 1].deleted
-    const isLastUserMessage = isUser && !messages.slice(index + 1).some((m: any) => m.senderId === "me" && !m.deleted)
-
-    return (
-      <div style={style} className="px-4">
-        {showTimestamp && (
-          <div className="flex justify-center my-6">
-            <span className="text-xs text-slate-400 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-700/30 shadow-lg">
-              {formatDate(new Date(msg.timestamp))}
-            </span>
-          </div>
-        )}
-        <MessageBubble
-          msg={msg}
-          index={index}
-          isUser={isUser}
-          isConsecutive={isConsecutive}
-          isEditing={editingMessageId === msg.id}
-          showTimestamp={showTimestamp}
-          isLastUserMessage={isLastUserMessage}
-          activeConversation={activeConversation}
-          messageRefs={messageRefs}
-          reactingToMessageId={null}
-          emphasizedMessages={emphasizedMessages}
-          messageReactions={messageReactions}
-          formatTime={formatTime}
-          handleReplyMessage={handleReplyMessage}
-          handleEmphasizeMessage={handleEmphasizeMessage}
-          renderReplyContext={renderReplyContext}
-          renderMessageReactions={renderMessageReactions}
-          navigate={navigate}
-          isAITyping={isAITyping}
-          editingAnimationId={editingAnimationId}
-          setEditText={setEditText}
-          editText={editText}
-          editTextareaRef={editTextareaRef}
-          handleSaveEdit={handleSaveEdit}
-          setEditingMessageId={setEditingMessageId}
-          setReactingToMessageId={setReactingToMessageId}
-          setShowReactionMenu={setShowReactionMenu}
-          aiService={aiService}
-          previewMaps={previewMaps}
-          messages={messages}
-          showMessageMenu={showMessageMenu}
-          setShowMessageMenu={setShowMessageMenu}
-          handleStartEdit={handleStartEdit}
-          handleDeleteMessage={handleDeleteMessage}
-        />
-      </div>
-    )
-  })
-
-  if (useVirtualization) {
-    return (
-      <List
-        height={400}
-        width="100%"
-        itemCount={messages.length}
-        itemSize={120}
-        overscanCount={5}
-      >
-        {MessageItem}
-      </List>
-    )
-  }
-
-  // For smaller lists, render normally with optimizations
-  return (
-    <>
-      {messages.map((msg: any, i: number) => {
-        const isUser = msg.senderId === "me"
-        // Show date stamp if it's the first message or if the date is different from the previous message
-        const showTimestamp = i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
-        const isConsecutive = i > 0 && messages[i - 1].senderId === msg.senderId && !messages[i - 1].deleted
-        const isLastUserMessage = isUser && !messages.slice(i + 1).some((m: any) => m.senderId === "me" && !m.deleted)
-
-        return (
-          <React.Fragment key={msg.id}>
-            {showTimestamp && (
-              <div className="flex justify-center my-6">
-                <span className="text-xs text-slate-400 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-700/30 shadow-lg">
-                  {formatDate(new Date(msg.timestamp))}
-                </span>
-              </div>
-            )}
-            <MessageBubble
-              msg={msg}
-              index={i}
-              isUser={isUser}
-              isConsecutive={isConsecutive}
-              isEditing={editingMessageId === msg.id}
-              showTimestamp={showTimestamp}
-              isLastUserMessage={isLastUserMessage}
-              activeConversation={activeConversation}
-              messageRefs={messageRefs}
-              reactingToMessageId={null}
-              emphasizedMessages={emphasizedMessages}
-              messageReactions={messageReactions}
-              formatTime={formatTime}
-              handleReplyMessage={handleReplyMessage}
-              handleEmphasizeMessage={handleEmphasizeMessage}
-              renderReplyContext={renderReplyContext}
-              renderMessageReactions={renderMessageReactions}
-              navigate={navigate}
-              isAITyping={isAITyping}
-              editingAnimationId={editingAnimationId}
-              setEditText={setEditText}
-              editText={editText}
-              editTextareaRef={editTextareaRef}
-              handleSaveEdit={handleSaveEdit}
-              setEditingMessageId={setEditingMessageId}
-              setReactingToMessageId={setReactingToMessageId}
-              setShowReactionMenu={setShowReactionMenu}
-              aiService={aiService}
-              previewMaps={previewMaps}
-              messages={messages}
-              showMessageMenu={showMessageMenu}
-              setShowMessageMenu={setShowMessageMenu}
-              handleStartEdit={handleStartEdit}
-              handleDeleteMessage={handleDeleteMessage}
-            />
-          </React.Fragment>
-        )
-      })}
-    </>
-  )
-})
+// VirtualizedMessageList component removed - caused layout issues with fixed height
+// Using direct rendering instead to maintain proper flex layout
 
 // Extracted MessageBubble component for better reusability and performance
 const MessageBubble: React.FC<{
@@ -3872,7 +3641,7 @@ const VirtualizedConversationList: React.FC<{
   isLoading?: boolean
   searchTerm?: string
 }> = React.memo(({ conversations, activeConversationId, setActiveConversation, isMobile, setShowConversations, getTypingStatus, typingUsers, searchTerm = "" }) => {
-  const listRef = useRef<List>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const [listHeight, setListHeight] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -3880,9 +3649,19 @@ const VirtualizedConversationList: React.FC<{
   useEffect(() => {
     if (!containerRef.current) return
 
+    // Set initial height immediately to prevent layout issues
+    const initialHeight = containerRef.current.getBoundingClientRect().height
+    if (initialHeight > 0) {
+      setListHeight(initialHeight)
+    }
+
     const resizeObserver = new ResizeObserver(entries => {
       for (let entry of entries) {
-        setListHeight(entry.contentRect.height)
+        const newHeight = entry.contentRect.height
+        // Ensure minimum height to prevent container collapse
+        const minHeight = 200
+        const finalHeight = Math.max(newHeight, minHeight)
+        setListHeight(finalHeight)
       }
     })
 
@@ -3890,6 +3669,20 @@ const VirtualizedConversationList: React.FC<{
     
     return () => resizeObserver.disconnect()
   }, [])
+
+  // Force height recalculation when conversations change to prevent confusion
+  useEffect(() => {
+    if (containerRef.current) {
+      const currentHeight = containerRef.current.getBoundingClientRect().height
+      const minHeight = 200
+      const finalHeight = Math.max(currentHeight, minHeight)
+      
+      // Only update if height is significantly different
+      if (Math.abs(listHeight - finalHeight) > 10) {
+        setListHeight(finalHeight)
+      }
+    }
+  }, [conversations.length, activeConversationId])
 
   // Memoize conversation items to prevent unnecessary re-renders
   const conversationItems = useMemo(() => 
@@ -4060,19 +3853,65 @@ const VirtualizedConversationList: React.FC<{
   const itemSize = 88 // Optimized size for new design
 
   return (
-    <div ref={containerRef} className="h-full">
-      {listHeight > 0 && (
-        <List
+    <div ref={containerRef} className="h-full min-h-[200px]">
+      {listHeight > 0 ? (
+        <div
           ref={listRef}
-          height={listHeight}
-          width="100%"
-          itemCount={conversationItems.length}
-          itemSize={itemSize}
-          overscanCount={3} // Reduced for better performance
-          className="scrollbar-thin"
+          className="h-full overflow-y-auto scrollbar-thin"
+          style={{ minHeight: '200px' }}
         >
-          {renderConversationItem}
-        </List>
+          {conversationItems.map((_, index) => renderConversationItem({ index, style: {} }))}
+        </div>
+      ) : (
+        // Fallback while height is being calculated
+        <div 
+          className="h-full min-h-[200px] overflow-y-auto scrollbar-thin"
+          style={{ height: '400px' }}
+        >
+          {conversationItems.map((conversation) => (
+            <div key={conversation.id} className="px-2 py-1">
+              <div
+                onClick={() => handleConversationClick(conversation.id)}
+                className={`group cursor-pointer transition-all duration-300 ease-out transform hover:scale-[1.02] ${
+                  conversation.isActive
+                    ? "bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50 shadow-lg shadow-blue-500/20"
+                    : "bg-gradient-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-700/50 hover:to-slate-800/50 border-slate-700/30 hover:border-slate-600/50"
+                } rounded-2xl p-4 border backdrop-blur-sm`}
+                style={{ height: `${itemSize - 8}px` }}
+              >
+                <div className="flex items-center gap-4 h-full">
+                  {/* Simplified fallback rendering - just show name */}
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex items-center justify-center border border-slate-600/30 flex-shrink-0">
+                    {conversation.isAI ? (
+                      <img
+                        src={aiService.getAllBots().find((bot) => bot.id === conversation.botId)?.avatar || "/placeholder.svg"}
+                        alt={conversation.name}
+                        className="w-full h-full object-cover rounded-2xl"
+                      />
+                    ) : conversation.avatar ? (
+                      <img
+                        src={conversation.avatar}
+                        alt={conversation.name}
+                        className="w-full h-full object-cover rounded-2xl"
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold text-slate-300">
+                        {conversation.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-semibold truncate ${
+                      conversation.isActive ? "text-white" : "text-slate-200"
+                    }`}>
+                      {conversation.name}
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
