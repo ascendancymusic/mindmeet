@@ -3681,15 +3681,28 @@ export default function MindMap() {
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      // Check if the focus is on an input field or textarea
+      const activeElement = document.activeElement;
+      const isInputField = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA'
+      );
+
       if (event.ctrlKey && event.key === "z") {
-        event.preventDefault()
-        if (canUndo) {
-          undo()
+        // Don't prevent undo in input fields (let browser handle it)
+        if (!isInputField) {
+          event.preventDefault()
+          if (canUndo) {
+            undo()
+          }
         }
       } else if (event.ctrlKey && event.key === "y") {
-        event.preventDefault()
-        if (canRedo) {
-          redo()
+        // Don't prevent redo in input fields (let browser handle it)
+        if (!isInputField) {
+          event.preventDefault()
+          if (canRedo) {
+            redo()
+          }
         }
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault()
@@ -3697,8 +3710,11 @@ export default function MindMap() {
           handleSave()
         }
       } else if (event.ctrlKey && event.key === "f") {
-        event.preventDefault()
-        handleSearchOpen()
+        // Don't prevent find in input fields (let browser handle it)
+        if (!isInputField) {
+          event.preventDefault()
+          handleSearchOpen()
+        }
       }
     },
     [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo, isSaving, handleSearchOpen],
@@ -4467,6 +4483,18 @@ export default function MindMap() {
       // Global keyboard shortcut for paste operation (Ctrl+V)
       // Works throughout the application regardless of focus state
       if (e.ctrlKey && e.key === 'v') {
+        // Check if the focus is on an input field or textarea (node editor)
+        const activeElement = document.activeElement;
+        const isInputField = activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA'
+        );
+
+        // If focused on input/textarea, allow normal text paste behavior
+        if (isInputField) {
+          return; // Don't prevent default, let browser handle text pasting
+        }
+
         e.preventDefault();
 
         // First check if there's an image in the clipboard

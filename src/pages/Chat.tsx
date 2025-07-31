@@ -1284,6 +1284,7 @@ const Chat: React.FC = () => {
   const observerRef = useRef<IntersectionObserver | null>(null)
   const isTypingRef = useRef<boolean>(false)
   const lastProcessedMessagesRef = useRef<string | null>(null)
+  const initiallyFetchedConversationRef = useRef<number | null>(null)
   
   // State for tracking scroll position
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -1303,6 +1304,12 @@ const Chat: React.FC = () => {
   // Get current messages and active conversation
   const messages = getMessagesForActiveConversation()
   const activeConversation = getActiveConversation()
+
+  // Set page title based on active conversation
+  const pageTitle = activeConversation 
+    ? `Chat - ${activeConversation.name}` 
+    : "Chat"
+  usePageTitle(pageTitle)
 
   // Handle URL conversation parameter
   useEffect(() => {
@@ -1391,6 +1398,17 @@ const Chat: React.FC = () => {
           setIsLoadingMessages(true)
           await useChatStore.getState().fetchMessages(activeId)
           setIsLoadingMessages(false)
+          
+          // Track that we've fetched this conversation during initial load
+          initiallyFetchedConversationRef.current = activeId
+          
+          // Ensure we scroll to bottom for the initial conversation load
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              setIsAtBottom(true)
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+            }
+          }, 200)
           
           // Ensure conversations are fully loaded before showing content
           setTimeout(() => {
@@ -1674,43 +1692,61 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     // Fetch messages for the active conversation
-    if (activeConversationId && isInitialLoadComplete) {
+    // Remove the isInitialLoadComplete condition to ensure scrolling works even during initial load
+    if (activeConversationId) {
       setIsLoadingMessages(true);
       setMessagesLoaded(false); // Reset messages loaded state
+      
+      // Reset scroll position state when switching conversations
+      setIsAtBottom(true);
+      setHasUnreadMessages(false);
+      lastProcessedMessagesRef.current = null; // Reset to ensure first load behavior
 
       const fetchAndSetupConversation = async () => {
         try {
-          // Fetch messages
-          await useChatStore.getState().fetchMessages(activeConversationId);
+          // Skip fetching if we already fetched this conversation during initial load
+          const alreadyFetched = initiallyFetchedConversationRef.current === activeConversationId
+          
+          if (!alreadyFetched) {
+            // Fetch messages
+            await useChatStore.getState().fetchMessages(activeConversationId);
 
-          // Longer delay to ensure state is fully updated
-          await new Promise(resolve => setTimeout(resolve, 100));
+            // Longer delay to ensure state is fully updated
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } else {
+            // Clear the ref since this is now a regular conversation change
+            initiallyFetchedConversationRef.current = null
+          }
 
-          // After fetching messages, check if there are unread messages
+          // Always scroll to bottom when first opening a conversation
+          // This provides consistent behavior and users can manually scroll up if needed
+          setIsAtBottom(true);
+          if (messagesContainerRef.current) {
+            setTimeout(() => scrollToBottom(), 150);
+          }
+
+          // Also add additional scroll attempts to ensure it works
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              setIsAtBottom(true);
+            }
+          }, 300);
+
+          // One more attempt after a longer delay to handle any DOM updates
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              setIsAtBottom(true);
+            }
+          }, 500);
+
+          // After fetching messages, check if there are unread messages for indicator
           const currentMessages = useChatStore.getState().getMessagesForActiveConversation();
           const unreadMessages = currentMessages.filter(m => m.senderId !== "me" && m.status !== "read");
 
-          // Set hasUnreadMessages if there are unread messages
+          // Set hasUnreadMessages if there are unread messages (but don't scroll to them initially)
           setHasUnreadMessages(unreadMessages.length > 0);
-
-          if (unreadMessages.length > 0) {
-            // If there are unread messages, scroll to the first unread message
-            const firstUnreadMessage = unreadMessages[0];
-            setTimeout(() => {
-              const messageElement = messageRefs.current.get(firstUnreadMessage.id);
-              if (messageElement) {
-                messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
-                messageElement.classList.add("bg-gray-700/30");
-                setTimeout(() => messageElement.classList.remove("bg-gray-700/30"), 1500);
-              }
-            }, 150);
-          } else {
-            // If no unread messages, scroll to bottom
-            setIsAtBottom(true);
-            if (messagesContainerRef.current) {
-              setTimeout(() => scrollToBottom(), 150);
-            }
-          }
           
           // Mark messages as loaded
           setMessagesLoaded(true);
@@ -1745,7 +1781,25 @@ const Chat: React.FC = () => {
         unsubscribe();
       };
     }
-  }, [activeConversationId, setTypingStatus, isInitialLoadComplete])
+  }, [activeConversationId, setTypingStatus])
+
+  // Additional effect to handle first-time conversation selection
+  // This specifically handles the case when going from no conversation to selecting one
+  useEffect(() => {
+    if (activeConversationId && messagesContainerRef.current) {
+      // Add multiple scroll attempts with different delays to ensure it works
+      const scrollAttempts = [100, 300, 500, 800];
+      
+      scrollAttempts.forEach(delay => {
+        setTimeout(() => {
+          if (messagesContainerRef.current && activeConversationId) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+            setIsAtBottom(true);
+          }
+        }, delay);
+      });
+    }
+  }, [activeConversationId]) // Only depend on activeConversationId to trigger when conversation changes
 
   // Check if the messages container is scrollable
   const isScrollable = useCallback(() => {
@@ -1859,13 +1913,32 @@ const Chat: React.FC = () => {
     // This handles new messages from both the current user and other users
     if (lastProcessedMessagesRef.current !== messagesSignature) {
       const wasAtBottom = isAtBottom
+      const isFirstLoad = lastProcessedMessagesRef.current === null
       lastProcessedMessagesRef.current = messagesSignature
       setMessageReactions(newReactions)
       setEmphasizedMessages(newEmphasized)
 
       // If user was at bottom when new messages arrived, keep them at bottom
-      if (wasAtBottom && messagesContainerRef.current) {
+      // Also scroll to bottom on first load of messages for a conversation
+      if ((wasAtBottom || isFirstLoad) && messagesContainerRef.current) {
         setTimeout(() => scrollToBottom(), 0)
+        
+        // For first loads, add additional scroll attempts to ensure it works
+        if (isFirstLoad) {
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              setIsAtBottom(true);
+            }
+          }, 100);
+          
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              setIsAtBottom(true);
+            }
+          }, 300);
+        }
       }
     }
   }, [messages, isAtBottom])
