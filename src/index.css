@@ -188,3 +188,28 @@
   margin: 0;
   padding: 0;
 }
+
+/* Override ReactFlow default background to prevent flash during loading */
+.react-flow {
+  background-color: transparent !important;
+}
+
+.react-flow__pane {
+  background-color: transparent !important;
+}
+
+.react-flow__renderer {
+  background-color: transparent !important;
+}
+
+/* Smooth transition for mind map loading */
+.mindmap-content {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Ensure NodeTypesMenu is always visible and rendered properly */
+.node-types-menu-container {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}

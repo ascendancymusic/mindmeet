@@ -100,7 +100,7 @@ import { NodeContextMenu } from "../components/NodeContextMenu";
 
 
 interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type"
+  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color"
   data: {
     nodes?: Node[]
     edges?: Edge[]
@@ -117,6 +117,8 @@ interface HistoryAction {
     color?: string
     affectedNodes?: string[]
     edgeType?: 'default' | 'straight' | 'smoothstep'
+    backgroundColor?: string
+    dotColor?: string
     replacedEdgeId?: string
   }
   previousState?: {
@@ -124,6 +126,8 @@ interface HistoryAction {
     edges: Edge[]
     title?: string
     edgeType?: 'default' | 'straight' | 'smoothstep'
+    backgroundColor?: string
+    dotColor?: string
   }
 }
 
@@ -150,6 +154,23 @@ export default function MindMap() {
   const [nodes, setNodes] = useState<Node[]>(() => currentMap?.nodes || [])
   const [edges, setEdges] = useState<Edge[]>(() => currentMap?.edges || [])
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
+
+  // Safe wrapper for setting ReactFlow instance
+  const setReactFlowInstanceSafely = useCallback((instance: ReactFlowInstance | null) => {
+    if (instance) {
+      // Validate that the instance has the required methods
+      if (typeof instance.setCenter === 'function' && 
+          typeof instance.getViewport === 'function' &&
+          typeof instance.setViewport === 'function') {
+        console.log('ReactFlow instance initialized successfully');
+        setReactFlowInstance(instance);
+      } else {
+        console.error('ReactFlow instance missing required methods');
+      }
+    } else {
+      setReactFlowInstance(null);
+    }
+  }, []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [visuallySelectedNodeId, setVisuallySelectedNodeId] = useState<string | null>(null)
   const [moveWithChildren, setMoveWithChildren] = useState(false)
@@ -159,7 +180,6 @@ export default function MindMap() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080)
-  const [mindMapHeight, setMindMapHeight] = useState<number>(0)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState(currentMap?.title || "")
@@ -193,9 +213,10 @@ export default function MindMap() {
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [nodeTypesMenuKey, setNodeTypesMenuKey] = useState(0); // Force re-render key
   const user = useAuthStore((state) => state.user);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
@@ -262,6 +283,10 @@ export default function MindMap() {
 
   // Edge type state
   const [edgeType, setEdgeType] = useState<'default' | 'straight' | 'smoothstep'>('default');
+
+  // Color customization state
+  const [backgroundColor, setBackgroundColor] = useState<string | null>(null);
+  const [dotColor, setDotColor] = useState<string | null>(null);
 
   // Collaboration chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -358,26 +383,46 @@ export default function MindMap() {
   }, [nodes]);
 
   const navigateToSearchResult = useCallback((index: number) => {
-    if (searchResults.length === 0 || !reactFlowInstance) return;
+    if (searchResults.length === 0 || !reactFlowInstance || index < 0 || index >= searchResults.length) {
+      return;
+    }
 
     const nodeId = searchResults[index];
     const node = nodes.find(n => n.id === nodeId);
 
-    if (node) {
-      // Zoom to the node
-      reactFlowInstance.setCenter(node.position.x, node.position.y, { zoom: 1.2, duration: 800 });
-
-      // Highlight the node by selecting it, but preserve input focus
+    if (!node) {
       setVisuallySelectedNodeId(nodeId);
-      // Don't set selectedNodeId to avoid opening the node editor which might steal focus
+      return;
     }
+
+    // Highlight the node immediately
+    setVisuallySelectedNodeId(nodeId);
+
+    // Use fitView with specific nodes instead of setCenter to avoid NaN issues
+    // This is safer because fitView calculates bounds from actual node positions
+    setTimeout(() => {
+      if (reactFlowInstance && typeof reactFlowInstance.fitView === 'function') {
+        reactFlowInstance.fitView({
+          nodes: [{ id: nodeId }],
+          duration: 800,
+          padding: 0.3, // 30% padding around the node
+          maxZoom: 1.5,
+          minZoom: 0.8
+        });
+      }
+    }, 100);
   }, [searchResults, nodes, reactFlowInstance]);
 
   const handleSearchNext = useCallback(() => {
     if (searchResults.length === 0) return;
     const nextIndex = (currentSearchIndex + 1) % searchResults.length;
     setCurrentSearchIndex(nextIndex);
-    navigateToSearchResult(nextIndex);
+    
+    // Add a small delay to ensure React state has updated
+    setTimeout(() => {
+      navigateToSearchResult(nextIndex);
+    }, 10);
+    
     // Restore focus to search input after navigation
     setTimeout(() => {
       searchInputRef.current?.focus();
@@ -388,7 +433,12 @@ export default function MindMap() {
     if (searchResults.length === 0) return;
     const prevIndex = currentSearchIndex === 0 ? searchResults.length - 1 : currentSearchIndex - 1;
     setCurrentSearchIndex(prevIndex);
-    navigateToSearchResult(prevIndex);
+    
+    // Add a small delay to ensure React state has updated
+    setTimeout(() => {
+      navigateToSearchResult(prevIndex);
+    }, 10);
+    
     // Restore focus to search input after navigation
     setTimeout(() => {
       searchInputRef.current?.focus();
@@ -403,8 +453,17 @@ export default function MindMap() {
   // Navigate to first result when search results change and highlight as you type
   useEffect(() => {
     if (searchResults.length > 0 && searchTerm.trim()) {
-      setCurrentSearchIndex(0);
-      navigateToSearchResult(0);
+      const firstResult = searchResults[0];
+      // Verify that the first result node actually exists
+      const firstNode = nodes.find(n => n.id === firstResult);
+      if (firstNode && firstNode.position && 
+          typeof firstNode.position.x === 'number' && 
+          typeof firstNode.position.y === 'number' && 
+          !isNaN(firstNode.position.x) && 
+          !isNaN(firstNode.position.y)) {
+        setCurrentSearchIndex(0);
+        navigateToSearchResult(0);
+      }
     } else if (searchTerm.trim() && searchResults.length === 0) {
       setCurrentSearchIndex(0);
       // Only clear visual selection when actively searching but no results found
@@ -413,7 +472,7 @@ export default function MindMap() {
       setCurrentSearchIndex(0);
       // Don't clear visual selection when search is empty - let normal node selection work
     }
-  }, [searchResults, searchTerm, navigateToSearchResult]);
+  }, [searchResults, searchTerm, navigateToSearchResult, nodes]);
 
   // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
@@ -465,9 +524,7 @@ export default function MindMap() {
 
   useEffect(() => {
     const updateHeight = () => {
-      if (reactFlowWrapperRef.current) {
-        setMindMapHeight(reactFlowWrapperRef.current.clientHeight)
-      }
+      // Height update logic removed as mindMapHeight state was unused
     }
 
     updateHeight()
@@ -478,10 +535,19 @@ export default function MindMap() {
   useEffect(() => {
     if (nodes.length > 0 && reactFlowWrapperRef.current) {
       setTimeout(() => {
-        setMindMapHeight(reactFlowWrapperRef.current?.clientHeight || 0)
+        // Height update logic removed as mindMapHeight state was unused
       }, 100)
     }
   }, [nodes.length])
+
+  // Force NodeTypesMenu re-render after component mount to fix refresh issues
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setNodeTypesMenuKey(prev => prev + 1);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetches mindmap data from Supabase database
   // Retrieves the complete mindmap structure including nodes, edges, and metadata
@@ -630,18 +696,18 @@ export default function MindMap() {
       setOriginalTitle(processedMap.title);
       // Load edgeType from JSON data, default to 'default' if not present
       setEdgeType((processedMap as any).edgeType || 'default');
+      // Load color customization from JSON data, don't set defaults to prevent flash
+      if ((processedMap as any).backgroundColor) {
+        setBackgroundColor((processedMap as any).backgroundColor);
+      }
+      if ((processedMap as any).dotColor) {
+        setDotColor((processedMap as any).dotColor);
+      }
       setIsInitialLoad(true);
       setHistory([]);
       setCurrentHistoryIndex(-1);
       setLastSavedHistoryIndex(-1);
       setHasUnsavedChanges(false);
-
-      if (reactFlowInstance) {
-        setTimeout(() => {
-          reactFlowInstance.setViewport({ x: 0, y: 0, zoom: 1 });
-          reactFlowInstance.fitView({ padding: 0.2 });
-        }, 50);
-      }
     } catch (error) {
       setLoadError("An unexpected error occurred while loading the mind map.");
     } finally {
@@ -661,23 +727,26 @@ export default function MindMap() {
       setOriginalTitle(currentMap.title);
       // Load edgeType from JSON data, default to 'default' if not present
       setEdgeType((currentMap as any).edgeType || 'default');
+      // Load color customization from JSON data when available
+      if ((currentMap as any).backgroundColor) {
+        setBackgroundColor((currentMap as any).backgroundColor);
+      }
+      if ((currentMap as any).dotColor) {
+        setDotColor((currentMap as any).dotColor);
+      }
       setIsInitialLoad(true);
       setHistory([]);
       setCurrentHistoryIndex(-1);
       setLastSavedHistoryIndex(-1);
       setHasUnsavedChanges(false);
-
-      if (reactFlowInstance) {
-        setTimeout(() => {
-          reactFlowInstance.setViewport({ x: 0, y: 0, zoom: 1 });
-          reactFlowInstance.fitView({ padding: 0.2 });
-        }, 50);
-      }
+      
+      // Set loading complete when loading from store
+      setIsLoading(false);
     } else {
 
       fetchMindMapFromSupabase();
     }
-  }, [currentMap, navigate, reactFlowInstance, fetchMindMapFromSupabase])
+  }, [currentMap?.id, id, navigate, reactFlowInstance, fetchMindMapFromSupabase])
 
   // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
@@ -922,7 +991,7 @@ export default function MindMap() {
       actionData: Partial<HistoryAction['data']>,
       previousNodes: Node[] = nodes,
       previousEdges: Edge[] = edges,
-      previousEdgeType?: 'default' | 'straight' | 'smoothstep'
+      previousState?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; title?: string }
     ): HistoryAction => {
       return {
         type,
@@ -930,7 +999,10 @@ export default function MindMap() {
         previousState: {
           nodes: previousNodes,
           edges: previousEdges,
-          edgeType: previousEdgeType,
+          edgeType: previousState?.edgeType,
+          backgroundColor: previousState?.backgroundColor,
+          dotColor: previousState?.dotColor,
+          title: previousState?.title,
         },
       };
     },
@@ -973,7 +1045,7 @@ export default function MindMap() {
         { edgeType: newEdgeType },
         nodes,
         edges,
-        previousEdgeType
+        { edgeType: previousEdgeType }
       );
 
       addToHistory(action);
@@ -984,6 +1056,54 @@ export default function MindMap() {
       }
     },
     [edgeType, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+  );
+
+  // Handle background color changes with history tracking
+  const handleBackgroundColorChange = useCallback(
+    (newColor: string) => {
+      const previousBackgroundColor = backgroundColor;
+
+      // Create history action for background color change
+      const action = createHistoryAction(
+        "change_background_color",
+        { backgroundColor: newColor },
+        nodes,
+        edges,
+        { backgroundColor: previousBackgroundColor || undefined }
+      );
+
+      addToHistory(action);
+      setBackgroundColor(newColor);
+
+      if (!isInitialLoad) {
+        setHasUnsavedChanges(true);
+      }
+    },
+    [backgroundColor, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+  );
+
+  // Handle dot color changes with history tracking
+  const handleDotColorChange = useCallback(
+    (newColor: string) => {
+      const previousDotColor = dotColor;
+
+      // Create history action for dot color change
+      const action = createHistoryAction(
+        "change_dot_color",
+        { dotColor: newColor },
+        nodes,
+        edges,
+        { dotColor: previousDotColor || undefined }
+      );
+
+      addToHistory(action);
+      setDotColor(newColor);
+
+      if (!isInitialLoad) {
+        setHasUnsavedChanges(true);
+      }
+    },
+    [dotColor, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
   );
 
   const onNodeDragStart = useCallback(
@@ -1757,6 +1877,13 @@ export default function MindMap() {
         x: event.clientX,
         y: event.clientY,
       })
+
+      // Validate position coordinates
+      if (!position || typeof position.x !== 'number' || typeof position.y !== 'number' || 
+          isNaN(position.x) || isNaN(position.y) || !isFinite(position.x) || !isFinite(position.y)) {
+        console.error('Invalid position from screenToFlowPosition:', position, 'clientX:', event.clientX, 'clientY:', event.clientY);
+        return;
+      }
 
       if (imageFile?.type.startsWith("image/")) {
         const newNode = {
@@ -3014,7 +3141,11 @@ export default function MindMap() {
     if (id && editedTitle.trim() !== "") {
       setIsSaving(true);
       try {
-        await updateMap(id, nodes, edges, editedTitle, user?.id || '', edgeType)
+        await updateMap(id, nodes, edges, editedTitle, user?.id || '', { 
+          edgeType, 
+          backgroundColor: backgroundColor || undefined, 
+          dotColor: dotColor || undefined 
+        })
         setHasUnsavedChanges(false)
         setOriginalTitle(editedTitle)
         setLastSavedHistoryIndex(currentHistoryIndex)
@@ -3030,7 +3161,7 @@ export default function MindMap() {
     }
     setCanUndo(false)
     setCanRedo(false)
-  }, [id, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType]);
+  }, [id, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor]);
 
   // Autosave function - uses the same save logic as manual save
   const scheduleAutosave = useCallback(() => {
@@ -3151,11 +3282,13 @@ export default function MindMap() {
       setIsFullscreen(isCurrentlyFullscreen)
 
       if (!isCurrentlyFullscreen && reactFlowWrapperRef.current) {
-        reactFlowWrapperRef.current.style.backgroundColor = ""
+        if (backgroundColor) {
+          reactFlowWrapperRef.current.style.backgroundColor = backgroundColor
+        }
         const dotElements = reactFlowWrapperRef.current.querySelectorAll(".react-flow__background-dots circle")
         dotElements.forEach((dot: Element) => {
-          if (dot instanceof SVGElement) {
-            dot.style.fill = ""
+          if (dot instanceof SVGElement && dotColor) {
+            dot.style.fill = dotColor
           }
         })
       }
@@ -3165,7 +3298,7 @@ export default function MindMap() {
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
     }
-  }, [])
+  }, [backgroundColor, dotColor])
 
   const handleFullscreen = () => {
     if (reactFlowWrapperRef.current) {
@@ -3173,11 +3306,14 @@ export default function MindMap() {
         document.exitFullscreen()
       } else {
         reactFlowWrapperRef.current.requestFullscreen({ navigationUI: "auto" })
-        reactFlowWrapperRef.current.style.backgroundColor = "#0c1321"
+        // Use a darker version of the current background color for fullscreen
+        if (backgroundColor) {
+          reactFlowWrapperRef.current.style.backgroundColor = backgroundColor === '#1e293b' ? '#0c1321' : backgroundColor
+        }
         const dotElements = reactFlowWrapperRef.current.querySelectorAll(".react-flow__background-dots circle")
         dotElements.forEach((dot: Element) => {
-          if (dot instanceof SVGElement) {
-            dot.style.fill = "#374151"
+          if (dot instanceof SVGElement && dotColor) {
+            dot.style.fill = dotColor
           }
         })
       }
@@ -3284,6 +3420,10 @@ export default function MindMap() {
           setEditedTitle(action.previousState.title || '')
         } else if (action.type === "change_edge_type" && action.previousState && 'edgeType' in action.previousState) {
           setEdgeType(action.previousState.edgeType || 'default')
+        } else if (action.type === "change_background_color" && action.previousState && 'backgroundColor' in action.previousState) {
+          setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#1e293b')
+        } else if (action.type === "change_dot_color" && action.previousState && 'dotColor' in action.previousState) {
+          setDotColor(action.previousState.dotColor || dotColor || '#81818a')
         } else if (action.previousState?.nodes) {
           setNodes(action.previousState.nodes)
         }
@@ -3577,6 +3717,12 @@ export default function MindMap() {
           break
         case "change_edge_type":
           setEdgeType(nextAction.data.edgeType || 'default')
+          break
+        case "change_background_color":
+          setBackgroundColor(nextAction.data.backgroundColor || backgroundColor || '#1e293b')
+          break
+        case "change_dot_color":
+          setDotColor(nextAction.data.dotColor || dotColor || '#81818a')
           break
         default:
           break
@@ -4874,11 +5020,6 @@ export default function MindMap() {
     </div>
   );
 
-  // Loading screen
-  if (isLoading) {
-    return <MindMapSkeleton />;
-  }
-
   // Error screen
   if (loadError) {
     return (
@@ -4897,15 +5038,15 @@ export default function MindMap() {
         </div>
       </div>
     );
-  } return (
-    <div className="fixed inset-0">
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-      <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
+  } 
 
-      {/* Node Types Menu - Hidden in fullscreen */}
+  return (
+    <>
+      {/* Always render NodeTypesMenu first - independent of loading states */}
       {!isFullscreen && (
-        <div className="fixed left-0 top-[8rem] z-10">
+        <div className="fixed left-0 top-[8rem] node-types-menu-container" style={{ zIndex: 9999 }}>
           <NodeTypesMenu
+            key={nodeTypesMenuKey} // Force re-render to fix refresh issues
             moveWithChildren={moveWithChildren}
             setMoveWithChildren={setMoveWithChildren}
             snapToGrid={snapToGrid}
@@ -4915,7 +5056,7 @@ export default function MindMap() {
             isAltPressed={isAltPressed}
             isCtrlPressed={isCtrlPressed}
             onDragStart={onDragStart}
-            maxHeight={`${mindMapHeight}px`}
+            maxHeight="600px"
             onUndo={undo}
             onRedo={redo}
             canUndo={canUndo}
@@ -4923,11 +5064,19 @@ export default function MindMap() {
           />
         </div>
       )}
+      
+      <div className={`fixed inset-0 mindmap-content ${isLoading ? 'loading' : ''}`}>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+        <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
 
-      {/* ReactFlow Area - 100% width */}
+        {/* ReactFlow Area - 100% width */}
       <div
         ref={reactFlowWrapperRef}
         className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
+        style={{
+          zIndex: 1,
+          ...(backgroundColor ? { backgroundColor: backgroundColor } : {})
+        }}
       ><ReactFlowProvider>
           <ReactFlow
             key={`reactflow-${currentMap?.id || 'default'}`}
@@ -5107,7 +5256,7 @@ export default function MindMap() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onInit={setReactFlowInstance}
+            onInit={setReactFlowInstanceSafely}
             onDrop={onDrop}
             onDragOver={onDragOver}
             onNodeClick={(event, node) => selectNode(event, node.id)}
@@ -5195,7 +5344,18 @@ export default function MindMap() {
             maxZoom={2}
             elementsSelectable={true}
             selectNodesOnDrag={false}
-            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}          >            <Background color="#1e293b" gap={20} size={2} />
+            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}
+            onError={(error) => {
+              console.error('ReactFlow error:', error);
+              // Don't crash the app, just log the error
+            }}
+          >            <Background 
+              color={dotColor || undefined} 
+              gap={20} 
+              size={1} 
+              // Add key to force re-render if coordinates get corrupted
+              key={`background-${dotColor || 'default'}`}
+            />
             <Controls />
             {/* Real-time collaboration cursors */}
             <CollaboratorCursors />
@@ -5526,6 +5686,13 @@ export default function MindMap() {
 
           </ReactFlow>
         </ReactFlowProvider>
+        
+        {/* Loading Overlay - Covers ReactFlow during initial load */}
+        {isLoading && (
+          <div className="absolute inset-0 z-50">
+            <MindMapSkeleton />
+          </div>
+        )}
       </div>
 
       {/* UI Elements - Hidden in fullscreen */}
@@ -5560,7 +5727,8 @@ export default function MindMap() {
           className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`}
           style={{
             ...nodeEditorStyle,
-            cursor: isResizingNodeEditor ? 'ew-resize' : 'default'
+            cursor: isResizingNodeEditor ? 'ew-resize' : 'default',
+            zIndex: 9999
           }}
         >
           <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
@@ -6479,6 +6647,10 @@ export default function MindMap() {
         onClose={() => setShowCustomizationModal(false)}
         edgeType={edgeType}
         onEdgeTypeChange={handleEdgeTypeChange}
+        backgroundColor={backgroundColor || "#1a1a1a"}
+        onBackgroundColorChange={handleBackgroundColorChange}
+        dotColor={dotColor || "#ffffff"}
+        onDotColorChange={handleDotColorChange}
       />
 
       {/* Toast Notification */}
@@ -6576,5 +6748,6 @@ export default function MindMap() {
         </div>
       )}
     </div>
+    </>
   )
 }

@@ -18,6 +18,8 @@ export interface MindMap {
   nodes: Node[];
   edges: Edge[];
   edgeType?: 'default' | 'straight' | 'smoothstep';
+  backgroundColor?: string;
+  dotColor?: string;
   createdAt: number;
   updatedAt: number;
   likes: number;
@@ -43,7 +45,7 @@ interface MindMapState {
   aiProposedChanges: { id: string; nodes: Node[]; edges: Edge[]; title: string } | null;
   mapBackup: MindMap | null;
   addMap: (title: string, userId: string) => string;
-  updateMap: (id: string, nodes: Node[], edges: Edge[], title: string, userId: string, edgeType?: 'default' | 'straight' | 'smoothstep') => Promise<void>;
+  updateMap: (id: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string }) => Promise<void>;
   deleteMap: (id: string, userId: string) => void;
   setCurrentMap: (id: string | null) => void;
   updateMapTitle: (id: string, title: string) => void;
@@ -109,6 +111,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       nodes: map.json_data.nodes,
       edges: map.json_data.edges,
       edgeType: map.json_data.edgeType || 'default',
+      backgroundColor: map.json_data.backgroundColor || '#1e293b',
+      dotColor: map.json_data.dotColor || '#81818a',
       createdAt: new Date(map.created_at).getTime(),
       updatedAt: new Date(map.updated_at).getTime(),
       likes: map.likes,
@@ -174,6 +178,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         nodes: map.json_data.nodes,
         edges: map.json_data.edges,
         edgeType: map.json_data.edgeType || 'default',
+        backgroundColor: map.json_data.backgroundColor || '#1e293b',
+        dotColor: map.json_data.dotColor || '#81818a',
         createdAt: new Date(map.created_at).getTime(),
         updatedAt: new Date(map.updated_at).getTime(),
         likes: map.likes,
@@ -198,7 +204,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { id, title, nodes, edges, edgeType = 'default', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at } = map;
+    const { id, title, nodes, edges, edgeType = 'default', backgroundColor = '#1e293b', dotColor = '#81818a', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -246,7 +252,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         const { error: updateError } = await supabase
           .from("mindmaps")
           .update({
-            json_data: { nodes, edges: cleanedEdges, edgeType },
+            json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
             updated_at: new Date().toISOString()
           })
           .eq("id", id)
@@ -268,7 +274,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         const mapData = {
           id,
           title,
-          json_data: { nodes, edges: cleanedEdges, edgeType },
+          json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
           created_at: validCreatedAt,
           updated_at: validUpdatedAt,
           visibility,
@@ -486,11 +492,14 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     return id;
   },
-updateMap: async (id, nodes, edges, title, userId, edgeType = 'default') => {
+updateMap: async (id, nodes, edges, title, userId, customization = { edgeType: 'default' }) => {
   if (!Array.isArray(nodes) || !Array.isArray(edges)) {
     console.error('Invalid data: nodes and edges must be arrays');
     return;
   }
+
+  // Extract customization data with defaults
+  const { edgeType = 'default', backgroundColor = '#1e293b', dotColor = '#81818a' } = customization;
 
   // Fetch the mindmap to get the 'key', allowing access for creator or collaborators
   const { data: mindmaps, error: fetchError } = await supabase
@@ -801,6 +810,8 @@ updateMap: async (id, nodes, edges, title, userId, edgeType = 'default') => {
       nodes: optimizedNodes,
       edges: cleanedEdges,
       edgeType,
+      backgroundColor,
+      dotColor,
       title,
       updatedAt: Date.now(),
     };

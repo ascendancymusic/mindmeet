@@ -242,7 +242,7 @@ export function NodeTypesMenu({
       left: rect.right + 8,
       top: rect.top + (rect.height / 2),
       transform: 'translateY(-50%)',
-      zIndex: 9999,
+      zIndex: 10000,
     }
 
     return createPortal(
@@ -257,7 +257,7 @@ export function NodeTypesMenu({
   }
 
   return (
-    <div className="relative" style={{ isolation: "isolate" }}>
+    <div className="relative" style={{ isolation: "isolate", zIndex: 1000 }}>
       <div
         className={`${isCompactMode ? 'space-y-1 p-1.5' : 'space-y-2 p-2'} rounded-lg shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${isMinimized ? "w-0 p-0 opacity-0" : "w-auto opacity-100"
           } bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-xl`}
