@@ -159,9 +159,9 @@ export default function MindMap() {
   const setReactFlowInstanceSafely = useCallback((instance: ReactFlowInstance | null) => {
     if (instance) {
       // Validate that the instance has the required methods
-      if (typeof instance.setCenter === 'function' && 
-          typeof instance.getViewport === 'function' &&
-          typeof instance.setViewport === 'function') {
+      if (typeof instance.setCenter === 'function' &&
+        typeof instance.getViewport === 'function' &&
+        typeof instance.setViewport === 'function') {
         console.log('ReactFlow instance initialized successfully');
         setReactFlowInstance(instance);
       } else {
@@ -417,12 +417,12 @@ export default function MindMap() {
     if (searchResults.length === 0) return;
     const nextIndex = (currentSearchIndex + 1) % searchResults.length;
     setCurrentSearchIndex(nextIndex);
-    
+
     // Add a small delay to ensure React state has updated
     setTimeout(() => {
       navigateToSearchResult(nextIndex);
     }, 10);
-    
+
     // Restore focus to search input after navigation
     setTimeout(() => {
       searchInputRef.current?.focus();
@@ -433,12 +433,12 @@ export default function MindMap() {
     if (searchResults.length === 0) return;
     const prevIndex = currentSearchIndex === 0 ? searchResults.length - 1 : currentSearchIndex - 1;
     setCurrentSearchIndex(prevIndex);
-    
+
     // Add a small delay to ensure React state has updated
     setTimeout(() => {
       navigateToSearchResult(prevIndex);
     }, 10);
-    
+
     // Restore focus to search input after navigation
     setTimeout(() => {
       searchInputRef.current?.focus();
@@ -456,11 +456,11 @@ export default function MindMap() {
       const firstResult = searchResults[0];
       // Verify that the first result node actually exists
       const firstNode = nodes.find(n => n.id === firstResult);
-      if (firstNode && firstNode.position && 
-          typeof firstNode.position.x === 'number' && 
-          typeof firstNode.position.y === 'number' && 
-          !isNaN(firstNode.position.x) && 
-          !isNaN(firstNode.position.y)) {
+      if (firstNode && firstNode.position &&
+        typeof firstNode.position.x === 'number' &&
+        typeof firstNode.position.y === 'number' &&
+        !isNaN(firstNode.position.x) &&
+        !isNaN(firstNode.position.y)) {
         setCurrentSearchIndex(0);
         navigateToSearchResult(0);
       }
@@ -739,7 +739,7 @@ export default function MindMap() {
       setCurrentHistoryIndex(-1);
       setLastSavedHistoryIndex(-1);
       setHasUnsavedChanges(false);
-      
+
       // Set loading complete when loading from store
       setIsLoading(false);
     } else {
@@ -1054,7 +1054,7 @@ export default function MindMap() {
       setEdgeType(newEdgeType);
 
       // Update all existing edges to use the new edge type
-      setEdges(edges => 
+      setEdges(edges =>
         edges.map(edge => ({
           ...edge,
           type: newEdgeType === 'default' ? 'default' : newEdgeType
@@ -1892,8 +1892,8 @@ export default function MindMap() {
       })
 
       // Validate position coordinates
-      if (!position || typeof position.x !== 'number' || typeof position.y !== 'number' || 
-          isNaN(position.x) || isNaN(position.y) || !isFinite(position.x) || !isFinite(position.y)) {
+      if (!position || typeof position.x !== 'number' || typeof position.y !== 'number' ||
+        isNaN(position.x) || isNaN(position.y) || !isFinite(position.x) || !isFinite(position.y)) {
         console.error('Invalid position from screenToFlowPosition:', position, 'clientX:', event.clientX, 'clientY:', event.clientY);
         return;
       }
@@ -3154,10 +3154,10 @@ export default function MindMap() {
     if (id && editedTitle.trim() !== "") {
       setIsSaving(true);
       try {
-        await updateMap(id, nodes, edges, editedTitle, user?.id || '', { 
-          edgeType, 
-          backgroundColor: backgroundColor || undefined, 
-          dotColor: dotColor || undefined 
+        await updateMap(id, nodes, edges, editedTitle, user?.id || '', {
+          edgeType,
+          backgroundColor: backgroundColor || undefined,
+          dotColor: dotColor || undefined
         })
         setHasUnsavedChanges(false)
         setOriginalTitle(editedTitle)
@@ -3441,7 +3441,7 @@ export default function MindMap() {
               type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
             })));
           } else {
-            setEdges(edges => 
+            setEdges(edges =>
               edges.map(edge => ({
                 ...edge,
                 type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
@@ -3747,7 +3747,7 @@ export default function MindMap() {
           const newEdgeType = nextAction.data.edgeType || 'default';
           setEdgeType(newEdgeType);
           // Update all existing edges to use the new edge type
-          setEdges(edges => 
+          setEdges(edges =>
             edges.map(edge => ({
               ...edge,
               type: newEdgeType === 'default' ? 'default' : newEdgeType
@@ -3866,7 +3866,7 @@ export default function MindMap() {
       // Check if the focus is on an input field or textarea
       const activeElement = document.activeElement;
       const isInputField = activeElement && (
-        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'INPUT' ||
         activeElement.tagName === 'TEXTAREA'
       );
 
@@ -4668,7 +4668,7 @@ export default function MindMap() {
         // Check if the focus is on an input field or textarea (node editor)
         const activeElement = document.activeElement;
         const isInputField = activeElement && (
-          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'INPUT' ||
           activeElement.tagName === 'TEXTAREA'
         );
 
@@ -5074,10 +5074,51 @@ export default function MindMap() {
         </div>
       </div>
     );
-  } 
+  }
 
   return (
     <>
+      {/* Custom styles for ReactFlow controls */}
+      <style jsx global>{`
+        .react-flow__controls-custom .react-flow__controls-button {
+          background: transparent !important;
+          backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          border-radius: 6px !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+          color: rgba(255, 255, 255, 0.9) !important;
+          width: 18px !important;
+          height: 18px !important;
+          margin: 0.5px !important;
+          padding: 1px !important;
+          transition: all 0.2s ease !important;
+        }
+        
+        .react-flow__controls-custom .react-flow__controls-button:hover {
+          background: rgba(255, 255, 255, 0.08) !important;
+          border-color: rgba(255, 255, 255, 0.25) !important;
+          color: white !important;
+          transform: scale(1.05) !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        }
+        
+        .react-flow__controls-custom .react-flow__controls-button:active {
+          transform: scale(0.95) !important;
+        }
+        
+        .react-flow__controls-custom .react-flow__controls-button svg {
+          width: 12px !important;
+          height: 12px !important;
+        }
+        
+        .react-flow__controls-custom .react-flow__controls-button:disabled {
+          background: transparent !important;
+          color: rgba(255, 255, 255, 0.3) !important;
+          border-color: rgba(255, 255, 255, 0.08) !important;
+          cursor: not-allowed !important;
+        }
+      `}</style>
+
       {/* Always render NodeTypesMenu first - independent of loading states */}
       {!isFullscreen && (
         <div className="fixed left-0 top-[8rem] node-types-menu-container" style={{ zIndex: 9999 }}>
@@ -5100,1411 +5141,1395 @@ export default function MindMap() {
           />
         </div>
       )}
-      
+
       <div className={`fixed inset-0 mindmap-content ${isLoading ? 'loading' : ''}`}>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
         <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
 
         {/* ReactFlow Area - 100% width */}
-      <div
-        ref={reactFlowWrapperRef}
-        className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
-        style={{
-          zIndex: 1,
-          backgroundColor: backgroundColor || '#0c1321'
-        }}
-      ><ReactFlowProvider>
-          <ReactFlow
-            key={`reactflow-${currentMap?.id || 'default'}`}
-            nodes={nodes.map((node) => {
-              // Check if this node has children
-              const hasChildren = edges.some((edge) => edge.source === node.id);
-              // Get descendants (not used directly but keeping for future use)
-              getNodeDescendants(node.id);
-              // Check if this node should be hidden (if its parent is collapsed)
-              const isHidden = (() => {
-                const findAncestors = (nodeId: string, visited: Set<string> = new Set()): string[] => {
-                  // If we've already visited this node, return empty array to prevent infinite recursion
-                  if (visited.has(nodeId)) return [];
+        <div
+          ref={reactFlowWrapperRef}
+          className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
+          style={{
+            zIndex: 1,
+            backgroundColor: backgroundColor || '#0c1321'
+          }}
+        ><ReactFlowProvider>
+            <ReactFlow
+              key={`reactflow-${currentMap?.id || 'default'}`}
+              nodes={nodes.map((node) => {
+                // Check if this node has children
+                const hasChildren = edges.some((edge) => edge.source === node.id);
+                // Get descendants (not used directly but keeping for future use)
+                getNodeDescendants(node.id);
+                // Check if this node should be hidden (if its parent is collapsed)
+                const isHidden = (() => {
+                  const findAncestors = (nodeId: string, visited: Set<string> = new Set()): string[] => {
+                    // If we've already visited this node, return empty array to prevent infinite recursion
+                    if (visited.has(nodeId)) return [];
 
-                  // Mark this node as visited
-                  visited.add(nodeId);
+                    // Mark this node as visited
+                    visited.add(nodeId);
 
-                  const parentEdges = edges.filter((edge) => edge.target === nodeId);
-                  if (parentEdges.length === 0) return [];
+                    const parentEdges = edges.filter((edge) => edge.target === nodeId);
+                    if (parentEdges.length === 0) return [];
 
-                  const parents = parentEdges.map((edge) => edge.source);
+                    const parents = parentEdges.map((edge) => edge.source);
 
-                  // Pass the visited set to recursive calls to track all visited nodes
-                  const grandparents = parents.flatMap(parentId => findAncestors(parentId, visited));
+                    // Pass the visited set to recursive calls to track all visited nodes
+                    const grandparents = parents.flatMap(parentId => findAncestors(parentId, visited));
 
-                  return [...parents, ...grandparents];
-                };
+                    return [...parents, ...grandparents];
+                  };
 
-                const ancestors = findAncestors(node.id, new Set<string>());
-                return ancestors.some((ancestorId) => collapsedNodes.has(ancestorId));
-              })();
+                  const ancestors = findAncestors(node.id, new Set<string>());
+                  return ancestors.some((ancestorId) => collapsedNodes.has(ancestorId));
+                })();
 
-              // Ensure node has proper data structure with fallbacks
-              const nodeData = node.data || {};
-              const nodeLabel = nodeData.label || "";
+                // Ensure node has proper data structure with fallbacks
+                const nodeData = node.data || {};
+                const nodeLabel = nodeData.label || "";
 
-              // Create the node label with chevron if it has children
-              const displayLabel = hasChildren ? (
-                <div className="flex items-center justify-between w-full">
-                  <div
-                    className="break-words overflow-hidden"
-                    style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
-                  >
-                    {node.type === "default" && nodeLabel === "" ? (
-                      <span className="text-gray-400">Text...</span>
-                    ) : node.type === "default" ? (
-                      <MarkdownRenderer content={nodeLabel} />
-                    ) : (
-                      nodeLabel
-                    )}
+                // Create the node label with chevron if it has children
+                const displayLabel = hasChildren ? (
+                  <div className="flex items-center justify-between w-full">
+                    <div
+                      className="break-words overflow-hidden"
+                      style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
+                    >
+                      {node.type === "default" && nodeLabel === "" ? (
+                        <span className="text-gray-400">Text...</span>
+                      ) : node.type === "default" ? (
+                        <MarkdownRenderer content={nodeLabel} />
+                      ) : (
+                        nodeLabel
+                      )}
+                    </div>
+                    <button
+                      className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleNodeCollapse(node.id, e);
+                      }}
+                      title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
+                      key={node.id}
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
+                          }`}
+                      />
+                    </button>
                   </div>
-                  <button
-                    className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleNodeCollapse(node.id, e);
-                    }}
-                    title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
-                    key={node.id}
-                  >
-                    <ChevronDown
-                      className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                        }`}
-                    />
-                  </button>
-                </div>
-              ) : node.type === "default" && nodeLabel === "" ? (
-                <span className="text-gray-400">Text...</span>
-              ) : node.type === "default" ? (
-                <MarkdownRenderer content={nodeLabel} />
-              ) : (
-                nodeLabel
-              );
+                ) : node.type === "default" && nodeLabel === "" ? (
+                  <span className="text-gray-400">Text...</span>
+                ) : node.type === "default" ? (
+                  <MarkdownRenderer content={nodeLabel} />
+                ) : (
+                  nodeLabel
+                );
 
-              // Merge default styles with node-specific styles
-              const nodeTypeStyle = defaultNodeStyles[node.type as keyof typeof defaultNodeStyles] || defaultNodeStyles.default;
+                // Merge default styles with node-specific styles
+                const nodeTypeStyle = defaultNodeStyles[node.type as keyof typeof defaultNodeStyles] || defaultNodeStyles.default;
 
-              // Create a properly typed node object with all required properties
-              return {
-                ...node,
-                hidden: isHidden,
-                // Keep ReactFlow's selection state separate from our visual selection
-                selected: node.selected,
-                data: {
-                  ...nodeData,
-                  label: displayLabel,
-                },
-                style: {
-                  ...nodeTypeStyle,
-                  ...node.style, // Override defaults with existing style if present
-                  width: (node.type === "image" || node.type === "default") ?
-                    (typeof node.width === 'number' ? `${node.width}px` :
-                      typeof node.style?.width === 'number' ? `${node.style.width}px` :
-                        typeof node.style?.width === 'string' ? node.style.width :
-                          node.type === "image" ? "100px" : nodeTypeStyle.width) :
-                    nodeTypeStyle.width, // Ensure resizing works for ImageNode and DefaultTextNode
-                  height: (node.type === "image" || node.type === "default") ?
-                    (typeof node.height === 'number' ? `${node.height}px` :
-                      typeof node.style?.height === 'number' ? `${node.style.height}px` :
-                        typeof node.style?.height === 'string' ? node.style.height :
-                          "auto") :
-                    (nodeTypeStyle as any).height || 'auto',
-                  minHeight: node.type === "default" ?
-                    calculateTextNodeMinHeight(
-                      typeof nodeData.label === 'string' ? nodeData.label : '',
-                      getNodeCurrentWidth(node),
-                      hasChildren
-                    ) : "auto",
-                  minWidth: "auto",
-                  // Special border radius handling for image nodes with titles
-                  borderRadius: node.type === "image" && nodeData.label ?
-                    "14px 14px 0 0" : // Only round top corners when image has title
-                    nodeTypeStyle.borderRadius, // Use default for all other cases
-                  background:
+                // Create a properly typed node object with all required properties
+                return {
+                  ...node,
+                  hidden: isHidden,
+                  // Keep ReactFlow's selection state separate from our visual selection
+                  selected: node.selected,
+                  data: {
+                    ...nodeData,
+                    label: displayLabel,
+                  },
+                  style: {
+                    ...nodeTypeStyle,
+                    ...node.style, // Override defaults with existing style if present
+                    width: (node.type === "image" || node.type === "default") ?
+                      (typeof node.width === 'number' ? `${node.width}px` :
+                        typeof node.style?.width === 'number' ? `${node.style.width}px` :
+                          typeof node.style?.width === 'string' ? node.style.width :
+                            node.type === "image" ? "100px" : nodeTypeStyle.width) :
+                      nodeTypeStyle.width, // Ensure resizing works for ImageNode and DefaultTextNode
+                    height: (node.type === "image" || node.type === "default") ?
+                      (typeof node.height === 'number' ? `${node.height}px` :
+                        typeof node.style?.height === 'number' ? `${node.style.height}px` :
+                          typeof node.style?.height === 'string' ? node.style.height :
+                            "auto") :
+                      (nodeTypeStyle as any).height || 'auto',
+                    minHeight: node.type === "default" ?
+                      calculateTextNodeMinHeight(
+                        typeof nodeData.label === 'string' ? nodeData.label : '',
+                        getNodeCurrentWidth(node),
+                        hasChildren
+                      ) : "auto",
+                    minWidth: "auto",
+                    // Special border radius handling for image nodes with titles
+                    borderRadius: node.type === "image" && nodeData.label ?
+                      "14px 14px 0 0" : // Only round top corners when image has title
+                      nodeTypeStyle.borderRadius, // Use default for all other cases
+                    background:
 
-                    (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
-                      ? previewColor
-                      : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
+                      (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
+                        ? previewColor
+                        : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
 
-                  borderColor: node.id === visuallySelectedNodeId
-                    ? "skyblue"
-                    : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                    borderColor: node.id === visuallySelectedNodeId
+                      ? "skyblue"
+                      : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                        (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                        (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                        (node.type === 'youtube-video' && nodeData.videoUrl)))
+                        ? "#4ade80" // Highlight audio, spotify, soundcloud and YouTube nodes with green border when in add to playlist mode
+                        : "#374151",
+                    borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
                       (node.type === 'spotify' && nodeData.spotifyUrl) ||
                       (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
                       (node.type === 'youtube-video' && nodeData.videoUrl)))
-                      ? "#4ade80" // Highlight audio, spotify, soundcloud and YouTube nodes with green border when in add to playlist mode
-                      : "#374151",
-                  borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
-                    (node.type === 'spotify' && nodeData.spotifyUrl) ||
-                    (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                    (node.type === 'youtube-video' && nodeData.videoUrl)))
-                    ? "3px" // Thicker border for audio, spotify, soundcloud and YouTube nodes when in add to playlist mode
-                    : "2px", // Always show a border for all nodes
+                      ? "3px" // Thicker border for audio, spotify, soundcloud and YouTube nodes when in add to playlist mode
+                      : "2px", // Always show a border for all nodes
 
-                  border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
-                    ? "solid" // Ensure audio, playlist, spotify, and youtube-video nodes always have a border
-                    : node.style?.border || nodeTypeStyle.border,
+                    border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
+                      ? "solid" // Ensure audio, playlist, spotify, and youtube-video nodes always have a border
+                      : node.style?.border || nodeTypeStyle.border,
 
-                  whiteSpace: "normal",
-                  wordWrap: "break-word",
-                  overflowWrap: "break-word",
+                    whiteSpace: "normal",
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
 
-                  // Make root node text bold
-                  fontWeight: node.id === "1" ? "bold" : "normal",
-                },
-              } as Node;
-            })}
-            edges={edges.map(edge => {
-              // Find the source node to get its color
-              const sourceNode = nodes.find(node => node.id === edge.source);
-              const sourceNodeColor = sourceNode
-                ? ((sourceNode as any).background || sourceNode.style?.background || "#374151")
-                : "#374151";
+                    // Make root node text bold
+                    fontWeight: node.id === "1" ? "bold" : "normal",
+                  },
+                } as Node;
+              })}
+              edges={edges.map(edge => {
+                // Find the source node to get its color
+                const sourceNode = nodes.find(node => node.id === edge.source);
+                const sourceNodeColor = sourceNode
+                  ? ((sourceNode as any).background || sourceNode.style?.background || "#374151")
+                  : "#374151";
 
-              return {
-                ...edge,
+                return {
+                  ...edge,
+                  type: edgeType === 'default' ? 'default' : edgeType,
+                  style: {
+                    ...edge.style,
+                    strokeWidth: 2,
+                    stroke: sourceNodeColor,
+                  },
+                };
+              })}
+              nodeTypes={nodeTypes}
+              defaultEdgeOptions={{
                 type: edgeType === 'default' ? 'default' : edgeType,
                 style: {
-                  ...edge.style,
                   strokeWidth: 2,
-                  stroke: sourceNodeColor,
                 },
-              };
-            })}
-            nodeTypes={nodeTypes}
-            defaultEdgeOptions={{
-              type: edgeType === 'default' ? 'default' : edgeType,
-              style: {
+              }}
+              connectionLineStyle={{
                 strokeWidth: 2,
-              },
-            }}
-            connectionLineStyle={{
-              strokeWidth: 2,
-            }}
-            connectionRadius={50}
-            isValidConnection={isValidConnection}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onInit={setReactFlowInstanceSafely}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onNodeClick={(event, node) => selectNode(event, node.id)}
-            onNodeDragStart={onNodeDragStart}
-            onNodeDragStop={onNodeDragStop}
-            onPaneContextMenu={(event) => {
-              event.preventDefault()
-              setSelectedNodeId(null)
-              setVisuallySelectedNodeId(null)
-            }}
-            onPaneClick={() => {
-              // Exit "add to playlist" mode when clicking on the pane
-              if (isAddingToPlaylist) {
-                setIsAddingToPlaylist(false);
-                setActivePlaylistNodeId(null);
-              }
+              }}
+              connectionRadius={50}
+              isValidConnection={isValidConnection}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onInit={setReactFlowInstanceSafely}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onNodeClick={(event, node) => selectNode(event, node.id)}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDragStop={onNodeDragStop}
+              onPaneContextMenu={(event) => {
+                event.preventDefault()
+                setSelectedNodeId(null)
+                setVisuallySelectedNodeId(null)
+              }}
+              onPaneClick={() => {
+                // Exit "add to playlist" mode when clicking on the pane
+                if (isAddingToPlaylist) {
+                  setIsAddingToPlaylist(false);
+                  setActivePlaylistNodeId(null);
+                }
 
-              // Clear node selection
-              setSelectedNodeId(null);
-              setVisuallySelectedNodeId(null);
-            }}
-            onEdgeClick={(event) => {
-              // Prevent edge selection from interfering with node selection
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onSelectionStart={() => {
-              // Selection start is handled by ReactFlow internally
-            }}
-            onSelectionEnd={() => {
-              // Update selection bounds for toolbar positioning
-              const selectedNodes = nodes.filter(node => node.selected);
-              updateSelectionBounds(selectedNodes);
-            }}
-            onSelectionChange={({ nodes }) => {
-              // Clear selection bounds when no nodes are selected
-              if (nodes.length === 0) {
-                setSelectionBounds(null);
-              }
-            }}
-            onSelectionDragStart={(_, selectedNodes) => {
-              if (selectedNodes.length > 1) {
-                // Store initial positions for all selected nodes
-                const initialPositions: Record<string, { x: number; y: number }> = {};
-                selectedNodes.forEach(node => {
-                  initialPositions[node.id] = { ...node.position };
-                });
-
-                setIsMultiDragging(true);
-                setMultiDragStartPosition(initialPositions);
-
-                // Update selection bounds for the toolbar
+                // Clear node selection
+                setSelectedNodeId(null);
+                setVisuallySelectedNodeId(null);
+              }}
+              onEdgeClick={(event) => {
+                // Prevent edge selection from interfering with node selection
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onSelectionStart={() => {
+                // Selection start is handled by ReactFlow internally
+              }}
+              onSelectionEnd={() => {
+                // Update selection bounds for toolbar positioning
+                const selectedNodes = nodes.filter(node => node.selected);
                 updateSelectionBounds(selectedNodes);
-              }
-            }}
-            onSelectionDrag={(_, selectedNodes) => {
-              // Update selection bounds during drag
-              if (selectedNodes.length > 1) {
-                updateSelectionBounds(selectedNodes);
-              }
-            }}
-            onSelectionDragStop={(_, selectedNodes) => {
-              // Update selection bounds after multi-drag operation completes
-              if (selectedNodes.length > 1 && isMultiDragging) {
-                updateSelectionBounds(selectedNodes);
-              }
-            }}
+              }}
+              onSelectionChange={({ nodes }) => {
+                // Clear selection bounds when no nodes are selected
+                if (nodes.length === 0) {
+                  setSelectionBounds(null);
+                }
+              }}
+              onSelectionDragStart={(_, selectedNodes) => {
+                if (selectedNodes.length > 1) {
+                  // Store initial positions for all selected nodes
+                  const initialPositions: Record<string, { x: number; y: number }> = {};
+                  selectedNodes.forEach(node => {
+                    initialPositions[node.id] = { ...node.position };
+                  });
+
+                  setIsMultiDragging(true);
+                  setMultiDragStartPosition(initialPositions);
+
+                  // Update selection bounds for the toolbar
+                  updateSelectionBounds(selectedNodes);
+                }
+              }}
+              onSelectionDrag={(_, selectedNodes) => {
+                // Update selection bounds during drag
+                if (selectedNodes.length > 1) {
+                  updateSelectionBounds(selectedNodes);
+                }
+              }}
+              onSelectionDragStop={(_, selectedNodes) => {
+                // Update selection bounds after multi-drag operation completes
+                if (selectedNodes.length > 1 && isMultiDragging) {
+                  updateSelectionBounds(selectedNodes);
+                }
+              }}
 
 
 
 
 
 
-            fitView
-            proOptions={{ hideAttribution: true }}
-            deleteKeyCode="null"
-            snapToGrid={snapToGrid && !isAltPressed}
-            snapGrid={[20, 20]}
-            onReconnectStart={onReconnectStart}
-            onReconnect={onReconnect}
-            onReconnectEnd={onReconnectEnd}
-            multiSelectionKeyCode="Shift"
-            selectionOnDrag={true}
-            minZoom={0.1}
-            maxZoom={2}
-            elementsSelectable={true}
-            selectNodesOnDrag={false}
-            zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}
-            onError={(error) => {
-              console.error('ReactFlow error:', error);
-              // Don't crash the app, just log the error
-            }}
-          >            <Background 
-              color={dotColor || undefined} 
-              gap={20} 
-              size={1} 
-              // Add key to force re-render if coordinates get corrupted
-              key={`background-${dotColor || 'default'}`}
-            />
-            <Controls />
-            {/* Real-time collaboration cursors */}
-            <CollaboratorCursors />
-
-            {/* Simple animation system - no visual indicators needed */}
-
-            {/* Selection Toolbar */}
-            <SelectionToolbarWrapper
-              selectionBounds={selectionBounds}
-              onCut={handleCutSelectedNodes}
-              onCopy={handleCopySelectedNodes}
-              onDelete={handleDeleteSelectedNodes}
-            />
-
-
-
-            {/* Paste toolbox that follows the cursor */}
-            {showPasteToolbox && clipboardNodes.length > 0 && (
-              <div
-                className="fixed bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex flex-col pointer-events-none border border-gray-700"
+              fitView
+              proOptions={{ hideAttribution: true }}
+              deleteKeyCode="null"
+              snapToGrid={snapToGrid && !isAltPressed}
+              snapGrid={[20, 20]}
+              onReconnectStart={onReconnectStart}
+              onReconnect={onReconnect}
+              onReconnectEnd={onReconnectEnd}
+              multiSelectionKeyCode="Shift"
+              selectionOnDrag={true}
+              minZoom={0.1}
+              maxZoom={2}
+              elementsSelectable={true}
+              selectNodesOnDrag={false}
+              zoomOnScroll={!isHoveringPlaylist && !isHoveringAudioVolume}
+              onError={(error) => {
+                console.error('ReactFlow error:', error);
+                // Don't crash the app, just log the error
+              }}
+            >            <Background
+                color={dotColor || undefined}
+                gap={20}
+                size={1}
+                // Add key to force re-render if coordinates get corrupted
+                key={`background-${dotColor || 'default'}`}
+              />
+              <Controls
                 style={{
-                  left: pasteToolboxPosition.x - 200,
-                  top: pasteToolboxPosition.y - 300,
-                  zIndex: 9999,
-                  transform: 'translate(0, 0)',
-                  transition: 'none',
-                  backdropFilter: 'blur(4px)',
-                  backgroundColor: 'rgba(31, 41, 55, 0.95)'
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                  padding: '1px',
                 }}
-              >
-                <div className="flex items-center space-x-2 mb-1 pb-2 border-b border-gray-700">
-                  <div className="bg-blue-500 p-1 rounded-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-                    </svg>
+                className="react-flow__controls-custom"
+              />
+              {/* Real-time collaboration cursors */}
+              <CollaboratorCursors />
+
+              {/* Simple animation system - no visual indicators needed */}
+
+              {/* Selection Toolbar */}
+              <SelectionToolbarWrapper
+                selectionBounds={selectionBounds}
+                onCut={handleCutSelectedNodes}
+                onCopy={handleCopySelectedNodes}
+                onDelete={handleDeleteSelectedNodes}
+              />
+
+
+
+              {/* Paste toolbox that follows the cursor */}
+              {showPasteToolbox && clipboardNodes.length > 0 && (
+                <div
+                  className="fixed bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex flex-col pointer-events-none border border-gray-700"
+                  style={{
+                    left: pasteToolboxPosition.x - 200,
+                    top: pasteToolboxPosition.y - 300,
+                    zIndex: 9999,
+                    transform: 'translate(0, 0)',
+                    transition: 'none',
+                    backdropFilter: 'blur(4px)',
+                    backgroundColor: 'rgba(31, 41, 55, 0.95)'
+                  }}
+                >
+                  <div className="flex items-center space-x-2 mb-1 pb-2 border-b border-gray-700">
+                    <div className="bg-blue-500 p-1 rounded-md">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                      </svg>
+                    </div>
+                    <span className="font-medium">Paste {clipboardNodes.length} node{clipboardNodes.length !== 1 ? 's' : ''}</span>
                   </div>
-                  <span className="font-medium">Paste {clipboardNodes.length} node{clipboardNodes.length !== 1 ? 's' : ''}</span>
-                </div>
-                <div className="flex justify-between mt-2 px-4">
-                  <div
-                    className="flex items-center bg-gray-700 transition-colors duration-150 rounded-md px-3 py-1.5 cursor-pointer paste-button-left"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                    <img src="/assets/click/leftclick.svg" alt="Left Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
+                  <div className="flex justify-between mt-2 px-4">
+                    <div
+                      className="flex items-center bg-gray-700 transition-colors duration-150 rounded-md px-3 py-1.5 cursor-pointer paste-button-left"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                      </svg>
+                      <img src="/assets/click/leftclick.svg" alt="Left Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
+                    </div>
+                    <div
+                      className="flex items-center bg-gray-700 transition-colors duration-150 rounded-md px-3 py-1.5 ml-4 cursor-pointer paste-button-right"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                      <img src="/assets/click/rightclick.svg" alt="Right Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
+                    </div>
                   </div>
-                  <div
-                    className="flex items-center bg-gray-700 transition-colors duration-150 rounded-md px-3 py-1.5 ml-4 cursor-pointer paste-button-right"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                    <img src="/assets/click/rightclick.svg" alt="Right Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
+                </div>)}
+
+              {/* Header Elements - Always visible, positioned over ReactFlow */}
+              {!isFullscreen && (
+                <>
+                  {/* Back to Maps button and Search - Top Left */}
+                  <div className="absolute top-4 left-0 z-50 flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        if (hasUnsavedChanges) {
+                          setShowUnsavedChangesModal(true)
+                        } else {
+                          navigate("/mindmap")
+                        }
+                      }}
+                      disabled={isSaving}
+                      className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${isSaving
+                        ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
+                        }`}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      {isSmallScreen ? null : <span>Back to Maps</span>}
+                    </button>
+
+                    {/* Search button */}
+                    <button
+                      onClick={handleSearchOpen}
+                      className="flex items-center justify-center w-10 h-10 transition-all duration-200 rounded-lg backdrop-blur-sm border text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50"
+                      title="Search nodes"
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
-              </div>)}
 
-            {/* Header Elements - Always visible, positioned over ReactFlow */}
-            {!isFullscreen && (
-              <>
-                {/* Back to Maps button and Search - Top Left */}
-                <div className="absolute top-4 left-0 z-50 flex items-center space-x-2">
-                  <button
-                    onClick={() => {
-                      if (hasUnsavedChanges) {
-                        setShowUnsavedChangesModal(true)
-                      } else {
-                        navigate("/mindmap")
-                      }
-                    }}
-                    disabled={isSaving}
-                    className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${isSaving
-                      ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
-                      }`}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    {isSmallScreen ? null : <span>Back to Maps</span>}
-                  </button>
-
-                  {/* Search button */}
-                  <button
-                    onClick={handleSearchOpen}
-                    className="flex items-center justify-center w-10 h-10 transition-all duration-200 rounded-lg backdrop-blur-sm border text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50"
-                    title="Search nodes"
-                  >
-                    <Search className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
-                {currentMap && currentMap.creator && (
-                  <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
-                    <CollaboratorsList
-                      mindmapId={currentMap.id}
-                      collaboratorIds={currentMap.collaborators || []}
-                      creatorId={currentMap.creator}
-                      className="max-w-xs"
-                      onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
-                      isChatOpen={isChatOpen}
-                    />
-
-                    {/* Collaboration Chat - positioned under the collaborators menu */}
-                    {currentMindMapId && user && (
-                      <CollaborationChat
-                        isOpen={isChatOpen}
-                        onClose={() => setIsChatOpen(false)}
-                        currentUserName={user.username || user.email || 'Anonymous'}
-                        mindMapId={currentMindMapId}
+                  {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
+                  {currentMap && currentMap.creator && (
+                    <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
+                      <CollaboratorsList
+                        mindmapId={currentMap.id}
+                        collaboratorIds={currentMap.collaborators || []}
+                        creatorId={currentMap.creator}
+                        className="max-w-xs"
+                        onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
+                        isChatOpen={isChatOpen}
                       />
+
+                      {/* Collaboration Chat - positioned under the collaborators menu */}
+                      {currentMindMapId && user && (
+                        <CollaborationChat
+                          isOpen={isChatOpen}
+                          onClose={() => setIsChatOpen(false)}
+                          currentUserName={user.username || user.email || 'Anonymous'}
+                          mindMapId={currentMindMapId}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Title - Top Center */}
+                  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                    {isEditingTitle ? (
+                      <input
+                        type="text"
+                        ref={titleRef}
+                        value={editedTitle}
+                        onChange={(e) => handleTitleChange(e.target.value)}
+                        onBlur={() => {
+                          setIsEditingTitle(false)
+                          if (editedTitle.trim() === "") {
+                            setEditedTitle(originalTitle)
+                            setHasUnsavedChanges(false)
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          setIsEditingTitle(false)
+                          if (editedTitle.trim() === "") {
+                            setEditedTitle(originalTitle)
+                            setHasUnsavedChanges(false)
+                          }
+                        }}
+                        className="text-xl font-bold text-center bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-white"
+                        autoFocus
+                      />
+                    ) : (
+                      <h1
+                        className="text-xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 text-white"
+                        onClick={() => setIsEditingTitle(true)}
+                      >
+                        {editedTitle}
+                      </h1>
                     )}
                   </div>
-                )}
 
-                {/* Title - Top Center */}
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-                  {isEditingTitle ? (
-                    <input
-                      type="text"
-                      ref={titleRef}
-                      value={editedTitle}
-                      onChange={(e) => handleTitleChange(e.target.value)}
-                      onBlur={() => {
-                        setIsEditingTitle(false)
-                        if (editedTitle.trim() === "") {
-                          setEditedTitle(originalTitle)
-                          setHasUnsavedChanges(false)
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        setIsEditingTitle(false)
-                        if (editedTitle.trim() === "") {
-                          setEditedTitle(originalTitle)
-                          setHasUnsavedChanges(false)
-                        }
-                      }}
-                      className="text-xl font-bold text-center bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-white"
-                      autoFocus
-                    />
-                  ) : (
-                    <h1
-                      className="text-xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 text-white"
-                      onClick={() => setIsEditingTitle(true)}
-                    >
-                      {editedTitle}
-                    </h1>
-                  )}
-                </div>
-
-                {/* Action buttons group - Top Right */}
-                <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
-                  {/* Pen icon - Only show for creator */}
-                  {user?.id === currentMap?.creator && (
-                    <button
-                      onClick={() => setShowEditDetailsModal(true)}
-                      className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {/* Save button with dropdown */}
-                  <div className="relative autosave-dropdown">
-                    <div className="flex">
-                      {/* Main save button */}
+                  {/* Action buttons group - Top Right */}
+                  <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
+                    {/* Pen icon - Only show for creator */}
+                    {user?.id === currentMap?.creator && (
                       <button
-                        onClick={handleSave}
-                        className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
-                          ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
-                          : isSaving
-                            ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
-                            : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
-                          }`}
-                        disabled={!hasUnsavedChanges || isSaving}
+                        onClick={() => setShowEditDetailsModal(true)}
+                        className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
                       >
-                        {isSaving ? (
-                          <>
-                            <Loader className="w-4 h-4 animate-spin" />
-                            {isSmallScreen ? null : <span>Saving...</span>}
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            {isSmallScreen ? null : <span>Save</span>}
-                          </>
-                        )}
+                        <Edit3 className="w-4 h-4" />
                       </button>
+                    )}
 
-                      {/* Chevron dropdown button */}
-                      <button
-                        onClick={() => setShowAutosaveMenu(!showAutosaveMenu)}
-                        className="flex items-center px-2 py-2 rounded-r-lg transition-all duration-200 backdrop-blur-sm border bg-slate-800/70 text-white hover:text-white hover:bg-slate-700/80 border-slate-600/50"
-                        disabled={isSaving}
-                      >
-                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAutosaveMenu ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
+                    {/* Save button with dropdown */}
+                    <div className="relative autosave-dropdown">
+                      <div className="flex">
+                        {/* Main save button */}
+                        <button
+                          onClick={handleSave}
+                          className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
+                            ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
+                            : isSaving
+                              ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
+                              : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
+                            }`}
+                          disabled={!hasUnsavedChanges || isSaving}
+                        >
+                          {isSaving ? (
+                            <>
+                              <Loader className="w-4 h-4 animate-spin" />
+                              {isSmallScreen ? null : <span>Saving...</span>}
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4" />
+                              {isSmallScreen ? null : <span>Save</span>}
+                            </>
+                          )}
+                        </button>
 
-                    {/* Autosave dropdown menu */}
-                    {showAutosaveMenu && (
-                      <div className="absolute top-full right-0 mt-1 w-48 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
-                        <div className="p-2">
-                          <div className="flex items-center justify-between mb-2 px-2">
-                            <span className="text-xs text-slate-400">Autosave</span>
-                            <div className="relative group">
-                              <HelpCircle className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
-                              <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                                <div className="text-xs text-slate-300 space-y-2">
-                                  <p>This setting applies to all your mindmaps globally.</p>
-                                  <p className="text-amber-400 font-medium">⚠️ After saving, you cannot undo changes, so use autosave with caution.</p>
+                        {/* Chevron dropdown button */}
+                        <button
+                          onClick={() => setShowAutosaveMenu(!showAutosaveMenu)}
+                          className="flex items-center px-2 py-2 rounded-r-lg transition-all duration-200 backdrop-blur-sm border bg-slate-800/70 text-white hover:text-white hover:bg-slate-700/80 border-slate-600/50"
+                          disabled={isSaving}
+                        >
+                          <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAutosaveMenu ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+
+                      {/* Autosave dropdown menu */}
+                      {showAutosaveMenu && (
+                        <div className="absolute top-full right-0 mt-1 w-48 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
+                          <div className="p-2">
+                            <div className="flex items-center justify-between mb-2 px-2">
+                              <span className="text-xs text-slate-400">Autosave</span>
+                              <div className="relative group">
+                                <HelpCircle className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
+                                <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                  <div className="text-xs text-slate-300 space-y-2">
+                                    <p>This setting applies to all your mindmaps globally.</p>
+                                    <p className="text-amber-400 font-medium">⚠️ After saving, you cannot undo changes, so use autosave with caution.</p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
+
+                            <button
+                              onClick={() => {
+                                setAutosaveInterval('off')
+                                setShowCustomInput(false)
+                                setShowAutosaveMenu(false)
+                              }}
+                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'off'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                                }`}
+                            >
+                              Off
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setAutosaveInterval('5min')
+                                setShowCustomInput(false)
+                                setShowAutosaveMenu(false)
+                              }}
+                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '5min'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                                }`}
+                            >
+                              5 minutes
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setAutosaveInterval('10min')
+                                setShowCustomInput(false)
+                                setShowAutosaveMenu(false)
+                              }}
+                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '10min'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                                }`}
+                            >
+                              10 minutes
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setAutosaveInterval('custom')
+                                setShowCustomInput(true)
+                              }}
+                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'custom'
+                                ? 'bg-blue-600/20 text-blue-300'
+                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                                }`}
+                            >
+                              Custom ({customAutosaveMinutes} min)
+                            </button>
+
+                            {/* Custom input field */}
+                            {showCustomInput && (
+                              <div className="mt-2 p-2 border-t border-slate-600/50">
+                                <div className="text-xs text-slate-400 mb-2">Custom interval (1-30 minutes)</div>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  value={customAutosaveMinutes}
+                                  onChange={(e) => {
+                                    const value = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
+                                    setCustomAutosaveMinutes(value);
+                                  }}
+                                  className="w-full px-2 py-1 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white focus:outline-none focus:border-blue-500/50"
+                                  autoFocus
+                                />
+                              </div>
+                            )}
                           </div>
-
-                          <button
-                            onClick={() => {
-                              setAutosaveInterval('off')
-                              setShowCustomInput(false)
-                              setShowAutosaveMenu(false)
-                            }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'off'
-                              ? 'bg-blue-600/20 text-blue-300'
-                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                              }`}
-                          >
-                            Off
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setAutosaveInterval('5min')
-                              setShowCustomInput(false)
-                              setShowAutosaveMenu(false)
-                            }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '5min'
-                              ? 'bg-blue-600/20 text-blue-300'
-                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                              }`}
-                          >
-                            5 minutes
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setAutosaveInterval('10min')
-                              setShowCustomInput(false)
-                              setShowAutosaveMenu(false)
-                            }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '10min'
-                              ? 'bg-blue-600/20 text-blue-300'
-                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                              }`}
-                          >
-                            10 minutes
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setAutosaveInterval('custom')
-                              setShowCustomInput(true)
-                            }}
-                            className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'custom'
-                              ? 'bg-blue-600/20 text-blue-300'
-                              : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                              }`}
-                          >
-                            Custom ({customAutosaveMinutes} min)
-                          </button>
-
-                          {/* Custom input field */}
-                          {showCustomInput && (
-                            <div className="mt-2 p-2 border-t border-slate-600/50">
-                              <div className="text-xs text-slate-400 mb-2">Custom interval (1-30 minutes)</div>
-                              <input
-                                type="number"
-                                min="1"
-                                max="30"
-                                value={customAutosaveMinutes}
-                                onChange={(e) => {
-                                  const value = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
-                                  setCustomAutosaveMinutes(value);
-                                }}
-                                className="w-full px-2 py-1 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white focus:outline-none focus:border-blue-500/50"
-                                autoFocus
-                              />
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fullscreen button */}
-                  <button
-                    onClick={handleFullscreen}
-                    className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Playlist banner - Below title if active */}
-                {isAddingToPlaylist && (
-                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl">
-                    <div className="px-4 py-2 bg-blue-600/80 border border-blue-500/50 rounded-xl text-sm text-blue-100 flex items-center justify-between backdrop-blur-sm">
-                      <div className="flex items-center">
-                        <ListMusic className="w-4 h-4 mr-2" />
-                        <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
-                      </div>
-                      <button
-                        onClick={() => toggleAddToPlaylistMode(null)}
-                        className="px-2 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs ml-3"
-                      >
-                        Cancel
-                      </button>
+                      )}
                     </div>
+
+                    {/* Fullscreen button */}
+                    <button
+                      onClick={handleFullscreen}
+                      className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
-              </>
-            )}
+
+                  {/* Playlist banner - Below title if active */}
+                  {isAddingToPlaylist && (
+                    <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl">
+                      <div className="px-4 py-2 bg-blue-600/80 border border-blue-500/50 rounded-xl text-sm text-blue-100 flex items-center justify-between backdrop-blur-sm">
+                        <div className="flex items-center">
+                          <ListMusic className="w-4 h-4 mr-2" />
+                          <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
+                        </div>
+                        <button
+                          onClick={() => toggleAddToPlaylistMode(null)}
+                          className="px-2 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs ml-3"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
 
-          </ReactFlow>
-        </ReactFlowProvider>
-        
-        {/* Loading Overlay - Covers ReactFlow during initial load */}
-        {isLoading && (
-          <div className="absolute inset-0 z-50">
-            <MindMapSkeleton />
-          </div>
-        )}
-      </div>
+            </ReactFlow>
+          </ReactFlowProvider>
 
-      {/* UI Elements - Hidden in fullscreen */}
-      {!isFullscreen && (
-        <>
-          {/* Mind Map Customization button */}
-          <div className="fixed bottom-4 right-16 z-30">
-            <button
-              onClick={() => setShowCustomizationModal(true)}
-              className="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
-              title="Mind Map Customization"
-            >
-              <SquarePen className="w-4 h-4 text-gray-300" />
-            </button>
-          </div>
-
-          {/* Help button */}
-          <button
-            onClick={() => setShowHelpModal(true)}
-            className="fixed bottom-4 right-4 p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors z-30"
-            title="Help"
-          >
-            <HelpCircle className="w-4 h-4 text-gray-300" />
-          </button>
-
-
-        </>
-      )}
-
-      {selectedNodeId && selectedNode && (
-        <div
-          className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`}
-          style={{
-            ...nodeEditorStyle,
-            cursor: isResizingNodeEditor ? 'ew-resize' : 'default',
-            zIndex: 9999
-          }}
-        >
-          <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
-            {/* Resize handle */}
-            <div
-              className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-500/30 transition-all group rounded-l-2xl ${isResizingNodeEditor ? 'bg-blue-500/50' : ''}`}
-              onMouseDown={handleResizeStart}
-            >
-              <div className={`absolute left-1/2 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-3 h-8 bg-slate-600/70 rounded-full transition-opacity flex items-center justify-center ${isResizingNodeEditor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                <div className="w-0.5 h-4 bg-slate-300 rounded-full"></div>
-              </div>
+          {/* Loading Overlay - Covers ReactFlow during initial load */}
+          {isLoading && (
+            <div className="absolute inset-0 z-50">
+              <MindMapSkeleton />
             </div>
-            {selectedNode.type === "spotify" ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-green-500/10 rounded-xl">
-                    <Music className="w-5 h-5 text-green-400" />
-                  </div>
-                  <span className="text-slate-200 font-medium">Select a song</span>
-                </div>
-                <SpotifySearch onSelect={(track) => handleSpotifyTrackSelect(selectedNodeId, track)} />
-              </div>
-            ) : selectedNode.type === "soundcloud" ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-orange-500/10 rounded-xl">
-                    <Music className="w-5 h-5 text-orange-400" />
-                  </div>
-                  <span className="text-slate-200 font-medium">{isSmallScreen ? "SoundCloud" : "SoundCloud URL"}</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder={isSmallScreen ? "URL" : "Enter SoundCloud URL"}
-                  value={selectedNode.data.soundCloudUrl || ""}
-                  onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                />
-              </div>
-            ) : selectedNode.type === "youtube-video" ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-500/10 rounded-xl">
-                    <Youtube className="w-5 h-5 text-red-400" />
-                  </div>
-                  <span className="text-slate-200 font-medium">Search YouTube Video</span>
-                </div>
-                <YouTubeSearch onSelect={(video) => handleYouTubeVideoSelect(selectedNodeId, video)} />
-              </div>
-            ) : selectedNode.type === "image" ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-slate-500/10 rounded-xl">
-                    <ImageIcon className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <span className="text-slate-200 font-medium">
-                    {selectedNode.data.imageUrl || selectedNode.data.file ? 'Image Settings' : 'Add Image'}
-                  </span>
-                </div>
+          )}
+        </div>
 
-                {/* Title Editor - Always show when image exists */}
-                {(selectedNode.data.imageUrl || selectedNode.data.file) && (
+        {/* UI Elements - Hidden in fullscreen */}
+        {!isFullscreen && (
+          <>
+            {/* Mind Map Customization button */}
+            <div className="fixed bottom-4 right-16 z-30">
+              <button
+                onClick={() => setShowCustomizationModal(true)}
+                className="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
+                title="Mind Map Customization"
+              >
+                <SquarePen className="w-4 h-4 text-gray-300" />
+              </button>
+            </div>
+
+            {/* Help button */}
+            <button
+              onClick={() => setShowHelpModal(true)}
+              className="fixed bottom-4 right-4 p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors z-30"
+              title="Help"
+            >
+              <HelpCircle className="w-4 h-4 text-gray-300" />
+            </button>
+
+
+          </>
+        )}
+
+        {selectedNodeId && selectedNode && (
+          <div
+            className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`}
+            style={{
+              ...nodeEditorStyle,
+              cursor: isResizingNodeEditor ? 'ew-resize' : 'default',
+              zIndex: 9999
+            }}
+          >
+            <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
+              {/* Resize handle */}
+              <div
+                className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-500/30 transition-all group rounded-l-2xl ${isResizingNodeEditor ? 'bg-blue-500/50' : ''}`}
+                onMouseDown={handleResizeStart}
+              >
+                <div className={`absolute left-1/2 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-3 h-8 bg-slate-600/70 rounded-full transition-opacity flex items-center justify-center ${isResizingNodeEditor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div className="w-0.5 h-4 bg-slate-300 rounded-full"></div>
+                </div>
+              </div>
+              {selectedNode.type === "spotify" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-500/10 rounded-xl">
+                      <Music className="w-5 h-5 text-green-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">Select a song</span>
+                  </div>
+                  <SpotifySearch onSelect={(track) => handleSpotifyTrackSelect(selectedNodeId, track)} />
+                </div>
+              ) : selectedNode.type === "soundcloud" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-orange-500/10 rounded-xl">
+                      <Music className="w-5 h-5 text-orange-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">{isSmallScreen ? "SoundCloud" : "SoundCloud URL"}</span>
+                  </div>
                   <input
-                    autoFocus
                     type="text"
-                    placeholder="Enter image caption..."
-                    value={selectedNode.data.label || ""}
+                    placeholder={isSmallScreen ? "URL" : "Enter SoundCloud URL"}
+                    value={selectedNode.data.soundCloudUrl || ""}
                     onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
                     className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
                   />
-                )}
-
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                >
-                  {selectedNode.data.imageUrl ? 'Replace Image' : 'Choose Image'}
-                </button>
-              </div>
-            ) : selectedNode.type === "audio" ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-purple-500/10 rounded-xl">
-                    <AudioWaveform className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <span className="text-slate-200 font-medium">
-                    {selectedNode.data.audioUrl || selectedNode.data.file ? 'Edit audio label' : 'Change audio'}
-                  </span>
                 </div>
-                {selectedNode.data.audioUrl || selectedNode.data.file ? (
-                  <input
-                    autoFocus
-                    type="text"
-                    placeholder="Audio label"
-                    value={selectedNode.data.label || ""}
-                    onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                    className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                  />
-                ) : (
+              ) : selectedNode.type === "youtube-video" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-red-500/10 rounded-xl">
+                      <Youtube className="w-5 h-5 text-red-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">Search YouTube Video</span>
+                  </div>
+                  <YouTubeSearch onSelect={(video) => handleYouTubeVideoSelect(selectedNodeId, video)} />
+                </div>
+              ) : selectedNode.type === "image" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-slate-500/10 rounded-xl">
+                      <ImageIcon className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">
+                      {selectedNode.data.imageUrl || selectedNode.data.file ? 'Image Settings' : 'Add Image'}
+                    </span>
+                  </div>
+
+                  {/* Title Editor - Always show when image exists */}
+                  {(selectedNode.data.imageUrl || selectedNode.data.file) && (
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Enter image caption..."
+                      value={selectedNode.data.label || ""}
+                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                  )}
+
                   <button
-                    onClick={() => audioFileInputRef.current?.click()}
+                    onClick={() => fileInputRef.current?.click()}
                     className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
                   >
-                    Choose Audio
+                    {selectedNode.data.imageUrl ? 'Replace Image' : 'Choose Image'}
                   </button>
-                )}
-                <input
-                  ref={audioFileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  onChange={handleAudioFileChange}
-                  className="hidden"
-                />
-              </div>
-            ) : selectedNode.type === "playlist" ? (
-              <div className="space-y-4">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <ListMusic className="w-4 h-4 text-slate-400" />
+                </div>
+              ) : selectedNode.type === "audio" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-purple-500/10 rounded-xl">
+                      <AudioWaveform className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">
+                      {selectedNode.data.audioUrl || selectedNode.data.file ? 'Edit audio label' : 'Change audio'}
+                    </span>
                   </div>
+                  {selectedNode.data.audioUrl || selectedNode.data.file ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Audio label"
+                      value={selectedNode.data.label || ""}
+                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => audioFileInputRef.current?.click()}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                    >
+                      Choose Audio
+                    </button>
+                  )}
+                  <input
+                    ref={audioFileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleAudioFileChange}
+                    className="hidden"
+                  />
+                </div>
+              ) : selectedNode.type === "playlist" ? (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <ListMusic className="w-4 h-4 text-slate-400" />
+                    </div>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Playlist name"
+                      value={selectedNode.data.label || ""}
+                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                      className="pl-12 pr-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-sm text-slate-300 font-medium">Audio tracks:</div>
+                    <div
+                      className="max-h-[140px] overflow-y-auto bg-slate-800/30 rounded-xl p-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent border border-slate-700/30"
+                      onMouseEnter={() => setIsHoveringPlaylist(true)}
+                      onMouseLeave={() => setIsHoveringPlaylist(false)}
+                      ref={(el) => {
+                        // Add non-passive wheel event listener to the element
+                        if (el) {
+                          const wheelHandler = (e: WheelEvent) => {
+                            // When hovering over tracks, we want to scroll the tracks, not zoom the mindmap
+                            if (isHoveringPlaylist) {
+                              e.preventDefault();
+                              e.stopPropagation();
+
+                              // Manually handle scrolling
+                              el.scrollTop += e.deltaY;
+                            }
+                          };
+
+                          // Remove any existing listener first to avoid duplicates
+                          el.removeEventListener('wheel', wheelHandler);
+                          // Add the event listener with passive: false to allow preventDefault
+                          el.addEventListener('wheel', wheelHandler, { passive: false });
+                        }
+                      }}
+                    >
+                      {selectedNode.data.trackIds && selectedNode.data.trackIds.length > 0 ? (
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event: DragEndEvent) => {
+                            const { active, over } = event;
+                            if (over && active.id !== over.id) {
+                              // Extract the indices from the IDs (format: "trackId-index")
+                              const oldIndex = parseInt(active.id.toString().split('-')[1]);
+                              const newIndex = parseInt(over.id.toString().split('-')[1]);
+                              handleReorderPlaylistTracks(selectedNodeId, oldIndex, newIndex);
+                            }
+                          }}
+                        >
+                          <SortableContext
+                            items={selectedNode.data.trackIds.map((id: string, index: number) => `${id}-${index}`)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="space-y-1">
+                              {selectedNode.data.trackIds.map((trackId: string, index: number) => {
+                                // Find the audio, spotify, soundcloud, or youtube-video node with this ID
+                                const trackNode = nodes.find(node => node.id === trackId &&
+                                  (node.type === 'audio' || node.type === 'spotify' ||
+                                    node.type === 'soundcloud' || node.type === 'youtube-video'));
+                                if (!trackNode) return null;
+
+                                // Count occurrences of this track ID before this index
+                                const trackOccurrences = selectedNode.data.trackIds
+                                  .slice(0, index)
+                                  .filter((id: string) => id === trackId).length;
+
+                                // Create a label with counter for duplicate tracks
+                                let displayLabel = trackNode.data.label || (
+                                  trackNode.type === 'audio' ? "Audio" :
+                                    trackNode.type === 'spotify' ? "Spotify Track" :
+                                      trackNode.type === 'soundcloud' ? "SoundCloud Track" :
+                                        trackNode.type === 'youtube-video' ? "YouTube Video" :
+                                          "Track"
+                                );
+
+                                // Format SoundCloud URLs into readable labels
+                                if (trackNode.type === 'soundcloud' && trackNode.data.soundCloudUrl) {
+                                  displayLabel = formatSoundCloudUrl(trackNode.data.soundCloudUrl, displayLabel);
+                                }
+
+                                if (trackOccurrences > 0) {
+                                  displayLabel = `${displayLabel} (${trackOccurrences + 1})`;
+                                }
+
+                                // Determine duration based on node type
+                                const duration = trackNode.data.duration || 0;
+
+
+                                return (
+                                  <SortableTrackItem
+                                    key={`${trackId}-${index}`}
+                                    id={`${trackId}-${index}`}
+                                    trackId={trackId}
+                                    index={index}
+                                    label={displayLabel}
+                                    duration={duration}
+                                    onRemove={(trackId, index) => handleRemoveTrackFromPlaylist(selectedNodeId, trackId, index)}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+                      ) : (
+                        <div className="text-slate-500 text-xs p-3 text-center bg-slate-800/20 rounded-lg border border-slate-700/30">
+                          No tracks added to playlist
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add song button */}
+                  <div>
+                    {isAddingToPlaylist && activePlaylistNodeId === selectedNodeId ? (
+                      <div className="flex flex-col space-y-3">
+                        <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-sm text-blue-300">
+                          <p>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</p>
+                        </div>
+                        <button
+                          onClick={() => toggleAddToPlaylistMode(null)}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                        >
+                          Cancel Selection
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => toggleAddToPlaylistMode(selectedNodeId)}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl transition-all duration-200 font-medium flex items-center justify-center shadow-lg shadow-blue-500/25"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : selectedNode.type === "link" ? (
+                <div className="space-y-4">
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Playlist name"
-                    value={selectedNode.data.label || ""}
+                    placeholder="URL"
+                    value={selectedNode.data.url || ''}
                     onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                    className="pl-12 pr-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Display Text"
+                    value={selectedNode.data.displayText || ""}
+                    onChange={(e) => updateNodeDisplayText(selectedNodeId, e.target.value)}
+                    className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
                   />
                 </div>
-
-                <div className="space-y-3">
-                  <div className="text-sm text-slate-300 font-medium">Audio tracks:</div>
-                  <div
-                    className="max-h-[140px] overflow-y-auto bg-slate-800/30 rounded-xl p-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent border border-slate-700/30"
-                    onMouseEnter={() => setIsHoveringPlaylist(true)}
-                    onMouseLeave={() => setIsHoveringPlaylist(false)}
-                    ref={(el) => {
-                      // Add non-passive wheel event listener to the element
-                      if (el) {
-                        const wheelHandler = (e: WheelEvent) => {
-                          // When hovering over tracks, we want to scroll the tracks, not zoom the mindmap
-                          if (isHoveringPlaylist) {
-                            e.preventDefault();
-                            e.stopPropagation();
-
-                            // Manually handle scrolling
-                            el.scrollTop += e.deltaY;
-                          }
-                        };
-
-                        // Remove any existing listener first to avoid duplicates
-                        el.removeEventListener('wheel', wheelHandler);
-                        // Add the event listener with passive: false to allow preventDefault
-                        el.addEventListener('wheel', wheelHandler, { passive: false });
+              ) : selectedNode.type === "mindmap" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-500/10 rounded-xl">
+                      <Network className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">Select a Mind Map</span>
+                  </div>
+                  {!showMindMapSelector ? (
+                    <button
+                      onClick={() => setShowMindMapSelector(true)}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                    >
+                      {selectedNode.data.mapKey
+                        ? (maps.find(m => m.key === selectedNode.data.mapKey) || collaborationMaps.find(m => m.key === selectedNode.data.mapKey))?.title || "Select a map"
+                        : "Select a map"
                       }
-                    }}
+                    </button>) : (<MindMapSelector
+                      searchTerm={mindMapSearchTerm}
+                      setSearchTerm={setMindMapSearchTerm}
+                      sortBy={mindMapSortBy}
+                      setSortBy={setMindMapSortBy}
+                      showCreateForm={showCreateMindMapForm}
+                      setShowCreateForm={setShowCreateMindMapForm}
+                      newMapTitle={newMindMapTitle}
+                      setNewMapTitle={setNewMindMapTitle}
+                      onSelectMindMap={handleSelectMindMap} onCreateMindMap={handleCreateMindMapAccept}
+                      onCancelCreate={handleCreateMindMapReject}
+                      isAIConversation={false}
+                      onClose={() => setShowMindMapSelector(false)}
+                      title="Choose a mindmap"
+                      mode="inline"
+                      excludeMapId={id} // Exclude the current map from the selection list
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {selectedNode.type === "default" ? (
+                    <TextNode
+                      nodeId={selectedNodeId}
+                      label={selectedNode.data.label || ""}
+                      onLabelChange={updateNodeLabel}
+                      isRootNode={selectedNodeId === "1"}
+                    />
+                  ) : (
+                    <input
+                      autoFocus
+                      data-node-id={selectedNodeId}
+                      type="text"
+                      placeholder={
+                        selectedNode.type === "instagram"
+                          ? "username"
+                          : selectedNode.type === "twitter"
+                            ? "username"
+                            : selectedNode.type === "facebook"
+                              ? "username"
+                              : selectedNode.type === "youtube"
+                                ? "username"
+                                : selectedNode.type === "tiktok"
+                                  ? "username"
+                                  : selectedNode.type === "mindmeet"
+                                    ? "username"
+                                    : "Text..."
+                      }
+                      value={["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
+                      onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
+                      className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                    />
+                  )}
+                </div>
+              )}              {/* Root node controls */}
+              {selectedNodeId === "1" && (
+                <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
+                  <button
+                    onClick={() => handleDetachConnections(selectedNodeId)}
+                    className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
+                    title="Detach node's connections"
                   >
-                    {selectedNode.data.trackIds && selectedNode.data.trackIds.length > 0 ? (
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event: DragEndEvent) => {
-                          const { active, over } = event;
-                          if (over && active.id !== over.id) {
-                            // Extract the indices from the IDs (format: "trackId-index")
-                            const oldIndex = parseInt(active.id.toString().split('-')[1]);
-                            const newIndex = parseInt(over.id.toString().split('-')[1]);
-                            handleReorderPlaylistTracks(selectedNodeId, oldIndex, newIndex);
-                          }
-                        }}
-                      >
-                        <SortableContext
-                          items={selectedNode.data.trackIds.map((id: string, index: number) => `${id}-${index}`)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className="space-y-1">
-                            {selectedNode.data.trackIds.map((trackId: string, index: number) => {
-                              // Find the audio, spotify, soundcloud, or youtube-video node with this ID
-                              const trackNode = nodes.find(node => node.id === trackId &&
-                                (node.type === 'audio' || node.type === 'spotify' ||
-                                  node.type === 'soundcloud' || node.type === 'youtube-video'));
-                              if (!trackNode) return null;
+                    <Unlink className="w-5 h-5" />
+                  </button>
 
-                              // Count occurrences of this track ID before this index
-                              const trackOccurrences = selectedNode.data.trackIds
-                                .slice(0, index)
-                                .filter((id: string) => id === trackId).length;
+                  <div className="relative" ref={colorPickerRef}>
+                    <button
+                      onClick={() => setShowColorPicker(!showColorPicker)}
+                      className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
+                      title="Change node color"
+                    >
+                      <Palette className="w-5 h-5" />
+                    </button>
 
-                              // Create a label with counter for duplicate tracks
-                              let displayLabel = trackNode.data.label || (
-                                trackNode.type === 'audio' ? "Audio" :
-                                  trackNode.type === 'spotify' ? "Spotify Track" :
-                                    trackNode.type === 'soundcloud' ? "SoundCloud Track" :
-                                      trackNode.type === 'youtube-video' ? "YouTube Video" :
-                                        "Track"
-                              );
+                    {showColorPicker && (
+                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
+                        <div className="space-y-3">
+                          <button
+                            onClick={() => {
+                              handleDefaultColorChange(selectedNodeId)
+                              setShowColorPicker(false)
+                            }}
+                            className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
+                          >
+                            <div
+                              className="w-4 h-4 rounded border border-slate-600"
+                              style={{
+                                backgroundColor: (() => {
+                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                  return parentNode
+                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+                                    : "#1f2937";
+                                })()
+                              }}
+                            ></div>
+                            <span>Default</span>
+                          </button>
 
-                              // Format SoundCloud URLs into readable labels
-                              if (trackNode.type === 'soundcloud' && trackNode.data.soundCloudUrl) {
-                                displayLabel = formatSoundCloudUrl(trackNode.data.soundCloudUrl, displayLabel);
-                              }
-
-                              if (trackOccurrences > 0) {
-                                displayLabel = `${displayLabel} (${trackOccurrences + 1})`;
-                              }
-
-                              // Determine duration based on node type
-                              const duration = trackNode.data.duration || 0;
-
-
-                              return (
-                                <SortableTrackItem
-                                  key={`${trackId}-${index}`}
-                                  id={`${trackId}-${index}`}
-                                  trackId={trackId}
-                                  index={index}
-                                  label={displayLabel}
-                                  duration={duration}
-                                  onRemove={(trackId, index) => handleRemoveTrackFromPlaylist(selectedNodeId, trackId, index)}
-                                />
-                              );
-                            })}
+                          <HexColorPicker
+                            color={selectedColor}
+                            onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
+                            className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
+                          />
+                          <div className="flex justify-between gap-2">
+                            <button
+                              onClick={() => handleColorPickerConfirm(selectedNodeId)}
+                              className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                              title="Confirm color change"
+                            >
+                              <Check className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleColorPickerCancel(selectedNodeId)}
+                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                              title="Cancel color change"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
                           </div>
-                        </SortableContext>
-                      </DndContext>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setShowAIFillModal(true)}
+                    className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                    title="AI fill - Generate the entire mindmap automatically"
+                  >
+                    <Brain className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+
+              {selectedNodeId !== "1" && (
+                <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
+                  <button
+                    onClick={() => handleDetachConnections(selectedNodeId)}
+                    className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
+                    title="Detach node's connections"
+                  >
+                    <Unlink className="w-5 h-5" />
+                  </button>
+
+                  <div className="relative" ref={colorPickerRef}>
+                    <button
+                      onClick={() => setShowColorPicker(!showColorPicker)}
+                      className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
+                      title="Change node color"
+                    >
+                      <Palette className="w-5 h-5" />
+                    </button>
+
+                    {showColorPicker && (
+                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
+                        <div className="space-y-3">
+                          <button
+                            onClick={() => {
+                              handleDefaultColorChange(selectedNodeId)
+                              setShowColorPicker(false)
+                            }}
+                            className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
+                          >
+                            <div
+                              className="w-4 h-4 rounded border border-slate-600"
+                              style={{
+                                backgroundColor: (() => {
+                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                  return parentNode
+                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
+                                    : "#1f2937";
+                                })()
+                              }}
+                            ></div>
+                            <span>Default</span>
+                          </button>
+
+                          <HexColorPicker
+                            color={selectedColor}
+                            onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
+                            className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
+                          />
+                          <div className="flex justify-between gap-2">
+                            <button
+                              onClick={() => handleColorPickerConfirm(selectedNodeId)}
+                              className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                              title="Confirm color change"
+                            >
+                              <Check className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleColorPickerCancel(selectedNodeId)}
+                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                              title="Cancel color change"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setShowAIFillModal(true)}
+                    className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                    title="AI fill - Add AI-generated child nodes"
+                  >
+                    <Brain className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    onClick={() => deleteNodeAndChildren(selectedNodeId)}
+                    className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                    title="Delete node and its children"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        <ProPopup isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />        {showUnsavedChangesModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center space-x-3 text-amber-400 mb-6">
+                <div className="p-2 bg-amber-400/10 rounded-xl">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Unsaved Changes</h2>
+              </div>
+              <p className="text-slate-300 mb-8 leading-relaxed">You have unsaved changes to your mind map. Would you like to save them before leaving?</p>              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleModalResponse("yes")}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${hasUnsavedChanges && !isSaving
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white shadow-lg hover:shadow-green-500/25 transform hover:scale-105"
+                    : isSaving
+                      ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
+                      : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                    }`}
+                  disabled={!hasUnsavedChanges || isSaving}
+                >
+                  {isSaving ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader className="w-4 h-4 animate-spin" />
+                      <span>Saving... Please wait</span>
+                    </div>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModalResponse("no")}
+                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
+                >
+                  Discard Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModalResponse("cancel")}
+                  className="px-4 py-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-xl font-medium transition-all duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showLoginPrompt && (
+          <ConditionalLoginPrompt onClose={() => setShowLoginPrompt(false)} />
+        )}        {/* AI Fill Modal */}
+        {showAIFillModal && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && !isAIFillLoading) {
+                setShowAIFillModal(false);
+                setAIFillPrompt("");
+                resetProgress();
+              }
+              if (e.key === 'Enter' && e.ctrlKey && !isAIFillLoading) {
+                e.preventDefault();
+                handleAIFill();
+              }
+            }}
+          >
+            <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center space-x-3 text-green-500 mb-4">
+                <Brain className="w-6 h-6" />
+                <h2 className="text-xl font-semibold text-gray-100">AI Fill</h2>
+              </div>
+
+              {/* Progress Display - Only show when loading */}
+              {isAIFillLoading && (
+                <div className="mb-6">
+                  {/* Progress Bar */}
+                  <div className="mb-4">                    <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-300">
+                      {generationProgress.stage === 'idle' ? 'Preparing...' :
+                        generationProgress.stage === 'analyzing' ? 'Analyzing' :
+                          generationProgress.stage === 'generating' ? 'Generating' :
+                            generationProgress.stage === 'processing' ? 'Processing' :
+                              generationProgress.stage === 'animating' ? 'Animating' :
+                                generationProgress.stage === 'error' ? 'Error' :
+                                  'Complete'}
+                    </span>
+                    <span className="text-sm text-gray-400">{Math.round(generationProgress.progress)}%</span>
+                  </div>
+
+                    {/* Animated Progress Bar */}
+                    <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ease-out relative ${generationProgress.isError
+                        ? 'bg-gradient-to-r from-red-500 to-red-600'
+                        : 'bg-gradient-to-r from-sky-400 to-blue-600'
+                        }`}
+                        style={{ width: `${generationProgress.progress}%` }}
+                      >
+                        {/* Animated shimmer effect */}
+                        <div className={`absolute inset-0 animate-pulse ${generationProgress.isError
+                          ? 'bg-gradient-to-r from-transparent via-red-200/20 to-transparent'
+                          : 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
+                          }`}></div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Status Message */}
+                  <div className="text-center">
+                    <p className={`mb-2 ${generationProgress.isError ? 'text-red-400' : 'text-gray-300'}`}>
+                      {generationProgress.message}
+                    </p>
+
+                    {/* Error Recovery Options */}
+                    {generationProgress.isError && (
+                      <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                        <div className="text-sm text-red-300 mb-3">
+                          Suggestions to resolve this issue:
+                        </div>
+                        <div className="space-y-2 text-xs text-red-200">
+                          <div>• Try a simpler or shorter prompt</div>
+                          <div>• Check your internet connection</div>
+                          <div>• Wait a moment and try again</div>
+                          <div>• Clear the prompt and use automatic generation</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            resetProgress();
+                            setIsAIFillLoading(false);
+                          }}
+                          className="mt-3 px-3 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded text-xs text-red-300 transition-colors"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    )}
+                    {/* Node Progress Display */}
+                    {!generationProgress.isError && generationProgress.totalNodes > 0 && (
+                      <div className="text-sm text-gray-400">
+                        {generationProgress.stage === 'animating' ? (
+                          <>Animated {generationProgress.nodesGenerated} of {generationProgress.totalNodes} nodes</>
+                        ) : generationProgress.stage === 'processing' && generationProgress.totalNodes > 0 ? (
+                          <>Processing {generationProgress.totalNodes} new nodes</>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>{/* Loading Animation */}
+                  <div className="flex justify-center mt-4">
+                    {generationProgress.isError ? (
+                      <div className="relative">
+                        {/* Error icon */}
+                        <div className="rounded-full h-8 w-8 border-2 border-red-500 bg-red-500/10 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      </div>
+                    ) : generationProgress.stage === 'complete' && generationProgress.progress === 100 ? (
+                      <div className="relative">
+                        {/* Success checkmark with celebration animation */}
+                        <div className="rounded-full h-8 w-8 border-2 border-green-500 bg-green-500/10 flex items-center justify-center animate-pulse">
+                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        {/* Celebration particles */}
+                        <div className="absolute inset-0 pointer-events-none">
+                          {[...Array(6)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="absolute w-1 h-1 bg-green-400 rounded-full animate-ping"
+                              style={{
+                                left: `${50 + 25 * Math.cos((i * 60) * Math.PI / 180)}%`,
+                                top: `${50 + 25 * Math.sin((i * 60) * Math.PI / 180)}%`,
+                                animationDelay: `${i * 0.1}s`,
+                                animationDuration: '1s'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     ) : (
-                      <div className="text-slate-500 text-xs p-3 text-center bg-slate-800/20 rounded-lg border border-slate-700/30">
-                        No tracks added to playlist
+                      <div className="relative">
+                        {/* Spinning brain icon */}
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
+                        <Brain className="w-4 h-4 text-blue-400 absolute inset-0 m-auto animate-pulse" />
                       </div>
                     )}
                   </div>
                 </div>
+              )}
 
-                {/* Add song button */}
-                <div>
-                  {isAddingToPlaylist && activePlaylistNodeId === selectedNodeId ? (
-                    <div className="flex flex-col space-y-3">
-                      <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-sm text-blue-300">
-                        <p>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</p>
-                      </div>
-                      <button
-                        onClick={() => toggleAddToPlaylistMode(null)}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                      >
-                        Cancel Selection
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => toggleAddToPlaylistMode(selectedNodeId)}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl transition-all duration-200 font-medium flex items-center justify-center shadow-lg shadow-blue-500/25"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : selectedNode.type === "link" ? (
-              <div className="space-y-4">
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="URL"
-                  value={selectedNode.data.url || ''}
-                  onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                />
-                <input
-                  type="text"
-                  placeholder="Display Text"
-                  value={selectedNode.data.displayText || ""}
-                  onChange={(e) => updateNodeDisplayText(selectedNodeId, e.target.value)}
-                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                />
-              </div>
-            ) : selectedNode.type === "mindmap" ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-500/10 rounded-xl">
-                    <Network className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <span className="text-slate-200 font-medium">Select a Mind Map</span>
-                </div>
-                {!showMindMapSelector ? (
-                  <button
-                    onClick={() => setShowMindMapSelector(true)}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                  >
-                    {selectedNode.data.mapKey
-                      ? (maps.find(m => m.key === selectedNode.data.mapKey) || collaborationMaps.find(m => m.key === selectedNode.data.mapKey))?.title || "Select a map"
-                      : "Select a map"
-                    }
-                  </button>) : (<MindMapSelector
-                    searchTerm={mindMapSearchTerm}
-                    setSearchTerm={setMindMapSearchTerm}
-                    sortBy={mindMapSortBy}
-                    setSortBy={setMindMapSortBy}
-                    showCreateForm={showCreateMindMapForm}
-                    setShowCreateForm={setShowCreateMindMapForm}
-                    newMapTitle={newMindMapTitle}
-                    setNewMapTitle={setNewMindMapTitle}
-                    onSelectMindMap={handleSelectMindMap} onCreateMindMap={handleCreateMindMapAccept}
-                    onCancelCreate={handleCreateMindMapReject}
-                    isAIConversation={false}
-                    onClose={() => setShowMindMapSelector(false)}
-                    title="Choose a mindmap"
-                    mode="inline"
-                    excludeMapId={id} // Exclude the current map from the selection list
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {selectedNode.type === "default" ? (
-                  <TextNode
-                    nodeId={selectedNodeId}
-                    label={selectedNode.data.label || ""}
-                    onLabelChange={updateNodeLabel}
-                    isRootNode={selectedNodeId === "1"}
-                  />
-                ) : (
-                  <input
-                    autoFocus
-                    data-node-id={selectedNodeId}
-                    type="text"
-                    placeholder={
-                      selectedNode.type === "instagram"
-                        ? "username"
-                        : selectedNode.type === "twitter"
-                          ? "username"
-                          : selectedNode.type === "facebook"
-                            ? "username"
-                            : selectedNode.type === "youtube"
-                              ? "username"
-                              : selectedNode.type === "tiktok"
-                                ? "username"
-                                : selectedNode.type === "mindmeet"
-                                  ? "username"
-                                  : "Text..."
-                    }
-                    value={["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(selectedNode.type || '') ? (selectedNode.data.username || "") : (selectedNode.data.label || "")}
-                    onChange={(e) => updateNodeLabel(selectedNodeId, e.target.value)}
-                    className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                  />
-                )}
-              </div>
-            )}              {/* Root node controls */}
-            {selectedNodeId === "1" && (
-              <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
-                <button
-                  onClick={() => handleDetachConnections(selectedNodeId)}
-                  className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
-                  title="Detach node's connections"
-                >
-                  <Unlink className="w-5 h-5" />
-                </button>
-
-                <div className="relative" ref={colorPickerRef}>
-                  <button
-                    onClick={() => setShowColorPicker(!showColorPicker)}
-                    className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
-                    title="Change node color"
-                  >
-                    <Palette className="w-5 h-5" />
-                  </button>
-
-                  {showColorPicker && (
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => {
-                            handleDefaultColorChange(selectedNodeId)
-                            setShowColorPicker(false)
-                          }}
-                          className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
-                        >
-                          <div
-                            className="w-4 h-4 rounded border border-slate-600"
-                            style={{
-                              backgroundColor: (() => {
-                                const parentEdge = edges.find(edge => edge.target === selectedNodeId);
-                                const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
-                                return parentNode
-                                  ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-                                  : "#1f2937";
-                              })()
-                            }}
-                          ></div>
-                          <span>Default</span>
-                        </button>
-
-                        <HexColorPicker
-                          color={selectedColor}
-                          onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
-                          className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
-                        />
-                        <div className="flex justify-between gap-2">
-                          <button
-                            onClick={() => handleColorPickerConfirm(selectedNodeId)}
-                            className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                            title="Confirm color change"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleColorPickerCancel(selectedNodeId)}
-                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                            title="Cancel color change"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setShowAIFillModal(true)}
-                  className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                  title="AI fill - Generate the entire mindmap automatically"
-                >
-                  <Brain className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            {selectedNodeId !== "1" && (
-              <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
-                <button
-                  onClick={() => handleDetachConnections(selectedNodeId)}
-                  className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
-                  title="Detach node's connections"
-                >
-                  <Unlink className="w-5 h-5" />
-                </button>
-
-                <div className="relative" ref={colorPickerRef}>
-                  <button
-                    onClick={() => setShowColorPicker(!showColorPicker)}
-                    className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
-                    title="Change node color"
-                  >
-                    <Palette className="w-5 h-5" />
-                  </button>
-
-                  {showColorPicker && (
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => {
-                            handleDefaultColorChange(selectedNodeId)
-                            setShowColorPicker(false)
-                          }}
-                          className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
-                        >
-                          <div
-                            className="w-4 h-4 rounded border border-slate-600"
-                            style={{
-                              backgroundColor: (() => {
-                                const parentEdge = edges.find(edge => edge.target === selectedNodeId);
-                                const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
-                                return parentNode
-                                  ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-                                  : "#1f2937";
-                              })()
-                            }}
-                          ></div>
-                          <span>Default</span>
-                        </button>
-
-                        <HexColorPicker
-                          color={selectedColor}
-                          onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
-                          className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
-                        />
-                        <div className="flex justify-between gap-2">
-                          <button
-                            onClick={() => handleColorPickerConfirm(selectedNodeId)}
-                            className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                            title="Confirm color change"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleColorPickerCancel(selectedNodeId)}
-                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                            title="Cancel color change"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setShowAIFillModal(true)}
-                  className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                  title="AI fill - Add AI-generated child nodes"
-                >
-                  <Brain className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={() => deleteNodeAndChildren(selectedNodeId)}
-                  className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                  title="Delete node and its children"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      <ProPopup isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />        {showUnsavedChangesModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center space-x-3 text-amber-400 mb-6">
-              <div className="p-2 bg-amber-400/10 rounded-xl">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Unsaved Changes</h2>
-            </div>
-            <p className="text-slate-300 mb-8 leading-relaxed">You have unsaved changes to your mind map. Would you like to save them before leaving?</p>              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-              <button
-                type="button"
-                onClick={() => handleModalResponse("yes")}
-                className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${hasUnsavedChanges && !isSaving
-                  ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white shadow-lg hover:shadow-green-500/25 transform hover:scale-105"
-                  : isSaving
-                    ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white cursor-wait"
-                    : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
-                  }`}
-                disabled={!hasUnsavedChanges || isSaving}
-              >
-                {isSaving ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader className="w-4 h-4 animate-spin" />
-                    <span>Saving... Please wait</span>
-                  </div>
-                ) : (
-                  "Save Changes"
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModalResponse("no")}
-                className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
-              >
-                Discard Changes
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModalResponse("cancel")}
-                className="px-4 py-2 text-slate-400 hover:text-slate-100 hover:bg-slate-700/30 rounded-xl font-medium transition-all duration-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showLoginPrompt && (
-        <ConditionalLoginPrompt onClose={() => setShowLoginPrompt(false)} />
-      )}        {/* AI Fill Modal */}
-      {showAIFillModal && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && !isAIFillLoading) {
-              setShowAIFillModal(false);
-              setAIFillPrompt("");
-              resetProgress();
-            }
-            if (e.key === 'Enter' && e.ctrlKey && !isAIFillLoading) {
-              e.preventDefault();
-              handleAIFill();
-            }
-          }}
-        >
-          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center space-x-3 text-green-500 mb-4">
-              <Brain className="w-6 h-6" />
-              <h2 className="text-xl font-semibold text-gray-100">AI Fill</h2>
-            </div>
-
-            {/* Progress Display - Only show when loading */}
-            {isAIFillLoading && (
-              <div className="mb-6">
-                {/* Progress Bar */}
-                <div className="mb-4">                    <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-300">
-                    {generationProgress.stage === 'idle' ? 'Preparing...' :
-                      generationProgress.stage === 'analyzing' ? 'Analyzing' :
-                        generationProgress.stage === 'generating' ? 'Generating' :
-                          generationProgress.stage === 'processing' ? 'Processing' :
-                            generationProgress.stage === 'animating' ? 'Animating' :
-                              generationProgress.stage === 'error' ? 'Error' :
-                                'Complete'}
-                  </span>
-                  <span className="text-sm text-gray-400">{Math.round(generationProgress.progress)}%</span>
-                </div>
-
-                  {/* Animated Progress Bar */}
-                  <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-500 ease-out relative ${generationProgress.isError
-                      ? 'bg-gradient-to-r from-red-500 to-red-600'
-                      : 'bg-gradient-to-r from-sky-400 to-blue-600'
-                      }`}
-                      style={{ width: `${generationProgress.progress}%` }}
-                    >
-                      {/* Animated shimmer effect */}
-                      <div className={`absolute inset-0 animate-pulse ${generationProgress.isError
-                        ? 'bg-gradient-to-r from-transparent via-red-200/20 to-transparent'
-                        : 'bg-gradient-to-r from-transparent via-white/20 to-transparent'
-                        }`}></div>
-                    </div>
-                  </div>
-                </div>
-                {/* Status Message */}
-                <div className="text-center">
-                  <p className={`mb-2 ${generationProgress.isError ? 'text-red-400' : 'text-gray-300'}`}>
-                    {generationProgress.message}
-                  </p>
-
-                  {/* Error Recovery Options */}
-                  {generationProgress.isError && (
-                    <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                      <div className="text-sm text-red-300 mb-3">
-                        Suggestions to resolve this issue:
-                      </div>
-                      <div className="space-y-2 text-xs text-red-200">
-                        <div>• Try a simpler or shorter prompt</div>
-                        <div>• Check your internet connection</div>
-                        <div>• Wait a moment and try again</div>
-                        <div>• Clear the prompt and use automatic generation</div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          resetProgress();
-                          setIsAIFillLoading(false);
-                        }}
-                        className="mt-3 px-3 py-1 bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded text-xs text-red-300 transition-colors"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  )}
-                  {/* Node Progress Display */}
-                  {!generationProgress.isError && generationProgress.totalNodes > 0 && (
-                    <div className="text-sm text-gray-400">
-                      {generationProgress.stage === 'animating' ? (
-                        <>Animated {generationProgress.nodesGenerated} of {generationProgress.totalNodes} nodes</>
-                      ) : generationProgress.stage === 'processing' && generationProgress.totalNodes > 0 ? (
-                        <>Processing {generationProgress.totalNodes} new nodes</>
-                      ) : null}
-                    </div>
-                  )}
-                </div>{/* Loading Animation */}
-                <div className="flex justify-center mt-4">
-                  {generationProgress.isError ? (
-                    <div className="relative">
-                      {/* Error icon */}
-                      <div className="rounded-full h-8 w-8 border-2 border-red-500 bg-red-500/10 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </div>
-                    </div>
-                  ) : generationProgress.stage === 'complete' && generationProgress.progress === 100 ? (
-                    <div className="relative">
-                      {/* Success checkmark with celebration animation */}
-                      <div className="rounded-full h-8 w-8 border-2 border-green-500 bg-green-500/10 flex items-center justify-center animate-pulse">
-                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      {/* Celebration particles */}
-                      <div className="absolute inset-0 pointer-events-none">
-                        {[...Array(6)].map((_, i) => (
-                          <div
-                            key={i}
-                            className="absolute w-1 h-1 bg-green-400 rounded-full animate-ping"
-                            style={{
-                              left: `${50 + 25 * Math.cos((i * 60) * Math.PI / 180)}%`,
-                              top: `${50 + 25 * Math.sin((i * 60) * Math.PI / 180)}%`,
-                              animationDelay: `${i * 0.1}s`,
-                              animationDuration: '1s'
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      {/* Spinning brain icon */}
-                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
-                      <Brain className="w-4 h-4 text-blue-400 absolute inset-0 m-auto animate-pulse" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Form Content - Hide when loading */}
-            {!isAIFillLoading && (
-              <>
-                <p className="text-gray-300 mb-4">
-                  {(() => {
-                    if (selectedNodeId === "1") {
-                      return "Generate an entire mindmap structure automatically";
-                    } else {
-                      const selectedNode = nodes.find(n => n.id === selectedNodeId);
-                      const childNodes = nodes.filter(node =>
-                        edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
-                      );
-                      const hasChildren = childNodes.length > 0;
-
-                      if (hasChildren) {
-                        return `Add AI-generated content to the "${selectedNode?.data?.label}" branch. This node already has ${childNodes.length} child node(s). AI will intelligently expand the existing structure.`;
-                      } else {
-                        return `Add AI-generated child nodes to the "${selectedNode?.data?.label}" branch`;
-                      }
-                    }
-                  })()}
-                </p>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Instructions (optional)
-                  </label>
-                  <textarea
-                    value={aiFillPrompt}
-                    onChange={(e) => setAIFillPrompt(e.target.value)}
-                    placeholder={(() => {
+              {/* Form Content - Hide when loading */}
+              {!isAIFillLoading && (
+                <>
+                  <p className="text-gray-300 mb-4">
+                    {(() => {
                       if (selectedNodeId === "1") {
-                        return "Describe what kind of mindmap you want to create...";
+                        return "Generate an entire mindmap structure automatically";
                       } else {
                         const selectedNode = nodes.find(n => n.id === selectedNodeId);
                         const childNodes = nodes.filter(node =>
@@ -6513,277 +6538,303 @@ export default function MindMap() {
                         const hasChildren = childNodes.length > 0;
 
                         if (hasChildren) {
-                          return `Describe how to expand the existing structure under "${selectedNode?.data?.label}" (currently has ${childNodes.length} child nodes)...`;
+                          return `Add AI-generated content to the "${selectedNode?.data?.label}" branch. This node already has ${childNodes.length} child node(s). AI will intelligently expand the existing structure.`;
                         } else {
-                          return `Describe what content should be added to the "${selectedNode?.data?.label}" branch...`;
+                          return `Add AI-generated child nodes to the "${selectedNode?.data?.label}" branch`;
                         }
                       }
                     })()}
-                    className="w-full px-3 py-2 bg-gray-800 text-white border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                    rows={3}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty for automatic content generation
                   </p>
-                </div>
 
-                {/* Context information for hierarchical expansion */}
-                {selectedNodeId !== "1" && (() => {
-                  const selectedNode = nodes.find(n => n.id === selectedNodeId);
-                  const childNodes = nodes.filter(node =>
-                    edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
-                  );
-                  const hasChildren = childNodes.length > 0;
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Instructions (optional)
+                    </label>
+                    <textarea
+                      value={aiFillPrompt}
+                      onChange={(e) => setAIFillPrompt(e.target.value)}
+                      placeholder={(() => {
+                        if (selectedNodeId === "1") {
+                          return "Describe what kind of mindmap you want to create...";
+                        } else {
+                          const selectedNode = nodes.find(n => n.id === selectedNodeId);
+                          const childNodes = nodes.filter(node =>
+                            edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
+                          );
+                          const hasChildren = childNodes.length > 0;
 
-                  if (hasChildren) {
-                    return (
-                      <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
-                        <div className="text-sm text-gray-300 mb-2">
-                          <span className="font-medium text-blue-400">Context:</span> Current structure under "{selectedNode?.data?.label}"
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          Existing children: {childNodes.map(child => `"${child.data?.label}"`).join(', ')}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                          AI will intelligently expand this structure by adding complementary content
-                        </div>
-                      </div>
+                          if (hasChildren) {
+                            return `Describe how to expand the existing structure under "${selectedNode?.data?.label}" (currently has ${childNodes.length} child nodes)...`;
+                          } else {
+                            return `Describe what content should be added to the "${selectedNode?.data?.label}" branch...`;
+                          }
+                        }
+                      })()}
+                      className="w-full px-3 py-2 bg-gray-800 text-white border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                      rows={3}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty for automatic content generation
+                    </p>
+                  </div>
+
+                  {/* Context information for hierarchical expansion */}
+                  {selectedNodeId !== "1" && (() => {
+                    const selectedNode = nodes.find(n => n.id === selectedNodeId);
+                    const childNodes = nodes.filter(node =>
+                      edges.some(edge => edge.source === selectedNodeId && edge.target === node.id)
                     );
-                  }
-                  return null;
-                })()}
-              </>
-            )}
+                    const hasChildren = childNodes.length > 0;
 
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAIFillModal(false);
-                  setAIFillPrompt("");
-                  resetProgress();
-                }}
-                className="px-4 py-2 text-gray-400 hover:text-gray-100 transition-colors"
-                disabled={isAIFillLoading}
-              >
-                {isAIFillLoading ? 'Processing...' : 'Cancel'}
-              </button>
+                    if (hasChildren) {
+                      return (
+                        <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                          <div className="text-sm text-gray-300 mb-2">
+                            <span className="font-medium text-blue-400">Context:</span> Current structure under "{selectedNode?.data?.label}"
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Existing children: {childNodes.map(child => `"${child.data?.label}"`).join(', ')}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-2">
+                            AI will intelligently expand this structure by adding complementary content
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </>
+              )}
 
-              {!isAIFillLoading && (
+              <div className="flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={handleAIFill}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  onClick={() => {
+                    setShowAIFillModal(false);
+                    setAIFillPrompt("");
+                    resetProgress();
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-gray-100 transition-colors"
+                  disabled={isAIFillLoading}
                 >
-                  <Brain className="w-4 h-4 mr-2" />
-                  Generate
+                  {isAIFillLoading ? 'Processing...' : 'Cancel'}
                 </button>
-              )}
+
+                {!isAIFillLoading && (
+                  <button
+                    type="button"
+                    onClick={handleAIFill}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    <Brain className="w-4 h-4 mr-2" />
+                    Generate
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+        <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
 
-      {/* Edit Details Modal */}
-      {currentMap && (
-        <EditDetailsModal
-          isOpen={showEditDetailsModal}
-          onClose={() => setShowEditDetailsModal(false)}
-          mapData={{
-            id: currentMap.id,
-            title: currentMap.title,
-            description: currentMap.description,
-            visibility: currentMap.visibility,
-            is_main: currentMap.is_main,
-            collaborators: currentMap.collaborators,
-            published_at: currentMap.published_at,
-          }}
-          username={username}
-          onSave={async (details) => {
-            try {
-              if (!user?.id || !currentMap) return;
+        {/* Edit Details Modal */}
+        {currentMap && (
+          <EditDetailsModal
+            isOpen={showEditDetailsModal}
+            onClose={() => setShowEditDetailsModal(false)}
+            mapData={{
+              id: currentMap.id,
+              title: currentMap.title,
+              description: currentMap.description,
+              visibility: currentMap.visibility,
+              is_main: currentMap.is_main,
+              collaborators: currentMap.collaborators,
+              published_at: currentMap.published_at,
+            }}
+            username={username}
+            onSave={async (details) => {
+              try {
+                if (!user?.id || !currentMap) return;
 
-              // Check if the new permalink already exists for the current user
-              const conflictingMap = maps.find(
-                (map) => map.id === details.permalink && map.id !== currentMap.id
-              );
+                // Check if the new permalink already exists for the current user
+                const conflictingMap = maps.find(
+                  (map) => map.id === details.permalink && map.id !== currentMap.id
+                );
 
-              if (conflictingMap) {
-                throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
-              }
+                if (conflictingMap) {
+                  throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
+                }
 
-              const isPermalinkChanged = currentMap.id !== details.permalink;
-              const updatedMapData = {
-                title: details.title,
-                visibility: details.visibility,
-                description: details.description || "",
-                is_main: details.is_main,
-                collaborators: details.collaborators,
-                published_at: details.published_at
-              };
-
-              // Check if this is a publish/republish action
-              const wasJustPublished = details.published_at &&
-                details.visibility === "public" &&
-                details.published_at !== currentMap.published_at;
-
-              if (isPermalinkChanged) {
-                const updatedMap = {
-                  ...currentMap,
-                  ...updatedMapData
+                const isPermalinkChanged = currentMap.id !== details.permalink;
+                const updatedMapData = {
+                  title: details.title,
+                  visibility: details.visibility,
+                  description: details.description || "",
+                  is_main: details.is_main,
+                  collaborators: details.collaborators,
+                  published_at: details.published_at
                 };
 
-                // Save the map with updated details
-                await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+                // Check if this is a publish/republish action
+                const wasJustPublished = details.published_at &&
+                  details.visibility === "public" &&
+                  details.published_at !== currentMap.published_at;
 
-                // Then update the ID (this creates a new record and deletes the old one)
-                await updateMapId(currentMap.id, details.permalink);
+                if (isPermalinkChanged) {
+                  const updatedMap = {
+                    ...currentMap,
+                    ...updatedMapData
+                  };
 
-                // Navigate to the new URL in edit mode and refresh
-                navigate(`/${username}/${details.permalink}/edit`);
-                window.location.reload();
-              } else {
-                const updatedMap = {
-                  ...currentMap,
-                  ...updatedMapData
-                };
+                  // Save the map with updated details
+                  await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
 
-                // Save the map with updated details
-                await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+                  // Then update the ID (this creates a new record and deletes the old one)
+                  await updateMapId(currentMap.id, details.permalink);
+
+                  // Navigate to the new URL in edit mode and refresh
+                  navigate(`/${username}/${details.permalink}/edit`);
+                  window.location.reload();
+                } else {
+                  const updatedMap = {
+                    ...currentMap,
+                    ...updatedMapData
+                  };
+
+                  // Save the map with updated details
+                  await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+                }
+
+                // Update local title state
+                setEditedTitle(details.title);
+
+                // Show success popup if publishing/republishing
+                if (wasJustPublished) {
+                  setShowSuccessPopup(true);
+                  // Hide the popup after 3 seconds
+                  setTimeout(() => {
+                    setShowSuccessPopup(false);
+                  }, 3000);
+                }
+
+                setShowEditDetailsModal(false);
+              } catch (error) {
+                console.error('Error updating mindmap details:', error);
+                const errorMessage = error instanceof Error ? error.message : "Failed to update mindmap details";
+                useToastStore.getState().showToast(errorMessage, "error");
               }
+            }}
+            showMainMapOption={true}
+          />
+        )}
 
-              // Update local title state
-              setEditedTitle(details.title);
-
-              // Show success popup if publishing/republishing
-              if (wasJustPublished) {
-                setShowSuccessPopup(true);
-                // Hide the popup after 3 seconds
-                setTimeout(() => {
-                  setShowSuccessPopup(false);
-                }, 3000);
-              }
-
-              setShowEditDetailsModal(false);
-            } catch (error) {
-              console.error('Error updating mindmap details:', error);
-              const errorMessage = error instanceof Error ? error.message : "Failed to update mindmap details";
-              useToastStore.getState().showToast(errorMessage, "error");
-            }
-          }}
-          showMainMapOption={true}
+        {/* Mind Map Customization Modal */}
+        <MindMapCustomization
+          isOpen={showCustomizationModal}
+          onClose={() => setShowCustomizationModal(false)}
+          edgeType={edgeType}
+          onEdgeTypeChange={handleEdgeTypeChange}
+          backgroundColor={backgroundColor}
+          onBackgroundColorChange={handleBackgroundColorChange}
+          dotColor={dotColor}
+          onDotColorChange={handleDotColorChange}
         />
-      )}
 
-      {/* Mind Map Customization Modal */}
-      <MindMapCustomization
-        isOpen={showCustomizationModal}
-        onClose={() => setShowCustomizationModal(false)}
-        edgeType={edgeType}
-        onEdgeTypeChange={handleEdgeTypeChange}
-        backgroundColor={backgroundColor}
-        onBackgroundColorChange={handleBackgroundColorChange}
-        dotColor={dotColor}
-        onDotColorChange={handleDotColorChange}
-      />
+        {/* Toast Notification */}
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          isVisible={toastVisible}
+          onClose={hideToast}
+        />
 
-      {/* Toast Notification */}
-      <Toast
-        message={toastMessage}
-        type={toastType}
-        isVisible={toastVisible}
-        onClose={hideToast}
-      />
+        {/* Publish Success Modal */}
+        <PublishSuccessModal isVisible={showSuccessPopup} />
 
-      {/* Publish Success Modal */}
-      <PublishSuccessModal isVisible={showSuccessPopup} />
+        {/* Node Context Menu */}
+        <NodeContextMenu
+          isVisible={contextMenu.isVisible}
+          nodeId={contextMenu.nodeId}
+          onClose={handleCloseContextMenu}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={setNodes}
+          onAutoLayout={handleAutoLayout}
+          updateNodeData={updateNodeData}
+        />
 
-      {/* Node Context Menu */}
-      <NodeContextMenu
-        isVisible={contextMenu.isVisible}
-        nodeId={contextMenu.nodeId}
-        onClose={handleCloseContextMenu}
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={setNodes}
-        onAutoLayout={handleAutoLayout}
-        updateNodeData={updateNodeData}
-      />
-
-      {/* Search Bar - VS Code style */}
-      {showSearch && (
-        <div className="fixed top-20 left-4 z-50 animate-in slide-in-from-top-2 duration-200">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg shadow-xl border border-slate-700/50 p-3 w-80">
-            <div className="flex items-center space-x-2">
-              <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search nodes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (e.shiftKey) {
-                      handleSearchPrevious();
-                    } else {
-                      handleSearchNext();
+        {/* Search Bar - VS Code style */}
+        {showSearch && (
+          <div className="fixed top-20 left-4 z-50 animate-in slide-in-from-top-2 duration-200">
+            <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg shadow-xl border border-slate-700/50 p-3 w-80">
+              <div className="flex items-center space-x-2">
+                <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search nodes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (e.shiftKey) {
+                        handleSearchPrevious();
+                      } else {
+                        handleSearchNext();
+                      }
+                    } else if (e.key === 'Escape') {
+                      handleSearchClose();
                     }
-                  } else if (e.key === 'Escape') {
-                    handleSearchClose();
-                  }
-                }}
-                className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-slate-400"
-                autoFocus
-              />
+                  }}
+                  className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-slate-400"
+                  autoFocus
+                />
 
-              {searchTerm && (
-                <div className="flex items-center space-x-1 text-xs text-slate-400">
-                  <span className="whitespace-nowrap">
-                    {searchResults.length > 0
-                      ? `${currentSearchIndex + 1}/${searchResults.length}`
-                      : '0/0'
-                    }
-                  </span>
-                  {searchResults.length > 1 && (
-                    <>
-                      <button
-                        onClick={handleSearchPrevious}
-                        className="p-1 hover:bg-slate-700/50 rounded transition-colors"
-                        title="Previous (Shift+Enter)"
-                        onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
-                      >
-                        <ChevronDown className="w-3 h-3 rotate-180" />
-                      </button>
-                      <button
-                        onClick={handleSearchNext}
-                        className="p-1 hover:bg-slate-700/50 rounded transition-colors"
-                        title="Next (Enter)"
-                        onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
-                      >
-                        <ChevronDown className="w-3 h-3" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+                {searchTerm && (
+                  <div className="flex items-center space-x-1 text-xs text-slate-400">
+                    <span className="whitespace-nowrap">
+                      {searchResults.length > 0
+                        ? `${currentSearchIndex + 1}/${searchResults.length}`
+                        : '0/0'
+                      }
+                    </span>
+                    {searchResults.length > 1 && (
+                      <>
+                        <button
+                          onClick={handleSearchPrevious}
+                          className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                          title="Previous (Shift+Enter)"
+                          onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+                        >
+                          <ChevronDown className="w-3 h-3 rotate-180" />
+                        </button>
+                        <button
+                          onClick={handleSearchNext}
+                          className="p-1 hover:bg-slate-700/50 rounded transition-colors"
+                          title="Next (Enter)"
+                          onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
 
-              <button
-                onClick={handleSearchClose}
-                className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded transition-all duration-200"
-                title="Close (Escape)"
-                onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
-              >
-                <X className="w-4 h-4" />
-              </button>
+                <button
+                  onClick={handleSearchClose}
+                  className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded transition-all duration-200"
+                  title="Close (Escape)"
+                  onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </>
   )
 }
