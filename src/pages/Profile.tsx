@@ -1452,7 +1452,7 @@ export default function Profile() {
                   {publicMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       {/* Enhanced Map Header */}
@@ -1477,7 +1477,7 @@ export default function Profile() {
                               </div>
                             )}
                           </div>
-                          <h3 className="text-lg font-bold text-white truncate group-hover:text-blue-300 transition-colors">
+                          <h3 className="text-lg font-bold text-white truncate">
                             {map.title}
                           </h3>
                         </div>
@@ -1549,7 +1549,7 @@ export default function Profile() {
                       {map.nodes?.length > 0 && (
                         <a
                           href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
@@ -1588,7 +1588,7 @@ export default function Profile() {
                           >
                             <CustomBackground />
                           </ReactFlow>
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
                       )}
 
@@ -1661,7 +1661,7 @@ export default function Profile() {
                   {collaborationMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-3">
@@ -1686,7 +1686,7 @@ export default function Profile() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-white truncate group-hover:text-blue-300 transition-colors">
+                            <h3 className="text-lg font-bold text-white truncate">
                               {map.title}
                             </h3>
                             <p 
@@ -1744,7 +1744,7 @@ export default function Profile() {
                       {map.nodes?.length > 0 && (
                         <a
                           href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
@@ -1783,7 +1783,7 @@ export default function Profile() {
                           >
                             <CustomBackground />
                           </ReactFlow>
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
                       )}
 
@@ -1855,7 +1855,7 @@ export default function Profile() {
                   {savedMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-4">
@@ -1880,7 +1880,7 @@ export default function Profile() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-white truncate group-hover:text-blue-300 transition-colors">
+                            <h3 className="text-lg font-bold text-white truncate">
                               {map.title}
                             </h3>
                             <p 
@@ -1938,7 +1938,7 @@ export default function Profile() {
                       {map.nodes?.length > 0 && (
                         <a
                           href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ReactFlow
                             nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
@@ -1977,7 +1977,7 @@ export default function Profile() {
                           >
                             <CustomBackground />
                           </ReactFlow>
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
                       )}
 

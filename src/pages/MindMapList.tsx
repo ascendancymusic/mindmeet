@@ -539,7 +539,7 @@ export default function MindMapList(): JSX.Element {
           {sortedMaps.map((map, index) => (
             <div
               key={map.id}
-              className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:border-slate-600/50"
+              className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="relative">
@@ -591,7 +591,7 @@ export default function MindMapList(): JSX.Element {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-white truncate group-hover:text-blue-300 transition-colors">
+                      <h3 className="text-lg font-bold text-white truncate">
                         {map.title}
                       </h3>
                       {viewMode === "collaboration" && map.creatorUsername && (
@@ -705,7 +705,7 @@ export default function MindMapList(): JSX.Element {
                         return `/${user?.username}/${map.id}/edit`;
                       }
                     })()}
-                    className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? 'pointer-events-auto' : ''}`}
+                    className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? 'pointer-events-auto' : ''}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ReactFlow
@@ -748,7 +748,7 @@ export default function MindMapList(): JSX.Element {
                     >
                       <CustomBackground />
                     </ReactFlow>
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50 pointer-events-none"></div>
                   </a>
                 )}
               </div>

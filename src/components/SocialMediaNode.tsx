@@ -59,14 +59,13 @@ export function SocialMediaNode(props: any) {
     }
   }, [username]);
 
+  const url = username && username !== "username" ? socialMediaUrls[type]?.(username) : undefined;
+
   return (
-    <div
-      onClick={() => {
-        if (username && username !== "username") {
-          const url = socialMediaUrls[type]?.(username);
-          if (url) window.open(url, "_blank");
-        }
-      }}
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
       className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
       style={{ wordWrap: "break-word", whiteSpace: "normal" }} // Ensure text wraps properly
     >
@@ -93,6 +92,6 @@ export function SocialMediaNode(props: any) {
         isConnectable={isConnectable}
         className="!bottom-[-16px]"
       />
-    </div>
+    </a>
   );
 }

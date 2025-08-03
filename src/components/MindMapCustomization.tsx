@@ -9,9 +9,9 @@ interface MindMapCustomizationProps {
   onClose: () => void
   edgeType: "default" | "straight" | "smoothstep"
   onEdgeTypeChange: (newEdgeType: "default" | "straight" | "smoothstep") => void
-  backgroundColor: string
+  backgroundColor: string | null
   onBackgroundColorChange: (color: string) => void
-  dotColor: string
+  dotColor: string | null
   onDotColorChange: (color: string) => void
 }
 
@@ -25,17 +25,22 @@ export default function MindMapCustomization({
   dotColor,
   onDotColorChange,
 }: MindMapCustomizationProps) {
-  // Track original values
-  const [originalEdgeType] = useState(edgeType)
-  const [originalBackgroundColor] = useState(backgroundColor)
-  const [originalDotColor] = useState(dotColor)
+  // Track original values - these will be updated when modal opens
+  const [originalEdgeType, setOriginalEdgeType] = useState(edgeType)
+  const [originalBackgroundColor, setOriginalBackgroundColor] = useState(backgroundColor || "#0c1321")
+  const [originalDotColor, setOriginalDotColor] = useState(dotColor || "#81818a")
   
   // Track pending changes
   const [pendingEdgeType, setPendingEdgeType] = useState(edgeType)
   const [showBackgroundColorPicker, setShowBackgroundColorPicker] = useState(false)
   const [showDotColorPicker, setShowDotColorPicker] = useState(false)
-  const [tempBackgroundColor, setTempBackgroundColor] = useState(backgroundColor)
-  const [tempDotColor, setTempDotColor] = useState(dotColor)
+  const [tempBackgroundColor, setTempBackgroundColor] = useState(backgroundColor || "#0c1321")
+  const [tempDotColor, setTempDotColor] = useState(dotColor || "#81818a")
+  
+  // Track if user has made explicit changes (like clicking "Default")
+  const [hasBackgroundColorChanged, setHasBackgroundColorChanged] = useState(false)
+  const [hasDotColorChanged, setHasDotColorChanged] = useState(false)
+  const [hasEdgeTypeChanged, setHasEdgeTypeChanged] = useState(false)
 
   const backgroundColorPickerRef = useRef<HTMLDivElement>(null)
   const dotColorPickerRef = useRef<HTMLDivElement>(null)
@@ -43,9 +48,20 @@ export default function MindMapCustomization({
   // Update temp colors when props change (when component opens)
   useEffect(() => {
     if (isOpen) {
+      // Update original values to current props when modal opens
+      setOriginalEdgeType(edgeType)
+      setOriginalBackgroundColor(backgroundColor || "#0c1321")
+      setOriginalDotColor(dotColor || "#81818a")
+      
+      // Update temp values
       setPendingEdgeType(edgeType)
-      setTempBackgroundColor(backgroundColor)
-      setTempDotColor(dotColor)
+      setTempBackgroundColor(backgroundColor || "#0c1321")
+      setTempDotColor(dotColor || "#81818a")
+      
+      // Reset change tracking when modal opens
+      setHasBackgroundColorChanged(false)
+      setHasDotColorChanged(false)
+      setHasEdgeTypeChanged(false)
     }
   }, [isOpen, edgeType, backgroundColor, dotColor])
 
@@ -53,11 +69,13 @@ export default function MindMapCustomization({
   const handleBackgroundHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setTempBackgroundColor(value)
+    setHasBackgroundColorChanged(true)
   }
 
   const handleDotHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setTempDotColor(value)
+    setHasDotColorChanged(true)
   }
 
   // Validate and format hex color on blur
@@ -111,7 +129,7 @@ export default function MindMapCustomization({
   }
 
   const handleBackgroundColorCancel = () => {
-    setTempBackgroundColor(backgroundColor)
+    setTempBackgroundColor(backgroundColor || "#0c1321")
     setShowBackgroundColorPicker(false)
   }
 
@@ -121,16 +139,28 @@ export default function MindMapCustomization({
   }
 
   const handleDotColorCancel = () => {
-    setTempDotColor(dotColor)
+    setTempDotColor(dotColor || "#81818a")
     setShowDotColorPicker(false)
   }
 
+  const handleBackgroundColorChange = (color: string) => {
+    setTempBackgroundColor(color)
+    setHasBackgroundColorChanged(true)
+  }
+
+  const handleDotColorChange = (color: string) => {
+    setTempDotColor(color)
+    setHasDotColorChanged(true)
+  }
+
   const handleBackgroundColorDefault = () => {
-    setTempBackgroundColor("#1e293b")
+    setTempBackgroundColor("#0c1321")
+    setHasBackgroundColorChanged(true)
   }
 
   const handleDotColorDefault = () => {
     setTempDotColor("#81818a")
+    setHasDotColorChanged(true)
   }
 
   const handleCancel = () => {
@@ -144,23 +174,20 @@ export default function MindMapCustomization({
   }
 
   const handleDone = () => {
-    // Check if anything actually changed
-    const hasChanges = 
-      pendingEdgeType !== originalEdgeType ||
-      tempBackgroundColor !== originalBackgroundColor ||
-      tempDotColor !== originalDotColor
-
+    // Check if any changes were made (either values changed OR user explicitly clicked default)
+    const backgroundChanged = hasBackgroundColorChanged || tempBackgroundColor !== originalBackgroundColor
+    const dotChanged = hasDotColorChanged || tempDotColor !== originalDotColor
+    const edgeChanged = hasEdgeTypeChanged || pendingEdgeType !== originalEdgeType
+    
     // Only apply changes if something actually changed
-    if (hasChanges) {
-      if (pendingEdgeType !== originalEdgeType) {
-        onEdgeTypeChange(pendingEdgeType)
-      }
-      if (tempBackgroundColor !== originalBackgroundColor) {
-        onBackgroundColorChange(tempBackgroundColor)
-      }
-      if (tempDotColor !== originalDotColor) {
-        onDotColorChange(tempDotColor)
-      }
+    if (edgeChanged) {
+      onEdgeTypeChange(pendingEdgeType)
+    }
+    if (backgroundChanged) {
+      onBackgroundColorChange(tempBackgroundColor)
+    }
+    if (dotChanged) {
+      onDotColorChange(tempDotColor)
     }
 
     setShowBackgroundColorPicker(false)
@@ -244,7 +271,10 @@ export default function MindMapCustomization({
               {edgeTypeOptions.map((option) => (
                 <button
                   key={option.value}
-                  onClick={() => setPendingEdgeType(option.value as any)}
+                  onClick={() => {
+                    setPendingEdgeType(option.value as any)
+                    setHasEdgeTypeChanged(true)
+                  }}
                   className={`group relative overflow-hidden p-4 text-left rounded-2xl transition-all duration-300 border ${
                     pendingEdgeType === option.value
                       ? "bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 border-blue-400/50 shadow-lg shadow-blue-500/20"
@@ -313,7 +343,7 @@ export default function MindMapCustomization({
                     <div className="space-y-4">
                       <HexColorPicker
                         color={tempBackgroundColor}
-                        onChange={setTempBackgroundColor}
+                        onChange={handleBackgroundColorChange}
                         className="w-full !h-48"
                       />
                       <div className="flex items-center justify-between gap-3">
@@ -325,7 +355,7 @@ export default function MindMapCustomization({
                             onChange={handleBackgroundHexChange}
                             onBlur={handleBackgroundHexBlur}
                             className="w-full bg-transparent text-white font-mono text-sm uppercase tracking-wider focus:outline-none"
-                            placeholder="#1e293b"
+                            placeholder="#0c1321"
                           />
                         </div>
                         <div className="flex gap-2">
@@ -390,7 +420,7 @@ export default function MindMapCustomization({
                 {showDotColorPicker && (
                   <div className="absolute top-full left-0 right-0 mt-3 p-6 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 z-50 animate-in slide-in-from-top-2 duration-200">
                     <div className="space-y-4">
-                      <HexColorPicker color={tempDotColor} onChange={setTempDotColor} className="w-full !h-48" />
+                      <HexColorPicker color={tempDotColor} onChange={handleDotColorChange} className="w-full !h-48" />
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex-1 p-3 bg-white/5 rounded-xl border border-white/10">
                           <div className="text-xs text-slate-400 mb-1">Hex Color</div>

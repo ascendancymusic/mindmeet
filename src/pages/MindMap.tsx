@@ -140,14 +140,14 @@ export interface YouTubeVideo {
 export default function MindMap() {
   const { username, id } = useParams()
   const navigate = useNavigate()
-  const { maps, updateMap, acceptAIChanges, updateMapId, fetchMaps } = useMindMapStore()
+  const { maps, collaborationMaps, updateMap, acceptAIChanges, updateMapId, fetchMaps, fetchCollaborationMaps } = useMindMapStore()
 
   // Toast notification state
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
 
 
 
-  const currentMap = maps.find((map) => map.id === id)
+  const currentMap = maps.find((map) => map.id === id) || collaborationMaps.find((map) => map.id === id)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const audioFileInputRef = useRef<HTMLInputElement>(null)
   const reactFlowWrapperRef = useRef<HTMLDivElement>(null)
@@ -753,22 +753,23 @@ export default function MindMap() {
   useEffect(() => {
     console.log('[MindMap] Checking if should fetch all maps', { userId: user?.id, isLoggedIn, mapsLength: maps.length, hasFetched: hasFetchedMapsRef.current });
     if (user?.id && isLoggedIn && !hasFetchedMapsRef.current) {
-      console.log('[MindMap] Calling fetchMaps for userId:', user.id);
+      console.log('[MindMap] Calling fetchMaps and fetchCollaborationMaps for userId:', user.id);
       hasFetchedMapsRef.current = true;
       fetchMaps(user.id);
+      fetchCollaborationMaps(user.id);
     }
   }, [user?.id, isLoggedIn]); // Keep minimal dependencies to prevent loading interference
 
   // Log when maps are updated to track fetch results (debounced to avoid multiple logs)
   useEffect(() => {
-    if (maps.length > 1 && user?.username) { // Only log when we have multiple maps
+    if ((maps.length > 1 || collaborationMaps.length > 0) && user?.username) { // Only log when we have maps
       const timer = setTimeout(() => {
-        console.log(`[MindMap] Final count: ${maps.length} maps for username ${user.username}`);
+        console.log(`[MindMap] Final count: ${maps.length} owned maps + ${collaborationMaps.length} collaboration maps for username ${user.username}`);
       }, 500); // Debounce to avoid multiple logs during rapid updates
 
       return () => clearTimeout(timer);
     }
-  }, [maps.length, user?.username]);
+  }, [maps.length, collaborationMaps.length, user?.username]);
 
   // Initialize collaboration when component mounts with valid user and mind map
   useEffect(() => {
@@ -1022,7 +1023,8 @@ export default function MindMap() {
 
       setHistory((prev) => {
         const newHistory = prev.slice(0, currentHistoryIndex + 1);
-        return [...newHistory, action];
+        const updatedHistory = [...newHistory, action];
+        return updatedHistory;
       });
 
       const newHistoryIndex = currentHistoryIndex + 1;
@@ -1051,6 +1053,14 @@ export default function MindMap() {
       addToHistory(action);
       setEdgeType(newEdgeType);
 
+      // Update all existing edges to use the new edge type
+      setEdges(edges => 
+        edges.map(edge => ({
+          ...edge,
+          type: newEdgeType === 'default' ? 'default' : newEdgeType
+        }))
+      );
+
       if (!isInitialLoad) {
         setHasUnsavedChanges(true);
       }
@@ -1063,7 +1073,8 @@ export default function MindMap() {
     (newColor: string) => {
       const previousBackgroundColor = backgroundColor;
 
-      // Create history action for background color change
+      // Always apply the change, even if it appears to be the same as the current effective color
+      // This handles the case where user explicitly selects the default color
       const action = createHistoryAction(
         "change_background_color",
         { backgroundColor: newColor },
@@ -1078,6 +1089,8 @@ export default function MindMap() {
       if (!isInitialLoad) {
         setHasUnsavedChanges(true);
       }
+
+      setIsInitialLoad(false);
     },
     [backgroundColor, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
   );
@@ -3306,9 +3319,9 @@ export default function MindMap() {
         document.exitFullscreen()
       } else {
         reactFlowWrapperRef.current.requestFullscreen({ navigationUI: "auto" })
-        // Use a darker version of the current background color for fullscreen
+        // Use the background color for fullscreen
         if (backgroundColor) {
-          reactFlowWrapperRef.current.style.backgroundColor = backgroundColor === '#1e293b' ? '#0c1321' : backgroundColor
+          reactFlowWrapperRef.current.style.backgroundColor = backgroundColor
         }
         const dotElements = reactFlowWrapperRef.current.querySelectorAll(".react-flow__background-dots circle")
         dotElements.forEach((dot: Element) => {
@@ -3419,16 +3432,31 @@ export default function MindMap() {
         } else if (action.type === "update_title" && action.previousState && 'title' in action.previousState) {
           setEditedTitle(action.previousState.title || '')
         } else if (action.type === "change_edge_type" && action.previousState && 'edgeType' in action.previousState) {
-          setEdgeType(action.previousState.edgeType || 'default')
+          const restoredEdgeType = action.previousState.edgeType || 'default';
+          setEdgeType(restoredEdgeType);
+          // Update all existing edges to use the restored edge type AND restore original edges
+          if (action.previousState.edges) {
+            setEdges(action.previousState.edges.map(edge => ({
+              ...edge,
+              type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
+            })));
+          } else {
+            setEdges(edges => 
+              edges.map(edge => ({
+                ...edge,
+                type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
+              }))
+            );
+          }
         } else if (action.type === "change_background_color" && action.previousState && 'backgroundColor' in action.previousState) {
-          setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#1e293b')
+          setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#0c1321')
         } else if (action.type === "change_dot_color" && action.previousState && 'dotColor' in action.previousState) {
           setDotColor(action.previousState.dotColor || dotColor || '#81818a')
         } else if (action.previousState?.nodes) {
           setNodes(action.previousState.nodes)
         }
 
-        if (action.previousState?.edges) {
+        if (action.previousState?.edges && action.type !== "change_edge_type") {
           setEdges(action.previousState.edges)
         } const newHistoryIndex = currentHistoryIndex - 1
         setCurrentHistoryIndex(newHistoryIndex)
@@ -3682,7 +3710,7 @@ export default function MindMap() {
                         updatedData.url = nextAction.data.label
                       } else if (node.type === "mindmap") {
                         // Find the map to get its key
-                        const selectedMap = maps.find(map => map.id === nextAction.data.label);
+                        const selectedMap = maps.find(map => map.id === nextAction.data.label) || collaborationMaps.find(map => map.id === nextAction.data.label);
                         updatedData.mapKey = selectedMap?.key; // Only use mapKey
                       }
                     }
@@ -3716,10 +3744,18 @@ export default function MindMap() {
           setEditedTitle(nextAction.data.label || "")
           break
         case "change_edge_type":
-          setEdgeType(nextAction.data.edgeType || 'default')
+          const newEdgeType = nextAction.data.edgeType || 'default';
+          setEdgeType(newEdgeType);
+          // Update all existing edges to use the new edge type
+          setEdges(edges => 
+            edges.map(edge => ({
+              ...edge,
+              type: newEdgeType === 'default' ? 'default' : newEdgeType
+            }))
+          );
           break
         case "change_background_color":
-          setBackgroundColor(nextAction.data.backgroundColor || backgroundColor || '#1e293b')
+          setBackgroundColor(nextAction.data.backgroundColor || backgroundColor || '#0c1321')
           break
         case "change_dot_color":
           setDotColor(nextAction.data.dotColor || dotColor || '#81818a')
@@ -5075,7 +5111,7 @@ export default function MindMap() {
         className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
         style={{
           zIndex: 1,
-          ...(backgroundColor ? { backgroundColor: backgroundColor } : {})
+          backgroundColor: backgroundColor || '#0c1321'
         }}
       ><ReactFlowProvider>
           <ReactFlow
@@ -6018,7 +6054,7 @@ export default function MindMap() {
                     className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
                   >
                     {selectedNode.data.mapKey
-                      ? maps.find(m => m.key === selectedNode.data.mapKey)?.title || "Select a map"
+                      ? (maps.find(m => m.key === selectedNode.data.mapKey) || collaborationMaps.find(m => m.key === selectedNode.data.mapKey))?.title || "Select a map"
                       : "Select a map"
                     }
                   </button>) : (<MindMapSelector
@@ -6647,9 +6683,9 @@ export default function MindMap() {
         onClose={() => setShowCustomizationModal(false)}
         edgeType={edgeType}
         onEdgeTypeChange={handleEdgeTypeChange}
-        backgroundColor={backgroundColor || "#1a1a1a"}
+        backgroundColor={backgroundColor}
         onBackgroundColorChange={handleBackgroundColorChange}
-        dotColor={dotColor || "#ffffff"}
+        dotColor={dotColor}
         onDotColorChange={handleDotColorChange}
       />
 

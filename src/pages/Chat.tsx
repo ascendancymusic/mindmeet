@@ -1383,8 +1383,11 @@ const Chat: React.FC = () => {
       setIsInitialLoadComplete(false)
       
       try {
-        // Fetch conversations first
-        await useChatStore.getState().fetchConversations()
+        // Fetch conversations first with typing channels enabled since we're in Chat
+        await useChatStore.getState().fetchConversations(false, true)
+        
+        // Initialize typing channels in case conversations were already loaded
+        await useChatStore.getState().initializeTypingChannels()
         
         // Small delay to ensure conversations are fully loaded in state
         await new Promise(resolve => setTimeout(resolve, 50))

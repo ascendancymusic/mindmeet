@@ -119,12 +119,15 @@ interface ChatStore {
   setupTypingChannelsForNewConversations: (newConversations: Conversation[]) => Promise<void>
 
   // Supabase interactions
-  fetchConversations: (skipAutoSelect?: boolean) => Promise<void>
+  fetchConversations: (skipAutoSelect?: boolean, setupTypingChannels?: boolean) => Promise<void>
   fetchMessages: (conversationId: number) => Promise<void>
   fetchUsers: () => Promise<void>
   searchUsers: (query: string) => Promise<User[]>
   refreshOnlineStatuses: () => Promise<void>
   formatLastSeen: (lastSeen: string | null) => string
+  
+  // Typing channel management
+  initializeTypingChannels: () => Promise<void>
   
   // Cleanup functions
   cleanupTypingChannels: () => void
@@ -2370,7 +2373,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   // Supabase interactions
-  fetchConversations: async (skipAutoSelect = false) => {
+  fetchConversations: async (skipAutoSelect = false, setupTypingChannels = false) => {
     const currentUser = useAuthStore.getState().user
     if (!currentUser) return
 
@@ -2622,20 +2625,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         })
       }
 
-      // Only set up typing channels for NEW conversations (not all conversations)
-      const newConversations = formattedConversations.filter(conv => 
-        conv.supabaseId && !previousSupabaseIds.has(conv.supabaseId)
-      )
+      // Only set up typing channels if explicitly requested (when in Chat page)
+      if (setupTypingChannels) {
+        // Only set up typing channels for NEW conversations (not all conversations)
+        const newConversations = formattedConversations.filter(conv => 
+          conv.supabaseId && !previousSupabaseIds.has(conv.supabaseId)
+        )
 
-      if (newConversations.length > 0) {
-        console.log(`[DEBUG] Setting up typing channels for ${newConversations.length} new conversations`)
-        await get().setupTypingChannelsForNewConversations(newConversations)
-      }
+        if (newConversations.length > 0) {
+          console.log(`[DEBUG] Setting up typing channels for ${newConversations.length} new conversations`)
+          await get().setupTypingChannelsForNewConversations(newConversations)
+        }
 
-      // Only run full setup on initial load (when there were no previous conversations)
-      if (previousConversations.length === 0 && formattedConversations.length > 0) {
-        console.log('[DEBUG] Initial load: Setting up typing channels for all conversations')
-        await get().setupTypingChannelsForAllConversations()
+        // Only run full setup on initial load (when there were no previous conversations)
+        if (previousConversations.length === 0 && formattedConversations.length > 0) {
+          console.log('[DEBUG] Initial load: Setting up typing channels for all conversations')
+          await get().setupTypingChannelsForAllConversations()
+        }
       }
 
     } catch (error) {
@@ -3489,6 +3495,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       } catch (error) {
         console.error(`Error setting up typing channel for new conversation ${conversation.id}:`, error)
       }
+    }
+  },
+
+  // Function to initialize typing channels for all existing conversations (for Chat page)
+  initializeTypingChannels: async () => {
+    const { conversations } = get()
+    console.log('[DEBUG] Initializing typing channels for Chat page')
+    
+    if (conversations.length > 0) {
+      await get().setupTypingChannelsForAllConversations()
     }
   },
 
