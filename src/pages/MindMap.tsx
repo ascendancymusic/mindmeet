@@ -201,7 +201,7 @@ export default function MindMap() {
   const [resizeStartWidth, setResizeStartWidth] = useState(0)
 
   // Dynamic page title
-  usePageTitle(currentMap ? `Editing: ${currentMap.title || 'Untitled'}` : 'Loading...');
+  usePageTitle(editedTitle ? `Editing: ${editedTitle}` : 'Editing: Untitled');
   const [multiDragStartPosition, setMultiDragStartPosition] = useState<Record<string, { x: number; y: number }> | null>(null)
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
   const [canUndo, setCanUndo] = useState(false)
