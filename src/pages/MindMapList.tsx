@@ -34,7 +34,25 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleSheet)
 }
 
-const CustomBackground = () => {
+const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
+  if (backgroundColor) {
+    return (
+      <>
+        {/* Base background color */}
+        <div
+          className="absolute inset-0 rounded-lg"
+          style={{ backgroundColor, zIndex: -2 }}
+        />
+        {/* Subtle gradient overlay for better visual appeal */}
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
+          style={{ zIndex: -1 }}
+        />
+      </>
+    )
+  }
+
+  // Default gradient when no custom background
   return (
     <div
       className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-slate-900/60 rounded-lg backdrop-blur-sm"
@@ -49,7 +67,7 @@ const SkeletonLoader = () => {
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -75,28 +93,28 @@ const SkeletonLoader = () => {
               <div className="w-9 h-9 bg-slate-700/50 rounded-lg"></div>
             </div>
           </div>
-          
+
           {/* Timestamp skeleton */}
           <div className="flex items-center gap-2 mb-3">
             <div className="w-4 h-4 bg-slate-700/50 rounded"></div>
             <div className="h-4 bg-slate-700/50 rounded w-32"></div>
           </div>
-          
+
           {/* Stats skeleton */}
           <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
-          
+
           {/* Preview skeleton */}
           <div className="h-56 bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
             {/* Animated shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            
+
             {/* Fake nodes */}
             <div className="absolute top-4 left-4 w-16 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute top-12 right-8 w-20 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute bottom-8 left-8 w-18 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute bottom-4 right-4 w-14 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-10 bg-slate-700/60 rounded"></div>
-            
+
             {/* Fake connections */}
             <div className="absolute top-8 left-20 w-16 h-0.5 bg-slate-600/50 transform rotate-12"></div>
             <div className="absolute top-16 right-24 w-20 h-0.5 bg-slate-600/50 transform -rotate-45"></div>
@@ -136,14 +154,14 @@ export default function MindMapList(): JSX.Element {
 
   // MindMap store actions and state
   const {
-    maps,             
+    maps,
     collaborationMaps,
-    fetchMaps,        
+    fetchMaps,
     fetchCollaborationMaps,
-    addMap,           
-    deleteMap,          
-    toggleMapPin,     
-    updateMapId,      
+    addMap,
+    deleteMap,
+    toggleMapPin,
+    updateMapId,
   } = useMindMapStore()
   // UI state management
   const location = useLocation()
@@ -152,7 +170,7 @@ export default function MindMapList(): JSX.Element {
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [mapToDelete, setMapToDelete] = useState<string | null>(null)
-  const [mapToEdit, setMapToEdit] = useState<string | null>(null) 
+  const [mapToEdit, setMapToEdit] = useState<string | null>(null)
   const [newMapTitle, setNewMapTitle] = useState("")
   const [viewMode, setViewMode] = useState<"owned" | "collaboration">("owned")
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -376,9 +394,9 @@ export default function MindMapList(): JSX.Element {
 
           // If this is a publish/republish action, notify followers
           // Only send notifications if published_at was just set (not if it already existed)
-          const wasJustPublished = details.published_at && 
-                                 details.visibility === "public" && 
-                                 details.published_at !== currentMap.published_at;
+          const wasJustPublished = details.published_at &&
+            details.visibility === "public" &&
+            details.published_at !== currentMap.published_at;
           if (wasJustPublished && currentMap.key && user?.username) {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
@@ -445,16 +463,15 @@ export default function MindMapList(): JSX.Element {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
               {viewMode === "owned" ? "Your Mindmaps" : "Collaboration Maps"}
             </h1>
-            
+
             {/* Enhanced View Toggle */}
             <div className="flex items-center space-x-1 bg-slate-800/50 backdrop-blur-sm rounded-xl p-1 border border-slate-700/30">
               <button
                 onClick={() => setViewMode("owned")}
-                className={`${isSmallScreen ? 'px-3 py-2' : 'px-4 py-2'} rounded-lg text-sm font-medium transition-all duration-200 ${
-                  viewMode === "owned"
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                    : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
-                }`}
+                className={`${isSmallScreen ? 'px-3 py-2' : 'px-4 py-2'} rounded-lg text-sm font-medium transition-all duration-200 ${viewMode === "owned"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
+                  }`}
               >
                 {isSmallScreen ? (
                   <div className="flex items-center space-x-1">
@@ -467,11 +484,10 @@ export default function MindMapList(): JSX.Element {
               </button>
               <button
                 onClick={() => setViewMode("collaboration")}
-                className={`${isSmallScreen ? 'px-3 py-2' : 'px-4 py-2'} rounded-lg text-sm font-medium transition-all duration-200 ${
-                  viewMode === "collaboration"
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                    : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
-                }`}
+                className={`${isSmallScreen ? 'px-3 py-2' : 'px-4 py-2'} rounded-lg text-sm font-medium transition-all duration-200 ${viewMode === "collaboration"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
+                  }`}
               >
                 {isSmallScreen ? (
                   <div className="flex items-center space-x-1">
@@ -484,7 +500,7 @@ export default function MindMapList(): JSX.Element {
               </button>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {/* Enhanced Sort Dropdown */}
             <select
@@ -529,8 +545,8 @@ export default function MindMapList(): JSX.Element {
         <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
           <Network className="w-16 h-16 mx-auto text-slate-500 mb-4" />
           <p className="text-slate-400">
-            {viewMode === "owned" 
-              ? "No mindmaps yet. Create your first one!" 
+            {viewMode === "owned"
+              ? "No mindmaps yet. Create your first one!"
               : "No collaboration maps yet. You'll see mindmaps here when someone adds you as a collaborator."}
           </p>
         </div>
@@ -539,7 +555,7 @@ export default function MindMapList(): JSX.Element {
           {sortedMaps.map((map, index) => (
             <div
               key={map.id}
-              className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl"
+              className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="relative">
@@ -680,7 +696,7 @@ export default function MindMapList(): JSX.Element {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Enhanced Timestamp and Stats */}
                 <div className="flex items-center gap-2 text-sm text-slate-400 mb-3">
                   <Clock className="w-4 h-4" />
@@ -694,20 +710,20 @@ export default function MindMapList(): JSX.Element {
                 <div className="text-sm text-slate-500 mb-4">
                   {map.nodes?.length} nodes • {map.edges?.length} connections
                 </div>
-                
+
                 {/* Enhanced Mind Map Preview */}
-                {map.nodes?.length > 0 && (
-                  <a
-                    href={(() => {
-                      if (viewMode === "collaboration" && map?.creatorUsername) {
-                        return `/${map.creatorUsername}/${map.id}/edit`;
-                      } else {
-                        return `/${user?.username}/${map.id}/edit`;
-                      }
-                    })()}
-                    className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? 'pointer-events-auto' : ''}`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                <a
+                  href={(() => {
+                    if (viewMode === "collaboration" && map?.creatorUsername) {
+                      return `/${map.creatorUsername}/${map.id}/edit`;
+                    } else {
+                      return `/${user?.username}/${map.id}/edit`;
+                    }
+                  })()}
+                  className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? 'pointer-events-auto' : ''}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {map.nodes?.length > 0 ? (
                     <ReactFlow
                       nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                       edges={map.edges.map((edge: any) => {
@@ -746,11 +762,31 @@ export default function MindMapList(): JSX.Element {
                       ref={reactFlowRef as any}
                       proOptions={{ hideAttribution: true }}
                     >
-                      <CustomBackground />
+                      <CustomBackground backgroundColor={map.backgroundColor} />
                     </ReactFlow>
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50 pointer-events-none"></div>
-                  </a>
-                )}
+                  ) : (
+                    <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
+                      {/* Base background */}
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          backgroundColor: map.backgroundColor || 'rgba(30, 41, 59, 0.3)' // fallback to bg-slate-800/30
+                        }}
+                      />
+                      {/* Gradient overlay for better visual appeal */}
+                      {map.backgroundColor && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
+                      )}
+                      {/* Content */}
+                      <div className="text-center text-slate-500 relative z-10">
+                        <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Empty mindmap</p>
+                        <p className="text-xs opacity-75">Click to start editing</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50 pointer-events-none"></div>
+                </a>
               </div>
             </div>
           ))}

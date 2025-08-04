@@ -3544,7 +3544,7 @@ export default function MindMap() {
             );
           }
         } else if (action.type === "change_background_color" && action.previousState && 'backgroundColor' in action.previousState) {
-          setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#0c1321')
+          setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#11192C')
         } else if (action.type === "change_dot_color" && action.previousState && 'dotColor' in action.previousState) {
           setDotColor(action.previousState.dotColor || dotColor || '#81818a')
         } else if (action.type === "drawing_change" && action.previousState && 'drawingData' in action.previousState) {
@@ -3852,7 +3852,7 @@ export default function MindMap() {
           );
           break
         case "change_background_color":
-          setBackgroundColor(nextAction.data.backgroundColor || backgroundColor || '#0c1321')
+          setBackgroundColor(nextAction.data.backgroundColor || backgroundColor || '#11192C')
           break
         case "change_dot_color":
           setDotColor(nextAction.data.dotColor || dotColor || '#81818a')
@@ -5260,7 +5260,7 @@ export default function MindMap() {
           className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
           style={{
             zIndex: 1,
-            backgroundColor: backgroundColor || '#0c1321',
+            backgroundColor: backgroundColor || '#11192C',
             pointerEvents: isPenModeActive ? 'none' : 'auto'
           }}
         ><ReactFlowProvider>

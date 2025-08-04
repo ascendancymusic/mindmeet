@@ -111,7 +111,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       nodes: map.json_data.nodes,
       edges: map.json_data.edges,
       edgeType: map.json_data.edgeType || 'default',
-      backgroundColor: map.json_data.backgroundColor || '#0c1321',
+      backgroundColor: map.json_data.backgroundColor || '#11192C',
       dotColor: map.json_data.dotColor || '#81818a',
       createdAt: new Date(map.created_at).getTime(),
       updatedAt: new Date(map.updated_at).getTime(),
@@ -178,7 +178,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         nodes: map.json_data.nodes,
         edges: map.json_data.edges,
         edgeType: map.json_data.edgeType || 'default',
-        backgroundColor: map.json_data.backgroundColor || '#0c1321',
+        backgroundColor: map.json_data.backgroundColor || '#11192C',
         dotColor: map.json_data.dotColor || '#81818a',
         createdAt: new Date(map.created_at).getTime(),
         updatedAt: new Date(map.updated_at).getTime(),
@@ -204,7 +204,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { id, title, nodes, edges, edgeType = 'default', backgroundColor = '#0c1321', dotColor = '#81818a', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at } = map;
+    const { id, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -499,7 +499,7 @@ updateMap: async (id, nodes, edges, title, userId, customization = { edgeType: '
   }
 
   // Extract customization data with defaults
-  const { edgeType = 'default', backgroundColor = '#0c1321', dotColor = '#81818a' } = customization;
+  const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a' } = customization;
 
   // Fetch the mindmap to get the 'key', allowing access for creator or collaborators
   const { data: mindmaps, error: fetchError } = await supabase

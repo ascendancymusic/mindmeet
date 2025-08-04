@@ -27,14 +27,14 @@ export default function MindMapCustomization({
 }: MindMapCustomizationProps) {
   // Track original values - these will be updated when modal opens
   const [originalEdgeType, setOriginalEdgeType] = useState(edgeType)
-  const [originalBackgroundColor, setOriginalBackgroundColor] = useState(backgroundColor || "#0c1321")
+  const [originalBackgroundColor, setOriginalBackgroundColor] = useState(backgroundColor || "#11192C")
   const [originalDotColor, setOriginalDotColor] = useState(dotColor || "#81818a")
   
   // Track pending changes
   const [pendingEdgeType, setPendingEdgeType] = useState(edgeType)
   const [showBackgroundColorPicker, setShowBackgroundColorPicker] = useState(false)
   const [showDotColorPicker, setShowDotColorPicker] = useState(false)
-  const [tempBackgroundColor, setTempBackgroundColor] = useState(backgroundColor || "#0c1321")
+  const [tempBackgroundColor, setTempBackgroundColor] = useState(backgroundColor || "#11192C")
   const [tempDotColor, setTempDotColor] = useState(dotColor || "#81818a")
   
   // Track if user has made explicit changes (like clicking "Default")
@@ -50,12 +50,12 @@ export default function MindMapCustomization({
     if (isOpen) {
       // Update original values to current props when modal opens
       setOriginalEdgeType(edgeType)
-      setOriginalBackgroundColor(backgroundColor || "#0c1321")
+      setOriginalBackgroundColor(backgroundColor || "#11192C")
       setOriginalDotColor(dotColor || "#81818a")
       
       // Update temp values
       setPendingEdgeType(edgeType)
-      setTempBackgroundColor(backgroundColor || "#0c1321")
+      setTempBackgroundColor(backgroundColor || "#11192C")
       setTempDotColor(dotColor || "#81818a")
       
       // Reset change tracking when modal opens
@@ -129,7 +129,7 @@ export default function MindMapCustomization({
   }
 
   const handleBackgroundColorCancel = () => {
-    setTempBackgroundColor(backgroundColor || "#0c1321")
+    setTempBackgroundColor(backgroundColor || "#11192C")
     setShowBackgroundColorPicker(false)
   }
 
@@ -154,7 +154,7 @@ export default function MindMapCustomization({
   }
 
   const handleBackgroundColorDefault = () => {
-    setTempBackgroundColor("#0c1321")
+    setTempBackgroundColor("#11192C")
     setHasBackgroundColorChanged(true)
   }
 
@@ -355,7 +355,7 @@ export default function MindMapCustomization({
                             onChange={handleBackgroundHexChange}
                             onBlur={handleBackgroundHexBlur}
                             className="w-full bg-transparent text-white font-mono text-sm uppercase tracking-wider focus:outline-none"
-                            placeholder="#0c1321"
+                            placeholder="#11192C"
                           />
                         </div>
                         <div className="flex gap-2">
