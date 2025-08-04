@@ -1,6 +1,6 @@
 const defaultNodeStyles = {
   input: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "4px solid transparent",
     borderRadius: "8px",
@@ -14,7 +14,7 @@ const defaultNodeStyles = {
     backgroundClip: "border-box",
   },
   default: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -28,7 +28,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   link: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -42,7 +42,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   "youtube-video": {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -56,7 +56,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   mindmap: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -70,7 +70,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   spotify: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -84,7 +84,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   soundcloud: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -99,7 +99,7 @@ const defaultNodeStyles = {
   },
 
   instagram: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -113,7 +113,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   twitter: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -127,7 +127,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   tiktok: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -141,7 +141,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   youtube: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -155,7 +155,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   facebook: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -169,7 +169,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   mindmeet: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -183,7 +183,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   image: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -197,7 +197,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   audio: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",
@@ -211,7 +211,7 @@ const defaultNodeStyles = {
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
   },
   playlist: {
-    background: "#1f2937",
+    background: "#4c5b6f",
     color: "#fff",
     border: "2px solid #374151",
     borderRadius: "16px",

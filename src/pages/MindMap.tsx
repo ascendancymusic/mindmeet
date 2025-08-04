@@ -211,7 +211,7 @@ export default function MindMap() {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
-  const [selectedColor, setSelectedColor] = useState<string>("#1f2937")
+  const [selectedColor, setSelectedColor] = useState<string>("#4c5b6f")
   const [previewColor, setPreviewColor] = useState<string | null>(null)
   const colorPickerRef = useRef<HTMLDivElement>(null)
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
@@ -1473,7 +1473,7 @@ export default function MindMap() {
           // Update color picker
           const selectedNode = nodes.find((node) => node.id === nodeId);
           if (selectedNode) {
-            setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#1f2937"));
+            setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#4c5b6f"));
           }
         }
         // If all nodes are being deselected, clear our selection
@@ -1844,7 +1844,7 @@ export default function MindMap() {
         const targetNode = nodes.find(node => node.id === params.target);
 
         if (sourceNode && targetNode) {
-          const sourceColor = (sourceNode as any).background || sourceNode.style?.background || "#1f2937";
+          const sourceColor = (sourceNode as any).background || sourceNode.style?.background || "#4c5b6f";
 
           // Update the target node's color
           setNodes((nds) =>
@@ -3214,7 +3214,7 @@ export default function MindMap() {
       setVisuallySelectedNodeId(nodeId)
       const selectedNode = nodes.find((node) => node.id === nodeId)
       if (selectedNode) {
-        setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#1f2937"))
+        setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#4c5b6f"))
       }
     },
     [nodes, isAddingToPlaylist, activePlaylistNodeId, handleAddTrackToPlaylist],
@@ -3521,7 +3521,7 @@ export default function MindMap() {
           if (selectedNodeId && action.previousState?.nodes) {
             const previousNode = action.previousState.nodes.find((n) => n.id === selectedNodeId)
             if (previousNode) {
-              setSelectedColor(String((previousNode as any).background || previousNode.style?.background || "#1f2937"))
+              setSelectedColor(String((previousNode as any).background || previousNode.style?.background || "#4c5b6f"))
             }
           }
         } else if (action.type === "update_title" && action.previousState && 'title' in action.previousState) {
@@ -3973,20 +3973,18 @@ export default function MindMap() {
       );
 
       if (event.ctrlKey && event.key === "z") {
-        // Don't prevent undo in input fields (let browser handle it)
-        if (!isInputField) {
-          event.preventDefault()
-          if (canUndo) {
-            undo()
-          }
+        // Always handle mindmap undo, regardless of focus
+        event.preventDefault()
+        if (canUndo) {
+          undo()
         }
+        // Note: We prevent default to ensure mindmap undo takes precedence
+        // Input field text undo is less important than mindmap history undo
       } else if (event.ctrlKey && event.key === "y") {
-        // Don't prevent redo in input fields (let browser handle it)
-        if (!isInputField) {
-          event.preventDefault()
-          if (canRedo) {
-            redo()
-          }
+        // Always handle mindmap redo, regardless of focus
+        event.preventDefault()
+        if (canRedo) {
+          redo()
         }
       } else if (event.ctrlKey && event.key === "s") {
         event.preventDefault()
@@ -4479,8 +4477,8 @@ export default function MindMap() {
     const parentEdge = edges.find(edge => edge.target === nodeId);
     const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
     const defaultColor = parentNode
-      ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-      : "#1f2937";
+      ? ((parentNode as any).background || parentNode.style?.background || "#4c5b6f")
+      : "#4c5b6f";
     handleColorChange(nodeId, defaultColor)
 
     const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : []
@@ -4515,7 +4513,7 @@ export default function MindMap() {
     const selectedNode = nodes.find((node) => node.id === nodeId)
     if (selectedNode) {
       // Reset color picker to the node's current color
-      setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#1f2937"))
+      setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#4c5b6f"))
     }
 
     setPreviewColor(null)
@@ -4524,10 +4522,29 @@ export default function MindMap() {
 
   useEffect(() => {
     if (selectedNodeId) {
-      const inputElement = document.querySelector(`input[data-node-id="${selectedNodeId}"]`) as HTMLInputElement
-      if (inputElement) {
-        inputElement.focus()
+      // Enhanced function to attempt focusing with more robust retry logic
+      const attemptFocus = (retries = 10, delay = 50) => {
+        // Look for both input and textarea elements with the node ID
+        const inputElement = document.querySelector(`input[data-node-id="${selectedNodeId}"]`) as HTMLInputElement
+        const textareaElement = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement
+        const elementToFocus = inputElement || textareaElement
+        
+        if (elementToFocus) {
+          // Ensure the element is visible and can be focused
+          if (elementToFocus.offsetParent !== null) {
+            elementToFocus.focus()
+            return
+          }
+        }
+        
+        if (retries > 0) {
+          // Increase delay slightly for each retry to give more time for DOM updates
+          setTimeout(() => attemptFocus(retries - 1, Math.min(delay * 1.2, 200)), delay)
+        }
       }
+
+      // Start with a small delay to allow DOM updates
+      setTimeout(() => attemptFocus(), 10)
     }
   }, [selectedNodeId])
 
@@ -6320,8 +6337,8 @@ export default function MindMap() {
                                   const parentEdge = edges.find(edge => edge.target === selectedNodeId);
                                   const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
                                   return parentNode
-                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-                                    : "#1f2937";
+                                    ? ((parentNode as any).background || parentNode.style?.background || "#4c5b6f")
+                                    : "#4c5b6f";
                                 })()
                               }}
                             ></div>
@@ -6400,8 +6417,8 @@ export default function MindMap() {
                                   const parentEdge = edges.find(edge => edge.target === selectedNodeId);
                                   const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
                                   return parentNode
-                                    ? ((parentNode as any).background || parentNode.style?.background || "#1f2937")
-                                    : "#1f2937";
+                                    ? ((parentNode as any).background || parentNode.style?.background || "#4c5b6f")
+                                    : "#4c5b6f";
                                 })()
                               }}
                             ></div>

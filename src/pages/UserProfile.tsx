@@ -64,12 +64,24 @@ import ShareModal from "../components/ShareModal"
 import InfoModal from "../components/InfoModal"
 import { usePageTitle } from "../hooks/usePageTitle"
 
-const CustomBackground = () => {
+const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
+  const bgColor = backgroundColor || '#11192C';
+
   return (
-    <div
-      className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-slate-900/60 rounded-lg backdrop-blur-sm"
-      style={{ zIndex: -1 }}
-    />
+    <>
+      {/* Base background color */}
+      <div
+        className="absolute inset-0 rounded-lg"
+        style={{ backgroundColor: bgColor, zIndex: -2 }}
+      />
+      {/* Subtle gradient overlay for better visual appeal */}
+      {backgroundColor && (
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
+          style={{ zIndex: -1 }}
+        />
+      )}
+    </>
   )
 }
 
@@ -836,7 +848,7 @@ const UserProfile: React.FC = () => {
                   {publicMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       {/* Enhanced Map Header */}
@@ -947,7 +959,7 @@ const UserProfile: React.FC = () => {
                             maxZoom={2}
                             proOptions={{ hideAttribution: true }}
                           >
-                            <CustomBackground />
+                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
                           </ReactFlow>
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
@@ -1019,7 +1031,7 @@ const UserProfile: React.FC = () => {
                   {collaborationMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-3">
@@ -1138,7 +1150,7 @@ const UserProfile: React.FC = () => {
                             maxZoom={2}
                             proOptions={{ hideAttribution: true }}
                           >
-                            <CustomBackground />
+                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
                           </ReactFlow>
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
@@ -1210,7 +1222,7 @@ const UserProfile: React.FC = () => {
                   {savedMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-4">
@@ -1329,7 +1341,7 @@ const UserProfile: React.FC = () => {
                             maxZoom={2}
                             proOptions={{ hideAttribution: true }}
                           >
-                            <CustomBackground />
+                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
                           </ReactFlow>
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>                        </a>
                       )}
