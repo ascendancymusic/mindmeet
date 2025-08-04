@@ -1,8 +1,8 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "../supabaseClient"
-import { useAuthStore } from "../store/authStore" 
-import { usePageTitle } from '../hooks/usePageTitle' 
+import { useAuthStore } from "../store/authStore"
+import { usePageTitle } from '../hooks/usePageTitle'
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
 import { processNodesForTextRendering } from "../utils/textNodeUtils"
 import { formatDateWithPreference } from "../utils/dateUtils"
@@ -72,12 +72,24 @@ import ShareModal from '../components/ShareModal'
 import InfoModal from '../components/InfoModal'
 import PublishSuccessModal from '../components/PublishSuccessModal'
 
-const CustomBackground = () => {
+const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
+  const bgColor = backgroundColor || '#11192C';
+
   return (
-    <div
-      className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-slate-900/60 rounded-lg backdrop-blur-sm"
-      style={{ zIndex: -1 }}
-    />
+    <>
+      {/* Base background color */}
+      <div
+        className="absolute inset-0 rounded-lg"
+        style={{ backgroundColor: bgColor, zIndex: -2 }}
+      />
+      {/* Subtle gradient overlay for better visual appeal */}
+      {backgroundColor && (
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
+          style={{ zIndex: -1 }}
+        />
+      )}
+    </>
   )
 }
 
@@ -87,7 +99,7 @@ const SkeletonLoader = () => {
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -114,34 +126,34 @@ const SkeletonLoader = () => {
               <div className="w-9 h-9 bg-slate-700/50 rounded-lg"></div>
             </div>
           </div>
-          
+
           {/* Timestamp skeleton */}
           <div className="flex items-center gap-2 mb-3">
             <div className="w-4 h-4 bg-slate-700/50 rounded"></div>
             <div className="h-4 bg-slate-700/50 rounded w-32"></div>
           </div>
-          
+
           {/* Stats skeleton */}
           <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
-          
+
           {/* Preview skeleton */}
           <div className="h-56 compact-preview bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
             {/* Animated shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            
+
             {/* Fake nodes */}
             <div className="absolute top-4 left-4 w-16 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute top-12 right-8 w-20 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute bottom-8 left-8 w-18 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute bottom-4 right-4 w-14 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-10 bg-slate-700/60 rounded"></div>
-            
+
             {/* Fake connections */}
             <div className="absolute top-8 left-20 w-16 h-0.5 bg-slate-600/50 transform rotate-12"></div>
             <div className="absolute top-16 right-24 w-20 h-0.5 bg-slate-600/50 transform -rotate-45"></div>
             <div className="absolute bottom-12 left-24 w-12 h-0.5 bg-slate-600/50 transform rotate-45"></div>
           </div>
-          
+
           {/* Action buttons skeleton */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-700/30 mt-4">
             <div className="flex items-center space-x-4">
@@ -197,17 +209,17 @@ export default function Profile() {
   // Add mindmap actions hook with enhanced save handling for saves tab
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
     onLikeUpdate: (mapId, newLikes, newLikedBy) => {
-      const updatedMaps = userMaps.map((map) => 
+      const updatedMaps = userMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setUserMaps(updatedMaps);
     },
     onSaveUpdate: (mapId, newSaves, newSavedBy) => {
-      const updatedMaps = userMaps.map((map) => 
+      const updatedMaps = userMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       setUserMaps(updatedMaps);
-      
+
       // Also update savedMaps when saving/unsaving from mindmaps tab
       const mapToUpdate = userMaps.find(map => map.key === mapId || map.id === mapId);
       if (mapToUpdate && user?.id) {
@@ -228,7 +240,7 @@ export default function Profile() {
               };
               updatedSavedMaps = [...prevSavedMaps, mapWithCreatorInfo];
             } else {
-              updatedSavedMaps = prevSavedMaps.map(savedMap => 
+              updatedSavedMaps = prevSavedMaps.map(savedMap =>
                 savedMap.key === mapToUpdate.key ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
               );
             }
@@ -249,17 +261,17 @@ export default function Profile() {
   // Add separate handlers for collaboration maps with notifications enabled
   const { handleLike: collabHandleLike, handleSave: collabHandleSave } = useMindMapActions({
     onLikeUpdate: (mapId, newLikes, newLikedBy) => {
-      const updatedCollabMaps = collaborationMaps.map((map) => 
+      const updatedCollabMaps = collaborationMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setCollaborationMaps(updatedCollabMaps);
     },
     onSaveUpdate: (mapId, newSaves, newSavedBy) => {
-      const updatedCollabMaps = collaborationMaps.map((map) => 
+      const updatedCollabMaps = collaborationMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       setCollaborationMaps(updatedCollabMaps);
-      
+
       // Also update savedMaps when saving/unsaving from collaborations tab
       const mapToUpdate = collaborationMaps.find(map => map.key === mapId || map.id === mapId);
       if (mapToUpdate && user?.id) {
@@ -270,7 +282,7 @@ export default function Profile() {
             if (!exists) {
               return [...prevSavedMaps, { ...mapToUpdate, saves: newSaves, saved_by: newSavedBy }];
             } else {
-              return prevSavedMaps.map(savedMap => 
+              return prevSavedMaps.map(savedMap =>
                 savedMap.key === mapToUpdate.key ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
               );
             }
@@ -289,7 +301,7 @@ export default function Profile() {
   // Add handlers for saved maps with notifications enabled
   const { handleLike: savedHandleLike, handleSave: savedHandleSave } = useMindMapActions({
     onLikeUpdate: (mapId, newLikes, newLikedBy) => {
-      const updatedSavedMaps = savedMaps.map((map) => 
+      const updatedSavedMaps = savedMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setSavedMaps(updatedSavedMaps);
@@ -302,22 +314,22 @@ export default function Profile() {
           return prevMaps.filter(map => map.key !== mapId && map.id !== mapId);
         } else {
           // Map was saved or liked count changed - update it
-          return prevMaps.map((map) => 
+          return prevMaps.map((map) =>
             map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
           );
         }
       });
-      
+
       // Also update userMaps if this map belongs to the user
-      const updatedUserMaps = userMaps.map((map) => 
+      const updatedUserMaps = userMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       if (updatedUserMaps !== userMaps) {
         setUserMaps(updatedUserMaps);
       }
-      
+
       // Also update collaborationMaps if this map is in collaborations
-      const updatedCollabMaps = collaborationMaps.map((map) => 
+      const updatedCollabMaps = collaborationMaps.map((map) =>
         map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       if (updatedCollabMaps !== collaborationMaps) {
@@ -364,7 +376,7 @@ export default function Profile() {
 
   // Share modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [shareMapData, setShareMapData] = useState<{id: string, title: string, is_main: boolean, creatorUsername: string} | null>(null);
+  const [shareMapData, setShareMapData] = useState<{ id: string, title: string, is_main: boolean, creatorUsername: string } | null>(null);
 
   // Info modal state
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -545,7 +557,7 @@ export default function Profile() {
           if (profilesError) {
             console.error("Error fetching creator profiles:", profilesError)
           }
-          
+
           const creatorAvatars = new Map()
           const creatorUsernames = new Map()
           const creatorFullNames = new Map()
@@ -610,7 +622,7 @@ export default function Profile() {
             if (savedProfilesError) {
               console.error("Error fetching saved map creator profiles:", savedProfilesError)
             }
-            
+
             const creatorAvatars = new Map()
             const creatorUsernames = new Map()
             const creatorFullNames = new Map()
@@ -679,13 +691,13 @@ export default function Profile() {
 
     // Check if username is reserved
     const reservedUsernames = [
-      'admin', 'root', 'user', 'guest', 'support', 
-      'test', 'moderator', 'superuser', 'administrator', 
-      'info', 'contact', 'help', 'service', 'feedback', 
+      'admin', 'root', 'user', 'guest', 'support',
+      'test', 'moderator', 'superuser', 'administrator',
+      'info', 'contact', 'help', 'service', 'feedback',
       'abuse', 'signup', 'settings', 'profile', 'chat',
       'mindmap', 'login', 'reset-password'
     ];
-    
+
     if (reservedUsernames.includes(username.toLowerCase())) {
       setUsernameStatus("unavailable")
       return
@@ -784,14 +796,14 @@ export default function Profile() {
     try {
       // Check if username has actually changed
       const usernameChanged = profile?.username !== editProfileData.username;
-      
+
       // Prepare update data
       const updateData: any = {
         username: editProfileData.username,
         full_name: editProfileData.full_name,
         description: editProfileData.description,
       };
-      
+
       // Only update username_updated_at if the username has actually changed
       if (usernameChanged) {
         updateData.username_updated_at = new Date().toISOString();
@@ -1093,9 +1105,9 @@ export default function Profile() {
 
           // If this is a publish/republish action, notify followers
           // Only send notifications if published_at was just set (not if it already existed)
-          const wasJustPublished = details.published_at && 
-                                 details.visibility === "public" && 
-                                 details.published_at !== currentMap.published_at;
+          const wasJustPublished = details.published_at &&
+            details.visibility === "public" &&
+            details.published_at !== currentMap.published_at;
           if (wasJustPublished && currentMap.key && user?.username) {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
@@ -1224,7 +1236,7 @@ export default function Profile() {
             <div className="flex gap-4 items-start">
               {/* Skeleton Avatar */}
               <div className="w-20 h-20 rounded-2xl bg-slate-700/50 animate-pulse"></div>
-              
+
               {/* Skeleton User Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between mb-3">
@@ -1234,19 +1246,19 @@ export default function Profile() {
                   </div>
                   <div className="h-9 w-20 bg-slate-700/50 rounded-xl animate-pulse"></div>
                 </div>
-                
+
                 {/* Skeleton Bio */}
                 <div className="mb-3 space-y-2">
                   <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse"></div>
                   <div className="h-4 w-3/4 bg-slate-700/50 rounded animate-pulse"></div>
                 </div>
-                
+
                 {/* Skeleton Meta */}
                 <div className="h-4 w-32 bg-slate-700/50 rounded animate-pulse"></div>
               </div>
             </div>
-               {/* Skeleton Stats */}
-          <div className="mt-6 compact-margin grid grid-cols-3 gap-4 compact-gap-sm border-t border-slate-700/50 pt-4 compact-padding">
+            {/* Skeleton Stats */}
+            <div className="mt-6 compact-margin grid grid-cols-3 gap-4 compact-gap-sm border-t border-slate-700/50 pt-4 compact-padding">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="text-center p-2">
                   <div className="h-6 w-8 bg-slate-700/50 rounded mx-auto mb-2 animate-pulse"></div>
@@ -1255,7 +1267,7 @@ export default function Profile() {
               ))}
             </div>
           </div>
-          
+
           {/* Skeleton Navigation Tabs */}
           <div className="mt-8">
             <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-xl overflow-hidden">
@@ -1269,7 +1281,7 @@ export default function Profile() {
               </div>
             </div>
           </div>
-          
+
           {/* Skeleton Content */}
           <div className="mt-8">
             <SkeletonLoader />
@@ -1414,11 +1426,10 @@ export default function Profile() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 transition-all duration-300 relative group ${
-                    activeTab === tab.key
-                      ? "text-blue-400 bg-slate-700/50"
-                      : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
-                  } ${index === 0 ? "rounded-l-2xl" : ""} ${index === 2 ? "rounded-r-2xl" : ""}`}
+                  className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 transition-all duration-300 relative group ${activeTab === tab.key
+                    ? "text-blue-400 bg-slate-700/50"
+                    : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
+                    } ${index === 0 ? "rounded-l-2xl" : ""} ${index === 2 ? "rounded-r-2xl" : ""}`}
                 >
                   <tab.icon
                     className={`w-5 h-5 transition-all duration-300 ${activeTab === tab.key ? "scale-110" : "group-hover:scale-105"}`}
@@ -1426,9 +1437,8 @@ export default function Profile() {
                   <span className="font-medium hidden sm:inline">{tab.label}</span>
                   {tab.count > 0 && (
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${
-                        activeTab === tab.key ? "bg-blue-500/20 text-blue-300" : "bg-slate-600/50 text-slate-300"
-                      }`}
+                      className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${activeTab === tab.key ? "bg-blue-500/20 text-blue-300" : "bg-slate-600/50 text-slate-300"
+                        }`}
                     >
                       {tab.count}
                     </span>
@@ -1452,7 +1462,7 @@ export default function Profile() {
                   {publicMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       {/* Enhanced Map Header */}
@@ -1546,11 +1556,11 @@ export default function Profile() {
                       </div>
 
                       {/* Enhanced Mind Map Preview */}
-                      {map.nodes?.length > 0 && (
-                        <a
-                          href={`/${map.creatorUsername}/${map.id}`}
-                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
-                        >
+                      <a
+                        href={`/${map.creatorUsername}/${map.id}`}
+                        className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                      >
+                        {map.nodes?.length > 0 ? (
                           <ReactFlow
                             nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                             edges={map.edges.map((edge: any) => {
@@ -1586,11 +1596,31 @@ export default function Profile() {
                             maxZoom={2}
                             proOptions={{ hideAttribution: true }}
                           >
-                            <CustomBackground />
+                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
                           </ReactFlow>
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
-                        </a>
-                      )}
+                        ) : (
+                          <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
+                            {/* Base background */}
+                            <div
+                              className="absolute inset-0"
+                              style={{
+                                backgroundColor: map.json_data?.backgroundColor || '#11192C'
+                              }}
+                            />
+                            {/* Gradient overlay for better visual appeal */}
+                            {map.json_data?.backgroundColor && (
+                              <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
+                            )}
+                            {/* Content */}
+                            <div className="text-center text-slate-500 relative z-10">
+                              <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">Empty mindmap</p>
+                              <p className="text-xs opacity-75">Click to start editing</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50 pointer-events-none"></div>
+                      </a>
 
                       {/* Enhanced Action Bar */}
                       <div className="flex items-center justify-between">
@@ -1600,9 +1630,8 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                                }`}
                             />
                             {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
                           </button>
@@ -1622,9 +1651,8 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
+                                }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
                           </button>
@@ -1661,12 +1689,12 @@ export default function Profile() {
                   {collaborationMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div 
+                          <div
                             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1689,7 +1717,7 @@ export default function Profile() {
                             <h3 className="text-lg font-bold text-white truncate">
                               {map.title}
                             </h3>
-                            <p 
+                            <p
                               className="text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1781,7 +1809,7 @@ export default function Profile() {
                             maxZoom={2}
                             proOptions={{ hideAttribution: true }}
                           >
-                            <CustomBackground />
+                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
                           </ReactFlow>
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
@@ -1794,9 +1822,8 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                                }`}
                             />
                             {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
                           </button>
@@ -1816,9 +1843,8 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
+                                }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
                           </button>
@@ -1855,12 +1881,12 @@ export default function Profile() {
                   {savedMaps.map((map, index) => (
                     <div
                       key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div 
+                          <div
                             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1883,7 +1909,7 @@ export default function Profile() {
                             <h3 className="text-lg font-bold text-white truncate">
                               {map.title}
                             </h3>
-                            <p 
+                            <p
                               className="text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1975,7 +2001,7 @@ export default function Profile() {
                             maxZoom={2}
                             proOptions={{ hideAttribution: true }}
                           >
-                            <CustomBackground />
+                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
                           </ReactFlow>
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
@@ -1988,9 +2014,8 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                                }`}
                             />
                             {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
                           </button>
@@ -2010,9 +2035,8 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
+                                }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
                           </button>
@@ -2055,15 +2079,14 @@ export default function Profile() {
                       type="text"
                       value={editProfileData.username}
                       onChange={handleUsernameChange}
-                      className={`w-full px-4 py-3 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 pr-12 transition-all duration-200 ${
-                        usernameStatus.startsWith("wait_")
-                          ? "bg-slate-800/50 border-slate-600 text-slate-500 cursor-not-allowed"
-                          : usernameStatus === "available"
+                      className={`w-full px-4 py-3 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 pr-12 transition-all duration-200 ${usernameStatus.startsWith("wait_")
+                        ? "bg-slate-800/50 border-slate-600 text-slate-500 cursor-not-allowed"
+                        : usernameStatus === "available"
                           ? "bg-slate-800/50 border-green-500/50 focus:ring-green-500/30 focus:border-green-500"
                           : usernameStatus === "taken" || usernameStatus === "invalid"
-                          ? "bg-slate-800/50 border-red-500/50 focus:ring-red-500/30 focus:border-red-500"
-                          : "bg-slate-800/50 border-slate-600/50 focus:ring-blue-500/30 focus:border-blue-500"
-                      }`}
+                            ? "bg-slate-800/50 border-red-500/50 focus:ring-red-500/30 focus:border-red-500"
+                            : "bg-slate-800/50 border-slate-600/50 focus:ring-blue-500/30 focus:border-blue-500"
+                        }`}
                       maxLength={20}
                       placeholder="username (letters, numbers, underscore only)"
                       disabled={usernameStatus.startsWith("wait_")}
@@ -2133,9 +2156,8 @@ export default function Profile() {
                 </button>
                 <button
                   onClick={handleUpdateProfile}
-                  className={`px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 ${
-                    usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty" ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                  className={`px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 ${usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty" ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   disabled={usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty"}
                 >
                   Save Changes
