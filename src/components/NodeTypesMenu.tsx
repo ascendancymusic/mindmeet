@@ -23,6 +23,8 @@ import {
   ListMusic,
   Grid3X3,
   Palette,
+  Edit3,
+  MousePointer,
 } from "lucide-react"
 import { TikTokIcon } from "./icons/TikTokIcon"
 import { SpotifyIcon } from "./icons/SpotifyIcon"
@@ -190,6 +192,7 @@ export function NodeTypesMenu({
   const [activeTooltip, setActiveTooltip] = useState<{ content: React.ReactNode; element: HTMLElement } | null>(null)
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true)
   const [isCompactMode, setIsCompactMode] = useState(window.innerHeight < 1090)
+  const [isPenMode, setIsPenMode] = useState(false)
 
   // Load tooltip setting from localStorage
   useEffect(() => {
@@ -307,7 +310,7 @@ export function NodeTypesMenu({
         <div className="relative">
           <button
             onClick={() => setIsMusicDropdownOpen((prev) => !prev)}
-            onMouseEnter={(e) => showTooltip("Add Music", e.currentTarget)}
+            onMouseEnter={(e) => showTooltip("Music", e.currentTarget)}
             onMouseLeave={hideTooltip}
             className={`${isCompactMode ? 'w-8 h-8' : 'w-9 h-10'} flex items-center justify-center text-white rounded-lg shadow-md transition-all duration-300 ${isMusicDropdownOpen ? "ring-2 ring-slate-500/50" : ""
               } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
@@ -481,6 +484,21 @@ export function NodeTypesMenu({
             }`}
         >
           <Palette className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
+        </button>
+        <button
+          onClick={() => setIsPenMode(!isPenMode)}
+          onMouseEnter={(e) => showTooltip(isPenMode ? "Switch to Cursor Mode" : "Switch to Pen Mode", e.currentTarget)}
+          onMouseLeave={hideTooltip}
+          className={`${isCompactMode ? 'mt-1 w-8 h-8' : 'mt-2 w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${isPenMode
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-slate-700/50 text-white hover:bg-slate-600/50"
+            }`}
+        >
+          {isPenMode ? (
+            <Edit3 className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          ) : (
+            <MousePointer className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          )}
         </button>
       </div>
       <button

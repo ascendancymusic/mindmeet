@@ -474,6 +474,23 @@ export default function MindMap() {
     }
   }, [searchResults, searchTerm, navigateToSearchResult, nodes]);
 
+  // Function to ensure all edges have valid IDs
+  const validateAndFixEdgeIds = useCallback((edges: Edge[]): Edge[] => {
+    return edges.map((edge, index) => {
+      // Check if edge has a valid ID
+      if (!edge.id || edge.id.trim() === '' || edge.id === '011' || /^\d+$/.test(edge.id)) {
+        // Generate a new valid ID
+        const newId = `edge-${edge.source}-${edge.target}-${Date.now()}-${index}`;
+        console.warn(`Fixed invalid edge ID '${edge.id}' to '${newId}'`);
+        return {
+          ...edge,
+          id: newId
+        };
+      }
+      return edge;
+    });
+  }, []);
+
   // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
     default: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
@@ -691,11 +708,13 @@ export default function MindMap() {
       // The global maps store should be managed by fetchMaps for consistency
 
       setNodes(processedMap.nodes);
-      setEdges(processedMap.edges);
+      setEdges(validateAndFixEdgeIds(processedMap.edges));
       setEditedTitle(processedMap.title);
       setOriginalTitle(processedMap.title);
-      // Load edgeType from JSON data, default to 'default' if not present
-      setEdgeType((processedMap as any).edgeType || 'default');
+      // Load edgeType from JSON data, default to 'default' if not present or invalid
+      const loadedEdgeType = (processedMap as any).edgeType;
+      const validEdgeTypes = ['default', 'straight', 'smoothstep'];
+      setEdgeType(validEdgeTypes.includes(loadedEdgeType) ? loadedEdgeType : 'default');
       // Load color customization from JSON data, don't set defaults to prevent flash
       if ((processedMap as any).backgroundColor) {
         setBackgroundColor((processedMap as any).backgroundColor);
@@ -722,11 +741,13 @@ export default function MindMap() {
 
     if (currentMap) {
       setNodes(currentMap.nodes);
-      setEdges(currentMap.edges);
+      setEdges(validateAndFixEdgeIds(currentMap.edges));
       setEditedTitle(currentMap.title);
       setOriginalTitle(currentMap.title);
-      // Load edgeType from JSON data, default to 'default' if not present
-      setEdgeType((currentMap as any).edgeType || 'default');
+      // Load edgeType from JSON data, default to 'default' if not present or invalid
+      const loadedEdgeType = (currentMap as any).edgeType;
+      const validEdgeTypes = ['default', 'straight', 'smoothstep'];
+      setEdgeType(validEdgeTypes.includes(loadedEdgeType) ? loadedEdgeType : 'default');
       // Load color customization from JSON data when available
       if ((currentMap as any).backgroundColor) {
         setBackgroundColor((currentMap as any).backgroundColor);
@@ -1791,7 +1812,13 @@ export default function MindMap() {
       }
 
       setEdges((eds) => {
-        const newEdges = addEdge(params, eds)
+        // Create edge with explicit ID to avoid ReactFlow auto-generation issues
+        const edgeWithId = {
+          ...params,
+          id: `edge-${params.source}-${params.target}-${Date.now()}`,
+          type: edgeType
+        };
+        const newEdges = addEdge(edgeWithId, eds)
 
         // Broadcast new edge creation to collaborators
         if (currentMindMapId) {
@@ -2400,9 +2427,9 @@ export default function MindMap() {
             // Separate existing and new nodes for animation
             const existingNodes = generatedVersion.nodes.filter((node: any) => existingNodeIds.has(node.id));
             const newNodes = generatedVersion.nodes.filter((node: any) => !existingNodeIds.has(node.id));
-            const newEdges = generatedVersion.edges.filter((edge: any) =>
+            const newEdges = validateAndFixEdgeIds(generatedVersion.edges.filter((edge: any) =>
               !edges.some(existingEdge => existingEdge.id === edge.id)
-            );
+            ));
 
             console.log(`Starting live animation for ${newNodes.length} new nodes`);
             updateProgress('animating', `Animating ${newNodes.length} new nodes...`, 92, undefined, 0, newNodes.length);
@@ -2425,9 +2452,9 @@ export default function MindMap() {
             // Fallback: merge only new content with animation
             console.warn("AI didn't preserve all existing nodes, falling back to merge approach");
             const newNodes = generatedVersion.nodes.filter((node: any) => !existingNodeIds.has(node.id));
-            const newEdges = generatedVersion.edges.filter((edge: any) =>
+            const newEdges = validateAndFixEdgeIds(generatedVersion.edges.filter((edge: any) =>
               !edges.some(existingEdge => existingEdge.id === edge.id)
-            );
+            ));
 
             updateProgress('animating', `Animating ${newNodes.length} new nodes...`, 92, undefined, 0, newNodes.length);
 
@@ -3240,7 +3267,7 @@ export default function MindMap() {
 
     const deltaX = resizeStartX - e.clientX // Subtract because we're resizing from the left
     const minWidth = isSmallScreen ? 140 : 180 // Slightly smaller minimum for mobile
-    const maxWidth = Math.min(600, window.innerWidth * 0.4) // Max 40% of screen width or 600px
+    const maxWidth = Math.min(800, window.innerWidth * 0.4) // Max 40% of screen width or 800px
     const newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStartWidth + deltaX))
     setNodeEditorWidth(newWidth)
   }
@@ -4592,7 +4619,7 @@ export default function MindMap() {
         });
 
         setEdges(eds => {
-          const updatedEdges = [...eds, ...newEdges];
+          const updatedEdges = [...eds, ...validateAndFixEdgeIds(newEdges)];
 
           // Broadcast live edge creation to collaborators for pasted edges
           if (currentMindMapId && broadcastLiveChange) {
@@ -4799,7 +4826,7 @@ export default function MindMap() {
             });
 
             setEdges(eds => {
-              const updatedEdges = [...eds, ...newEdges];
+              const updatedEdges = [...eds, ...validateAndFixEdgeIds(newEdges)];
 
               // Broadcast live edge creation to collaborators for pasted edges
               if (currentMindMapId && broadcastLiveChange) {
@@ -4839,7 +4866,7 @@ export default function MindMap() {
             );
 
             setNodes(nds => [...nds, ...newNodes]);
-            setEdges(eds => [...eds, ...newEdges]);
+            setEdges(eds => [...eds, ...validateAndFixEdgeIds(newEdges)]);
 
             if (!isInitialLoad) setHasUnsavedChanges(true);
             setIsInitialLoad(false);
@@ -5079,27 +5106,22 @@ export default function MindMap() {
   return (
     <>
       {/* Custom styles for ReactFlow controls */}
-      <style jsx global>{`
+      <style>{`
         .react-flow__controls-custom .react-flow__controls-button {
-          background: transparent !important;
-          backdrop-filter: blur(12px) !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
-          border-radius: 6px !important;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-          color: rgba(255, 255, 255, 0.9) !important;
-          width: 18px !important;
-          height: 18px !important;
+          background: none !important;
+          border: none !important;
+          color: white !important;
+          width: 24px !important;
+          height: 24px !important;
           margin: 0.5px !important;
-          padding: 1px !important;
+          padding: 3px !important;
           transition: all 0.2s ease !important;
+          position: relative !important;
         }
         
         .react-flow__controls-custom .react-flow__controls-button:hover {
-          background: rgba(255, 255, 255, 0.08) !important;
-          border-color: rgba(255, 255, 255, 0.25) !important;
           color: white !important;
           transform: scale(1.05) !important;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
         }
         
         .react-flow__controls-custom .react-flow__controls-button:active {
@@ -5107,15 +5129,22 @@ export default function MindMap() {
         }
         
         .react-flow__controls-custom .react-flow__controls-button svg {
-          width: 12px !important;
-          height: 12px !important;
+          width: 18px !important;
+          height: 18px !important;
+          fill: white !important;
+          position: absolute !important;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
         }
         
         .react-flow__controls-custom .react-flow__controls-button:disabled {
-          background: transparent !important;
           color: rgba(255, 255, 255, 0.3) !important;
-          border-color: rgba(255, 255, 255, 0.08) !important;
           cursor: not-allowed !important;
+        }
+        
+        .react-flow__controls-custom .react-flow__controls-button:disabled svg {
+          fill: rgba(255, 255, 255, 0.3) !important;
         }
       `}</style>
 
@@ -5133,7 +5162,7 @@ export default function MindMap() {
             isAltPressed={isAltPressed}
             isCtrlPressed={isCtrlPressed}
             onDragStart={onDragStart}
-            maxHeight="600px"
+            maxHeight="800px"
             onUndo={undo}
             onRedo={redo}
             canUndo={canUndo}
