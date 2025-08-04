@@ -97,6 +97,7 @@ import EditDetailsModal from "../components/EditDetailsModal";
 import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
+import { DrawModal } from "../components/DrawModal";
 
 
 interface HistoryAction {
@@ -307,6 +308,10 @@ export default function MindMap() {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Drawing state
+  const [isPenModeActive, setIsPenModeActive] = useState(false);
+  const [showDrawModal, setShowDrawModal] = useState(false);
+
   // Context menu handlers
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, nodeId: string) => {
     event.preventDefault();
@@ -449,6 +454,21 @@ export default function MindMap() {
   useEffect(() => {
     performSearch(searchTerm);
   }, [searchTerm, performSearch]);
+
+  // Listen for pen mode changes from NodeTypesMenu
+  useEffect(() => {
+    const handlePenModeChange = (event: CustomEvent) => {
+      const { isPenMode } = event.detail;
+      setIsPenModeActive(isPenMode);
+      setShowDrawModal(isPenMode);
+    };
+
+    document.addEventListener('pen-mode-changed', handlePenModeChange as EventListener);
+    
+    return () => {
+      document.removeEventListener('pen-mode-changed', handlePenModeChange as EventListener);
+    };
+  }, []);
 
   // Navigate to first result when search results change and highlight as you type
   useEffect(() => {
@@ -6863,6 +6883,21 @@ export default function MindMap() {
             </div>
           </div>
         )}
+
+        {/* Draw Modal - Shows at bottom when pen mode is active */}
+        <DrawModal
+          isOpen={showDrawModal}
+          onClose={() => {
+            setShowDrawModal(false);
+            setIsPenModeActive(false);
+            
+            // Dispatch event to reset pen mode in NodeTypesMenu
+            const event = new CustomEvent('pen-mode-changed', {
+              detail: { isPenMode: false }
+            });
+            document.dispatchEvent(event);
+          }}
+        />
       </div>
     </>
   )

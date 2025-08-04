@@ -212,6 +212,20 @@ export function NodeTypesMenu({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Listen for pen mode changes from DrawModal
+  useEffect(() => {
+    const handlePenModeChange = (event: CustomEvent) => {
+      const { isPenMode } = event.detail;
+      setIsPenMode(isPenMode);
+    };
+
+    document.addEventListener('pen-mode-changed', handlePenModeChange as EventListener);
+
+    return () => {
+      document.removeEventListener('pen-mode-changed', handlePenModeChange as EventListener);
+    };
+  }, []);
+
   // Calculate effective states for visual feedback
   const effectiveSnapToGrid = snapToGrid && !isAltPressed
   const effectiveMoveWithChildren = moveWithChildren || (!moveWithChildren && isCtrlPressed)
@@ -486,7 +500,16 @@ export function NodeTypesMenu({
           <Palette className={`${isCompactMode ? 'w-4 h-4' : 'w-5 h-5'}`} />
         </button>
         <button
-          onClick={() => setIsPenMode(!isPenMode)}
+          onClick={() => {
+            const newPenMode = !isPenMode;
+            setIsPenMode(newPenMode);
+
+            // Dispatch custom event to notify MindMap component
+            const event = new CustomEvent('pen-mode-changed', {
+              detail: { isPenMode: newPenMode }
+            });
+            document.dispatchEvent(event);
+          }}
           onMouseEnter={(e) => showTooltip(isPenMode ? "Switch to Cursor Mode" : "Switch to Pen Mode", e.currentTarget)}
           onMouseLeave={hideTooltip}
           className={`${isCompactMode ? 'mt-1 w-8 h-8' : 'mt-2 w-9 h-10'} flex items-center justify-center rounded-lg shadow-lg transition-colors ${isPenMode
