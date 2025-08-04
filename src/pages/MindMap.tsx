@@ -98,10 +98,11 @@ import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
 import { DrawModal } from "../components/DrawModal";
+import { DrawingCanvas, DrawingData } from "../components/DrawingCanvas";
 
 
 interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color"
+  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change"
   data: {
     nodes?: Node[]
     edges?: Edge[]
@@ -121,6 +122,7 @@ interface HistoryAction {
     backgroundColor?: string
     dotColor?: string
     replacedEdgeId?: string
+    drawingData?: DrawingData
   }
   previousState?: {
     nodes: Node[]
@@ -129,6 +131,7 @@ interface HistoryAction {
     edgeType?: 'default' | 'straight' | 'smoothstep'
     backgroundColor?: string
     dotColor?: string
+    drawingData?: DrawingData
   }
 }
 
@@ -311,6 +314,10 @@ export default function MindMap() {
   // Drawing state
   const [isPenModeActive, setIsPenModeActive] = useState(false);
   const [showDrawModal, setShowDrawModal] = useState(false);
+  const [drawingColor, setDrawingColor] = useState('#ffffff');
+  const [drawingLineWidth, setDrawingLineWidth] = useState(3);
+  const [isEraserMode, setIsEraserMode] = useState(false);
+  const [drawingData, setDrawingData] = useState<DrawingData>({ strokes: [] });
 
   // Context menu handlers
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, nodeId: string) => {
@@ -463,10 +470,19 @@ export default function MindMap() {
       setShowDrawModal(isPenMode);
     };
 
+    const handleDrawingSettingsChange = (event: CustomEvent) => {
+      const { color, lineWidth, isEraserMode } = event.detail;
+      if (color !== undefined) setDrawingColor(color);
+      if (lineWidth !== undefined) setDrawingLineWidth(lineWidth);
+      if (isEraserMode !== undefined) setIsEraserMode(isEraserMode);
+    };
+
     document.addEventListener('pen-mode-changed', handlePenModeChange as EventListener);
-    
+    document.addEventListener('drawing-settings-changed', handleDrawingSettingsChange as EventListener);
+
     return () => {
       document.removeEventListener('pen-mode-changed', handlePenModeChange as EventListener);
+      document.removeEventListener('drawing-settings-changed', handleDrawingSettingsChange as EventListener);
     };
   }, []);
 
@@ -742,6 +758,10 @@ export default function MindMap() {
       if ((processedMap as any).dotColor) {
         setDotColor((processedMap as any).dotColor);
       }
+      // Load drawing data from JSON data
+      if ((processedMap as any).drawingData) {
+        setDrawingData((processedMap as any).drawingData);
+      }
       setIsInitialLoad(true);
       setHistory([]);
       setCurrentHistoryIndex(-1);
@@ -774,6 +794,10 @@ export default function MindMap() {
       }
       if ((currentMap as any).dotColor) {
         setDotColor((currentMap as any).dotColor);
+      }
+      // Load drawing data from cached data
+      if ((currentMap as any).drawingData) {
+        setDrawingData((currentMap as any).drawingData);
       }
       setIsInitialLoad(true);
       setHistory([]);
@@ -1159,6 +1183,29 @@ export default function MindMap() {
     },
     [dotColor, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
   );
+
+  // Handle drawing changes with history tracking
+  const handleDrawingChange = useCallback((newDrawingData: DrawingData) => {
+    const previousDrawingData = drawingData;
+
+    // Only create history if there's a meaningful change
+    if (JSON.stringify(previousDrawingData) !== JSON.stringify(newDrawingData)) {
+      const action = createHistoryAction(
+        "drawing_change",
+        { drawingData: newDrawingData },
+        nodes,
+        edges,
+        { drawingData: previousDrawingData }
+      );
+      addToHistory(action);
+
+      setDrawingData(newDrawingData);
+
+      if (!isInitialLoad) {
+        setHasUnsavedChanges(true);
+      }
+    }
+  }, [drawingData, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]);
 
   const onNodeDragStart = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -3204,7 +3251,8 @@ export default function MindMap() {
         await updateMap(id, nodes, edges, editedTitle, user?.id || '', {
           edgeType,
           backgroundColor: backgroundColor || undefined,
-          dotColor: dotColor || undefined
+          dotColor: dotColor || undefined,
+          drawingData: drawingData
         })
         setHasUnsavedChanges(false)
         setOriginalTitle(editedTitle)
@@ -3499,6 +3547,8 @@ export default function MindMap() {
           setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#0c1321')
         } else if (action.type === "change_dot_color" && action.previousState && 'dotColor' in action.previousState) {
           setDotColor(action.previousState.dotColor || dotColor || '#81818a')
+        } else if (action.type === "drawing_change" && action.previousState && 'drawingData' in action.previousState) {
+          setDrawingData(action.previousState.drawingData || { strokes: [] })
         } else if (action.previousState?.nodes) {
           setNodes(action.previousState.nodes)
         }
@@ -3806,6 +3856,11 @@ export default function MindMap() {
           break
         case "change_dot_color":
           setDotColor(nextAction.data.dotColor || dotColor || '#81818a')
+          break
+        case "drawing_change":
+          if (nextAction.data.drawingData) {
+            setDrawingData(nextAction.data.drawingData);
+          }
           break
         default:
           break
@@ -5152,6 +5207,8 @@ export default function MindMap() {
           width: 18px !important;
           height: 18px !important;
           fill: white !important;
+          stroke: black !important;
+          stroke-width: 1.0px !important;
           position: absolute !important;
           top: 50% !important;
           left: 50% !important;
@@ -5165,6 +5222,8 @@ export default function MindMap() {
         
         .react-flow__controls-custom .react-flow__controls-button:disabled svg {
           fill: rgba(255, 255, 255, 0.3) !important;
+          stroke: rgba(0, 0, 0, 0.5) !important;
+          stroke-width: 0.5px !important;
         }
       `}</style>
 
@@ -5201,7 +5260,8 @@ export default function MindMap() {
           className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
           style={{
             zIndex: 1,
-            backgroundColor: backgroundColor || '#0c1321'
+            backgroundColor: backgroundColor || '#0c1321',
+            pointerEvents: isPenModeActive ? 'none' : 'auto'
           }}
         ><ReactFlowProvider>
             <ReactFlow
@@ -5822,6 +5882,18 @@ export default function MindMap() {
 
             </ReactFlow>
           </ReactFlowProvider>
+
+          {/* Drawing Canvas - Overlays ReactFlow for drawing functionality */}
+          <DrawingCanvas
+            isDrawingMode={isPenModeActive}
+            isEraserMode={isEraserMode}
+            drawingColor={drawingColor}
+            lineWidth={drawingLineWidth}
+            onDrawingChange={handleDrawingChange}
+            initialDrawingData={drawingData}
+            reactFlowInstance={reactFlowInstance}
+            isFullscreen={isFullscreen}
+          />
 
           {/* Loading Overlay - Covers ReactFlow during initial load */}
           {isLoading && (
@@ -6890,7 +6962,7 @@ export default function MindMap() {
           onClose={() => {
             setShowDrawModal(false);
             setIsPenModeActive(false);
-            
+
             // Dispatch event to reset pen mode in NodeTypesMenu
             const event = new CustomEvent('pen-mode-changed', {
               detail: { isPenMode: false }

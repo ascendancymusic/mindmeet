@@ -26,6 +26,12 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
   const handleColorConfirm = () => {
     setSelectedColor(tempColor);
     setShowColorPicker(false);
+    
+    // Dispatch color change event
+    const event = new CustomEvent('drawing-settings-changed', {
+      detail: { color: tempColor }
+    });
+    document.dispatchEvent(event);
   };
 
   const handleColorCancel = () => {
@@ -84,7 +90,15 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
               {lineWidthOptions.map((width) => (
                 <button
                   key={width}
-                  onClick={() => setLineWidth(width)}
+                  onClick={() => {
+                    setLineWidth(width);
+                    
+                    // Dispatch line width change event
+                    const event = new CustomEvent('drawing-settings-changed', {
+                      detail: { lineWidth: width }
+                    });
+                    document.dispatchEvent(event);
+                  }}
                   className={`flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 ${lineWidth === width
                     ? 'border-blue-500/50 text-blue-300'
                     : 'border-slate-600/30 text-slate-400 hover:border-slate-500/50'
@@ -105,7 +119,16 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
 
           {/* Eraser tool */}
           <button
-            onClick={() => setIsEraserMode(!isEraserMode)}
+            onClick={() => {
+              const newEraserMode = !isEraserMode;
+              setIsEraserMode(newEraserMode);
+              
+              // Dispatch eraser mode change event
+              const event = new CustomEvent('drawing-settings-changed', {
+                detail: { isEraserMode: newEraserMode }
+              });
+              document.dispatchEvent(event);
+            }}
             className={`flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 ${isEraserMode
               ? 'border-red-500/50 text-red-300'
               : 'border-slate-600/30 text-slate-400 hover:border-slate-500/50'
