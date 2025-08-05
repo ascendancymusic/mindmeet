@@ -4528,7 +4528,7 @@ export default function MindMap() {
         const inputElement = document.querySelector(`input[data-node-id="${selectedNodeId}"]`) as HTMLInputElement
         const textareaElement = document.querySelector(`textarea[data-node-id="${selectedNodeId}"]`) as HTMLTextAreaElement
         const elementToFocus = inputElement || textareaElement
-        
+
         if (elementToFocus) {
           // Ensure the element is visible and can be focused
           if (elementToFocus.offsetParent !== null) {
@@ -4536,7 +4536,7 @@ export default function MindMap() {
             return
           }
         }
-        
+
         if (retries > 0) {
           // Increase delay slightly for each retry to give more time for DOM updates
           setTimeout(() => attemptFocus(retries - 1, Math.min(delay * 1.2, 200)), delay)
@@ -5203,10 +5203,10 @@ export default function MindMap() {
           background: none !important;
           border: none !important;
           color: white !important;
-          width: 24px !important;
-          height: 24px !important;
-          margin: 0.5px !important;
-          padding: 3px !important;
+          width: 2.2vh !important;
+          height: 2.2vh !important;
+          margin: 0.05vh !important;
+          padding: 0.25vh !important;
           transition: all 0.2s ease !important;
           position: relative !important;
         }
@@ -5221,8 +5221,8 @@ export default function MindMap() {
         }
         
         .react-flow__controls-custom .react-flow__controls-button svg {
-          width: 18px !important;
-          height: 18px !important;
+          width: 1.6vh !important;
+          height: 1.6vh !important;
           fill: white !important;
           stroke: black !important;
           stroke-width: 1.0px !important;
@@ -5258,7 +5258,7 @@ export default function MindMap() {
             isAltPressed={isAltPressed}
             isCtrlPressed={isCtrlPressed}
             onDragStart={onDragStart}
-            maxHeight="800px"
+            maxHeight="60vh"
             onUndo={undo}
             onRedo={redo}
             canUndo={canUndo}
