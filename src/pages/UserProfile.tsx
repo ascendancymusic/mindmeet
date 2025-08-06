@@ -87,11 +87,11 @@ const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => 
 
 const SkeletonLoader = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh] compact-gap">
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-[2vh] compact-card border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -118,33 +118,33 @@ const SkeletonLoader = () => {
               <div className="w-9 h-9 bg-slate-700/50 rounded-lg"></div>
             </div>
           </div>
-          
+
           {/* Timestamp skeleton */}
           <div className="flex items-center gap-2 mb-3">
             <div className="w-4 h-4 bg-slate-700/50 rounded"></div>
             <div className="h-4 bg-slate-700/50 rounded w-32"></div>
           </div>
-            {/* Stats skeleton */}
+          {/* Stats skeleton */}
           <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
-          
+
           {/* Preview skeleton */}
           <div className="h-56 compact-preview bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
             {/* Animated shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-            
+
             {/* Fake nodes */}
             <div className="absolute top-4 left-4 w-16 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute top-12 right-8 w-20 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute bottom-8 left-8 w-18 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute bottom-4 right-4 w-14 h-8 bg-slate-700/60 rounded"></div>
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-10 bg-slate-700/60 rounded"></div>
-            
+
             {/* Fake connections */}
             <div className="absolute top-8 left-20 w-16 h-0.5 bg-slate-600/50 transform rotate-12"></div>
             <div className="absolute top-16 right-24 w-20 h-0.5 bg-slate-600/50 transform -rotate-45"></div>
             <div className="absolute bottom-12 left-24 w-12 h-0.5 bg-slate-600/50 transform rotate-45"></div>
           </div>
-          
+
           {/* Action buttons skeleton */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-700/30 mt-4">
             <div className="flex items-center space-x-4">
@@ -348,7 +348,7 @@ const UserProfile: React.FC = () => {
           console.error("Error fetching collaboration maps:", collabError)
           setCollaborationMaps([])
         } else if (collabData) {
-          
+
           const creatorIds = [...new Set(collabData.map((map) => map.creator))]
           const { data: profilesData, error: profilesError } = await supabase
             .from("profiles")
@@ -358,7 +358,7 @@ const UserProfile: React.FC = () => {
           if (profilesError) {
             console.error("Error fetching creator profiles:", profilesError)
           }
-          
+
           const creatorAvatars = new Map()
           const creatorUsernames = new Map()
           const creatorFullNames = new Map()
@@ -434,7 +434,7 @@ const UserProfile: React.FC = () => {
             if (savedProfilesError) {
               console.error("Error fetching saved map creator profiles:", savedProfilesError)
             }
-            
+
             const creatorAvatars = new Map()
             const creatorUsernames = new Map()
             const creatorFullNames = new Map()
@@ -581,7 +581,7 @@ const UserProfile: React.FC = () => {
     let updatedAt = map.updated_at
     if (!updatedAt || isNaN(new Date(updatedAt).getTime())) {
       updatedAt = new Date().toISOString()
-    }    const mapCreatorUsername = map.creatorUsername || username
+    } const mapCreatorUsername = map.creatorUsername || username
     const mapCreatorDisplayName = map.creatorFull_name || map.creator_full_name || profile?.full_name || map.creatorUsername || username
     const mapCreatorAvatar = map.creatorAvatar || profile?.avatar_url
 
@@ -614,13 +614,13 @@ const UserProfile: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <div className="max-w-5xl mx-auto p-6 compact-container">
+        <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">
           {/* Skeleton Profile Header */}
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] compact-card border border-slate-700/30 shadow-2xl">
             <div className="flex gap-4 items-start">
               {/* Skeleton Avatar */}
               <div className="w-20 h-20 rounded-2xl bg-slate-700/50 animate-pulse"></div>
-              
+
               {/* Skeleton User Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between mb-3">
@@ -633,31 +633,31 @@ const UserProfile: React.FC = () => {
                     <div className="h-9 w-20 bg-slate-700/50 rounded-xl animate-pulse"></div>
                   </div>
                 </div>
-                
+
                 {/* Skeleton Bio */}
                 <div className="mb-3 space-y-2">
                   <div className="h-4 w-full bg-slate-700/50 rounded animate-pulse"></div>
                   <div className="h-4 w-3/4 bg-slate-700/50 rounded animate-pulse"></div>
                 </div>
-                
+
                 {/* Skeleton Meta */}
                 <div className="h-4 w-32 bg-slate-700/50 rounded animate-pulse"></div>
               </div>
             </div>
-            
+
             {/* Skeleton Stats */}
-            <div className="mt-6 grid grid-cols-3 gap-4 border-t border-slate-700/50 pt-4">
+            <div className="mt-3 grid grid-cols-3 gap-1 border-t border-slate-700/50 pt-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="text-center p-2">
-                  <div className="h-6 w-8 bg-slate-700/50 rounded mx-auto mb-2 animate-pulse"></div>
-                  <div className="h-4 w-16 bg-slate-700/50 rounded mx-auto animate-pulse"></div>
+                <div key={i} className="text-center p-1">
+                  <div className="h-5 w-8 bg-slate-700/50 rounded mx-auto mb-1 animate-pulse"></div>
+                  <div className="h-3 w-16 bg-slate-700/50 rounded mx-auto animate-pulse"></div>
                 </div>
               ))}
             </div>
           </div>
-          
+
           {/* Skeleton Navigation Tabs */}
-          <div className="mt-8">
+          <div className="mt-5">
             <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-xl overflow-hidden">
               <div className="flex">
                 {[1, 2, 3].map((i) => (
@@ -669,9 +669,9 @@ const UserProfile: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Skeleton Content */}
-          <div className="mt-8">
+          <div className="mt-5">
             <SkeletonLoader />
           </div>
         </div>
@@ -708,8 +708,8 @@ const UserProfile: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-5xl mx-auto p-6 compact-container">        {/* Enhanced Profile Header */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
+      <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">        {/* Enhanced Profile Header */}
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] compact-card border border-slate-700/30 shadow-2xl">
           <div className="flex gap-4 items-start">
             {/* Enhanced Avatar */}
             <div className="relative group">
@@ -731,7 +731,7 @@ const UserProfile: React.FC = () => {
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                     {profile.full_name || profile.username}
                   </h1>
-                  <p className="text-slate-400 font-medium">@{profile.username}</p>
+                  <p className="text-slate-400 font-medium text-sm">@{profile.username}</p>
                 </div>                {/* Enhanced Action Buttons */}
                 <div className="flex items-center gap-2">
                   <button
@@ -739,15 +739,14 @@ const UserProfile: React.FC = () => {
                     className="group flex items-center gap-2 px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-xl transition-all duration-200 border border-slate-600/30 hover:border-slate-500/50"
                   >
                     <MessageCircle className="w-4 h-4 transition-transform group-hover:scale-110" />
-                    <span className="font-medium hidden sm:inline">Message</span>
+                    <span className="font-medium hidden sm:inline text-sm">Message</span>
                   </button>
                   <button
                     onClick={handleFollow}
-                    className={`group flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 ${
-                      isFollowing
+                    className={`group flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 ${isFollowing
                         ? "bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white shadow-lg shadow-red-500/25"
                         : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25"
-                    }`}
+                      }`}
                   >
                     {isFollowing ? (
                       <UserMinus className="w-4 h-4 transition-transform group-hover:scale-110" />
@@ -759,11 +758,11 @@ const UserProfile: React.FC = () => {
                 </div>
               </div>              {/* Enhanced Bio */}
               <div className="mb-3">
-                <p className="text-slate-300 leading-relaxed">{profile.description || "No bio yet"}</p>
+                <p className="text-slate-300 leading-relaxed text-sm">{profile.description || "No bio yet"}</p>
               </div>
 
               {/* Enhanced Meta Information */}
-              <div className="flex flex-wrap gap-4 text-sm text-slate-400">
+              <div className="flex flex-wrap gap-4 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-slate-500" />
                   <span>Joined {format(joinDate, "MMMM yyyy")}</span>
@@ -773,35 +772,35 @@ const UserProfile: React.FC = () => {
           </div>
 
           {/* Enhanced Stats */}
-          <div className="mt-6 grid grid-cols-3 gap-4 border-t border-slate-700/50 pt-4">            <div className="text-center group cursor-default hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200">
-              <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
-                {publicMaps.length}
-              </div>
-              <div className="text-sm text-slate-400 font-medium group-hover:text-slate-300">Mindmaps</div>
+          <div className="mt-3 grid grid-cols-3 gap-1 border-t border-slate-700/50 pt-2">            <div className="text-center group cursor-default hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200">
+            <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
+              {publicMaps.length}
             </div>
+            <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Mindmaps</div>
+          </div>
             <div
-              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200"
+              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
               onClick={() => openModal("Followers", profile.followed_by || [])}
             >
-              <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
+              <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {profile.followers || 0}
               </div>
-              <div className="text-sm text-slate-400 font-medium group-hover:text-slate-300">Followers</div>
+              <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Followers</div>
             </div>
             <div
-              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200"
+              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
               onClick={() => openModal("Following", profile.following || [])}
             >
-              <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
+              <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {profile.following_count || 0}
               </div>
-              <div className="text-sm text-slate-400 font-medium group-hover:text-slate-300">Following</div>
+              <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Following</div>
             </div>
           </div>
         </div>
 
         {/* Enhanced Navigation Tabs */}
-        <div className="mt-8">
+        <div className="mt-5">
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-xl overflow-hidden">
             <div className="flex">
               {[
@@ -812,20 +811,18 @@ const UserProfile: React.FC = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 transition-all duration-300 relative group ${
-                    activeTab === tab.key
+                  className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 transition-all duration-300 relative group ${activeTab === tab.key
                       ? "text-blue-400 bg-slate-700/50"
                       : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
-                  } ${index === 0 ? "rounded-l-2xl" : ""} ${index === 2 ? "rounded-r-2xl" : ""}`}
+                    } ${index === 0 ? "rounded-l-2xl" : ""} ${index === 2 ? "rounded-r-2xl" : ""}`}
                 >                  <tab.icon
                     className={`w-5 h-5 transition-all duration-300 ${activeTab === tab.key ? "scale-110" : "group-hover:scale-105"}`}
                   />
-                  <span className="font-medium hidden sm:inline">{tab.label}</span>
+                  <span className="font-medium hidden sm:inline text-sm">{tab.label}</span>
                   {tab.count > 0 && (
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${
-                        activeTab === tab.key ? "bg-blue-500/20 text-blue-300" : "bg-slate-600/50 text-slate-300"
-                      }`}
+                      className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${activeTab === tab.key ? "bg-blue-500/20 text-blue-300" : "bg-slate-600/50 text-slate-300"
+                        }`}
                     >
                       {tab.count}
                     </span>
@@ -840,187 +837,185 @@ const UserProfile: React.FC = () => {
         </div>
 
         {/* Enhanced Content Section */}
-        <div className="mt-8">
+        <div className="mt-5">
           {/* Mindmaps Tab */}
           {activeTab === "mindmaps" && (
             <>              {publicMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
-                  {publicMaps.map((map, index) => (
-                    <div
-                      key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
-                      style={{ animationDelay: `${index * 100}ms` }}
-                    >
-                      {/* Enhanced Map Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {profile?.avatar_url ? (
-                              <img
-                                src={profile.avatar_url || "/placeholder.svg"}
-                                alt={profile.username}
-                                className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                                <span className="text-sm font-bold text-slate-300">
-                                  {profile?.username?.charAt(0)?.toUpperCase() || "?"}
-                                </span>
-                              </div>
-                            )}
-                            {map.is_main && (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500/20 to-blue-300/20 rounded-full border border-blue-500/30">
-                                <Star className="w-3 h-3 text-blue-400 fill-current" />
-                                <span className="text-xs font-medium text-blue-300">Main</span>
-                              </div>
-                            )}
-                          </div>                          <h3 className="text-lg font-bold text-white truncate">
-                            {map.title}
-                          </h3>
-                        </div>
-
-                        {/* Enhanced Menu */}
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleMenu(map.id)
-                            }}
-                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
-                          >
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
-                          {openMenuId === map.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
-                              <div className="py-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleOpenInfo(map)
-                                  }}
-                                  className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
-                                >
-                                  <Info className="w-4 h-4" />
-                                  View Info
-                                </button>
-                              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh] compact-gap">
+                {publicMaps.map((map, index) => (
+                  <div
+                    key={map.id}
+                    className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    {/* Enhanced Map Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {profile?.avatar_url ? (
+                            <img
+                              src={profile.avatar_url || "/placeholder.svg"}
+                              alt={profile.username}
+                              className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                              <span className="text-sm font-bold text-slate-300">
+                                {profile?.username?.charAt(0)?.toUpperCase() || "?"}
+                              </span>
                             </div>
                           )}
-                        </div>
+                          {map.is_main && (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500/20 to-blue-300/20 rounded-full border border-blue-500/30">
+                              <Star className="w-3 h-3 text-blue-400 fill-current" />
+                              <span className="text-xs font-medium text-blue-300">Main</span>
+                            </div>
+                          )}
+                        </div>                          <h3 className="text-base font-bold text-white truncate">
+                          {map.title}
+                        </h3>
                       </div>
 
-                      {/* Enhanced Timestamp */}
-                      <div className="flex items-center gap-2 text-sm text-slate-400 mb-3">
-                        <Clock className="w-4 h-4" />
-                        <span>
-                          Last edited{" "}
-                          {map.updated_at && !isNaN(new Date(map.updated_at).getTime())
-                            ? formatDateWithPreference(new Date(map.updated_at))
-                            : "Unknown date"}
-                        </span>
-                      </div>                      {/* Enhanced Mind Map Preview */}
-                      {map.json_data?.nodes?.length > 0 && (
-                        <a
-                          href={`/${username}/${map.id}`}
-                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
-                        >
-                          <ReactFlow
-                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
-                            edges={map.json_data.edges.map((edge: any) => {
-                              // Find the source node to get its color
-                              const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
-                              const sourceNodeColor = sourceNode
-                                ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                                : "#374151";
-
-                              // Get edgeType from map data, default to 'default' if not valid
-                              const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
-                                ? map.json_data.edgeType
-                                : 'default';
-
-                              return {
-                                ...edge,
-                                type: edgeType === 'default' ? 'default' : edgeType,
-                                style: {
-                                  ...edge.style,
-                                  strokeWidth: 2,
-                                  stroke: sourceNodeColor,
-                                },
-                              };
-                            })}
-                            nodeTypes={nodeTypes as unknown as NodeTypes}
-                            fitView
-                            nodesDraggable={false}
-                            nodesConnectable={false}
-                            elementsSelectable={false}
-                            zoomOnScroll={true}
-                            zoomOnDoubleClick={false}
-                            minZoom={0.1}
-                            maxZoom={2}
-                            proOptions={{ hideAttribution: true }}
-                          >
-                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-                          </ReactFlow>
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
-                        </a>
-                      )}
-
-                      {/* Enhanced Action Bar */}
-                      <div className="flex items-center justify-between">                        <div className="flex items-center gap-6">                          <button
-                            onClick={(e) => hookHandleLike(e, map)}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.liked_by.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
-                            />
-                            {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              window.location.href = `/${username}/${map.id}#comments-section`
-                            }}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <MessageCircle className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
-                            {map.comment_count > 0 && <span className="font-medium">{map.comment_count}</span>}
-                          </button>
-                          <button
-                            onClick={(e) => hookHandleSave(e, map)}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.saved_by?.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
-                            />
-                            {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
-                          </button>
-                        </div>
+                      {/* Enhanced Menu */}
+                      <div className="relative">
                         <button
                           onClick={(e) => {
-                            e.preventDefault()
                             e.stopPropagation()
-                            handleShare(map.id, map.title, map.is_main || false, username || "")
+                            toggleMenu(map.id)
                           }}
-                          className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
+                          className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
-                          <Share2 className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
+                          <MoreVertical className="w-5 h-5" />
                         </button>
+                        {openMenuId === map.id && (
+                          <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
+                            <div className="py-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenInfo(map)
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+                              >
+                                <Info className="w-4 h-4" />
+                                View Info
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
-                  <Network className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-300 mb-2">No mindmaps yet</h3>
-                  <p className="text-slate-400">This user hasn't created any public mindmaps.</p>
-                </div>
-              )}
+
+                    {/* Enhanced Timestamp */}
+                    <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                      <Clock className="w-3 h-3" />
+                      <span>
+                        Last edited{" "}
+                        {map.updated_at && !isNaN(new Date(map.updated_at).getTime())
+                          ? formatDateWithPreference(new Date(map.updated_at))
+                          : "Unknown date"}
+                      </span>
+                    </div>                      {/* Enhanced Mind Map Preview */}
+                    {map.json_data?.nodes?.length > 0 && (
+                      <a
+                        href={`/${username}/${map.id}`}
+                        className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                      >
+                        <ReactFlow
+                          nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
+                          edges={map.json_data.edges.map((edge: any) => {
+                            // Find the source node to get its color
+                            const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
+                            const sourceNodeColor = sourceNode
+                              ? (sourceNode.background || sourceNode.style?.background || "#374151")
+                              : "#374151";
+
+                            // Get edgeType from map data, default to 'default' if not valid
+                            const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
+                              ? map.json_data.edgeType
+                              : 'default';
+
+                            return {
+                              ...edge,
+                              type: edgeType === 'default' ? 'default' : edgeType,
+                              style: {
+                                ...edge.style,
+                                strokeWidth: 2,
+                                stroke: sourceNodeColor,
+                              },
+                            };
+                          })}
+                          nodeTypes={nodeTypes as unknown as NodeTypes}
+                          fitView
+                          nodesDraggable={false}
+                          nodesConnectable={false}
+                          elementsSelectable={false}
+                          zoomOnScroll={true}
+                          zoomOnDoubleClick={false}
+                          minZoom={0.1}
+                          maxZoom={2}
+                          proOptions={{ hideAttribution: true }}
+                        >
+                          <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
+                        </ReactFlow>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
+                      </a>
+                    )}
+
+                    {/* Enhanced Action Bar */}
+                    <div className="flex items-center justify-between">                        <div className="flex items-center gap-6">                          <button
+                      onClick={(e) => hookHandleLike(e, map)}
+                      className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                    >
+                      <Heart
+                        className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by.includes(user.id) ? "fill-current text-blue-500" : ""
+                          }`}
+                      />
+                      {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
+                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          window.location.href = `/${username}/${map.id}#comments-section`
+                        }}
+                        className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                      >
+                        <MessageCircle className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
+                        {map.comment_count > 0 && <span className="font-medium">{map.comment_count}</span>}
+                      </button>
+                      <button
+                        onClick={(e) => hookHandleSave(e, map)}
+                        className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                      >
+                        <Bookmark
+                          className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                            }`}
+                        />
+                        {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
+                      </button>
+                    </div>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleShare(map.id, map.title, map.is_main || false, username || "")
+                        }}
+                        className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
+                      >
+                        <Share2 className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
+                <Network className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-slate-300 mb-2">No mindmaps yet</h3>
+                <p className="text-slate-400">This user hasn't created any public mindmaps.</p>
+              </div>
+            )}
             </>
           )}
 
@@ -1158,16 +1153,15 @@ const UserProfile: React.FC = () => {
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">                          <button
-                            onClick={(e) => collabHandleLike(e, map)}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.liked_by.includes(user.id) ? "fill-current text-blue-500" : ""
+                          onClick={(e) => collabHandleLike(e, map)}
+                          className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                        >
+                          <Heart
+                            className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by.includes(user.id) ? "fill-current text-blue-500" : ""
                               }`}
-                            />
-                            {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
-                          </button>
+                          />
+                          {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
+                        </button>
                           <button
                             onClick={(e) => {
                               e.preventDefault()
@@ -1184,9 +1178,8 @@ const UserProfile: React.FC = () => {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.saved_by?.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                                }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
                           </button>
@@ -1218,192 +1211,190 @@ const UserProfile: React.FC = () => {
           {/* Saves Tab */}
           {activeTab === "saves" && (
             <>              {savedMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
-                  {savedMaps.map((map, index) => (
-                    <div
-                      key={map.id}
-                      className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
-                      style={{ animationDelay: `${index * 100}ms` }}
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div
-                            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
+                {savedMaps.map((map, index) => (
+                  <div
+                    key={map.id}
+                    className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div
+                          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.location.href = `/${map.creatorUsername}`
+                          }}
+                        >
+                          {map.creatorAvatar ? (
+                            <img
+                              src={map.creatorAvatar || "/placeholder.svg"}
+                              alt={map.creatorUsername}
+                              className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                              <span className="text-sm font-bold text-slate-300">
+                                {map.creatorUsername?.charAt(0)?.toUpperCase() || "?"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xl font-bold text-white truncate">
+                            {map.title}
+                          </h3>
+                          <p
+                            className="text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium"
                             onClick={(e) => {
                               e.stopPropagation()
                               window.location.href = `/${map.creatorUsername}`
                             }}
                           >
-                            {map.creatorAvatar ? (
-                              <img
-                                src={map.creatorAvatar || "/placeholder.svg"}
-                                alt={map.creatorUsername}
-                                className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                                <span className="text-sm font-bold text-slate-300">
-                                  {map.creatorUsername?.charAt(0)?.toUpperCase() || "?"}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-xl font-bold text-white truncate">
-                              {map.title}
-                            </h3>
-                            <p
-                              className="text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                window.location.href = `/${map.creatorUsername}`
-                              }}
-                            >
-                              @{map.creatorUsername}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleMenu(map.id)
-                            }}
-                            className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
-                          >
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
-                          {openMenuId === map.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
-                              <div className="py-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleOpenInfo(map)
-                                  }}
-                                  className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
-                                >
-                                  <Info className="w-4 h-4" />
-                                  View Info
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                            @{map.creatorUsername}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
-                        <Clock className="w-4 h-4" />
-                        <span>
-                          Last edited{" "}
-                          {map.updated_at && !isNaN(new Date(map.updated_at).getTime())
-                            ? formatDateWithPreference(new Date(map.updated_at))
-                            : "Unknown date"}
-                        </span>
-                      </div>                      {map.json_data?.nodes?.length > 0 && (
-                        <a
-                          href={`/${username}/${map.id}`}
-                          className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleMenu(map.id)
+                          }}
+                          className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
-                          <ReactFlow
-                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
-                            edges={map.json_data.edges.map((edge: any) => {
-                              // Find the source node to get its color
-                              const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
-                              const sourceNodeColor = sourceNode
-                                ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                                : "#374151";
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                        {openMenuId === map.id && (
+                          <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
+                            <div className="py-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenInfo(map)
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+                              >
+                                <Info className="w-4 h-4" />
+                                View Info
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                              // Get edgeType from map data, default to 'default' if not valid
-                              const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
-                                ? map.json_data.edgeType
-                                : 'default';
+                    <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
+                      <Clock className="w-4 h-4" />
+                      <span>
+                        Last edited{" "}
+                        {map.updated_at && !isNaN(new Date(map.updated_at).getTime())
+                          ? formatDateWithPreference(new Date(map.updated_at))
+                          : "Unknown date"}
+                      </span>
+                    </div>                      {map.json_data?.nodes?.length > 0 && (
+                      <a
+                        href={`/${username}/${map.id}`}
+                        className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
+                      >
+                        <ReactFlow
+                          nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
+                          edges={map.json_data.edges.map((edge: any) => {
+                            // Find the source node to get its color
+                            const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
+                            const sourceNodeColor = sourceNode
+                              ? (sourceNode.background || sourceNode.style?.background || "#374151")
+                              : "#374151";
 
-                              return {
-                                ...edge,
-                                type: edgeType === 'default' ? 'default' : edgeType,
-                                style: {
-                                  ...edge.style,
-                                  strokeWidth: 2,
-                                  stroke: sourceNodeColor,
-                                },
-                              };
-                            })}
-                            nodeTypes={nodeTypes as unknown as NodeTypes}
-                            fitView
-                            nodesDraggable={false}
-                            nodesConnectable={false}
-                            elementsSelectable={false}
-                            zoomOnScroll={true}
-                            zoomOnDoubleClick={false}
-                            minZoom={0.1}
-                            maxZoom={2}
-                            proOptions={{ hideAttribution: true }}
-                          >
-                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-                          </ReactFlow>
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>                        </a>
-                      )}
+                            // Get edgeType from map data, default to 'default' if not valid
+                            const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
+                              ? map.json_data.edgeType
+                              : 'default';
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                          
-                          <button
-                            onClick={(e) => savedHandleLike(e, map)}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.liked_by.includes(user.id) ? "fill-current text-blue-500" : ""
+                            return {
+                              ...edge,
+                              type: edgeType === 'default' ? 'default' : edgeType,
+                              style: {
+                                ...edge.style,
+                                strokeWidth: 2,
+                                stroke: sourceNodeColor,
+                              },
+                            };
+                          })}
+                          nodeTypes={nodeTypes as unknown as NodeTypes}
+                          fitView
+                          nodesDraggable={false}
+                          nodesConnectable={false}
+                          elementsSelectable={false}
+                          zoomOnScroll={true}
+                          zoomOnDoubleClick={false}
+                          minZoom={0.1}
+                          maxZoom={2}
+                          proOptions={{ hideAttribution: true }}
+                        >
+                          <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
+                        </ReactFlow>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>                        </a>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-6">
+
+                        <button
+                          onClick={(e) => savedHandleLike(e, map)}
+                          className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                        >
+                          <Heart
+                            className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by.includes(user.id) ? "fill-current text-blue-500" : ""
                               }`}
-                            />
-                            {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              window.location.href = `/${map.creatorUsername}/${map.id}#comments-section`
-                            }}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <MessageCircle className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
-                            {map.comment_count > 0 && <span className="font-medium">{map.comment_count}</span>}
-                          </button>
-                          <button
-                            onClick={(e) => savedHandleSave(e, map)}
-                            className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
-                          >
-                            <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${
-                                user?.id && map.saved_by?.includes(user.id) ? "fill-current text-blue-500" : ""
-                              }`}
-                            />
-                            {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
-                          </button>
-                        </div>
+                          />
+                          {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
+                        </button>
                         <button
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            handleShare(map.id, map.title, map.is_main || false, map.creatorUsername)
+                            window.location.href = `/${map.creatorUsername}/${map.id}#comments-section`
                           }}
-                          className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
+                          className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                         >
-                          <Share2 className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
+                          <MessageCircle className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
+                          {map.comment_count > 0 && <span className="font-medium">{map.comment_count}</span>}
+                        </button>
+                        <button
+                          onClick={(e) => savedHandleSave(e, map)}
+                          className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                        >
+                          <Bookmark
+                            className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                              }`}
+                          />
+                          {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
                         </button>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleShare(map.id, map.title, map.is_main || false, map.creatorUsername)
+                        }}
+                        className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
+                      >
+                        <Share2 className="w-5 h-5 transition-all duration-200 group-hover/action:scale-110" />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
-                  <Bookmark className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-300 mb-2">No saved mindmaps yet</h3>
-                  <p className="text-slate-400">This user hasn't saved any mindmaps.</p>
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
+                <Bookmark className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-slate-300 mb-2">No saved mindmaps yet</h3>
+                <p className="text-slate-400">This user hasn't saved any mindmaps.</p>
+              </div>
+            )}
             </>
           )}
         </div>

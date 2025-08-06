@@ -95,11 +95,11 @@ const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => 
 
 const SkeletonLoader = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh] compact-gap">
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-[2vh] compact-card border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -1230,9 +1230,9 @@ export default function Profile() {
   if (isLoading) {
     return (
       <div className="min-h-screen">
-        <div className="max-w-5xl mx-auto p-6 compact-container">
+        <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">
           {/* Skeleton Profile Header */}
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] compact-card border border-slate-700/30 shadow-2xl">
             <div className="flex gap-4 items-start">
               {/* Skeleton Avatar */}
               <div className="w-20 h-20 rounded-2xl bg-slate-700/50 animate-pulse"></div>
@@ -1258,18 +1258,18 @@ export default function Profile() {
               </div>
             </div>
             {/* Skeleton Stats */}
-            <div className="mt-6 compact-margin grid grid-cols-3 gap-4 compact-gap-sm border-t border-slate-700/50 pt-4 compact-padding">
+            <div className="mt-3 compact-margin grid grid-cols-3 gap-1 compact-gap-sm border-t border-slate-700/50 pt-2 compact-padding">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="text-center p-2">
-                  <div className="h-6 w-8 bg-slate-700/50 rounded mx-auto mb-2 animate-pulse"></div>
-                  <div className="h-4 w-16 bg-slate-700/50 rounded mx-auto animate-pulse"></div>
+                <div key={i} className="text-center p-1">
+                  <div className="h-5 w-8 bg-slate-700/50 rounded mx-auto mb-1 animate-pulse"></div>
+                  <div className="h-3 w-16 bg-slate-700/50 rounded mx-auto animate-pulse"></div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Skeleton Navigation Tabs */}
-          <div className="mt-8">
+          <div className="mt-5">
             <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-xl overflow-hidden">
               <div className="flex">
                 {[1, 2, 3].map((i) => (
@@ -1283,7 +1283,7 @@ export default function Profile() {
           </div>
 
           {/* Skeleton Content */}
-          <div className="mt-8">
+          <div className="mt-5">
             <SkeletonLoader />
           </div>
         </div>
@@ -1293,9 +1293,9 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-5xl mx-auto p-6 compact-container">
+      <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">
         {/* Enhanced Profile Header */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 compact-card border border-slate-700/30 shadow-2xl">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] compact-card border border-slate-700/30 shadow-2xl">
           <div className="flex gap-4 items-start">
             {/* Enhanced Avatar */}
             <div className="relative group">
@@ -1337,7 +1337,7 @@ export default function Profile() {
                       <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
                         {profile?.full_name || user?.full_name}
                       </h1>
-                      <p className="text-slate-400 font-medium">@{username}</p>
+                      <p className="text-slate-400 font-medium text-sm">@{username}</p>
                     </>
                   )}
                 </div>
@@ -1355,11 +1355,11 @@ export default function Profile() {
                     }
                     setIsEditProfileOpen(true)
                   }}
-                  className="group flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-xl transition-all duration-200 border border-slate-600/30 hover:border-slate-500/50 transform hover:scale-105"
+                  className="group flex items-center gap-2 px-[1.5vh] py-[0.8vh] bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-xl transition-all duration-200 border border-slate-600/30 hover:border-slate-500/50 transform hover:scale-105"
                   disabled={isLoading}
                 >
                   <Edit2 className="w-4 h-4 transition-transform group-hover:scale-110" />
-                  <span className="font-medium hidden sm:inline">Edit Profile</span>
+                  <span className="font-medium hidden sm:inline text-sm">Edit Profile</span>
                 </button>
               </div>
 
@@ -1371,12 +1371,12 @@ export default function Profile() {
                     <div className="h-4 w-3/4 bg-slate-700 rounded animate-pulse"></div>
                   </div>
                 ) : (
-                  <p className="text-slate-300 leading-relaxed">{bio || "No bio yet"}</p>
+                  <p className="text-slate-300 leading-relaxed text-sm">{bio || "No bio yet"}</p>
                 )}
               </div>
 
               {/* Enhanced Meta Information */}
-              <div className="flex flex-wrap gap-4 text-sm text-slate-400">
+              <div className="flex flex-wrap gap-4 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-slate-500" />
                   <span>Joined {format(joinDate, "MMMM yyyy")}</span>
@@ -1386,36 +1386,36 @@ export default function Profile() {
           </div>
 
           {/* Enhanced Stats */}
-          <div className="mt-6 compact-margin grid grid-cols-3 gap-4 compact-gap-sm border-t border-slate-700/50 pt-4 compact-padding">
-            <div className="text-center group cursor-default hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200">
-              <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
+          <div className="mt-3 compact-margin grid grid-cols-3 gap-1 compact-gap-sm border-t border-slate-700/50 pt-2 compact-padding">
+            <div className="text-center group cursor-default hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200">
+              <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {publicMaps.length}
               </div>
-              <div className="text-sm text-slate-400 font-medium group-hover:text-slate-300">Mindmaps</div>
+              <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Mindmaps</div>
             </div>
             <div
-              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200"
+              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
               onClick={() => openModal('Followers', profile?.followed_by || [])}
             >
-              <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
+              <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {profile?.followers || 0}
               </div>
-              <div className="text-sm text-slate-400 font-medium group-hover:text-slate-300">Followers</div>
+              <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Followers</div>
             </div>
             <div
-              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-xl p-2 transition-all duration-200"
+              className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
               onClick={() => openModal('Following', profile?.following || [])}
             >
-              <div className="text-xl font-bold text-white mb-1 transition-colors group-hover:text-blue-400">
+              <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {profile?.following_count || 0}
               </div>
-              <div className="text-sm text-slate-400 font-medium group-hover:text-slate-300">Following</div>
+              <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Following</div>
             </div>
           </div>
         </div>
 
         {/* Enhanced Navigation Tabs */}
-        <div className="mt-8">
+        <div className="mt-5">
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-xl overflow-hidden">
             <div className="flex">
               {[
@@ -1434,7 +1434,7 @@ export default function Profile() {
                   <tab.icon
                     className={`w-5 h-5 transition-all duration-300 ${activeTab === tab.key ? "scale-110" : "group-hover:scale-105"}`}
                   />
-                  <span className="font-medium hidden sm:inline">{tab.label}</span>
+                  <span className="font-medium hidden sm:inline text-sm">{tab.label}</span>
                   {tab.count > 0 && (
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${activeTab === tab.key ? "bg-blue-500/20 text-blue-300" : "bg-slate-600/50 text-slate-300"
@@ -1453,12 +1453,12 @@ export default function Profile() {
         </div>
 
         {/* Enhanced Content Section */}
-        <div className="mt-8">
+        <div className="mt-5">
           {/* Mindmaps Tab */}
           {activeTab === "mindmaps" && (
             <>
               {publicMaps.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh] compact-gap">
                   {publicMaps.map((map, index) => (
                     <div
                       key={map.id}
@@ -1487,7 +1487,7 @@ export default function Profile() {
                               </div>
                             )}
                           </div>
-                          <h3 className="text-lg font-bold text-white truncate">
+                          <h3 className="text-base font-bold text-white truncate">
                             {map.title}
                           </h3>
                         </div>
@@ -1545,8 +1545,8 @@ export default function Profile() {
                       </div>
 
                       {/* Enhanced Timestamp */}
-                      <div className="flex items-center gap-2 text-sm text-slate-400 mb-3">
-                        <Clock className="w-4 h-4" />
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                        <Clock className="w-3 h-3" />
                         <span>
                           Last edited{" "}
                           {map.updatedAt && !isNaN(new Date(map.updatedAt).getTime())
