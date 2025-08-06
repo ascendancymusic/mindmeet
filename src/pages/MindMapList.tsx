@@ -63,11 +63,11 @@ const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => 
 
 const SkeletonLoader = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh]">
       {[...Array(4)].map((_, index) => (
         <div
           key={index}
-          className="bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl animate-pulse"
+          className="bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-[2vh] border border-slate-700/30 shadow-xl animate-pulse"
           style={{ animationDelay: `${index * 150}ms` }}
         >
           {/* Header skeleton */}
@@ -455,27 +455,27 @@ export default function MindMapList(): JSX.Element {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="w-[50vw] mx-auto p-[2vh]">
       {/* Enhanced Header */}
-      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl mb-8">
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] border border-slate-700/30 shadow-2xl mb-[3vh]">
         <div className="flex justify-between items-center">
-          <div className="flex flex-col space-y-4">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+          <div className="flex flex-col space-y-[1.5vh]">
+            <h1 className="text-[2.5vh] font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
               {viewMode === "owned" ? "Your Mindmaps" : "Collaboration Maps"}
             </h1>
 
             {/* Enhanced View Toggle */}
-            <div className="flex items-center space-x-1 bg-slate-800/50 backdrop-blur-sm rounded-xl p-1 border border-slate-700/30">
+            <div className="flex items-center space-x-[0.5vh] bg-slate-800/50 backdrop-blur-sm rounded-xl p-[0.5vh] border border-slate-700/30">
               <button
                 onClick={() => setViewMode("owned")}
-                className={`${isSmallScreen ? 'px-3 py-2' : 'px-4 py-2'} rounded-lg text-sm font-medium transition-all duration-200 ${viewMode === "owned"
+                className={`${isSmallScreen ? 'px-[1vh] py-[0.8vh]' : 'px-[1.5vh] py-[0.8vh]'} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "owned"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
                   }`}
               >
                 {isSmallScreen ? (
-                  <div className="flex items-center space-x-1">
-                    <Network className="w-4 h-4" />
+                  <div className="flex items-center space-x-[0.5vh]">
+                    <Network className="w-[1.5vh] h-[1.5vh]" />
                     <span>({maps.length})</span>
                   </div>
                 ) : (
@@ -484,14 +484,14 @@ export default function MindMapList(): JSX.Element {
               </button>
               <button
                 onClick={() => setViewMode("collaboration")}
-                className={`${isSmallScreen ? 'px-3 py-2' : 'px-4 py-2'} rounded-lg text-sm font-medium transition-all duration-200 ${viewMode === "collaboration"
+                className={`${isSmallScreen ? 'px-[1vh] py-[0.8vh]' : 'px-[1.5vh] py-[0.8vh]'} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "collaboration"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
                   }`}
               >
                 {isSmallScreen ? (
-                  <div className="flex items-center space-x-1">
-                    <Users className="w-4 h-4" />
+                  <div className="flex items-center space-x-[0.5vh]">
+                    <Users className="w-[1.5vh] h-[1.5vh]" />
                     <span>({collaborationMaps.length})</span>
                   </div>
                 ) : (
@@ -501,14 +501,14 @@ export default function MindMapList(): JSX.Element {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-[1vh]">
             {/* Enhanced Sort Dropdown */}
             <select
               value={sortOption}
               onChange={(e) =>
                 setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
               }
-              className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? 'px-3 py-2 text-xs' : 'px-4 py-2'} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
+              className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? 'px-[1vh] py-[0.8vh] text-[1.2vh]' : 'px-[1.5vh] py-[0.8vh] text-[1.4vh]'} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
             >
               <option value="newest">{isSmallScreen ? 'Newest' : 'Newest First'}</option>
               <option value="oldest">{isSmallScreen ? 'Oldest' : 'Oldest First'}</option>
@@ -518,14 +518,14 @@ export default function MindMapList(): JSX.Element {
             {viewMode === "owned" && (
               <button
                 onClick={() => setIsCreating(true)}
-                className="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
+                className="group flex items-center space-x-[0.8vh] px-[1.5vh] py-[0.8vh] bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
               >
                 {isSmallScreen ? (
-                  <Plus className="w-5 h-5 transition-transform group-hover:scale-110" />
+                  <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
                 ) : (
                   <>
-                    <Plus className="w-5 h-5 transition-transform group-hover:scale-110" />
-                    <span className="font-medium">Create New Map</span>
+                    <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
+                    <span className="font-medium text-[1.4vh]">Create New Map</span>
                   </>
                 )}
               </button>
@@ -535,27 +535,27 @@ export default function MindMapList(): JSX.Element {
       </div>
 
       {!isValidUserId ? (
-        <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
-          <Network className="w-16 h-16 mx-auto text-slate-500 mb-4" />
-          <p className="text-slate-400">Please log in to view your mindmaps.</p>
+        <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
+          <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
+          <p className="text-slate-400 text-[1.6vh]">Please log in to view your mindmaps.</p>
         </div>
       ) : isLoading ? (
         <SkeletonLoader />
       ) : currentMaps.length === 0 ? (
-        <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
-          <Network className="w-16 h-16 mx-auto text-slate-500 mb-4" />
-          <p className="text-slate-400">
+        <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
+          <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
+          <p className="text-slate-400 text-[1.6vh]">
             {viewMode === "owned"
               ? "No mindmaps yet. Create your first one!"
               : "No collaboration maps yet. You'll see mindmaps here when someone adds you as a collaborator."}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh]">
           {sortedMaps.map((map, index) => (
             <div
               key={map.id}
-              className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl"
+              className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-[2vh] border border-slate-700/30 shadow-xl"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="relative">
@@ -573,7 +573,7 @@ export default function MindMapList(): JSX.Element {
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                            <span className="text-sm font-bold text-slate-300">
+                            <span className="text-xs font-bold text-slate-300">
                               {map.creatorUsername?.charAt(0)?.toUpperCase() || '?'}
                             </span>
                           </div>
@@ -588,7 +588,7 @@ export default function MindMapList(): JSX.Element {
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
-                            <span className="text-sm font-bold text-slate-300">
+                            <span className="text-xs font-bold text-slate-300">
                               {user?.username?.charAt(0)?.toUpperCase() || '?'}
                             </span>
                           </div>
@@ -607,11 +607,11 @@ export default function MindMapList(): JSX.Element {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-white truncate">
+                      <h3 className="text-base font-bold text-white truncate">
                         {map.title}
                       </h3>
                       {viewMode === "collaboration" && map.creatorUsername && (
-                        <p className="text-sm text-blue-400 mt-1 font-medium">
+                        <p className="text-xs text-blue-400 mt-1 font-medium">
                           @{map.creatorUsername}
                         </p>
                       )}
@@ -652,7 +652,7 @@ export default function MindMapList(): JSX.Element {
                                   handleEditDetails(map.id)
                                   toggleMenu(map.id)
                                 }}
-                                className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+                                className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
                               >
                                 <Edit2 className="w-4 h-4" />
                                 Edit Details
@@ -665,7 +665,7 @@ export default function MindMapList(): JSX.Element {
                                   handleTogglePin(map.id)
                                   toggleMenu(map.id)
                                 }}
-                                className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200 ${map.isPinned ? "text-blue-400" : "text-slate-300"}`}
+                                className={`w-full text-left px-4 py-3 text-xs hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200 ${map.isPinned ? "text-blue-400" : "text-slate-300"}`}
                               >
                                 <Pin className="w-4 h-4" />
                                 {map.isPinned ? "Unpin" : "Pin"}
@@ -678,14 +678,14 @@ export default function MindMapList(): JSX.Element {
                                   handleDeleteMap(map.id)
                                   toggleMenu(map.id)
                                 }}
-                                className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-red-500 flex items-center gap-3 transition-all duration-200"
+                                className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-red-500 flex items-center gap-3 transition-all duration-200"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 Delete
                               </button>
                             )}
                             {viewMode === "collaboration" && (
-                              <div className="px-4 py-3 text-sm text-slate-500 flex items-center gap-3">
+                              <div className="px-4 py-3 text-xs text-slate-500 flex items-center gap-3">
                                 <Users className="w-4 h-4" />
                                 Collaboration Map
                               </div>
@@ -698,8 +698,8 @@ export default function MindMapList(): JSX.Element {
                 </div>
 
                 {/* Enhanced Timestamp and Stats */}
-                <div className="flex items-center gap-2 text-sm text-slate-400 mb-3">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                  <Clock className="w-3 h-3" />
                   <span>
                     Last edited{" "}
                     {map.updatedAt && !isNaN(new Date(map.updatedAt).getTime())
@@ -707,7 +707,7 @@ export default function MindMapList(): JSX.Element {
                       : "Unknown date"}
                   </span>
                 </div>
-                <div className="text-sm text-slate-500 mb-4">
+                <div className="text-xs text-slate-500 mb-4">
                   {map.nodes?.length} nodes • {map.edges?.length} connections
                 </div>
 
