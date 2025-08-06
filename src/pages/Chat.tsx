@@ -31,7 +31,7 @@ import {
   ChevronLeft,
   Heart,
   Image,
-  Eye,   
+  Eye,
   EyeOff,
   Link,
   Zap,
@@ -79,18 +79,18 @@ const formatConversationPreview = (message: string | undefined, messageType?: st
     }
     return "No messages yet"
   }
-  
+
   // Check if the message is a GIF
   const gifRegex = /!\[GIF\]\((https?:\/\/[^\s)]+)\)/
   if (gifRegex.test(message)) {
     return "GIF"
   }
-  
+
   // If it's a mindmap message and there's no text (empty string), show the mindmap title
   if (messageType === "mindmap" && (!message.trim() || message.trim() === "") && mindmapTitle) {
     return mindmapTitle
   }
-  
+
   // Return the original message for non-GIF messages
   return message
 }
@@ -101,7 +101,7 @@ const highlightSearchMatch = (text: string, searchTerm: string) => {
 
   const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
   const parts = text.split(regex)
-  
+
   return parts.map((part, index) => {
     if (part.toLowerCase() === searchTerm.toLowerCase()) {
       return (
@@ -117,9 +117,9 @@ const highlightSearchMatch = (text: string, searchTerm: string) => {
 // Helper function to filter conversations based on search term
 const filterConversations = (conversations: any[], searchTerm: string) => {
   if (!searchTerm.trim()) return conversations
-  
+
   const lowercaseSearch = searchTerm.toLowerCase()
-  return conversations.filter(conversation => 
+  return conversations.filter(conversation =>
     conversation.name.toLowerCase().includes(lowercaseSearch) ||
     (conversation.lastMessage && conversation.lastMessage.toLowerCase().includes(lowercaseSearch))
   )
@@ -217,7 +217,7 @@ const MessageText: React.FC<{ text: string | undefined }> = ({ text }) => {
       const gifUrl = gifMatch[1]
       return [
         <div key={`gif-${lineIndex}`} className="my-2 rounded-lg overflow-hidden max-w-full">
-          <img src={gifUrl} alt="GIF" className="max-w-full max-h-[300px] object-contain rounded-md" />
+          <img src={gifUrl} alt="GIF" className="max-w-full max-h-[20vh] object-contain rounded-md" />
         </div>
       ]
     }
@@ -263,7 +263,7 @@ const MessageText: React.FC<{ text: string | undefined }> = ({ text }) => {
             img: ({ src, alt }) => {
 
               return (
-                <img src={src} alt={alt} className="max-w-full max-h-[300px] object-contain rounded-lg my-2" />
+                <img src={src} alt={alt} className="max-w-full max-h-[20vh] object-contain rounded-lg my-2" />
               )
             }
           }}
@@ -293,16 +293,16 @@ const MessageText: React.FC<{ text: string | undefined }> = ({ text }) => {
       className="whitespace-pre-wrap break-words max-w-full"
       style={{ wordBreak: "break-word", overflowWrap: "break-word" }}
     >
-      <div ref={messageRef} className="leading-normal break-words w-full">
+      <div ref={messageRef} className="leading-normal break-words w-full text-[1.8vh]">
         {isLongText && !isExpanded ? (
 
-          <div className="leading-normal break-words w-full">
+          <div className="leading-normal break-words w-full text-[1.8vh]">
             {renderTextWithEmojisAndLinks(displayedText, 0)}
           </div>
         ) : (
 
           displayedLines.map((line, index) => (
-            <div key={index} className="leading-normal break-words w-full">
+            <div key={index} className="leading-normal break-words w-full text-[1.8vh]">
               {line ? renderTextWithEmojisAndLinks(line, index) : <br />}
             </div>
           ))
@@ -311,7 +311,7 @@ const MessageText: React.FC<{ text: string | undefined }> = ({ text }) => {
       {shouldShowMore && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sky-400 hover:text-sky-300 text-sm font-medium mt-1 transition-colors"
+          className="text-sky-400 hover:text-sky-300 text-[1.2vh] font-medium mt-1 transition-colors"
         >
           {isExpanded ? "Show less" : "Show more"}
         </button>
@@ -404,8 +404,8 @@ const NewConversationModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div 
-        ref={modalRef} 
+      <div
+        ref={modalRef}
         className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-100"
       >
         {/* Enhanced Header */}
@@ -418,8 +418,8 @@ const NewConversationModal: React.FC<{
               New Conversation
             </h3>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-all duration-200 border border-transparent hover:border-slate-600/30"
           >
             <X className="h-5 w-5" />
@@ -544,8 +544,8 @@ const AIChatMenu: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div 
-        ref={modalRef} 
+      <div
+        ref={modalRef}
         className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100"
       >
         {/* Enhanced Header */}
@@ -558,8 +558,8 @@ const AIChatMenu: React.FC<{
               Chat with AI
             </h3>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-all duration-200 border border-transparent hover:border-slate-600/30"
           >
             <X className="h-5 w-5" />
@@ -653,9 +653,9 @@ const ConversationMenu: React.FC<{
   useEffect(() => {
     if (triggerRef?.current) {
       const triggerRect = triggerRef.current.getBoundingClientRect()
-      const menuWidth = 192 // w-48 = 192px
-      const menuHeight = 80 // approximate height for 2 items
-      
+      const menuWidth = 224 // w-56 = 224px (updated from w-48)
+      const menuHeight = 100 // approximate height for 2 items with larger padding
+
       let top = triggerRect.bottom + 8 // 8px margin
       let left = triggerRect.left
       let right: number | undefined = undefined
@@ -663,9 +663,19 @@ const ConversationMenu: React.FC<{
       // For conversation menu, prefer to show it below and to the right
       // But adjust if it would go off screen
       left = triggerRect.right - menuWidth
+
+      // Check if menu would go off the right edge
+      if (left + menuWidth > window.innerWidth - 8) {
+        left = window.innerWidth - menuWidth - 8
+      }
+
+      // Check if menu would go off the left edge
       if (left < 8) {
-        // If it would go off the left edge, align with trigger left
         left = triggerRect.left
+        // If still off screen, clamp to minimum
+        if (left + menuWidth > window.innerWidth - 8) {
+          left = 8
+        }
       }
 
       // Adjust vertical position if it would go off the bottom
@@ -697,31 +707,30 @@ const ConversationMenu: React.FC<{
       {isPositioned && (
         <div
           ref={menuRef}
-          className="conversation-menu fixed w-48 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/30 rounded-xl shadow-2xl overflow-hidden z-[9999] pointer-events-auto"
+          className="conversation-menu fixed w-56 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/30 rounded-xl shadow-2xl overflow-hidden z-[9999] pointer-events-auto"
           style={{
             top: `${position.top}px`,
             left: `${position.left}px`,
             right: position.right ? `${position.right}px` : undefined
           }}
         >
-          <div className="py-1.5">
-          <button
-            className={`w-full text-left px-4 py-2.5 hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-3 text-sm ${
-              isPinned ? 'text-blue-400' : 'text-slate-200'
-            }`}
-            onClick={onTogglePin}
-          >
-            <Pin className={`h-5 w-5 ${isPinned ? "text-blue-400" : "text-slate-400"}`} />
-            <span className="font-medium">{isPinned ? "Unpin conversation" : "Pin conversation"}</span>
-          </button>
-          <button
-            className="w-full text-left px-4 py-2.5 text-slate-200 hover:bg-gradient-to-r hover:from-red-900/30 hover:to-red-800/30 transition-all duration-200 flex items-center gap-3 text-sm"
-            onClick={onDelete}
-          >
-            <X className="h-4 w-4 text-red-400" />
-            <span className="font-medium">Delete conversation</span>
-          </button>
-        </div>
+          <div className="py-2">
+            <button
+              className={`w-full text-left px-[1.5vh] py-[1.2vh] hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-[1.5vh] text-[1.6vh] ${isPinned ? 'text-blue-400' : 'text-slate-200'
+                }`}
+              onClick={onTogglePin}
+            >
+              <Pin className={`h-[2vh] w-[2vh] ${isPinned ? "text-blue-400" : "text-slate-400"}`} />
+              <span className="font-medium">{isPinned ? "Unpin conversation" : "Pin conversation"}</span>
+            </button>
+            <button
+              className="w-full text-left px-[1.5vh] py-[1.2vh] text-slate-200 hover:bg-gradient-to-r hover:from-red-900/30 hover:to-red-800/30 transition-all duration-200 flex items-center gap-[1.5vh] text-[1.6vh]"
+              onClick={onDelete}
+            >
+              <X className="h-[2vh] w-[2vh] text-red-400" />
+              <span className="font-medium">Delete conversation</span>
+            </button>
+          </div>
         </div>
       )}
     </Portal>
@@ -733,7 +742,7 @@ const ReactionMenu: React.FC<{
   messageId: number
   onReact: (messageId: number, reactionType: string) => void
   onClose: () => void
-  messageReactions: {[messageId: number]: {[reactionType: string]: string[]}}
+  messageReactions: { [messageId: number]: { [reactionType: string]: string[] } }
 }> = ({ messageId, onReact, onClose, messageReactions }) => {
   const menuRef = useRef<HTMLDivElement>(null)
   const { user } = useAuthStore()
@@ -777,11 +786,10 @@ const ReactionMenu: React.FC<{
               return (
                 <button
                   key={reaction.type}
-                  className={`group relative p-3 rounded-xl transition-all duration-200 flex flex-col items-center hover:scale-110 ${
-                    isSelected 
-                      ? 'bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-400/50 shadow-lg shadow-blue-500/25' 
-                      : 'hover:bg-slate-700/50 border border-transparent hover:border-slate-600/50'
-                  }`}
+                  className={`group relative p-3 rounded-xl transition-all duration-200 flex flex-col items-center hover:scale-110 ${isSelected
+                    ? 'bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-400/50 shadow-lg shadow-blue-500/25'
+                    : 'hover:bg-slate-700/50 border border-transparent hover:border-slate-600/50'
+                    }`}
                   onClick={() => {
                     onReact(messageId, reaction.type)
                     onClose()
@@ -789,9 +797,9 @@ const ReactionMenu: React.FC<{
                   title={reaction.label}
                 >
                   <div className="reaction-menu-images w-8 h-8 overflow-hidden rounded-lg">
-                    <img 
-                      src={reaction.imagePath} 
-                      alt={reaction.label} 
+                    <img
+                      src={reaction.imagePath}
+                      alt={reaction.label}
                       className="w-full h-full object-cover transition-transform group-hover:scale-110"
                     />
                   </div>
@@ -834,25 +842,42 @@ const MessageMenu: React.FC<{
   isEmphasized: boolean
   onClose: () => void
   triggerRef?: React.RefObject<HTMLElement>
-}> = ({ messageId, text, isUserMessage, onEdit, onDelete, onEmphasize, isEmphasized, onClose}) => {
+}> = ({ messageId, text, isUserMessage, onEdit, onDelete, onEmphasize, isEmphasized, onClose, triggerRef }) => {
   const menuRef = useRef<HTMLDivElement>(null)
-  // Position relative to the trigger button
+  
+  // Get absolute position relative to viewport
   const getMenuPosition = () => {
+    if (!triggerRef?.current) return { top: 0, left: 0 }
+    
+    const triggerRect = triggerRef.current.getBoundingClientRect()
     const menuWidth = 144 // w-36 = 144px
-
-    // Position relative to the trigger button
-    let top = 44 // Height of button + small gap
-    let left = 0
-
-    // Adjust horizontal position
+    const menuHeight = isUserMessage ? 160 : 80 // Approximate height based on menu items
+    
+    let top = triggerRect.bottom + 8 // Position below the trigger button
+    let left = triggerRect.left
+    
+    // Adjust horizontal position for user messages
     if (isUserMessage) {
-      // For user messages, show menu to the left of the trigger
-      left = -menuWidth + 8 // Align right edge with button, small offset
-    } else {
-      // For other user messages, show menu to the right of the trigger
-      left = 8 // Small offset to the right
+      left = triggerRect.right - menuWidth // Align right edge with button
     }
-
+    
+    // Prevent menu from going off screen
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    
+    // Adjust horizontal position if menu would go off screen
+    if (left + menuWidth > viewportWidth - 16) {
+      left = viewportWidth - menuWidth - 16
+    }
+    if (left < 16) {
+      left = 16
+    }
+    
+    // Adjust vertical position if menu would go off screen
+    if (top + menuHeight > viewportHeight - 16) {
+      top = triggerRect.top - menuHeight - 8 // Position above the trigger button
+    }
+    
     return { top, left }
   }
 
@@ -868,58 +893,71 @@ const MessageMenu: React.FC<{
         onClose()
       }
     }
+    
+    const handleScroll = () => {
+      onClose()
+    }
+    
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("scroll", handleScroll, true) // Use capture phase to catch all scroll events
+    window.addEventListener("scroll", handleScroll)
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("scroll", handleScroll, true)
+      window.removeEventListener("scroll", handleScroll)
+    }
   }, [onClose])
 
   return (
-    <div
-      ref={menuRef}
-      className="message-menu absolute w-36 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/30 rounded-xl shadow-2xl overflow-hidden z-[9999]"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`
-      }}
-    >
-          <div className="py-1.5">
-          <button
-            className={`w-full text-left px-4 py-2.5 hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-3 text-sm ${
-              isEmphasized ? 'text-yellow-400' : 'text-slate-200'
+    <Portal>
+      <div
+        ref={menuRef}
+        className="message-menu fixed w-36 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/30 rounded-xl shadow-2xl overflow-hidden z-[99999]"
+        style={{
+          top: `${position.top}px`,
+          left: `${position.left}px`
+        }}
+      >
+      <div className="py-2">
+        <button
+          className={`w-full text-left px-[1.5vh] py-[1.2vh] hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-[1.5vh] text-[1.6vh] ${isEmphasized ? 'text-yellow-400' : 'text-slate-200'
             }`}
-            onClick={() => {
-              onEmphasize(messageId)
-              onClose()
-            }}
-          >
-            <Zap className={`h-4 w-4 ${isEmphasized ? 'text-yellow-400' : 'text-slate-400'}`} />
-            <span className="font-medium">{isEmphasized ? 'Remove emphasis' : 'Emphasize'}</span>
-          </button>
-          {isUserMessage && (
-            <>
-              <button
-                className="w-full text-left px-4 py-2.5 text-slate-200 hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-3 text-sm"
-                onClick={() => {
-                  onEdit(messageId, text)
-                  onClose()
-                }}
-              >
-                <Edit className="h-4 w-4 text-slate-400" />
-                <span className="font-medium">Edit</span>
-              </button>
-              <button
-                className="w-full text-left px-4 py-2.5 text-slate-200 hover:bg-gradient-to-r hover:from-red-900/30 hover:to-red-800/30 transition-all duration-200 flex items-center gap-3 text-sm"
-                onClick={() => {
-                  onDelete(messageId)
-                  onClose()
-                }}
-              >
-                <X className="h-4 w-4 text-red-400" />
-                <span className="font-medium">Delete</span>
-              </button>
-            </>
-          )}
-        </div>
+          onClick={() => {
+            onEmphasize(messageId)
+            onClose()
+          }}
+        >
+          <Zap className={`h-[2vh] w-[2vh] ${isEmphasized ? 'text-yellow-400' : 'text-slate-400'}`} />
+          <span className="font-medium">{isEmphasized ? 'Remove emphasis' : 'Emphasize'}</span>
+        </button>
+        {isUserMessage && (
+          <>
+            <button
+              className="w-full text-left px-[1.5vh] py-[1.2vh] text-slate-200 hover:bg-gradient-to-r hover:from-slate-700/50 hover:to-slate-600/50 transition-all duration-200 flex items-center gap-[1.5vh] text-[1.6vh]"
+              onClick={() => {
+                onEdit(messageId, text)
+                onClose()
+              }}
+            >
+              <Edit className="h-[2vh] w-[2vh] text-slate-400" />
+              <span className="font-medium">Edit</span>
+            </button>
+            <button
+              className="w-full text-left px-[1.5vh] py-[1.2vh] text-slate-200 hover:bg-gradient-to-r hover:from-red-900/30 hover:to-red-800/30 transition-all duration-200 flex items-center gap-[1.5vh] text-[1.6vh]"
+              onClick={() => {
+                onDelete(messageId)
+                onClose()
+              }}
+            >
+              <X className="h-[2vh] w-[2vh] text-red-400" />
+              <span className="font-medium">Delete</span>
+            </button>
+          </>
+        )}
+      </div>
     </div>
+    </Portal>
   )
 }
 
@@ -947,13 +985,13 @@ const ReplyPreview: React.FC<{
 
   // Check if the message is a GIF
   const isGif = message.text.match(/!\[GIF\]\((https?:\/\/[^\s)]+)\)/);
-  
+
   // Check if it's a mindmap message
   const isMindmap = message.type === "mindmap" && message.mindMapId;
-  
+
   // Find the mindmap title if it's a mindmap message
-  const mindmapTitle = isMindmap && message.mindMapId ? 
-    useMindMapStore.getState().maps.find(m => m.id === message.mindMapId)?.title || "Mindmap" : 
+  const mindmapTitle = isMindmap && message.mindMapId ?
+    useMindMapStore.getState().maps.find(m => m.id === message.mindMapId)?.title || "Mindmap" :
     null;
 
   // If it's a GIF, show a special preview
@@ -980,7 +1018,7 @@ const ReplyPreview: React.FC<{
       </div>
     );
   }
-  
+
   // If it's a mindmap, show a special preview with network icon and title
   if (isMindmap) {
     return (
@@ -1086,7 +1124,7 @@ const GifMenu: React.FC<{
                 onClose()
               }}
             >
-              <img src={gif} alt={`GIF ${index + 1}`} className="w-full h-24 object-cover" />
+              <img src={gif} alt={`GIF ${index + 1}`} className="w-full h-[8vh] object-cover" />
             </button>
           ))}
         </div>
@@ -1179,7 +1217,7 @@ const Chat: React.FC = () => {
         .from('profiles')
         .update({ last_seen: new Date().toISOString() })
         .eq('id', userId)
-      
+
       if (error) {
         console.error('Error updating last_seen:', error)
       }
@@ -1196,7 +1234,7 @@ const Chat: React.FC = () => {
         .from('profiles')
         .update({ last_seen: offlineTime.toISOString() })
         .eq('id', userId)
-      
+
       if (error) {
         console.error('Error marking user offline:', error)
       }
@@ -1241,7 +1279,7 @@ const Chat: React.FC = () => {
   const [message, setMessage] = useState<string>("")
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGifMenu, setShowGifMenu] = useState(false)
-  
+
   // Additional state
   const [showMindMapSelector, setShowMindMapSelector] = useState(false)
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
@@ -1254,14 +1292,14 @@ const Chat: React.FC = () => {
   const [editText, setEditText] = useState("")
   const [showMessageMenu, setShowMessageMenu] = useState<number | null>(null)
   const [showThinkingIndicator, setShowThinkingIndicator] = useState(false)
-  const [messageReactions, setMessageReactions] = useState<{[messageId: number]: {[reactionType: string]: string[]}}>({})
+  const [messageReactions, setMessageReactions] = useState<{ [messageId: number]: { [reactionType: string]: string[] } }>({})
   const [emphasizedMessages, setEmphasizedMessages] = useState<Set<number>>(new Set())
   const [reactingToMessageId, setReactingToMessageId] = useState<number | null>(null)
   const [showReactionMenu, setShowReactionMenu] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false)
   const [isAITyping, setIsAITyping] = useState(false)
   const [conversationSearchTerm, setConversationSearchTerm] = useState("")
-  
+
   // Additional missing state
   const [newMindMapTitle, setNewMindMapTitle] = useState("")
   const [showBotMenu, setShowBotMenu] = useState(false)
@@ -1270,7 +1308,7 @@ const Chat: React.FC = () => {
   const [showAISettingsModal, setShowAISettingsModal] = useState(false)
   const [mindMapSearchTerm, setMindMapSearchTerm] = useState("")
   const [mindMapSortBy, setMindMapSortBy] = useState<"alphabetical" | "lastEdited">("lastEdited")
-  
+
   // Additional refs
   const conversationMenuTriggerRef = useRef<HTMLButtonElement>(null)
 
@@ -1285,11 +1323,11 @@ const Chat: React.FC = () => {
   const isTypingRef = useRef<boolean>(false)
   const lastProcessedMessagesRef = useRef<string | null>(null)
   const initiallyFetchedConversationRef = useRef<number | null>(null)
-  
+
   // State for tracking scroll position
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
-  
+
   // Click outside handlers
   const [handleClickOutsideEmojiPicker, setHandleClickOutsideEmojiPicker] = useState<
     ((event: MouseEvent) => void) | null
@@ -1306,8 +1344,8 @@ const Chat: React.FC = () => {
   const activeConversation = getActiveConversation()
 
   // Set page title based on active conversation
-  const pageTitle = activeConversation 
-    ? `Chat - ${activeConversation.name}` 
+  const pageTitle = activeConversation
+    ? `Chat - ${activeConversation.name}`
     : "Chat"
   usePageTitle(pageTitle)
 
@@ -1317,12 +1355,12 @@ const Chat: React.FC = () => {
       // Check both regular conversations and pending conversation
       const pendingConversation = useChatStore.getState().pendingConversation
       let conversation = conversations.find(c => c.supabaseId === urlSupabaseId)
-      
+
       // If not found in regular conversations, check pending conversation
       if (!conversation && pendingConversation && pendingConversation.supabaseId === urlSupabaseId) {
         conversation = pendingConversation
       }
-      
+
       if (conversation && conversation.id !== activeConversationId) {
         setIsFetchingMessages(true) // Set fetching state when loading from URL
         setActiveConversation(conversation.id)
@@ -1336,13 +1374,13 @@ const Chat: React.FC = () => {
     setIsFetchingMessages(true) // Immediately set fetching state
     setMessagesLoaded(false) // Reset messages loaded state
     setActiveConversation(conversationId)
-    
+
     // Check both regular conversations and pending conversation
     const pendingConversation = useChatStore.getState().pendingConversation
-    const conversation = pendingConversation && conversationId === pendingConversation.id 
-      ? pendingConversation 
+    const conversation = pendingConversation && conversationId === pendingConversation.id
+      ? pendingConversation
       : conversations.find(c => c.id === conversationId)
-    
+
     if (conversation?.supabaseId) {
       // Navigate to the conversation using its supabaseId (works for both pending and real conversations)
       navigate(`/chat/${conversation.supabaseId}`, { replace: true })
@@ -1350,7 +1388,7 @@ const Chat: React.FC = () => {
       // Fallback - this shouldn't happen anymore since all conversations have supabaseId
       navigate('/chat', { replace: true })
     }
-    
+
     // Clear transitioning state after a short delay, but keep fetching state
     setTimeout(() => {
       setIsConversationTransitioning(false)
@@ -1360,7 +1398,7 @@ const Chat: React.FC = () => {
   // Filter conversations based on search term
   useEffect(() => {
     if (conversationSearchTerm) {
-      const filtered = conversations.filter(conv => 
+      const filtered = conversations.filter(conv =>
         conv.name.toLowerCase().includes(conversationSearchTerm.toLowerCase()) ||
         conv.lastMessage.toLowerCase().includes(conversationSearchTerm.toLowerCase())
       )
@@ -1381,17 +1419,17 @@ const Chat: React.FC = () => {
     const fetchData = async () => {
       setIsLoadingConversations(true)
       setIsInitialLoadComplete(false)
-      
+
       try {
         // Fetch conversations first with typing channels enabled since we're in Chat
         await useChatStore.getState().fetchConversations(false, true)
-        
+
         // Initialize typing channels in case conversations were already loaded
         await useChatStore.getState().initializeTypingChannels()
-        
+
         // Small delay to ensure conversations are fully loaded in state
         await new Promise(resolve => setTimeout(resolve, 50))
-        
+
         // Refresh online statuses after fetching conversations
         await useChatStore.getState().refreshOnlineStatuses()
 
@@ -1401,10 +1439,10 @@ const Chat: React.FC = () => {
           setIsLoadingMessages(true)
           await useChatStore.getState().fetchMessages(activeId)
           setIsLoadingMessages(false)
-          
+
           // Track that we've fetched this conversation during initial load
           initiallyFetchedConversationRef.current = activeId
-          
+
           // Ensure we scroll to bottom for the initial conversation load
           setTimeout(() => {
             if (messagesContainerRef.current) {
@@ -1412,7 +1450,7 @@ const Chat: React.FC = () => {
               messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
             }
           }, 200)
-          
+
           // Ensure conversations are fully loaded before showing content
           setTimeout(() => {
             setIsLoadingConversations(false)
@@ -1448,7 +1486,7 @@ const Chat: React.FC = () => {
   useEffect(() => {
     const handleConversationCreated = (event: CustomEvent) => {
       const { conversationId, supabaseId } = event.detail
-      
+
       // Only update URL if this is the currently active conversation
       if (conversationId === activeConversationId && supabaseId) {
         console.log('[DEBUG] Updating URL for new conversation:', supabaseId)
@@ -1457,7 +1495,7 @@ const Chat: React.FC = () => {
     }
 
     window.addEventListener('conversationCreated', handleConversationCreated as EventListener)
-    
+
     return () => {
       window.removeEventListener('conversationCreated', handleConversationCreated as EventListener)
     }
@@ -1518,7 +1556,7 @@ const Chat: React.FC = () => {
       document.addEventListener("mousedown", handleClickOutsideEmojiPicker)
       return () => document.removeEventListener("mousedown", handleClickOutsideEmojiPicker)
     }
-    return () => {}
+    return () => { }
   }, [showEmojiPicker, handleClickOutsideEmojiPicker])
 
   useEffect(() => {
@@ -1526,7 +1564,7 @@ const Chat: React.FC = () => {
       document.addEventListener("mousedown", handleClickOutsideGifMenu)
       return () => document.removeEventListener("mousedown", handleClickOutsideGifMenu)
     }
-    return () => {}
+    return () => { }
   }, [showGifMenu, handleClickOutsideGifMenu])
 
   useEffect(() => {
@@ -1534,7 +1572,7 @@ const Chat: React.FC = () => {
       document.addEventListener("mousedown", handleClickOutsideMindMapSelector)
       return () => document.removeEventListener("mousedown", handleClickOutsideMindMapSelector)
     }
-    return () => {}
+    return () => { }
   }, [showMindMapSelector, handleClickOutsideMindMapSelector])
 
 
@@ -1564,10 +1602,10 @@ const Chat: React.FC = () => {
     }
 
     const hasText = message.trim().length > 0
-    
+
     // Only update if typing status actually changed
     if (isTypingRef.current === hasText) return
-    
+
     // Debounce typing status updates to prevent spam
     const timeoutId = setTimeout(async () => {
       // Double-check that the conversation hasn't changed and status is still different
@@ -1699,7 +1737,7 @@ const Chat: React.FC = () => {
     if (activeConversationId) {
       setIsLoadingMessages(true);
       setMessagesLoaded(false); // Reset messages loaded state
-      
+
       // Reset scroll position state when switching conversations
       setIsAtBottom(true);
       setHasUnreadMessages(false);
@@ -1709,7 +1747,7 @@ const Chat: React.FC = () => {
         try {
           // Skip fetching if we already fetched this conversation during initial load
           const alreadyFetched = initiallyFetchedConversationRef.current === activeConversationId
-          
+
           if (!alreadyFetched) {
             // Fetch messages
             await useChatStore.getState().fetchMessages(activeConversationId);
@@ -1750,7 +1788,7 @@ const Chat: React.FC = () => {
 
           // Set hasUnreadMessages if there are unread messages (but don't scroll to them initially)
           setHasUnreadMessages(unreadMessages.length > 0);
-          
+
           // Mark messages as loaded
           setMessagesLoaded(true);
         } catch (error) {
@@ -1792,7 +1830,7 @@ const Chat: React.FC = () => {
     if (activeConversationId && messagesContainerRef.current) {
       // Add multiple scroll attempts with different delays to ensure it works
       const scrollAttempts = [100, 300, 500, 800];
-      
+
       scrollAttempts.forEach(delay => {
         setTimeout(() => {
           if (messagesContainerRef.current && activeConversationId) {
@@ -1884,7 +1922,7 @@ const Chat: React.FC = () => {
     const currentMessages = [...messages]
 
     // Load reactions and emphasized messages from the fetched messages
-    const newReactions: {[messageId: number]: {[reactionType: string]: string[]}} = {}
+    const newReactions: { [messageId: number]: { [reactionType: string]: string[] } } = {}
     const newEmphasized = new Set<number>()
 
     currentMessages.forEach(msg => {
@@ -1925,7 +1963,7 @@ const Chat: React.FC = () => {
       // Also scroll to bottom on first load of messages for a conversation
       if ((wasAtBottom || isFirstLoad) && messagesContainerRef.current) {
         setTimeout(() => scrollToBottom(), 0)
-        
+
         // For first loads, add additional scroll attempts to ensure it works
         if (isFirstLoad) {
           setTimeout(() => {
@@ -1934,7 +1972,7 @@ const Chat: React.FC = () => {
               setIsAtBottom(true);
             }
           }, 100);
-          
+
           setTimeout(() => {
             if (messagesContainerRef.current) {
               messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -2051,8 +2089,8 @@ const Chat: React.FC = () => {
   const handleSelectMindMap = (mapId: string) => {
     const selectedMap = maps.find((m) => m.id === mapId)
     if (selectedMap) {
-      setSelectedMindMap({ 
-        id: mapId, 
+      setSelectedMindMap({
+        id: mapId,
         title: selectedMap.title,
         visibility: selectedMap.visibility || 'private'
       })
@@ -2092,7 +2130,7 @@ const Chat: React.FC = () => {
     try {
       const currentBot = aiService.getCurrentBot()
       const conversationId = await useChatStore.getState().createAIConversation(currentBot.name)
-      
+
       // Ensure the conversation is properly selected with URL navigation
       if (conversationId && conversationId !== -1) {
         selectConversation(conversationId)
@@ -2115,9 +2153,9 @@ const Chat: React.FC = () => {
       console.log('[DEBUG] Creating conversation with user:', userName)
       const conversationId = await createConversation(userId, userName, isOnline)
       console.log('[DEBUG] Conversation created, ID:', conversationId)
-      
+
       setShowNewConversationModal(false)
-      
+
       // Ensure the conversation is properly selected with URL navigation
       if (conversationId && conversationId !== -1) {
         selectConversation(conversationId)
@@ -2348,11 +2386,10 @@ const Chat: React.FC = () => {
           return (
             <div
               key={`${messageId}-${type}`}
-              className={`${
-                userHasReacted 
-                  ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50' 
-                  : 'bg-black/20 border-white/20'
-              } backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 text-sm cursor-pointer hover:bg-gradient-to-r hover:from-blue-500/40 hover:to-purple-500/40 hover:border-blue-400/60 transition-all duration-200 shadow-lg`}
+              className={`${userHasReacted
+                ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50'
+                : 'bg-black/20 border-white/20'
+                } backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 text-sm cursor-pointer hover:bg-gradient-to-r hover:from-blue-500/40 hover:to-purple-500/40 hover:border-blue-400/60 transition-all duration-200 shadow-lg`}
               title={`${userHasReacted ? 'Remove your reaction' : 'Add your reaction'} (${users.length} ${users.length === 1 ? 'person' : 'people'})`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -2387,13 +2424,13 @@ const Chat: React.FC = () => {
 
     // Check if the message is a GIF
     const isGif = replyToMessage.text.match(/!\[GIF\]\((https?:\/\/[^\s)]+)\)/);
-    
+
     // Check if it's a mindmap
     const isMindmap = replyToMessage.type === "mindmap" && replyToMessage.mindMapId;
-    
+
     // Find the mindmap title if it's a mindmap message
-    const mindmapTitle = isMindmap && replyToMessage.mindMapId ? 
-      useMindMapStore.getState().maps.find(m => m.id === replyToMessage.mindMapId)?.title || "Mindmap" : 
+    const mindmapTitle = isMindmap && replyToMessage.mindMapId ?
+      useMindMapStore.getState().maps.find(m => m.id === replyToMessage.mindMapId)?.title || "Mindmap" :
       null;
 
     return (
@@ -2479,7 +2516,8 @@ const Chat: React.FC = () => {
 
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-auto">
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* Modern message bubble design - uniform styling for all messages */
 
         /* Enhanced consecutive message styling */
@@ -2612,571 +2650,567 @@ const Chat: React.FC = () => {
           z-index: 1;
         }
       ` }} />
-      
-      <div className="w-[98vw] max-w-none mx-auto pb-6 pt-[calc(5rem+0.5rem)] min-h-full">
-        <div className="h-[calc(100vh-7rem)]">
+
+      <div className="w-full h-full pt-14">
+        <div className="h-full">
           <div className="flex h-full">
-          {/* Enhanced Conversations List */}
-          <div
-            className={`${
-              isMobile
-                ? `absolute inset-0 z-50 transform transition-transform duration-300 ease-in-out ${
-                    showConversations ? "translate-x-0" : "-translate-x-full"
-                  }`
+            {/* Enhanced Conversations List */}
+            <div
+              className={`${isMobile
+                ? `absolute inset-0 z-50 transform transition-transform duration-300 ease-in-out ${showConversations ? "translate-x-0" : "-translate-x-full"
+                }`
                 : "w-96"
-            } bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-2xl flex flex-col h-full overflow-hidden`}
-          >
-            {/* Enhanced Header */}
-            <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  Messages
-                </h2>
-                <div className="flex gap-2">
-                  <div className="relative">
+                } bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-2xl flex flex-col h-full overflow-hidden`}
+            >
+              {/* Enhanced Header */}
+              <div className="p-[1.5vh] border-b border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-[1vh]">
+                  <h2 className="text-[2vh] font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    Messages
+                  </h2>
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105"
+                        onClick={handleBotMenuToggle}
+                        title="Chat with AI"
+                      >
+                        <Bot className="h-5 w-5 transition-transform group-hover:scale-110" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105"
-                      onClick={handleBotMenuToggle}
-                      title="Chat with AI"
+                      onClick={handleNewConversation}
+                      title="New conversation"
                     >
-                      <Bot className="h-5 w-5 transition-transform group-hover:scale-110" />
+                      <PlusCircle className="h-5 w-5 transition-transform group-hover:scale-110" />
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105"
-                    onClick={handleNewConversation}
-                    title="New conversation"
-                  >
-                    <PlusCircle className="h-5 w-5 transition-transform group-hover:scale-110" />
-                  </button>
                 </div>
-              </div>
-              
-              {/* Enhanced Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  placeholder="Search conversations..."
-                  value={conversationSearchTerm}
-                  onChange={(e) => setConversationSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3 rounded-xl bg-slate-800/60 border border-slate-600/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-slate-200 placeholder:text-slate-400 transition-all duration-200"
-                />
-                {conversationSearchTerm && (
-                  <button
-                    onClick={() => setConversationSearchTerm("")}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            {/* Enhanced Conversations List Content */}
-            <div className="flex-1 overflow-hidden py-4 px-4">
-              {isLoadingConversations || !isInitialLoadComplete ? (
-                <div className="space-y-3">
-                  {Array(5).fill(0).map((_, index) => (
-                    <ConversationSkeletonLoader key={`skeleton-${index}`} />
-                  ))}
-                </div>
-              ) : (
-                <div className="h-full">
-                  {conversations.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-4 border border-slate-600/30">
-                        <PlusCircle className="h-8 w-8 text-slate-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-300 mb-2">No conversations yet</h3>
-                      <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-                        Start a new conversation by clicking the + button above.
-                      </p>
-                    </div>
-                  ) : filteredConversations.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-4 border border-slate-600/30">
-                        <Search className="h-8 w-8 text-slate-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-300 mb-2">No matches found</h3>
-                      <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-                        Try a different search term or clear the search to see all conversations.
-                      </p>
-                    </div>
-                  ) : (
-                    <VirtualizedConversationList
-                      conversations={filteredConversations}
-                      activeConversationId={activeConversationId}
-                      setActiveConversation={selectConversation}
-                      isMobile={isMobile}
-                      setShowConversations={setShowConversations}
-                      getTypingStatus={getTypingStatus}
-                      typingUsers={typingUsers}
-                      isLoading={false}
-                      searchTerm={conversationSearchTerm}
-                    />
+
+                {/* Enhanced Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    placeholder="Search conversations..."
+                    value={conversationSearchTerm}
+                    onChange={(e) => setConversationSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-12 py-3 rounded-xl bg-slate-800/60 border border-slate-600/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-slate-200 placeholder:text-slate-400 transition-all duration-200"
+                  />
+                  {conversationSearchTerm && (
+                    <button
+                      onClick={() => setConversationSearchTerm("")}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   )}
                 </div>
-              )}
-            </div>
-            
-            {/* Enhanced Settings Footer */}
-            <div className="p-4 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/40 to-slate-900/40">
-              <button
-                type="button"
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all duration-200 border border-transparent hover:border-slate-600/30"
-              >
-                <Settings className="h-5 w-5" />
-                <span className="font-medium">Settings</span>
-              </button>
-            </div>
-          </div>
+              </div>
 
-          {/* Enhanced Chat Area */}
-          <div className="flex-1 flex flex-col bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-2xl overflow-hidden">
-            {activeConversation && (
-              <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {isMobile && (
-                      <button
-                        type="button"
-                        onClick={() => setShowConversations(true)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-all duration-200 md:hidden"
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </button>
-                    )}
-                    <div className="relative group">
-                      <div
-                        className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex items-center justify-center flex-shrink-0 border border-slate-600/30 transition-all duration-200 ${
-                          !activeConversation.isAI 
-                            ? "cursor-pointer hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/25 hover:scale-105" 
-                            : ""
-                        }`}
-                        onClick={() => {
-                          if (!activeConversation.isAI && activeConversation.userId) {
-                            navigate(`/${activeConversation.name}`);
-                          }
-                        }}
-                      >
-                        {activeConversation.isAI ? (
-                          <img
-                            src={
-                              aiService.getAllBots().find((bot) => bot.id === activeConversation.botId)?.avatar ||
-                              "/assets/avatars/bigglesmooth.jpg"
-                            }
-                            alt={activeConversation.name}
-                            className="w-full h-full rounded-2xl object-cover"
-                          />
-                        ) : activeConversation.avatar ? (
-                          <img
-                            src={activeConversation.avatar}
-                            alt={activeConversation.name}
-                            className="w-full h-full rounded-2xl object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              const parent = (e.target as HTMLImageElement).parentElement;
-                              if (parent) {
-                                const span = document.createElement('span');
-                                span.className = 'text-lg font-semibold text-slate-300';
-                                span.textContent = activeConversation.name.charAt(0).toUpperCase();
-                                parent.appendChild(span);
-                              }
-                            }}
-                          />
-                        ) : (
-                          <span className="text-lg font-semibold text-slate-300">
-                            {activeConversation.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      {activeConversation.online && (
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800 shadow-lg"></div>
-                      )}
-                    </div>
-                    
-                    {/* Enhanced User Info */}
-                    <div className="min-w-0 flex-1">
-                      <h3
-                        className={`text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent ${
-                          !activeConversation.isAI ? "cursor-pointer hover:from-blue-400 hover:to-purple-400 transition-all duration-200" : ""
-                        }`}
-                        onClick={() => {
-                          if (!activeConversation.isAI && activeConversation.userId) {
-                            navigate(`/${activeConversation.name}`);
-                          }
-                        }}
-                      >
-                        {activeConversation.name}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        {activeConversation.isAI ? (
-                          <div className="flex items-center gap-2">
-                            <Bot className="w-4 h-4 text-blue-400" />
-                            <span className="text-sm text-slate-400 font-medium">AI Assistant</span>
-                          </div>
-                        ) : activeConversation.online ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-sm text-green-400 font-medium">Online</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
-                            <span className="text-sm text-slate-400">
-                              Last seen {formatLastSeen(activeConversation.lastSeen || null)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+              {/* Enhanced Conversations List Content */}
+              <div className="flex-1 overflow-hidden py-[1vh] px-[1vh]">
+                {isLoadingConversations || !isInitialLoadComplete ? (
+                  <div className="space-y-3">
+                    {Array(5).fill(0).map((_, index) => (
+                      <ConversationSkeletonLoader key={`skeleton-${index}`} />
+                    ))}
                   </div>
-                  
-                  {/* Enhanced Action Buttons */}
-
-                  <div className="flex items-center gap-2 relative">
-                    {activeConversation?.isAI && (
-                      <>
-                        {/* Subtle "?" Help Button, first in order, no background */}
-                        <button
-                          type="button"
-                          className="text-slate-400 hover:text-blue-400 transition-colors duration-200 font-bold text-lg leading-none px-2"
-                          title="Help"
-                          style={{ background: "none", boxShadow: "none", border: "none" }}
-                          onClick={() => setShowAIHelpModal(true)}
-                        >
-                          ?
-                        </button>
-                        <button
-                          type="button"
-                          className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105"
-                          onClick={() => setShowAISettingsModal(true)}
-                          title="AI Memory Settings"
-                        >
-                          <Settings className="h-5 w-5 transition-transform group-hover:scale-110" />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      ref={conversationMenuTriggerRef}
-                      type="button"
-                      className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-slate-600/50 hover:to-slate-700/50 text-slate-300 hover:text-white transition-all duration-200 border border-slate-600/30 hover:border-slate-500/50 hover:scale-105 menu-button"
-                      onClick={handleMenuToggle}
-                    >
-                      <MoreVertical className="h-5 w-5 transition-transform group-hover:scale-110" />
-                    </button>
-                    {showConversationMenu && activeConversationId && (
-                      <ConversationMenu
-                        conversationId={activeConversationId}
-                        isPinned={activeConversation?.pinned || false}
-                        onClose={() => setShowConversationMenu(false)}
-                        onDelete={handleDeleteConversation}
-                        onTogglePin={handleTogglePin}
-                        triggerRef={conversationMenuTriggerRef}
+                ) : (
+                  <div className="h-full">
+                    {conversations.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 text-center p-[2vh]">
+                        <div className="w-[5vh] h-[5vh] rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-[1vh] border border-slate-600/30">
+                          <PlusCircle className="h-[2.5vh] w-[2.5vh] text-slate-400" />
+                        </div>
+                        <h3 className="text-[1.6vh] font-semibold text-slate-300 mb-[0.5vh]">No conversations yet</h3>
+                        <p className="text-[1.2vh] text-slate-400 max-w-xs leading-relaxed">
+                          Start a new conversation by clicking the + button above.
+                        </p>
+                      </div>
+                    ) : filteredConversations.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 text-center p-[2vh]">
+                        <div className="w-[5vh] h-[5vh] rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-[1vh] border border-slate-600/30">
+                          <Search className="h-[2.5vh] w-[2.5vh] text-slate-400" />
+                        </div>
+                        <h3 className="text-[1.6vh] font-semibold text-slate-300 mb-[0.5vh]">No matches found</h3>
+                        <p className="text-[1.2vh] text-slate-400 max-w-xs leading-relaxed">
+                          Try a different search term or clear the search to see all conversations.
+                        </p>
+                      </div>
+                    ) : (
+                      <VirtualizedConversationList
+                        conversations={filteredConversations}
+                        activeConversationId={activeConversationId}
+                        setActiveConversation={selectConversation}
+                        isMobile={isMobile}
+                        setShowConversations={setShowConversations}
+                        getTypingStatus={getTypingStatus}
+                        typingUsers={typingUsers}
+                        isLoading={false}
+                        searchTerm={conversationSearchTerm}
                       />
                     )}
                   </div>
-                </div>
+                )}
               </div>
-            )}
 
-            {/* Enhanced Messages Area */}
-            <div
-              ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto py-6 px-6 space-y-4 scrollbar-thin relative z-0"
-            >
-              {/* Enhanced New Messages Indicator */}
-              {activeConversation && hasUnreadMessages && isScrollable() && (
-                <div className="sticky top-0 z-10 flex justify-center mb-6">
-                  <div
-                    className="bg-gradient-to-r from-blue-500/90 to-purple-500/90 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 cursor-pointer hover:from-blue-600/90 hover:to-purple-600/90 transition-all duration-200 backdrop-blur-sm border border-blue-400/30"
-                    onClick={scrollToBottom}
-                  >
-                    <ChevronDown className="h-5 w-5 animate-bounce" />
-                    <span className="font-medium">New messages</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Enhanced No Conversation State */}
-              {!activeConversation && (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 flex items-center justify-center mb-6 border border-slate-600/30">
-                    <Users className="h-10 w-10 text-slate-400" />
-                  </div>
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-3">
-                    No conversation selected
-                  </h3>
-                  <p className="text-slate-400 max-w-md leading-relaxed">
-                    Select an existing conversation from the sidebar or start a new one by clicking the + button.
-                  </p>
-                </div>
-              )}
-
-              {/* Enhanced Loading State */}
-              {(isLoadingMessages || isConversationTransitioning || isFetchingMessages || !messagesLoaded) && activeConversation && (
-                <div className="space-y-6 px-4">
-                  <MessageSkeletonLoader isUser={false} />
-                  <MessageSkeletonLoader isUser={true} />
-                  <MessageSkeletonLoader isUser={false} />
-                  <MessageSkeletonLoader isUser={true} />
-                  <MessageSkeletonLoader isUser={false} />
-                </div>
-              )}
-
-              {/* Enhanced Messages with Performance Optimizations */}
-              {!isLoadingMessages && !isConversationTransitioning && !isFetchingMessages && messagesLoaded && activeConversation && (
-                <>
-                  {messages.map((msg: any, i: number) => {
-                    const isUser = msg.senderId === "me"
-                    // Show date stamp if it's the first message or if the date is different from the previous message
-                    const showTimestamp = i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
-                    const isConsecutive = i > 0 && messages[i - 1].senderId === msg.senderId && !messages[i - 1].deleted
-                    const isLastUserMessage = isUser && !messages.slice(i + 1).some((m: any) => m.senderId === "me" && !m.deleted)
-
-                    return (
-                      <React.Fragment key={msg.id}>
-                        {showTimestamp && (
-                          <div className="flex justify-center my-6">
-                            <div className="bg-slate-800/60 text-slate-400 text-xs px-4 py-2 rounded-full border border-slate-700/30 backdrop-blur-sm">
-                              {formatDate(new Date(msg.timestamp))}
-                            </div>
-                          </div>
-                        )}
-                        <MessageBubble
-                          msg={msg}
-                          index={i}
-                          isUser={isUser}
-                          isConsecutive={isConsecutive}
-                          isEditing={editingMessageId === msg.id}
-                          showTimestamp={showTimestamp}
-                          isLastUserMessage={isLastUserMessage}
-                          activeConversation={activeConversation}
-                          messageRefs={messageRefs}
-                          reactingToMessageId={reactingToMessageId}
-                          emphasizedMessages={emphasizedMessages}
-                          messageReactions={messageReactions}
-                          formatTime={formatTime}
-                          handleReplyMessage={handleReplyMessage}
-                          handleEmphasizeMessage={handleEmphasizeMessage}
-                          renderReplyContext={renderReplyContext}
-                          renderMessageReactions={renderMessageReactions}
-                          navigate={navigate}
-                          isAITyping={isAITyping}
-                          editingAnimationId={editingAnimationId}
-                          setEditText={setEditText}
-                          editText={editText}
-                          editTextareaRef={editTextareaRef}
-                          handleSaveEdit={handleSaveEdit}
-                          setEditingMessageId={setEditingMessageId}
-                          setReactingToMessageId={setReactingToMessageId}
-                          setShowReactionMenu={setShowReactionMenu}
-                          aiService={aiService}
-                          previewMaps={previewMaps}
-                          messages={messages}
-                          showMessageMenu={showMessageMenu}
-                          setShowMessageMenu={setShowMessageMenu}
-                          handleStartEdit={handleStartEdit}
-                          handleDeleteMessage={handleDeleteMessage}
-                        />
-                      </React.Fragment>
-                    )
-                  })}
-                </>
-              )}
-              {showThinkingIndicator && activeConversation?.isAI && (
-                <ThinkingIndicator
-                  name={activeConversation.name}
-                  avatar={aiService.getAllBots().find((bot) => bot.id === activeConversation.botId)?.avatar}
-                />
-              )}
-              {activeConversation && !activeConversation.isAI && getTypingStatus(activeConversation.id) && (
-                <TypingIndicator
-                  name={activeConversation.name}
-                  avatar={activeConversation.avatar}
-                />
-              )}
-            </div>
-
-
-            {!isAtBottom && (
-              <div className="absolute bottom-20 right-6 z-50">
+              {/* Enhanced Settings Footer */}
+              <div className="p-[1vh] border-t border-slate-700/30 bg-gradient-to-r from-slate-800/40 to-slate-900/40">
                 <button
-                  onClick={scrollToBottom}
-                  className="w-9 h-9 bg-slate-600/80 hover:bg-slate-500/80 text-slate-200 hover:text-white rounded-xl shadow-lg flex items-center justify-center transition-all duration-200"
-                  aria-label="Scroll to bottom"
+                  type="button"
+                  className="w-full flex items-center gap-[1vh] px-[1vh] py-[0.8vh] rounded-xl text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all duration-200 border border-transparent hover:border-slate-600/30"
                 >
-                  <ChevronDown className="h-4 w-4" />
+                  <Settings className="h-5 w-5" />
+                  <span className="font-medium">Settings</span>
                 </button>
               </div>
-            )}
+            </div>
 
+            {/* Enhanced Chat Area */}
+            <div className="flex-1 flex flex-col bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-2xl overflow-hidden">
+              {activeConversation && (
+                <div className="p-[1.5vh] border-b border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-[1vh]">
+                      {isMobile && (
+                        <button
+                          type="button"
+                          onClick={() => setShowConversations(true)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-all duration-200 md:hidden"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                      )}
+                      <div className="relative group">
+                        <div
+                          className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex items-center justify-center flex-shrink-0 border border-slate-600/30 transition-all duration-200 ${!activeConversation.isAI
+                            ? "cursor-pointer hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/25 hover:scale-105"
+                            : ""
+                            }`}
+                          onClick={() => {
+                            if (!activeConversation.isAI && activeConversation.userId) {
+                              navigate(`/${activeConversation.name}`);
+                            }
+                          }}
+                        >
+                          {activeConversation.isAI ? (
+                            <img
+                              src={
+                                aiService.getAllBots().find((bot) => bot.id === activeConversation.botId)?.avatar ||
+                                "/assets/avatars/bigglesmooth.jpg"
+                              }
+                              alt={activeConversation.name}
+                              className="w-full h-full rounded-2xl object-cover"
+                            />
+                          ) : activeConversation.avatar ? (
+                            <img
+                              src={activeConversation.avatar}
+                              alt={activeConversation.name}
+                              className="w-full h-full rounded-2xl object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                const parent = (e.target as HTMLImageElement).parentElement;
+                                if (parent) {
+                                  const span = document.createElement('span');
+                                  span.className = 'text-lg font-semibold text-slate-300';
+                                  span.textContent = activeConversation.name.charAt(0).toUpperCase();
+                                  parent.appendChild(span);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="text-lg font-semibold text-slate-300">
+                              {activeConversation.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        {activeConversation.online && (
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800 shadow-lg"></div>
+                        )}
+                      </div>
 
-            {/* Enhanced Message Input Area */}
-            {activeConversation ? (
-              <div className="p-3 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
-                <form onSubmit={handleSendMessage} className="flex flex-col gap-2">
-                  {replyingToMessage && (
-                    <ReplyPreview message={replyingToMessage} onCancel={() => setReplyingToMessage(null)} />
-                  )}
-                  
-                  <div className="flex gap-2 items-end">
+                      {/* Enhanced User Info */}
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          className={`text-[2.2vh] font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent ${!activeConversation.isAI ? "cursor-pointer hover:from-blue-400 hover:to-purple-400 transition-all duration-200" : ""
+                            }`}
+                          onClick={() => {
+                            if (!activeConversation.isAI && activeConversation.userId) {
+                              navigate(`/${activeConversation.name}`);
+                            }
+                          }}
+                        >
+                          {activeConversation.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          {activeConversation.isAI ? (
+                            <div className="flex items-center gap-2">
+                              <Bot className="w-4 h-4 text-blue-400" />
+                              <span className="text-sm text-slate-400 font-medium">AI Assistant</span>
+                            </div>
+                          ) : activeConversation.online ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-sm text-green-400 font-medium">Online</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-slate-500 rounded-full"></div>
+                              <span className="text-sm text-slate-400">
+                                Last seen {formatLastSeen(activeConversation.lastSeen || null)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Enhanced Action Buttons */}
-                    <div className="flex gap-2">
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setShowMindMapSelector((prev) => !prev)}
-                          className="group h-[36px] w-[36px] rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105 mindmap-button flex items-center justify-center"
-                          title="Share a mindmap"
-                        >
-                          <Network className="h-4 w-4 transition-transform group-hover:scale-110" />
-                        </button>
-                        {showMindMapSelector && (
-                          <MindMapSelector
-                            searchTerm={mindMapSearchTerm}
-                            setSearchTerm={setMindMapSearchTerm}
-                            sortBy={mindMapSortBy}
-                            setSortBy={setMindMapSortBy}
-                            showCreateForm={showCreateMindMapForm}
-                            setShowCreateForm={setShowCreateMindMapForm}
-                            newMapTitle={newMindMapTitle}
-                            setNewMapTitle={setNewMindMapTitle}
-                            onSelectMindMap={handleSelectMindMap}
-                            onCreateMindMap={handleCreateMindMapAccept}
-                            onCancelCreate={handleCreateMindMapReject}
-                            isAIConversation={activeConversation?.isAI}
-                            onClose={() => setShowMindMapSelector(false)}
-                            title="Share a mindmap"
-                            mode="overlay"
-                          />
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Enhanced Input Container */}
-                    <div ref={inputContainerRef} className="flex-1 relative">
-                      <div className="w-full min-h-[36px] p-3 pr-20 rounded-xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/25 text-slate-200 transition-all duration-200 shadow-lg">
-                        {selectedMindMap && (
-                          <MindMapChip
-                            mapId={selectedMindMap.id}
-                            mapTitle={selectedMindMap.title}
-                            visibility={selectedMindMap.visibility}
-                            onRemove={handleRemoveMindMap}
-                          />
-                        )}
-                        <textarea
-                          ref={textareaRef}
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          onInput={handleInput}
-                          placeholder={
-                            replyingToMessage
-                              ? "Type your reply..."
-                              : selectedMindMap
-                                ? "Add a message..."
-                                : "Type a message..."
-                          }
-                          className="w-full bg-transparent border-none focus:outline-none resize-none overflow-hidden placeholder:text-slate-400 text-slate-200"
-                          style={{ height: "24px", minHeight: "24px", maxHeight: "120px" }}
+                    <div className="flex items-center gap-2 relative">
+                      {activeConversation?.isAI && (
+                        <>
+                          {/* Subtle "?" Help Button, first in order, no background */}
+                          <button
+                            type="button"
+                            className="text-slate-400 hover:text-blue-400 transition-colors duration-200 font-bold text-lg leading-none px-2"
+                            title="Help"
+                            style={{ background: "none", boxShadow: "none", border: "none" }}
+                            onClick={() => setShowAIHelpModal(true)}
+                          >
+                            ?
+                          </button>
+                          <button
+                            type="button"
+                            className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105"
+                            onClick={() => setShowAISettingsModal(true)}
+                            title="AI Memory Settings"
+                          >
+                            <Settings className="h-5 w-5 transition-transform group-hover:scale-110" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        ref={conversationMenuTriggerRef}
+                        type="button"
+                        className="group p-2.5 rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-slate-600/50 hover:to-slate-700/50 text-slate-300 hover:text-white transition-all duration-200 border border-slate-600/30 hover:border-slate-500/50 hover:scale-105 menu-button"
+                        onClick={handleMenuToggle}
+                      >
+                        <MoreVertical className="h-[2.5vh] w-[2.5vh] transition-transform group-hover:scale-110" />
+                      </button>
+                      {showConversationMenu && activeConversationId && (
+                        <ConversationMenu
+                          conversationId={activeConversationId}
+                          isPinned={activeConversation?.pinned || false}
+                          onClose={() => setShowConversationMenu(false)}
+                          onDelete={handleDeleteConversation}
+                          onTogglePin={handleTogglePin}
+                          triggerRef={conversationMenuTriggerRef}
                         />
-                      </div>
-                      
-                      {/* Enhanced Action Buttons */}
-                      <div className="absolute right-2 bottom-2 flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="group p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-600/50 transition-all duration-200 gif-button"
-                          onClick={handleGifMenuToggle}
-                          title="Add GIF"
-                        >
-                          <Image className="h-4 w-4 transition-transform group-hover:scale-110" />
-                        </button>
-                        <button
-                          type="button"
-                          className="group p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-600/50 transition-all duration-200 emoji-button"
-                          onClick={handleEmojiPickerToggle}
-                          title="Add emoji"
-                        >
-                          <Smile className="h-4 w-4 transition-transform group-hover:scale-110" />
-                        </button>
-                        {showEmojiPicker && (
-                          <div ref={pickerRef} className="absolute bottom-14 right-0 z-50">
-                            <EmojiPicker onEmojiClick={handleEmojiSelect} lazyLoadEmojis={true} theme={"dark" as any} />
-                          </div>
-                        )}
-                        {showGifMenu && (
-                          <GifMenu onSelectGif={handleGifSelect} onClose={() => setShowGifMenu(false)} />
-                        )}
-                      </div>
+                      )}
                     </div>
-
-                    {/* Enhanced Send Button */}
-                    <button
-                      type="submit"
-                      className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-xl hover:shadow-blue-500/25 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                      disabled={!message.trim() && !selectedMindMap}
-                    >
-                      <Send className="h-4 w-4 transition-transform group-hover:scale-110" />
-                      <span>Send</span>
-                    </button>
                   </div>
-                </form>
+                </div>
+              )}
+
+              {/* Enhanced Messages Area */}
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto py-6 px-6 space-y-4 scrollbar-thin relative z-0"
+              >
+                {/* Enhanced New Messages Indicator */}
+                {activeConversation && hasUnreadMessages && isScrollable() && (
+                  <div className="sticky top-0 z-10 flex justify-center mb-6">
+                    <div
+                      className="bg-gradient-to-r from-blue-500/90 to-purple-500/90 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 cursor-pointer hover:from-blue-600/90 hover:to-purple-600/90 transition-all duration-200 backdrop-blur-sm border border-blue-400/30"
+                      onClick={scrollToBottom}
+                    >
+                      <ChevronDown className="h-5 w-5 animate-bounce" />
+                      <span className="font-medium">New messages</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhanced No Conversation State */}
+                {!activeConversation && (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-[3vh]">
+                    <div className="w-[8vh] h-[8vh] sm:w-[9vh] sm:h-[9vh] md:w-[10vh] md:h-[10vh] rounded-2xl bg-gradient-to-br from-slate-700/40 to-slate-800/60 flex items-center justify-center mb-[3vh] border border-slate-600/20 shadow-2xl">
+                      <Users className="h-[4vh] w-[4vh] sm:h-[4.5vh] sm:w-[4.5vh] md:h-[5vh] md:w-[5vh] text-slate-300" />
+                    </div>
+                    <h3 className="text-[3vh] sm:text-[3.2vh] md:text-[3.5vh] font-bold text-white mb-[1.5vh]">
+                      No conversation selected
+                    </h3>
+                    <p className="text-[1.6vh] sm:text-[1.8vh] md:text-[2vh] text-slate-400 max-w-xl leading-relaxed">
+                      Select an existing conversation from the sidebar or start a new one by clicking the + button.
+                    </p>
+                  </div>
+                )}
+
+                {/* Enhanced Loading State */}
+                {(isLoadingMessages || isConversationTransitioning || isFetchingMessages || !messagesLoaded) && activeConversation && (
+                  <div className="space-y-6 px-4">
+                    <MessageSkeletonLoader isUser={false} />
+                    <MessageSkeletonLoader isUser={true} />
+                    <MessageSkeletonLoader isUser={false} />
+                    <MessageSkeletonLoader isUser={true} />
+                    <MessageSkeletonLoader isUser={false} />
+                  </div>
+                )}
+
+                {/* Enhanced Messages with Performance Optimizations */}
+                {!isLoadingMessages && !isConversationTransitioning && !isFetchingMessages && messagesLoaded && activeConversation && (
+                  <>
+                    {messages.map((msg: any, i: number) => {
+                      const isUser = msg.senderId === "me"
+                      // Show date stamp if it's the first message or if the date is different from the previous message
+                      const showTimestamp = i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString()
+                      const isConsecutive = i > 0 && messages[i - 1].senderId === msg.senderId && !messages[i - 1].deleted
+                      const isLastUserMessage = isUser && !messages.slice(i + 1).some((m: any) => m.senderId === "me" && !m.deleted)
+
+                      return (
+                        <React.Fragment key={msg.id}>
+                          {showTimestamp && (
+                            <div className="flex justify-center my-6">
+                              <div className="bg-slate-800/60 text-slate-400 text-xs px-4 py-2 rounded-full border border-slate-700/30 backdrop-blur-sm">
+                                {formatDate(new Date(msg.timestamp))}
+                              </div>
+                            </div>
+                          )}
+                          <MessageBubble
+                            msg={msg}
+                            index={i}
+                            isUser={isUser}
+                            isConsecutive={isConsecutive}
+                            isEditing={editingMessageId === msg.id}
+                            showTimestamp={showTimestamp}
+                            isLastUserMessage={isLastUserMessage}
+                            activeConversation={activeConversation}
+                            messageRefs={messageRefs}
+                            reactingToMessageId={reactingToMessageId}
+                            emphasizedMessages={emphasizedMessages}
+                            messageReactions={messageReactions}
+                            formatTime={formatTime}
+                            handleReplyMessage={handleReplyMessage}
+                            handleEmphasizeMessage={handleEmphasizeMessage}
+                            renderReplyContext={renderReplyContext}
+                            renderMessageReactions={renderMessageReactions}
+                            navigate={navigate}
+                            isAITyping={isAITyping}
+                            editingAnimationId={editingAnimationId}
+                            setEditText={setEditText}
+                            editText={editText}
+                            editTextareaRef={editTextareaRef}
+                            handleSaveEdit={handleSaveEdit}
+                            setEditingMessageId={setEditingMessageId}
+                            setReactingToMessageId={setReactingToMessageId}
+                            setShowReactionMenu={setShowReactionMenu}
+                            aiService={aiService}
+                            previewMaps={previewMaps}
+                            messages={messages}
+                            showMessageMenu={showMessageMenu}
+                            setShowMessageMenu={setShowMessageMenu}
+                            handleStartEdit={handleStartEdit}
+                            handleDeleteMessage={handleDeleteMessage}
+                          />
+                        </React.Fragment>
+                      )
+                    })}
+                  </>
+                )}
+                {showThinkingIndicator && activeConversation?.isAI && (
+                  <ThinkingIndicator
+                    name={activeConversation.name}
+                    avatar={aiService.getAllBots().find((bot) => bot.id === activeConversation.botId)?.avatar}
+                  />
+                )}
+                {activeConversation && !activeConversation.isAI && getTypingStatus(activeConversation.id) && (
+                  <TypingIndicator
+                    name={activeConversation.name}
+                    avatar={activeConversation.avatar}
+                  />
+                )}
               </div>
-            ) : null}
+
+
+              {!isAtBottom && (
+                <div className="absolute bottom-20 right-6 z-50">
+                  <button
+                    onClick={scrollToBottom}
+                    className="w-9 h-9 bg-slate-600/80 hover:bg-slate-500/80 text-slate-200 hover:text-white rounded-xl shadow-lg flex items-center justify-center transition-all duration-200"
+                    aria-label="Scroll to bottom"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+
+              {/* Enhanced Message Input Area */}
+              {activeConversation ? (
+                <div className="p-3 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
+                  <form onSubmit={handleSendMessage} className="flex flex-col gap-2">
+                    {replyingToMessage && (
+                      <ReplyPreview message={replyingToMessage} onCancel={() => setReplyingToMessage(null)} />
+                    )}
+
+                    <div className="flex gap-2 items-end">
+                      {/* Enhanced Action Buttons */}
+                      <div className="flex gap-2">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowMindMapSelector((prev) => !prev)}
+                            className="group h-[36px] w-[36px] rounded-xl bg-gradient-to-r from-slate-700/50 to-slate-800/50 hover:from-blue-500/20 hover:to-purple-500/20 text-slate-300 hover:text-blue-400 transition-all duration-200 border border-slate-600/30 hover:border-blue-500/50 hover:scale-105 mindmap-button flex items-center justify-center"
+                            title="Share a mindmap"
+                          >
+                            <Network className="h-4 w-4 transition-transform group-hover:scale-110" />
+                          </button>
+                          {showMindMapSelector && (
+                            <MindMapSelector
+                              searchTerm={mindMapSearchTerm}
+                              setSearchTerm={setMindMapSearchTerm}
+                              sortBy={mindMapSortBy}
+                              setSortBy={setMindMapSortBy}
+                              showCreateForm={showCreateMindMapForm}
+                              setShowCreateForm={setShowCreateMindMapForm}
+                              newMapTitle={newMindMapTitle}
+                              setNewMapTitle={setNewMindMapTitle}
+                              onSelectMindMap={handleSelectMindMap}
+                              onCreateMindMap={handleCreateMindMapAccept}
+                              onCancelCreate={handleCreateMindMapReject}
+                              isAIConversation={activeConversation?.isAI}
+                              onClose={() => setShowMindMapSelector(false)}
+                              title="Share a mindmap"
+                              mode="overlay"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Enhanced Input Container */}
+                      <div ref={inputContainerRef} className="flex-1 relative">
+                        <div className="w-full min-h-[36px] p-[1vh] pr-20 rounded-xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/25 text-slate-200 transition-all duration-200 shadow-lg text-[1.6vh]">
+                          {selectedMindMap && (
+                            <MindMapChip
+                              mapId={selectedMindMap.id}
+                              mapTitle={selectedMindMap.title}
+                              visibility={selectedMindMap.visibility}
+                              onRemove={handleRemoveMindMap}
+                            />
+                          )}
+                          <textarea
+                            ref={textareaRef}
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onInput={handleInput}
+                            placeholder={
+                              replyingToMessage
+                                ? "Type your reply..."
+                                : selectedMindMap
+                                  ? "Add a message..."
+                                  : "Type a message..."
+                            }
+                            className="w-full bg-transparent border-none focus:outline-none resize-none overflow-hidden placeholder:text-slate-400 text-slate-200"
+                            style={{ height: "24px", minHeight: "24px", maxHeight: "120px" }}
+                          />
+                        </div>
+
+                        {/* Enhanced Action Buttons */}
+                        <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="group p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-600/50 transition-all duration-200 gif-button"
+                            onClick={handleGifMenuToggle}
+                            title="Add GIF"
+                          >
+                            <Image className="h-4 w-4 transition-transform group-hover:scale-110" />
+                          </button>
+                          <button
+                            type="button"
+                            className="group p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-600/50 transition-all duration-200 emoji-button"
+                            onClick={handleEmojiPickerToggle}
+                            title="Add emoji"
+                          >
+                            <Smile className="h-4 w-4 transition-transform group-hover:scale-110" />
+                          </button>
+                          {showEmojiPicker && (
+                            <div ref={pickerRef} className="absolute bottom-14 right-0 z-50">
+                              <EmojiPicker onEmojiClick={handleEmojiSelect} lazyLoadEmojis={true} theme={"dark" as any} />
+                            </div>
+                          )}
+                          {showGifMenu && (
+                            <GifMenu onSelectGif={handleGifSelect} onClose={() => setShowGifMenu(false)} />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Enhanced Send Button */}
+                      <button
+                        type="submit"
+                        className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-xl hover:shadow-blue-500/25 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        disabled={!message.trim() && !selectedMindMap}
+                      >
+                        <Send className="h-4 w-4 transition-transform group-hover:scale-110" />
+                        <span>Send</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
-      
-      {/* Enhanced Modals */}
-      {showNewConversationModal && (
-        <NewConversationModal
-          onClose={() => setShowNewConversationModal(false)}
-          onCreateConversation={handleCreateConversation}
-        />
-      )}
-      
-      {showBotMenu && (
-        <AIChatMenu
-          onClose={() => setShowBotMenu(false)}
-          onSelectBot={(botId) => {
-            handleBotChange(botId)
-            handleNewAIConversation()
-            setShowBotMenu(false)
-          }}
-        />
-      )}
-      
-      {showAISettingsModal && activeConversation && (
-        <AISettingsModal
-          isOpen={showAISettingsModal}
-          onClose={() => setShowAISettingsModal(false)}
-          conversationId={activeConversationId}
-        />
-      )}
 
-      {showAIHelpModal && (
-        <AIHelpModal isOpen={showAIHelpModal} onClose={() => setShowAIHelpModal(false)} />
-      )}
+        {/* Enhanced Modals */}
+        {showNewConversationModal && (
+          <NewConversationModal
+            onClose={() => setShowNewConversationModal(false)}
+            onCreateConversation={handleCreateConversation}
+          />
+        )}
 
-      {showReactionMenu && reactingToMessageId && (
-        <ReactionMenu
-          messageId={reactingToMessageId}
-          onReact={(messageId, reactionType) => {
-            handleReactToMessage(messageId, reactionType)
-            setShowReactionMenu(false)
-            setReactingToMessageId(null)
-          }}
-          onClose={() => {
-            setShowReactionMenu(false)
-            setReactingToMessageId(null)
-          }}
-          messageReactions={messageReactions}
-        />
-      )}
+        {showBotMenu && (
+          <AIChatMenu
+            onClose={() => setShowBotMenu(false)}
+            onSelectBot={(botId) => {
+              handleBotChange(botId)
+              handleNewAIConversation()
+              setShowBotMenu(false)
+            }}
+          />
+        )}
+
+        {showAISettingsModal && activeConversation && (
+          <AISettingsModal
+            isOpen={showAISettingsModal}
+            onClose={() => setShowAISettingsModal(false)}
+            conversationId={activeConversationId}
+          />
+        )}
+
+        {showAIHelpModal && (
+          <AIHelpModal isOpen={showAIHelpModal} onClose={() => setShowAIHelpModal(false)} />
+        )}
+
+        {showReactionMenu && reactingToMessageId && (
+          <ReactionMenu
+            messageId={reactingToMessageId}
+            onReact={(messageId, reactionType) => {
+              handleReactToMessage(messageId, reactionType)
+              setShowReactionMenu(false)
+              setReactingToMessageId(null)
+            }}
+            onClose={() => {
+              setShowReactionMenu(false)
+              setReactingToMessageId(null)
+            }}
+            messageReactions={messageReactions}
+          />
+        )}
       </div>
     </div>
   )
@@ -3206,11 +3240,10 @@ const MessageSkeletonLoader: React.FC<{ isUser?: boolean }> = ({ isUser = false 
         <div className="w-10 h-10 rounded-2xl bg-slate-700/50 animate-pulse flex-shrink-0"></div>
       )}
       <div
-        className={`${
-          isUser
-            ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/30"
-            : "bg-gradient-to-br from-slate-700/40 to-slate-800/40 border border-slate-600/30"
-        } rounded-2xl p-4 relative animate-pulse max-w-[75%] md:max-w-[55%] shadow-xl`}
+        className={`${isUser
+          ? "bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/30"
+          : "bg-gradient-to-br from-slate-700/40 to-slate-800/40 border border-slate-600/30"
+          } rounded-2xl p-4 relative animate-pulse max-w-[75%] md:max-w-[55%] shadow-xl`}
         style={{ minWidth: "120px", minHeight: "60px" }}
       >
         <div className="space-y-2">
@@ -3240,7 +3273,7 @@ const MessageBubble: React.FC<{
   messageRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
   reactingToMessageId: number | null
   emphasizedMessages: Set<number>
-  messageReactions: {[messageId: number]: {[reactionType: string]: string[]}}
+  messageReactions: { [messageId: number]: { [reactionType: string]: string[] } }
   formatTime: (date: Date) => string
   handleReplyMessage: (messageId: number) => void
   handleEmphasizeMessage: (messageId: number) => void
@@ -3263,9 +3296,9 @@ const MessageBubble: React.FC<{
   setShowMessageMenu: (id: number | null) => void
   handleStartEdit: (messageId: number, text: string) => void
   handleDeleteMessage: (messageId: number) => void
-}> = React.memo(({ 
+}> = React.memo(({
   msg, index, isUser, isConsecutive, isEditing,
-  activeConversation, messageRefs, reactingToMessageId, emphasizedMessages,  messageReactions, formatTime, handleReplyMessage,
+  activeConversation, messageRefs, reactingToMessageId, emphasizedMessages, messageReactions, formatTime, handleReplyMessage,
   handleEmphasizeMessage,
   renderReplyContext, renderMessageReactions, navigate,
   isAITyping, editingAnimationId, setEditText, editText, editTextareaRef,
@@ -3273,7 +3306,7 @@ const MessageBubble: React.FC<{
   showMessageMenu, setShowMessageMenu, handleStartEdit, handleDeleteMessage
 }) => {
   const menuTriggerRef = useRef<HTMLButtonElement>(null)
-  
+
   return (
     <div
       ref={(el) => {
@@ -3281,21 +3314,19 @@ const MessageBubble: React.FC<{
       }}
       data-message-id={msg.id}
       data-sender-id={msg.senderId}
-      className={`${isConsecutive ? "consecutive-message" : "mt-6"} transition-all duration-300 ${
-        reactingToMessageId === msg.id
-          ? "bg-slate-700/30 rounded-2xl p-4 border border-slate-600/50"
-          : !isUser && msg.status !== "read"
-            ? "bg-blue-500/10 rounded-2xl p-2 border border-blue-500/20"
-            : ""
-      }`}
+      className={`${isConsecutive ? "consecutive-message" : "mt-6"} transition-all duration-300 ${reactingToMessageId === msg.id
+        ? "bg-slate-700/30 rounded-2xl p-4 border border-slate-600/50"
+        : !isUser && msg.status !== "read"
+          ? "bg-blue-500/10 rounded-2xl p-2 border border-blue-500/20"
+          : ""
+        }`}
     >
       <div className={`flex items-start gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
         {/* Enhanced Avatar for Other Users */}
         {!isUser && !isConsecutive && (
           <div
-            className={`w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex-shrink-0 flex items-center justify-center border border-slate-600/30 transition-all duration-200 hover:shadow-lg hover:scale-105 ${
-              !activeConversation?.isAI ? "cursor-pointer hover:border-blue-500/50 hover:shadow-blue-500/25" : ""
-            }`}
+            className={`w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex-shrink-0 flex items-center justify-center border border-slate-600/30 transition-all duration-200 hover:shadow-lg hover:scale-105 ${!activeConversation?.isAI ? "cursor-pointer hover:border-blue-500/50 hover:shadow-blue-500/25" : ""
+              }`}
             onClick={() => {
               if (!activeConversation?.isAI && activeConversation?.userId) {
                 navigate(`/${activeConversation.name}`);
@@ -3359,23 +3390,20 @@ const MessageBubble: React.FC<{
               </div>
             ) : (
               <div
-                className={`message-container p-4 rounded-2xl relative group/message shadow-xl transition-all duration-300 hover:shadow-2xl ${
-                  msg.type === "accepted-mindmap"
-                    ? "bg-gradient-to-br from-green-500/20 to-green-600/20 text-green-200 border border-green-500/30"
-                    : msg.type === "rejected-mindmap"
-                      ? "bg-gradient-to-br from-red-500/20 to-red-600/20 text-red-200 border border-red-500/30"
-                      : "bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm text-slate-200 border border-slate-600/30"
-                } ${
-                  emphasizedMessages.has(msg.id) ? "emphasized-message" : ""
-                } ${msg.deleted ? "deleted-message" : ""} ${
-                  messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).some(type => messageReactions[msg.id][type].length > 0) ? "has-reactions" : ""
-                }`}
+                className={`message-container p-[1.5vh] rounded-2xl relative group/message shadow-xl transition-all duration-300 hover:shadow-2xl ${msg.type === "accepted-mindmap"
+                  ? "bg-gradient-to-br from-green-500/20 to-green-600/20 text-green-200 border border-green-500/30"
+                  : msg.type === "rejected-mindmap"
+                    ? "bg-gradient-to-br from-red-500/20 to-red-600/20 text-red-200 border border-red-500/30"
+                    : "bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm text-slate-200 border border-slate-600/30"
+                  } ${emphasizedMessages.has(msg.id) ? "emphasized-message" : ""
+                  } ${msg.deleted ? "deleted-message" : ""} ${messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).some(type => messageReactions[msg.id][type].length > 0) ? "has-reactions" : ""
+                  }`}
               >
                 {!msg.deleted && msg.replyToId && renderReplyContext(msg.replyToId)}
 
                 {!msg.deleted && !activeConversation?.isAI && !isConsecutive && (
                   <div
-                    className="text-xs font-medium text-blue-300 mb-2 cursor-pointer hover:text-blue-200 transition-colors"
+                    className="text-[1.2vh] font-medium text-blue-300 mb-2 cursor-pointer hover:text-blue-200 transition-colors"
                     onClick={() => {
                       if (!activeConversation?.isAI && activeConversation?.userId) {
                         navigate(`/${activeConversation.name}`);
@@ -3430,7 +3458,7 @@ const MessageBubble: React.FC<{
                             />
                           </div>
                           {msg.text && (
-                            <div className="text-sm text-slate-200 mt-3 border-t border-slate-700/20 pt-3 break-words whitespace-pre-wrap">
+                            <div className="text-[1.6vh] text-slate-200 mt-3 border-t border-slate-700/20 pt-3 break-words whitespace-pre-wrap">
                               {msg.text}
                             </div>
                           )}
@@ -3476,34 +3504,33 @@ const MessageBubble: React.FC<{
 
                 {/* WhatsApp-style hover icons for other user messages */}
                 {!msg.deleted && (
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full opacity-0 group-hover/hover-area:opacity-100 transition-all duration-200 flex items-center gap-1 z-[9998] ml-4">
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full opacity-0 group-hover/hover-area:opacity-100 transition-opacity duration-0 flex items-center gap-[0.5vh] sm:gap-[0.8vh] md:gap-1 z-[9998] ml-[1vh] sm:ml-[1.5vh] md:ml-4">
                     <button
-                      className="p-2 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
+                      className="p-[0.7vh] sm:p-[0.9vh] md:p-1.5 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
                       onClick={() => {
                         setReactingToMessageId(msg.id)
                         setShowReactionMenu(true)
                       }}
                       title="React"
                     >
-                      <Heart className="h-4 w-4" />
+                      <Heart className="h-[1.5vh] w-[1.5vh] sm:h-[1.3vh] sm:w-[1.3vh] md:h-3.5 md:w-3.5" />
                     </button>
                     <button
-                      className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
+                      className="p-[0.7vh] sm:p-[0.9vh] md:p-1.5 rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
                       onClick={() => handleReplyMessage(msg.id)}
                       title="Reply"
                     >
-                      <Reply className="h-4 w-4" />
+                      <Reply className="h-[1.5vh] w-[1.5vh] sm:h-[1.3vh] sm:w-[1.3vh] md:h-3.5 md:w-3.5" />
                     </button>
                     <button
-                      className={`p-2 rounded-full transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm ${
-                        emphasizedMessages.has(msg.id)
-                          ? "text-yellow-400 bg-yellow-400/20 hover:bg-yellow-400/30 border-yellow-400/50"
-                          : "text-slate-400 hover:text-yellow-400 hover:bg-slate-800/80"
-                      }`}
+                      className={`p-[0.7vh] sm:p-[0.9vh] md:p-1.5 rounded-full transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm ${emphasizedMessages.has(msg.id)
+                        ? "text-yellow-400 bg-yellow-400/20 hover:bg-yellow-400/30 border-yellow-400/50"
+                        : "text-slate-400 hover:text-yellow-400 hover:bg-slate-800/80"
+                        }`}
                       onClick={() => handleEmphasizeMessage(msg.id)}
                       title={emphasizedMessages.has(msg.id) ? "Remove emphasis" : "Emphasize"}
                     >
-                      <Zap className="h-4 w-4" />
+                      <Zap className="h-[1.5vh] w-[1.5vh] sm:h-[1.3vh] sm:w-[1.3vh] md:h-3.5 md:w-3.5" />
                     </button>
                   </div>
                 )}
@@ -3515,19 +3542,15 @@ const MessageBubble: React.FC<{
         {/* Enhanced User Messages */}
         {isUser && (
           <div
-            className={`relative p-4 rounded-2xl message-container user-message group/hover-area transition-all duration-300 shadow-xl border ${
-              editingAnimationId === msg.id ? "scale-[1.02] bg-blue-500/20 border-blue-400/50" : ""
-            } ${
-              isEditing 
-                ? "bg-gradient-to-br from-slate-700/50 to-slate-800/50 border-slate-600/50" 
-                : msg.senderId === "me" 
-                  ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white border-blue-400/30" 
+            className={`relative p-[1.5vh] rounded-2xl message-container user-message group/hover-area transition-all duration-300 shadow-xl border ${editingAnimationId === msg.id ? "scale-[1.02] bg-blue-500/20 border-blue-400/50" : ""
+              } ${isEditing
+                ? "bg-gradient-to-br from-slate-700/50 to-slate-800/50 border-slate-600/50"
+                : msg.senderId === "me"
+                  ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white border-blue-400/30"
                   : "bg-gradient-to-br from-slate-700/40 to-slate-800/40 border-slate-600/30"
-            } ${
-              emphasizedMessages.has(msg.id) ? "ring-2 ring-blue-500/70 shadow-[0_0_20px_rgba(59,130,246,0.4)] emphasized-message" : ""
-            } ${
-              messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).some(type => messageReactions[msg.id][type].length > 0) ? "has-reactions" : ""
-            }`}
+              } ${emphasizedMessages.has(msg.id) ? "ring-2 ring-blue-500/70 shadow-[0_0_20px_rgba(59,130,246,0.4)] emphasized-message" : ""
+              } ${messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).some(type => messageReactions[msg.id][type].length > 0) ? "has-reactions" : ""
+              }`}
             style={{
               position: "relative",
               transition: "all 0.3s ease-out"
@@ -3583,7 +3606,7 @@ const MessageBubble: React.FC<{
                         </div>
                         {msg.text && (
                           <div
-                            className="text-sm text-white mt-2 border-t border-blue-400/20 pt-2 break-words whitespace-pre-wrap"
+                            className="text-[1.6vh] text-white mt-2 border-t border-blue-400/20 pt-2 break-words whitespace-pre-wrap"
                             style={{ wordBreak: "break-word", overflowWrap: "break-word" }}
                           >
                             {msg.text}
@@ -3645,40 +3668,38 @@ const MessageBubble: React.FC<{
 
                     {/* WhatsApp-style hover icons for user messages */}
                     {!msg.deleted && (
-                      <div className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full transition-all duration-200 flex items-center gap-1 z-[9998] mr-4 ${
-                        showMessageMenu === msg.id ? 'opacity-100' : 'opacity-0 group-hover/hover-area:opacity-100'
-                      }`}>
+                      <div className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full transition-opacity duration-0 flex items-center gap-1 mr-4 ${showMessageMenu === msg.id ? 'opacity-100 z-[99999]' : 'opacity-0 group-hover/hover-area:opacity-100 z-[9998]'
+                        }`}>
                         <button
                           ref={menuTriggerRef}
-                          className={`p-2 rounded-full transition-all duration-200 shadow-lg border backdrop-blur-sm message-menu-trigger ${
-                            showMessageMenu === msg.id
-                              ? 'text-slate-200 bg-slate-700/90 border-slate-600/70'
-                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border-slate-700/50'
-                          }`}
+                          className={`p-[0.7vh] sm:p-[0.9vh] md:p-1.5 rounded-full transition-all duration-200 shadow-lg border backdrop-blur-sm message-menu-trigger ${showMessageMenu === msg.id
+                            ? 'text-slate-200 bg-slate-700/90 border-slate-600/70'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border-slate-700/50'
+                            }`}
                           onClick={(e) => {
                             e.stopPropagation()
                             setShowMessageMenu(showMessageMenu === msg.id ? null : msg.id)
                           }}
                           title="More options"
                         >
-                          <MoreVertical className="h-4 w-4" />
+                          <MoreVertical className="h-[1.5vh] w-[1.5vh] sm:h-[1.3vh] sm:w-[1.3vh] md:h-3.5 md:w-3.5" />
                         </button>
                         <button
-                          className="p-2 rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
+                          className="p-[0.7vh] sm:p-[0.9vh] md:p-1.5 rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
                           onClick={() => handleReplyMessage(msg.id)}
                           title="Reply"
                         >
-                          <Reply className="h-4 w-4" />
+                          <Reply className="h-[1.5vh] w-[1.5vh] sm:h-[1.3vh] sm:w-[1.3vh] md:h-3.5 md:w-3.5" />
                         </button>
                         <button
-                          className="p-2 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
+                          className="p-[0.7vh] sm:p-[0.9vh] md:p-1.5 rounded-full text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all duration-200 shadow-lg border border-slate-700/50 backdrop-blur-sm"
                           onClick={() => {
                             setReactingToMessageId(msg.id)
                             setShowReactionMenu(true)
                           }}
                           title="React"
                         >
-                          <Heart className="h-4 w-4" />
+                          <Heart className="h-[1.5vh] w-[1.5vh] sm:h-[1.3vh] sm:w-[1.3vh] md:h-3.5 md:w-3.5" />
                         </button>
                         {showMessageMenu === msg.id && (
                           <MessageMenu
@@ -3742,7 +3763,7 @@ const VirtualizedConversationList: React.FC<{
     })
 
     resizeObserver.observe(containerRef.current)
-    
+
     return () => resizeObserver.disconnect()
   }, [])
 
@@ -3752,7 +3773,7 @@ const VirtualizedConversationList: React.FC<{
       const currentHeight = containerRef.current.getBoundingClientRect().height
       const minHeight = 200
       const finalHeight = Math.max(currentHeight, minHeight)
-      
+
       // Only update if height is significantly different
       if (Math.abs(listHeight - finalHeight) > 10) {
         setListHeight(finalHeight)
@@ -3761,7 +3782,7 @@ const VirtualizedConversationList: React.FC<{
   }, [conversations.length, activeConversationId])
 
   // Memoize conversation items to prevent unnecessary re-renders
-  const conversationItems = useMemo(() => 
+  const conversationItems = useMemo(() =>
     conversations.map(conversation => {
       const isTyping = getTypingStatus(conversation.id)
       return {
@@ -3785,57 +3806,56 @@ const VirtualizedConversationList: React.FC<{
     }
 
     const conversation = conversationItems[index]
-    
+
     if (!conversation || typeof conversation.id === 'undefined') {
       return <div style={style} className="px-2 py-1"></div>
     }
-    
+
     return (
       <div style={style} key={conversation.id}>
-        <div className="px-2 py-1">
+        <div className="px-[1vw] py-[0.5vh] sm:px-2 sm:py-1">
           <div
             onClick={() => handleConversationClick(conversation.id)}
-            className={`group cursor-pointer transition-all duration-300 ease-out transform hover:scale-[1.02] ${
-              conversation.isActive
-                ? "bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50 shadow-lg shadow-blue-500/20"
-                : "bg-gradient-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-700/50 hover:to-slate-800/50 border-slate-700/30 hover:border-slate-600/50"
-            } rounded-2xl p-4 border backdrop-blur-sm`}
+            className={`group cursor-pointer transition-all duration-300 ease-out transform hover:scale-[1.02] ${conversation.isActive
+              ? "bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50 shadow-lg shadow-blue-500/20"
+              : "bg-gradient-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-700/50 hover:to-slate-800/50 border-slate-700/30 hover:border-slate-600/50"
+              } rounded-xl sm:rounded-2xl p-[1vh] sm:p-[1.2vh] md:p-[1.5vh] border backdrop-blur-sm`}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-[1vw] sm:gap-[1.5vw] md:gap-4">
               {/* Enhanced Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex items-center justify-center border border-slate-600/30 overflow-hidden">
+                <div className="w-[6vw] h-[6vw] sm:w-[4vw] sm:h-[4vw] md:w-12 md:h-12 max-w-12 max-h-12 min-w-8 min-h-8 rounded-xl sm:rounded-2xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 flex items-center justify-center border border-slate-600/30 overflow-hidden">
                   {conversation.isAI ? (
                     <img
                       src={aiService.getAllBots().find((bot) => bot.id === conversation.botId)?.avatar || "/placeholder.svg"}
                       alt={conversation.name}
-                      className="w-full h-full object-cover rounded-2xl"
+                      className="w-full h-full object-cover rounded-xl sm:rounded-2xl"
                     />
                   ) : conversation.avatar ? (
                     <img
                       src={conversation.avatar}
                       alt={conversation.name}
-                      className="w-full h-full object-cover rounded-2xl"
+                      className="w-full h-full object-cover rounded-xl sm:rounded-2xl"
                     />
                   ) : (
-                    <span className="text-sm font-semibold text-slate-300">
+                    <span className="text-[2.5vw] sm:text-[1.8vw] md:text-sm font-semibold text-slate-300">
                       {conversation.name.charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                
+
                 {/* Enhanced Status Indicators */}
                 {conversation.isAI ? (
                   <div className="absolute -bottom-1 -right-1">
-                    <Bot className="w-4 h-4 text-blue-400" />
+                    <Bot className="w-[2vw] h-[2vw] sm:w-[1.5vw] sm:h-[1.5vw] md:w-4 md:h-4 max-w-4 max-h-4 min-w-3 min-h-3 text-blue-400" />
                   </div>
                 ) : conversation.online ? (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-800"></div>
+                  <div className="absolute -bottom-1 -right-1 w-[2vw] h-[2vw] sm:w-[1.5vw] sm:h-[1.5vw] md:w-4 md:h-4 max-w-4 max-h-4 min-w-3 min-h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
                 ) : null}
-                
+
                 {conversation.pinned && (
                   <div className="absolute -top-1 -left-1 flex items-center justify-center">
-                    <Pin className="w-4 h-4 text-blue-400" />
+                    <Pin className="w-[2vw] h-[2vw] sm:w-[1.5vw] sm:h-[1.5vw] md:w-4 md:h-4 max-w-4 max-h-4 min-w-3 min-h-3 text-blue-400" />
                   </div>
                 )}
               </div>
@@ -3843,48 +3863,45 @@ const VirtualizedConversationList: React.FC<{
               {/* Enhanced Conversation Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className={`font-semibold truncate transition-colors ${
-                    conversation.isActive 
-                      ? "text-white" 
-                      : "text-slate-200 group-hover:text-white"
-                  }`}>
+                  <h3 className={`font-semibold truncate transition-colors text-[2.8vw] sm:text-[2vw] md:text-base ${conversation.isActive
+                    ? "text-white"
+                    : "text-slate-200 group-hover:text-white"
+                    }`}>
                     {highlightSearchMatch(conversation.name, searchTerm)}
                   </h3>
-                  <span className={`text-xs transition-colors ${
-                    conversation.isActive 
-                      ? "text-blue-200" 
-                      : "text-slate-400 group-hover:text-slate-300"
-                  }`}>
+                  <span className={`text-[2vw] sm:text-[1.4vw] md:text-xs transition-colors ${conversation.isActive
+                    ? "text-blue-200"
+                    : "text-slate-400 group-hover:text-slate-300"
+                    }`}>
                     {formatTimeElapsed(new Date(conversation.timestamp))}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     {conversation.isTyping ? (
                       <div className="flex items-center gap-2">
                         <div className="flex gap-1">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full typing-dot animate-pulse"></div>
-                          <div className="w-2 h-2 bg-blue-400 rounded-full typing-dot animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                          <div className="w-2 h-2 bg-blue-400 rounded-full typing-dot animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                          <div className="w-[1vw] h-[1vw] sm:w-[0.8vw] sm:h-[0.8vw] md:w-2 md:h-2 max-w-2 max-h-2 min-w-1 min-h-1 bg-blue-400 rounded-full typing-dot animate-pulse"></div>
+                          <div className="w-[1vw] h-[1vw] sm:w-[0.8vw] sm:h-[0.8vw] md:w-2 md:h-2 max-w-2 max-h-2 min-w-1 min-h-1 bg-blue-400 rounded-full typing-dot animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="w-[1vw] h-[1vw] sm:w-[0.8vw] sm:h-[0.8vw] md:w-2 md:h-2 max-w-2 max-h-2 min-w-1 min-h-1 bg-blue-400 rounded-full typing-dot animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                         </div>
-                        <span className="text-xs text-blue-400 font-medium">typing...</span>
+                        <span className="text-[2vw] sm:text-[1.4vw] md:text-xs text-blue-400 font-medium">typing...</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
                         {/* Check if message is a GIF and show icon */}
                         {conversation.lastMessage && /!\[GIF\]\((https?:\/\/[^\s)]+)\)/.test(conversation.lastMessage) && (
-                          <Image className="h-3 w-3 text-slate-400" />
+                          <Image className="h-[1.5vw] w-[1.5vw] sm:h-[1.2vw] sm:w-[1.2vw] md:h-3 md:w-3 max-h-3 max-w-3 min-h-2 min-w-2 text-slate-400" />
                         )}
                         {/* Check if message is a mindmap and show network icon */}
                         {conversation.lastMessageType === "mindmap" && (
-                          <Network className="h-3 w-3 text-slate-400" />
+                          <Network className="h-[1.5vw] w-[1.5vw] sm:h-[1.2vw] sm:w-[1.2vw] md:h-3 md:w-3 max-h-3 max-w-3 min-h-2 min-w-2 text-slate-400" />
                         )}
-                        <p className={`text-sm truncate transition-colors ${
-                          conversation.isActive 
-                            ? "text-blue-100" 
-                            : "text-slate-400 group-hover:text-slate-300"
-                        }`}>
+                        <p className={`text-[2.2vw] sm:text-[1.6vw] md:text-sm truncate transition-colors ${conversation.isActive
+                          ? "text-blue-100"
+                          : "text-slate-400 group-hover:text-slate-300"
+                          }`}>
                           {highlightSearchMatch(
                             formatConversationPreview(conversation.lastMessage, conversation.lastMessageType, conversation.mindmapTitle),
                             searchTerm
@@ -3893,26 +3910,26 @@ const VirtualizedConversationList: React.FC<{
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {/* Read receipt checkmark for user-sent messages (only for real users, not AI) */}
                     {conversation.lastMessageSentBy === useAuthStore.getState().user?.username && !conversation.isAI && conversation.lastMessageStatus && (
                       <div className="flex items-center">
                         {conversation.lastMessageStatus === "sent" && (
-                          <Check className="h-3 w-3 text-blue-200/60" />
+                          <Check className="h-[1.5vw] w-[1.5vw] sm:h-[1.2vw] sm:w-[1.2vw] md:h-3 md:w-3 max-h-3 max-w-3 min-h-2 min-w-2 text-blue-200/60" />
                         )}
                         {conversation.lastMessageStatus === "delivered" && (
-                          <CheckCheck className="h-3 w-3 text-white/60" />
+                          <CheckCheck className="h-[1.5vw] w-[1.5vw] sm:h-[1.2vw] sm:w-[1.2vw] md:h-3 md:w-3 max-h-3 max-w-3 min-h-2 min-w-2 text-white/60" />
                         )}
                         {conversation.lastMessageStatus === "read" && (
-                          <CheckCheck className="h-3 w-3 text-blue-400" />
+                          <CheckCheck className="h-[1.5vw] w-[1.5vw] sm:h-[1.2vw] sm:w-[1.2vw] md:h-3 md:w-3 max-h-3 max-w-3 min-h-2 min-w-2 text-blue-400" />
                         )}
                       </div>
                     )}
 
                     {/* Unread indicator */}
                     {(conversation.unreadCount || conversation.unread) > 0 && (
-                      <div className="px-2 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full min-w-[20px] text-center shadow-lg">
+                      <div className="px-[1vw] py-[0.5vh] sm:px-2 sm:py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-[2vw] sm:text-[1.4vw] md:text-xs font-bold rounded-full min-w-[3vw] sm:min-w-[20px] text-center shadow-lg">
                         {(conversation.unreadCount || conversation.unread) > 99 ? "99+" : (conversation.unreadCount || conversation.unread)}
                       </div>
                     )}
@@ -3940,7 +3957,7 @@ const VirtualizedConversationList: React.FC<{
         </div>
       ) : (
         // Fallback while height is being calculated
-        <div 
+        <div
           className="h-full min-h-[200px] overflow-y-auto scrollbar-thin"
           style={{ height: '400px' }}
         >
@@ -3948,11 +3965,10 @@ const VirtualizedConversationList: React.FC<{
             <div key={conversation.id} className="px-2 py-1">
               <div
                 onClick={() => handleConversationClick(conversation.id)}
-                className={`group cursor-pointer transition-all duration-300 ease-out transform hover:scale-[1.02] ${
-                  conversation.isActive
-                    ? "bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50 shadow-lg shadow-blue-500/20"
-                    : "bg-gradient-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-700/50 hover:to-slate-800/50 border-slate-700/30 hover:border-slate-600/50"
-                } rounded-2xl p-4 border backdrop-blur-sm`}
+                className={`group cursor-pointer transition-all duration-300 ease-out transform hover:scale-[1.02] ${conversation.isActive
+                  ? "bg-gradient-to-r from-blue-500/30 to-purple-500/30 border-blue-400/50 shadow-lg shadow-blue-500/20"
+                  : "bg-gradient-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-700/50 hover:to-slate-800/50 border-slate-700/30 hover:border-slate-600/50"
+                  } rounded-2xl p-4 border backdrop-blur-sm`}
                 style={{ height: `${itemSize - 8}px` }}
               >
                 <div className="flex items-center gap-4 h-full">
@@ -3977,9 +3993,8 @@ const VirtualizedConversationList: React.FC<{
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className={`font-semibold truncate ${
-                      conversation.isActive ? "text-white" : "text-slate-200"
-                    }`}>
+                    <h3 className={`font-semibold truncate ${conversation.isActive ? "text-white" : "text-slate-200"
+                      }`}>
                       {conversation.name}
                     </h3>
                   </div>
