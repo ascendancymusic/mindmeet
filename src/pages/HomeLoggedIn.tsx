@@ -109,16 +109,16 @@ const HomeLoggedIn: React.FC = () => {
     <div className="flex flex-col min-h-screen text-slate-100">
       <main className="flex-1 w-full mx-auto flex">        {/* Enhanced Sidebar */}
         <aside className="w-64 hidden lg:block">
-          <nav className="sticky top-20 space-y-2 pt-4 px-4 pb-4">            <button
-              onClick={() => navigate(`/${username || ""}`)}
-              className="group w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/50 transition-all duration-200 border border-transparent hover:border-slate-700/50 backdrop-blur-sm"
-            >
-              <User className="inline-block mr-3 h-5 w-5 text-slate-400 group-hover:text-slate-300 transition-colors -translate-y-0.5" />
-              <span className="font-medium group-hover:text-white transition-colors">Profile</span>
-            </button>            <button
-              onClick={() => navigate("/chat")}
-              className="group w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/50 transition-all duration-200 flex items-center border border-transparent hover:border-slate-700/50 backdrop-blur-sm"
-            >
+          <nav className="sticky top-14 space-y-2 pt-4 px-4 pb-4">            <button
+            onClick={() => navigate(`/${username || ""}`)}
+            className="group w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/50 transition-all duration-200 border border-transparent hover:border-slate-700/50 backdrop-blur-sm"
+          >
+            <User className="inline-block mr-3 h-5 w-5 text-slate-400 group-hover:text-slate-300 transition-colors -translate-y-0.5" />
+            <span className="font-medium group-hover:text-white transition-colors">Profile</span>
+          </button>            <button
+            onClick={() => navigate("/chat")}
+            className="group w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/50 transition-all duration-200 flex items-center border border-transparent hover:border-slate-700/50 backdrop-blur-sm"
+          >
               <MessageSquare className="mr-3 h-5 w-5 text-slate-400 group-hover:text-slate-300 transition-colors" />
               <span className="font-medium group-hover:text-white transition-colors">Chat</span>
               {unreadCount > 0 && (
@@ -174,15 +174,14 @@ const HomeLoggedIn: React.FC = () => {
               </div>
             </div>
           </div>          {/* Enhanced Feed Tabs */}
-          <div className="sticky top-20 z-30 bg-gradient-to-r from-slate-950/80 to-slate-900/80 backdrop-blur-xl mx-4 mb-4 rounded-2xl border border-slate-700/30 shadow-lg overflow-hidden" style={{ top: 'calc(5rem - 8px)' }}>
+          <div className="sticky top-14 z-30 bg-gradient-to-r from-slate-950/80 to-slate-900/80 backdrop-blur-xl mx-4 mb-4 rounded-2xl border border-slate-700/30 shadow-lg overflow-hidden" style={{ top: 'calc(3.5rem - 4px)' }}>
             <div className="flex">
               <button
                 onClick={() => setActiveTab("for-you")}
-                className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-300 relative ${
-                  activeTab === "for-you"
+                className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-300 relative ${activeTab === "for-you"
                     ? "text-blue-400 bg-slate-800/50"
                     : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/30"
-                }`}
+                  }`}
               >
                 For You
                 {activeTab === "for-you" && (
@@ -191,11 +190,10 @@ const HomeLoggedIn: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab("following")}
-                className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-300 relative ${
-                  activeTab === "following"
+                className={`flex-1 px-6 py-4 text-sm font-medium transition-all duration-300 relative ${activeTab === "following"
                     ? "text-blue-400 bg-slate-800/50"
                     : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/30"
-                }`}
+                  }`}
               >
                 Following
                 {activeTab === "following" && (
@@ -210,7 +208,7 @@ const HomeLoggedIn: React.FC = () => {
           </div>
         </div>        {/* Enhanced Right Sidebar */}
         <aside className="w-64 hidden xl:block px-4">
-          <div className="sticky top-20 pt-4">
+          <div className="sticky top-14 pt-4">
             <SuggestedUsers currentUserId={user?.id} />
           </div>
         </aside>

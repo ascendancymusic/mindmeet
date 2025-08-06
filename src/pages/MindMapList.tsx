@@ -455,7 +455,7 @@ export default function MindMapList(): JSX.Element {
   };
 
   return (
-    <div className="w-[50vw] mx-auto p-[2vh]">
+    <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">
       {/* Enhanced Header */}
       <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] border border-slate-700/30 shadow-2xl mb-[3vh]">
         <div className="flex justify-between items-center">

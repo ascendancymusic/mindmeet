@@ -180,17 +180,17 @@ const LoggedInNavigation: React.FC = () => {
       setShowSearchResults(false)
       return
     }
-  
+
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("id, username, avatar_url")
       .ilike("username", `%${query}%`) // Case-insensitive search for profiles
-  
+
     const { data: mindmapsData, error: mindmapsError } = await supabase
       .from("mindmaps")
       .select("id, title, username") // Join with profiles to get the username
       .ilike("title", `%${query}%`) // Case-insensitive search for mindmaps
-  
+
     if (profilesError || mindmapsError) {
       console.error("Error searching:", profilesError || mindmapsError)
       setSearchResults([])
@@ -202,7 +202,7 @@ const LoggedInNavigation: React.FC = () => {
       setShowSearchResults(true)
     }
   }
-  
+
   const handleSearchResultClick = (result: any) => {
     if (result.type === "profile" && result.username) {
       navigate(`/${result.username}`)
@@ -232,34 +232,34 @@ const LoggedInNavigation: React.FC = () => {
   };
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-slate-800/95 to-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-lg">
-      <div className="max-w-9xl mx-auto flex justify-between items-center px-4 py-3">
+      <div className="max-w-9xl mx-auto flex justify-between items-center px-2 py-1.5 md:px-3 md:py-2">
         {/* Left section with hamburger and logo */}
         <div className="flex items-center">
           {isMobile && (
             <button
-              className="mr-3 p-2 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200 mobile-menu-button"
+              className="mr-1.5 p-1 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200 mobile-menu-button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-3.5 w-3.5" />
             </button>
           )}
           <h1
-            className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-purple-600 bg-clip-text text-transparent cursor-pointer transition-all duration-300 hover:from-blue-500 hover:via-purple-600 hover:to-purple-700"
+            className="text-lg md:text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-purple-600 bg-clip-text text-transparent cursor-pointer transition-all duration-300 hover:from-blue-500 hover:via-purple-600 hover:to-purple-700"
             onClick={() => navigate("/")}
           >
             MindMeet
           </h1>
         </div>        {/* Search bar - visible on desktop, hidden on mobile */}
-        <div className={`flex-1 max-w-xl px-4 ${isMobile ? "hidden" : "block"}`}>
+        <div className={`flex-1 max-w-xl px-2 md:px-3 ${isMobile ? "hidden" : "block"}`}>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-3.5 h-3.5 md:w-4 md:h-4" />
             <input
               type="search"
               value={searchQuery}
               onChange={handleSearchInputChange}
               placeholder="Search MindMeet"
-              className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-purple-500/50 text-slate-200 placeholder:text-slate-400 transition-all duration-200"
+              className="w-full pl-8 md:pl-9 pr-2.5 md:pr-3 py-1.5 md:py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-purple-500/50 text-slate-200 placeholder:text-slate-400 transition-all duration-200 text-xs md:text-sm"
             />
             {showSearchResults && searchResults.length > 0 && (
               <div className="absolute mt-2 w-full bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-10 overflow-hidden">
@@ -298,23 +298,23 @@ const LoggedInNavigation: React.FC = () => {
             )}
           </div>
         </div>        {/* Right section with navigation icons - always visible */}
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-1 md:gap-1.5">
           {!isMobile && (
             <>
               <Link
                 to="/mindmap"
-                className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/mindmap")}`}
+                className={`flex items-center justify-center px-2 py-1.5 md:px-2.5 md:py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive("/mindmap")}`}
               >
-                <Network className="w-5 h-5 mx-auto" />
+                <Network className="w-4 h-4 md:w-4.5 md:h-4.5 mx-auto" />
               </Link>
               <Link
                 to="/chat"
-                className={`flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
+                className={`flex items-center justify-center px-2 py-1.5 md:px-2.5 md:py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
                 aria-label="Chat"
               >
-                <MessageSquare className="w-5 h-5 mx-auto" />
+                <MessageSquare className="w-4 h-4 md:w-4.5 md:h-4.5 mx-auto" />
                 {chatUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-slate-700 shadow-lg">
+                  <span className="absolute -top-0.5 -right-0.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full w-4 h-4 md:w-4.5 md:h-4.5 flex items-center justify-center border border-slate-700 shadow-lg">
                     {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
                   </span>
                 )}
@@ -323,16 +323,15 @@ const LoggedInNavigation: React.FC = () => {
           )}
           <div className="relative" ref={notificationRef}>
             <button
-              className={`p-2 rounded-xl transition-all duration-200 relative ${
-                showNotifications 
-                  ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 border border-blue-500/30" 
+              className={`p-1.5 md:p-2 rounded-lg transition-all duration-200 relative ${showNotifications
+                  ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 border border-blue-500/30"
                   : "text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-purple-500/10 border border-transparent"
-              }`}
+                }`}
               onClick={handleNotificationsClick}
             >
-              <Bell className="h-5 w-5" />
+              <Bell className="h-4 w-4 md:h-4.5 md:w-4.5" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-slate-700 shadow-lg">
+                <span className="absolute -top-0.5 -right-0.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full w-4 h-4 md:w-4.5 md:h-4.5 flex items-center justify-center border border-slate-700 shadow-lg">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -341,13 +340,13 @@ const LoggedInNavigation: React.FC = () => {
           </div>
           <div className="relative" ref={dropdownRef}>
             <button
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center hover:from-slate-600 hover:to-slate-700 transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
+              className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center hover:from-slate-600 hover:to-slate-700 transition-all duration-200 border border-slate-600/50 hover:border-slate-500/50"
               onClick={() => setShowDropdown(!showDropdown)}
             >
               {avatarUrl ? (
-                <img src={avatarUrl || "/placeholder.svg"} alt="User Avatar" className="w-full h-full rounded-xl object-cover" />
+                <img src={avatarUrl || "/placeholder.svg"} alt="User Avatar" className="w-full h-full rounded-lg object-cover" />
               ) : (
-                <User className="h-5 w-5 text-slate-300" />
+                <User className="h-4 w-4 md:h-4.5 md:w-4.5 text-slate-300" />
               )}
             </button>
             {showDropdown && (
@@ -388,42 +387,40 @@ const LoggedInNavigation: React.FC = () => {
       {isMobile && (
         <>
           {/* Backdrop - darkened background that covers the entire screen */}
-          <div            className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
-              mobileMenuOpen ? "opacity-50" : "opacity-0 pointer-events-none"
+          <div className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${mobileMenuOpen ? "opacity-50" : "opacity-0 pointer-events-none"
             }`}
             onClick={() => setMobileMenuOpen(false)}
           />          {/* Slide-out menu */}          <div
-            ref={mobileMenuRef}            className={`fixed top-0 left-0 h-full w-72 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out border-r border-slate-700 ${
-              mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
-            style={{ 
+            ref={mobileMenuRef} className={`fixed top-0 left-0 h-full w-72 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out border-r border-slate-700 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+              }`}
+            style={{
               backgroundColor: '#0f172a !important',
               background: 'solid #0f172a !important',
               backgroundImage: 'none !important',
               opacity: '1 !important'
             }}
           >            {/* Menu header with close button */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-700/50" style={{ backgroundColor: '#0f172a' }}>
-              <h2 className="text-lg font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-purple-600 bg-clip-text text-transparent">Menu</h2>
+            <div className="flex items-center justify-between p-3 border-b border-slate-700/50" style={{ backgroundColor: '#0f172a' }}>
+              <h2 className="text-base font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-purple-600 bg-clip-text text-transparent">Menu</h2>
               <button
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Close menu"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Search bar in mobile menu */}
-            <div className="p-4 border-b border-slate-700/50" style={{ backgroundColor: '#0f172a' }}>
+            <div className="p-3 border-b border-slate-700/50" style={{ backgroundColor: '#0f172a' }}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={handleSearchInputChange}
                   placeholder="Search MindMeet"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-purple-500/50 text-slate-200 placeholder:text-slate-400 transition-all duration-200"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-purple-500/50 text-slate-200 placeholder:text-slate-400 transition-all duration-200 text-sm"
                 />
                 {showSearchResults && searchResults.length > 0 && (
                   <div className="absolute mt-2 w-full bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-10 overflow-hidden">
@@ -462,28 +459,28 @@ const LoggedInNavigation: React.FC = () => {
                 )}
               </div>
             </div>            {/* Navigation links in mobile menu */}
-            <nav className="p-4" style={{ backgroundColor: '#0f172a' }}>
-              <ul className="space-y-2">
+            <nav className="p-3" style={{ backgroundColor: '#0f172a' }}>
+              <ul className="space-y-1">
                 <li>
                   <Link
                     to="/mindmap"
-                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/mindmap")}`}
+                    className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/mindmap")}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <Network className="w-5 h-5 mr-3" />
+                    <Network className="w-4 h-4 mr-3" />
                     Mindmap
                   </Link>
                 </li>
                 <li>
                   <Link
                     to="/chat"
-                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
+                    className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <MessageCircle className="w-5 h-5 mr-3" />
+                    <MessageCircle className="w-4 h-4 mr-3" />
                     Chat
                     {chatUnreadCount > 0 && (
-                      <span className="ml-auto bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                      <span className="ml-auto bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
                         {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
                       </span>
                     )}
@@ -492,10 +489,10 @@ const LoggedInNavigation: React.FC = () => {
                 <li>
                   <Link
                     to="/settings"
-                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/settings")}`}
+                    className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/settings")}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <Settings className="w-5 h-5 mr-3" />
+                    <Settings className="w-4 h-4 mr-3" />
                     Settings
                   </Link>
                 </li>
