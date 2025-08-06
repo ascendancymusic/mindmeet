@@ -5246,7 +5246,7 @@ export default function MindMap() {
 
       {/* Always render NodeTypesMenu first - independent of loading states */}
       {!isFullscreen && (
-        <div className="fixed left-0 top-[8rem] node-types-menu-container" style={{ zIndex: 9999 }}>
+        <div className="fixed left-0 top-[7rem] node-types-menu-container" style={{ zIndex: 9999 }}>
           <NodeTypesMenu
             key={nodeTypesMenuKey} // Force re-render to fix refresh issues
             moveWithChildren={moveWithChildren}
@@ -5274,7 +5274,7 @@ export default function MindMap() {
         {/* ReactFlow Area - 100% width */}
         <div
           ref={reactFlowWrapperRef}
-          className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[4rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
+          className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[3rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
           style={{
             zIndex: 1,
             backgroundColor: backgroundColor || '#11192C',
