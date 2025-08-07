@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { Bell, User, Globe, Trash2, Eye, EyeOff, Calendar, Network } from 'lucide-react';
+import { Bell, User, Globe, Trash2, Eye, EyeOff, Calendar, Network, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../supabaseClient';
 
@@ -15,6 +15,7 @@ const Settings: React.FC = () => {
   const [dateFormat, setDateFormat] = useState<'month-day-year' | 'day-month-year'>('month-day-year');
   const [showNegativeNotifications, setShowNegativeNotifications] = useState(true);
   const [showTooltips, setShowTooltips] = useState(true);
+  const [showToast, setShowToast] = useState(false);
 
   usePageTitle('Settings');
 
@@ -49,22 +50,31 @@ const Settings: React.FC = () => {
     fetchUserEmail();
   }, []);
 
+  // Show toast notification
+  const showSavedToast = () => {
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+  };
+
   // Save date format preference when it changes
   const handleDateFormatChange = (newFormat: 'month-day-year' | 'day-month-year') => {
     setDateFormat(newFormat);
     localStorage.setItem('dateFormat', newFormat);
+    showSavedToast();
   };
 
   // Save negative notifications preference when it changes
   const handleNegativeNotificationsChange = (show: boolean) => {
     setShowNegativeNotifications(show);
     localStorage.setItem('showNegativeNotifications', show.toString());
+    showSavedToast();
   };
 
   // Save tooltip preference when it changes
   const handleTooltipChange = (show: boolean) => {
     setShowTooltips(show);
     localStorage.setItem('showTooltips', show.toString());
+    showSavedToast();
   };
 
   const handleDeleteAccount = async () => {
@@ -118,7 +128,7 @@ const Settings: React.FC = () => {
                 <h3 className="text-sm md:text-xs font-medium text-slate-200">Password</h3>
                 <p className="text-sm md:text-xs text-slate-400">Update your password</p>
               </div>
-              <button 
+              <button
                 onClick={() => navigate('/reset-password')}
                 className="px-4 py-2 text-sm bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 font-medium"
               >
@@ -151,9 +161,9 @@ const Settings: React.FC = () => {
                 <p className="text-sm md:text-xs text-slate-400">Show notifications about unfollows and unlikes</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
                   checked={showNegativeNotifications}
                   onChange={(e) => handleNegativeNotificationsChange(e.target.checked)}
                 />
@@ -205,7 +215,7 @@ const Settings: React.FC = () => {
                 <h3 className="text-sm md:text-xs font-medium text-slate-200">Date Format</h3>
                 <p className="text-sm md:text-xs text-slate-400">Choose how dates are displayed throughout the app</p>
               </div>
-              <select 
+              <select
                 value={dateFormat}
                 onChange={(e) => handleDateFormatChange(e.target.value as 'month-day-year' | 'day-month-year')}
                 className="bg-slate-900 text-slate-200 text-sm rounded-xl px-4 py-2.5 border border-indigo-500/30 focus:ring-2 focus:ring-indigo-400/50 focus:border-indigo-400/50 shadow-lg transition-all duration-200 hover:bg-slate-800 hover:border-indigo-400/50 cursor-pointer"
@@ -286,6 +296,16 @@ const Settings: React.FC = () => {
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-300">
+          <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl px-4 py-3 rounded-xl shadow-2xl border border-indigo-500/30 flex items-center gap-2 hover:border-purple-400/40 transition-all duration-200">
+            <Check className="w-4 h-4 text-indigo-400" />
+            <span className="text-sm font-medium text-slate-200">Saved preference</span>
           </div>
         </div>
       )}

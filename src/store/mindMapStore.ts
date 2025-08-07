@@ -6,6 +6,8 @@ import { useToastStore } from './toastStore';
 import { compressImage } from '../utils/compressImage';
 import { compressAudioFile } from '../utils/compressAudio';
 import { prepareNodeForSaving } from '../utils/nodeUtils';
+import { DrawingData } from '../components/DrawingCanvas';
+import { compressDrawingData, decompressDrawingData } from '../utils/drawingDataCompression';
 
 export interface Node extends ReactFlowNode {
   background?: string;
@@ -36,6 +38,7 @@ export interface MindMap {
   creatorUsername?: string;
   creatorAvatar?: string | null;
   published_at?: string | null;
+  drawingData?: DrawingData;
 }
 
 interface MindMapState {
@@ -44,8 +47,8 @@ interface MindMapState {
   currentMapId: string | null;
   aiProposedChanges: { id: string; nodes: Node[]; edges: Edge[]; title: string } | null;
   mapBackup: MindMap | null;
-  addMap: (title: string, userId: string) => string;
-  updateMap: (id: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string }) => Promise<void>;
+  addMap: (title: string, userId: string) => Promise<string>;
+  updateMap: (id: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData }) => Promise<void>;
   deleteMap: (id: string, userId: string) => void;
   setCurrentMap: (id: string | null) => void;
   updateMapTitle: (id: string, title: string) => void;
@@ -82,7 +85,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     console.log('[mindMapStore] Fetching mindmaps from Supabase for userId:', userId);
     const { data, error } = await supabase
       .from("mindmaps")
-      .select("id, title, json_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, key, collaborators, published_at")
+      .select("id, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, key, collaborators, published_at")
       .eq("creator", userId);
 
     if (error) {
@@ -127,6 +130,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       collaborators: map.collaborators || [],
       creatorAvatar: userAvatar,
       published_at: map.published_at,
+      drawingData: decompressDrawingData(map.drawing_data) || undefined,
     }));
 
     console.log('[mindMapStore] Setting maps in store, count:', maps?.length || 0);
@@ -140,10 +144,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     console.log("Fetching collaboration maps for userId:", userId);
 
-    // Use the @> operator for JSONB containment
+        // Use the @> operator for JSONB containment
     const { data, error } = await supabase
       .from("mindmaps")
-      .select("id, title, json_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, username, key, collaborators, published_at")
+      .select("id, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, username, key, collaborators, published_at")
       .filter("collaborators", "cs", JSON.stringify([userId]));
 
     if (error) {
@@ -195,6 +199,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         creatorUsername: map.username,
         creatorAvatar: creatorAvatars.get(map.creator) || null,
         published_at: map.published_at,
+        drawingData: decompressDrawingData(map.drawing_data) || undefined,
       }));
 
       console.log("Processed collaboration maps:", collaborationMaps);
@@ -204,7 +209,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { id, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at } = map;
+    const { id, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at, drawingData } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -248,11 +253,12 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           return;
         }
 
-        // Update only json_data and updated_at
+        // Update only json_data, drawing_data and updated_at
         const { error: updateError } = await supabase
           .from("mindmaps")
           .update({
             json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
+            drawing_data: compressDrawingData(drawingData),
             updated_at: new Date().toISOString()
           })
           .eq("id", id)
@@ -275,6 +281,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           id,
           title,
           json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
+          drawing_data: compressDrawingData(drawingData),
           created_at: validCreatedAt,
           updated_at: validUpdatedAt,
           visibility,
@@ -330,18 +337,43 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
             
             error = updateError;
           } else {
-            // Insert new map
-            const { error: insertError } = await supabase
+            // Insert new map and get the generated key
+            const { data: insertedMap, error: insertError } = await supabase
               .from("mindmaps")
-              .insert(mapData);
+              .insert(mapData)
+              .select("key")
+              .single();
             
             error = insertError;
+            
+            // Update the local store with the generated key
+            if (!error && insertedMap?.key) {
+              set((state) => ({
+                maps: state.maps.map((map) =>
+                  map.id === id ? { ...map, key: insertedMap.key } : map
+                ),
+              }));
+            }
           }
         }
       }
 
       if (error) {
         console.error("Error saving mindmap to Supabase:", error.message);
+        
+        // Provide more specific error information
+        let errorMessage = "Failed to save mindmap";
+        if (error.code === 'PGRST116') {
+          errorMessage = "Multiple mindmaps found with the same ID";
+        } else if (error.code === '23505') {
+          errorMessage = "Mindmap with this name already exists";
+        } else if (error.message.includes('permission') || error.message.includes('RLS')) {
+          errorMessage = "Permission denied - you don't have access to save this mindmap";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection";
+        }
+        
+        throw new Error(errorMessage);
       } else {
         console.log("Mindmap saved successfully:", id);
         // Trigger success toast notification
@@ -349,6 +381,18 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       }
     } catch (err) {
       console.error("Unexpected error in saveMapToSupabase:", err);
+      
+      // If it's already our custom error, re-throw it
+      if (err instanceof Error && err.message.startsWith("Failed to save mindmap") || 
+          err instanceof Error && (err.message.includes("Permission denied") || 
+          err.message.includes("Network error") || 
+          err.message.includes("Multiple mindmaps") ||
+          err.message.includes("already exists"))) {
+        throw err;
+      }
+      
+      // Otherwise, throw a generic error
+      throw new Error("Unexpected error while saving mindmap");
     }
   },
   deleteMapFromSupabase: async (id, userId) => {
@@ -442,7 +486,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       console.error("Unexpected error in deleteMapFromSupabase:", err);
     }
   },
-  addMap: (title, userId) => {
+  addMap: async (title, userId) => {
     const sanitizedTitle = sanitizeTitle(title);
     const existingIds = get().maps.map((map) => map.id);
     let id = sanitizedTitle;
@@ -483,12 +527,26 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     set((state) => ({ maps: [...state.maps, newMap] }));
 
-    get()
-      .saveMapToSupabase(newMap, userId)
-      .catch((error) => {
-        console.error("Error saving new map to Supabase:", error);
-        set((state) => ({ maps: state.maps.filter((map) => map.id !== id) }));
-      });
+    try {
+      await get().saveMapToSupabase(newMap, userId);
+    } catch (error) {
+      console.error("Error saving new map to Supabase:", error);
+      set((state) => ({ maps: state.maps.filter((map) => map.id !== id) }));
+      
+      // Provide more specific error message based on the error type
+      let errorMessage = "Failed to create mindmap";
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again";
+        } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+          errorMessage = "Permission denied - please make sure you're logged in";
+        } else if (error.message.includes('validation') || error.message.includes('constraint')) {
+          errorMessage = "Invalid mindmap data - please try a different title";
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
 
     return id;
   },
@@ -499,7 +557,7 @@ updateMap: async (id, nodes, edges, title, userId, customization = { edgeType: '
   }
 
   // Extract customization data with defaults
-  const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a' } = customization;
+  const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', drawingData } = customization;
 
   // Fetch the mindmap to get the 'key', allowing access for creator or collaborators
   const { data: mindmaps, error: fetchError } = await supabase
@@ -814,6 +872,7 @@ updateMap: async (id, nodes, edges, title, userId, customization = { edgeType: '
       dotColor,
       title,
       updatedAt: Date.now(),
+      drawingData: drawingData, // Keep original drawing data without optimization
     };
     
     // Determine if this is a collaborator edit

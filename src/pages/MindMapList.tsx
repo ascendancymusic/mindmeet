@@ -10,6 +10,7 @@ import { nodeTypes } from "../config/nodeTypes"
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import { useAuthStore } from "../store/authStore"
+import { useToastStore } from "../store/toastStore"
 import EditDetailsModal from "../components/EditDetailsModal"
 import PublishSuccessModal from "../components/PublishSuccessModal"
 import { supabase } from "../supabaseClient"
@@ -224,10 +225,18 @@ export default function MindMapList(): JSX.Element {
       return
     }
 
-    const id = addMap(newMapTitle.trim().substring(0, 20), userId)
-    setNewMapTitle("")
-    setIsCreating(false)
-    navigate(`/${user.username}/${id}/edit`)
+    const { showToast } = useToastStore.getState();
+
+    try {
+      const id = await addMap(newMapTitle.trim().substring(0, 20), userId)
+      setNewMapTitle("")
+      setIsCreating(false)
+      showToast("Mindmap created successfully!", "success");
+      navigate(`/${user.username}/${id}/edit`)
+    } catch (error) {
+      console.error("Error creating mindmap:", error);
+      showToast("Failed to create mindmap. Please try again.", "error");
+    }
   }
 
   const handleResize = useCallback(() => {

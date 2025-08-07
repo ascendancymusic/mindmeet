@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { useMindMapStore } from "../store/mindMapStore"
 import { useAuthStore } from "../store/authStore"
+import { useToastStore } from "../store/toastStore"
 
 /**
  * MindMapSelector Component
@@ -154,23 +155,31 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
     )
   }
 
-  const handleCreateMindMapAccept = () => {
+  const handleCreateMindMapAccept = async () => {
     if (!newMapTitle.trim() || newMapTitle.length > 25) {
       return;
     }
     
     // Create the mindmap using the mindMapStore
     const { addMap } = useMindMapStore.getState();
+    const { showToast } = useToastStore.getState();
     const userId = user?.id;
     
     if (userId) {
-      const newMapId = addMap(newMapTitle.trim(), userId);
-      console.log("Created mindmap with ID:", newMapId, "and title:", newMapTitle.trim());
-      
-      // Select the newly created mindmap
-      onSelectMindMap(newMapId);
+      try {
+        const newMapId = await addMap(newMapTitle.trim(), userId);
+        console.log("Created mindmap with ID:", newMapId, "and title:", newMapTitle.trim());
+        
+        // Select the newly created mindmap
+        onSelectMindMap(newMapId);
+        showToast("Mindmap created successfully!", "success");
+      } catch (error) {
+        console.error("Error creating mindmap:", error);
+        showToast("Failed to create mindmap. Please try again.", "error");
+      }
     } else {
       console.error("No user ID available for creating mindmap");
+      showToast("You must be logged in to create a mindmap.", "error");
     }
     
     onCreateMindMap()

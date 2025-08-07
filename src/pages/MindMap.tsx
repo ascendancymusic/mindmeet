@@ -625,7 +625,7 @@ export default function MindMap() {
         return;
       } const { data: map, error: mapError } = await supabase
         .from("mindmaps")
-        .select("key, id, title, json_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
+        .select("key, id, title, json_data, drawing_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
         .eq("id", id)
         .eq("creator", profile.id)
         .single();
@@ -758,9 +758,9 @@ export default function MindMap() {
       if ((processedMap as any).dotColor) {
         setDotColor((processedMap as any).dotColor);
       }
-      // Load drawing data from JSON data
-      if ((processedMap as any).drawingData) {
-        setDrawingData((processedMap as any).drawingData);
+      // Load drawing data from the separate drawing_data column
+      if (map.drawing_data) {
+        setDrawingData(map.drawing_data);
       }
       setIsInitialLoad(true);
       setHistory([]);
@@ -1057,7 +1057,7 @@ export default function MindMap() {
       actionData: Partial<HistoryAction['data']>,
       previousNodes: Node[] = nodes,
       previousEdges: Edge[] = edges,
-      previousState?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; title?: string }
+      previousState?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; title?: string; drawingData?: DrawingData }
     ): HistoryAction => {
       return {
         type,
@@ -1069,6 +1069,7 @@ export default function MindMap() {
           backgroundColor: previousState?.backgroundColor,
           dotColor: previousState?.dotColor,
           title: previousState?.title,
+          drawingData: previousState?.drawingData,
         },
       };
     },
@@ -3259,7 +3260,24 @@ export default function MindMap() {
         setLastSavedHistoryIndex(currentHistoryIndex)
       } catch (error) {
         console.error('Error saving mindmap:', error);
-        // You could add error handling here if needed
+        
+        // Show user-friendly error message
+        const { showToast } = useToastStore.getState();
+        let errorMessage = "Failed to save mindmap. Please try again.";
+        
+        if (error instanceof Error) {
+          if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = "Network error - please check your connection and try again.";
+          } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+            errorMessage = "Permission denied - please make sure you're logged in.";
+          } else if (error.message.includes('size') || error.message.includes('too large')) {
+            errorMessage = "Mindmap is too large to save. Try removing some content.";
+          } else if (error.message.includes('quota') || error.message.includes('limit')) {
+            errorMessage = "Storage quota exceeded. Please contact support.";
+          }
+        }
+        
+        showToast(errorMessage, "error");
       } finally {
         setIsSaving(false);
       }
@@ -3269,7 +3287,7 @@ export default function MindMap() {
     }
     setCanUndo(false)
     setCanRedo(false)
-  }, [id, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor]);
+  }, [id, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor, drawingData]);
 
   // Autosave function - uses the same save logic as manual save
   const scheduleAutosave = useCallback(() => {
