@@ -162,7 +162,7 @@ export default function MindMap() {
 
   // Safe wrapper for setting ReactFlow instance
   const setReactFlowInstanceSafely = useCallback((instance: ReactFlowInstance | null) => {
-    if (instance) {
+    if (instance && !reactFlowInstance) {
       // Validate that the instance has the required methods
       if (typeof instance.setCenter === 'function' &&
         typeof instance.getViewport === 'function' &&
@@ -172,10 +172,10 @@ export default function MindMap() {
       } else {
         console.error('ReactFlow instance missing required methods');
       }
-    } else {
+    } else if (!instance) {
       setReactFlowInstance(null);
     }
-  }, []);
+  }, [reactFlowInstance]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [visuallySelectedNodeId, setVisuallySelectedNodeId] = useState<string | null>(null)
   const [moveWithChildren, setMoveWithChildren] = useState(false)
@@ -185,10 +185,6 @@ export default function MindMap() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
 
-  // Debug logging for isInitialLoad changes
-  useEffect(() => {
-    console.log('🔄 [MindMap] isInitialLoad changed to:', isInitialLoad);
-  }, [isInitialLoad]);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -325,14 +321,7 @@ export default function MindMap() {
   const [isEraserMode, setIsEraserMode] = useState(false);
   const [drawingData, setDrawingData] = useState<DrawingData>({ strokes: [] });
 
-  // Debug logging for drawingData changes
-  useEffect(() => {
-    console.log('🎨 [MindMap] drawingData state changed:', {
-      strokeCount: drawingData.strokes?.length || 0,
-      hasStrokes: (drawingData.strokes?.length || 0) > 0,
-      isInitialLoad
-    });
-  }, [drawingData, isInitialLoad]);
+
 
   // Context menu handlers
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, nodeId: string) => {
@@ -773,18 +762,19 @@ export default function MindMap() {
         setDotColor((processedMap as any).dotColor);
       }
       // Load drawing data from the separate drawing_data column
+      const drawingDataToSet = map.drawing_data
+        ? decompressDrawingData(map.drawing_data)
+        : { strokes: [] };
+
       if (map.drawing_data) {
-        const decompressedDrawingData = decompressDrawingData(map.drawing_data);
         console.log('💾 [MindMap] Loading drawing data from database:', {
-          strokeCount: decompressedDrawingData.strokes?.length || 0,
-          hasStrokes: (decompressedDrawingData.strokes?.length || 0) > 0
+          strokeCount: drawingDataToSet.strokes?.length || 0,
+          hasStrokes: (drawingDataToSet.strokes?.length || 0) > 0
         });
-        setDrawingData(decompressedDrawingData);
-      } else {
-        console.log('💾 [MindMap] No drawing data in database, setting empty strokes');
-        // Ensure we have a default empty drawing data structure
-        setDrawingData({ strokes: [] });
       }
+
+      // Batch all state updates to prevent multiple re-renders
+      setDrawingData(drawingDataToSet);
       setIsInitialLoad(true);
       setHistory([]);
       setCurrentHistoryIndex(-1);
@@ -802,93 +792,131 @@ export default function MindMap() {
   // Resets view, history state, and unsaved changes tracking
   // Track if we've already initialized to prevent multiple fetches
   const hasInitializedRef = useRef(false);
+  const initializationKeyRef = useRef<string>('');
 
   useEffect(() => {
     // Prevent multiple initializations for the same map
     const mapKey = `${id}-${currentMap?.id || 'no-cache'}`;
-    if (hasInitializedRef.current === mapKey) {
+    if (initializationKeyRef.current === mapKey) {
       return;
     }
 
+    // Helper function to initialize common state
+    const initializeCommonState = () => {
+      setHistory([]);
+      setCurrentHistoryIndex(-1);
+      setLastSavedHistoryIndex(-1);
+      setHasUnsavedChanges(false);
+      setIsInitialLoad(true);
+    };
+
     if (currentMap) {
       console.log('🗃️ [MindMap] Using cached data, skipping database fetch');
+
+      // Batch all state updates together to prevent multiple re-renders
+      const loadedEdgeType = (currentMap as any).edgeType;
+      const validEdgeTypes = ['default', 'straight', 'smoothstep'];
+      const edgeTypeToSet = validEdgeTypes.includes(loadedEdgeType) ? loadedEdgeType : 'default';
+
+      // Load drawing data from cached data
+      const drawingDataToSet = (currentMap as any).drawingData || { strokes: [] };
+
+      if ((currentMap as any).drawingData) {
+        console.log('🗃️ [MindMap] Loading drawing data from cache:', {
+          strokeCount: drawingDataToSet.strokes?.length || 0,
+          hasStrokes: (drawingDataToSet.strokes?.length || 0) > 0
+        });
+      }
+
+      // Batch all state updates in a single effect
       setNodes(currentMap.nodes);
       setEdges(validateAndFixEdgeIds(currentMap.edges));
       setEditedTitle(currentMap.title);
       setOriginalTitle(currentMap.title);
-      // Load edgeType from JSON data, default to 'default' if not present or invalid
-      const loadedEdgeType = (currentMap as any).edgeType;
-      const validEdgeTypes = ['default', 'straight', 'smoothstep'];
-      setEdgeType(validEdgeTypes.includes(loadedEdgeType) ? loadedEdgeType : 'default');
-      // Load color customization from JSON data when available
+      setEdgeType(edgeTypeToSet);
+      setDrawingData(drawingDataToSet);
+
+      // Set optional color states only if they exist
       if ((currentMap as any).backgroundColor) {
         setBackgroundColor((currentMap as any).backgroundColor);
       }
       if ((currentMap as any).dotColor) {
         setDotColor((currentMap as any).dotColor);
       }
-      // Load drawing data from cached data
-      if ((currentMap as any).drawingData) {
-        console.log('🗃️ [MindMap] Loading drawing data from cache:', {
-          strokeCount: (currentMap as any).drawingData.strokes?.length || 0,
-          hasStrokes: ((currentMap as any).drawingData.strokes?.length || 0) > 0
-        });
-        setDrawingData((currentMap as any).drawingData);
-      } else {
-        console.log('🗃️ [MindMap] No drawing data in cache, setting empty strokes');
-        // Ensure we have a default empty drawing data structure
-        setDrawingData({ strokes: [] });
-      }
-      setIsInitialLoad(true);
-      setHistory([]);
-      setCurrentHistoryIndex(-1);
-      setLastSavedHistoryIndex(-1);
-      setHasUnsavedChanges(false);
 
-      // Set loading complete when loading from store
+      initializeCommonState();
       setIsLoading(false);
-      hasInitializedRef.current = mapKey;
+
+      initializationKeyRef.current = mapKey;
+      hasInitializedRef.current = true;
     } else if (!hasInitializedRef.current) {
       console.log('💾 [MindMap] No cached data, fetching from database');
       fetchMindMapFromSupabase();
-      hasInitializedRef.current = mapKey;
+      initializationKeyRef.current = mapKey;
+      hasInitializedRef.current = true;
     }
-  }, [currentMap?.id, id, navigate])
+  }, [currentMap?.id, id, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
 
   // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    console.log('[MindMap] Checking if should fetch all maps', { userId: user?.id, isLoggedIn, mapsLength: maps.length, hasFetched: hasFetchedMapsRef.current });
-    if (user?.id && isLoggedIn && !hasFetchedMapsRef.current) {
-      console.log('[MindMap] Calling fetchMaps and fetchCollaborationMaps for userId:', user.id);
+    // Only fetch if we have a new user ID and haven't fetched for this user yet
+    if (user?.id && isLoggedIn &&
+      (lastFetchedUserIdRef.current !== user.id || !hasFetchedMapsRef.current)) {
+
+      console.log('[MindMap] Fetching maps for userId:', user.id);
       hasFetchedMapsRef.current = true;
-      fetchMaps(user.id);
-      fetchCollaborationMaps(user.id);
-    }
-  }, [user?.id, isLoggedIn]); // Keep minimal dependencies to prevent loading interference
+      lastFetchedUserIdRef.current = user.id;
 
-  // Log when maps are updated to track fetch results (debounced to avoid multiple logs)
-  useEffect(() => {
-    if ((maps.length > 1 || collaborationMaps.length > 0) && user?.username) { // Only log when we have maps
-      const timer = setTimeout(() => {
-        console.log(`[MindMap] Final count: ${maps.length} owned maps + ${collaborationMaps.length} collaboration maps for username ${user.username}`);
-      }, 500); // Debounce to avoid multiple logs during rapid updates
-
-      return () => clearTimeout(timer);
+      // Fetch both types of maps concurrently
+      Promise.all([
+        fetchMaps(user.id),
+        fetchCollaborationMaps(user.id)
+      ]).then(() => {
+        console.log(`[MindMap] Maps fetched: ${maps.length} owned + ${collaborationMaps.length} collaboration`);
+      }).catch(error => {
+        console.error('[MindMap] Error fetching maps:', error);
+        // Reset flags on error to allow retry
+        hasFetchedMapsRef.current = false;
+        lastFetchedUserIdRef.current = null;
+      });
     }
-  }, [maps.length, collaborationMaps.length, user?.username]);
+  }, [user?.id, isLoggedIn, fetchMaps, fetchCollaborationMaps]);
 
   // Initialize collaboration when component mounts with valid user and mind map
+  const lastCollaborationInitRef = useRef<string>('');
+
   useEffect(() => {
-    if (id && user?.id && user.username && isLoggedIn) {
+    const collaborationKey = `${id}-${user?.id}-${user?.username}`;
+
+    if (id && user?.id && user.username && isLoggedIn &&
+      lastCollaborationInitRef.current !== collaborationKey) {
+
+      console.log('🤝 [MindMap] Initializing collaboration for:', collaborationKey);
       initializeCollaboration(id, user.id, user.username, user.avatar_url);
+      lastCollaborationInitRef.current = collaborationKey;
     }
 
-    // Cleanup collaboration when component unmounts
+    // Cleanup collaboration when component unmounts or key changes
     return () => {
-      cleanupCollaboration();
+      if (lastCollaborationInitRef.current) {
+        cleanupCollaboration();
+        lastCollaborationInitRef.current = '';
+      }
     };
   }, [id, user?.id, user?.username, user?.avatar_url, isLoggedIn, initializeCollaboration, cleanupCollaboration]);
+
+  // Cleanup refs on unmount
+  useEffect(() => {
+    return () => {
+      hasInitializedRef.current = false;
+      initializationKeyRef.current = '';
+      lastFetchedUserIdRef.current = null;
+      hasFetchedMapsRef.current = false;
+    };
+  }, []);
 
   // Handle receiving live changes from other collaborators
   useEffect(() => {
@@ -1120,34 +1148,20 @@ export default function MindMap() {
 
   const addToHistory = useCallback(
     (action: HistoryAction) => {
-      console.log('📚 [History] Adding action to history:', {
-        type: action.type,
-        currentIndex: currentHistoryIndex,
-        lastSavedIndex: lastSavedHistoryIndex,
-        actionData: action.type === 'drawing_change' ? {
-          strokeCount: action.data.drawingData?.strokes?.length || 0
-        } : action.data
-      });
-
       // Validate action structure before adding to history
       if (!action || !action.data) {
-        console.warn('📚 [History] Invalid action - missing action or data');
+        console.warn('Invalid action - missing action or data');
         return;
       }
 
       if (!action.previousState || !action.previousState.nodes) {
-        console.warn('📚 [History] Invalid action - missing previousState or nodes');
+        console.warn('Invalid action - missing previousState or nodes');
         return;
       }
 
       setHistory((prev) => {
         const newHistory = prev.slice(0, currentHistoryIndex + 1);
         const updatedHistory = [...newHistory, action];
-        console.log('📚 [History] History updated:', {
-          previousLength: prev.length,
-          newLength: updatedHistory.length,
-          actionType: action.type
-        });
         return updatedHistory;
       });
 
@@ -1157,12 +1171,6 @@ export default function MindMap() {
       const canUndoNow = newHistoryIndex > lastSavedHistoryIndex;
       setCanUndo(canUndoNow);
       setCanRedo(false);
-
-      console.log('📚 [History] History state updated:', {
-        newIndex: newHistoryIndex,
-        canUndo: canUndoNow,
-        canRedo: false
-      });
     },
     [currentHistoryIndex, lastSavedHistoryIndex],
   )
@@ -1253,23 +1261,17 @@ export default function MindMap() {
   // Handle drawing changes with history tracking
   const handleDrawingChange = useCallback((newDrawingData: DrawingData) => {
     const previousDrawingData = drawingData;
+
+    // Quick check for meaningful changes to avoid expensive JSON comparison
     const previousStrokeCount = previousDrawingData?.strokes?.length || 0;
     const newStrokeCount = newDrawingData?.strokes?.length || 0;
-
-    console.log('🗂️ [MindMap] handleDrawingChange called:', {
-      previousStrokeCount,
-      newStrokeCount,
-      isInitialLoad,
-      hasUnsavedChanges,
-      dataChanged: JSON.stringify(previousDrawingData) !== JSON.stringify(newDrawingData)
-    });
+    const hasStrokeCountChange = previousStrokeCount !== newStrokeCount;
 
     // Always update the drawing data
     setDrawingData(newDrawingData);
 
     // Only create history if there's a meaningful change and we're not in initial load
-    if (!isInitialLoad && JSON.stringify(previousDrawingData) !== JSON.stringify(newDrawingData)) {
-      console.log('🗂️ [MindMap] Creating drawing history action');
+    if (!isInitialLoad && hasStrokeCountChange) {
       const action = createHistoryAction(
         "drawing_change",
         { drawingData: newDrawingData },
@@ -1279,10 +1281,6 @@ export default function MindMap() {
       );
       addToHistory(action);
       setHasUnsavedChanges(true);
-    } else {
-      console.log('🗂️ [MindMap] Skipping history creation:', {
-        reason: isInitialLoad ? 'initial load' : 'no data change'
-      });
     }
   }, [drawingData, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]);
 
@@ -4422,12 +4420,15 @@ export default function MindMap() {
     };
   }, [showAutosaveMenu]);
 
-  // Schedule autosave when changes occur or interval changes
+  // Schedule autosave when changes occur or interval changes (debounced)
   useEffect(() => {
-    scheduleAutosave();
+    const debounceTimer = setTimeout(() => {
+      scheduleAutosave();
+    }, 100); // Debounce autosave scheduling by 100ms
 
     // Cleanup timeout on unmount
     return () => {
+      clearTimeout(debounceTimer);
       if (autosaveTimeoutRef.current) {
         clearTimeout(autosaveTimeoutRef.current);
       }
@@ -5382,7 +5383,7 @@ export default function MindMap() {
         ><ReactFlowProvider>
             <ReactFlow
               key={`reactflow-${currentMap?.id || 'default'}`}
-              nodes={nodes.map((node) => {
+              nodes={useMemo(() => nodes.map((node) => {
                 // Check if this node has children
                 const hasChildren = edges.some((edge) => edge.source === node.id);
                 // Get descendants (not used directly but keeping for future use)
@@ -5525,8 +5526,8 @@ export default function MindMap() {
                     fontWeight: node.id === "1" ? "bold" : "normal",
                   },
                 } as Node;
-              })}
-              edges={edges.map(edge => {
+              }), [nodes, edges, collapsedNodes, selectedNodeId, visuallySelectedNodeId, previewColor, autocolorSubnodes, getNodeDescendants, isAddingToPlaylist])}
+              edges={useMemo(() => edges.map(edge => {
                 // Find the source node to get its color
                 const sourceNode = nodes.find(node => node.id === edge.source);
                 const sourceNodeColor = sourceNode
@@ -5542,7 +5543,7 @@ export default function MindMap() {
                     stroke: sourceNodeColor,
                   },
                 };
-              })}
+              }), [edges, nodes, edgeType])}
               nodeTypes={nodeTypes}
               defaultEdgeOptions={{
                 type: edgeType === 'default' ? 'default' : edgeType,
