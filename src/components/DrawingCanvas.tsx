@@ -195,7 +195,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       if (!canvasRef.current) return;
 
       const newWidth = window.innerWidth;
-      const newHeight = isFullscreen ? window.innerHeight : window.innerHeight - 64; // 64px = 4rem header
+      const newHeight = isFullscreen ? window.innerHeight : window.innerHeight - 48; // 48px = 3rem header
 
       // Only update if dimensions actually changed
       if (canvasSize.width !== newWidth || canvasSize.height !== newHeight) {
@@ -429,12 +429,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 ${isFullscreen ? '' : 'top-16'}`}
+      className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
       style={{
         zIndex: 1000,
         cursor: isDrawingMode ? (isEraserMode ? 'crosshair' : 'crosshair') : 'default',
         width: '100%',
-        height: isFullscreen ? '100%' : 'calc(100% - 4rem)',
+        height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
         pointerEvents: isDrawingMode ? 'auto' : 'none',
         left: 0,
         opacity: 1, // Always visible
