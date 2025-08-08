@@ -141,7 +141,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       strokesByColor.forEach((strokeGroup, key) => {
         const [color, width] = key.split('-');
         ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(parseFloat(width) / viewport.zoom, 0.5);
+        ctx.lineWidth = parseFloat(width);
 
         strokeGroup.forEach((stroke) => {
           ctx.beginPath();
@@ -163,7 +163,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Draw current stroke if drawing
       if (currentStroke && currentStroke.points && currentStroke.points.length > 1) {
         ctx.strokeStyle = currentStroke.color || '#ffffff';
-        ctx.lineWidth = Math.max((currentStroke.width || 3) / viewport.zoom, 0.5);
+        ctx.lineWidth = currentStroke.width || 3;
         ctx.beginPath();
 
         const firstPoint = currentStroke.points[0];
