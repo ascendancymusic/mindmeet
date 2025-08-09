@@ -98,7 +98,7 @@ import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
 import { DrawModal } from "../components/DrawModal";
-import { DrawingCanvas, DrawingData } from "../components/DrawingCanvas";
+import { DrawingCanvas, DrawingData, getDrawingBounds } from "../components/DrawingCanvas";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 
 
@@ -5561,6 +5561,7 @@ export default function MindMap() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onInit={setReactFlowInstanceSafely}
+              fitView
               onDrop={onDrop}
               onDragOver={onDragOver}
               onNodeClick={(event, node) => selectNode(event, node.id)}
@@ -5628,13 +5629,6 @@ export default function MindMap() {
                   updateSelectionBounds(selectedNodes);
                 }
               }}
-
-
-
-
-
-
-              fitView
               proOptions={{ hideAttribution: true }}
               deleteKeyCode="null"
               snapToGrid={snapToGrid && !isAltPressed}
@@ -5670,6 +5664,51 @@ export default function MindMap() {
                   padding: '1px',
                 }}
                 className="react-flow__controls-custom"
+                onFitView={() => {
+                  if (reactFlowInstance) {
+                    const drawingBounds = drawingData?.strokes?.length ? getDrawingBounds(drawingData) : null;
+
+                    if (drawingBounds && drawingBounds.width > 0 && drawingBounds.height > 0 && nodes.length > 0) {
+                      // Calculate combined bounds of nodes and drawing
+                      let minX = Math.min(...nodes.map(n => n.position.x));
+                      let minY = Math.min(...nodes.map(n => n.position.y));
+                      let maxX = Math.max(...nodes.map(n => n.position.x + (n.width || 150)));
+                      let maxY = Math.max(...nodes.map(n => n.position.y + (n.height || 40)));
+
+                      // Expand bounds to include drawing
+                      minX = Math.min(minX, drawingBounds.x);
+                      minY = Math.min(minY, drawingBounds.y);
+                      maxX = Math.max(maxX, drawingBounds.x + drawingBounds.width);
+                      maxY = Math.max(maxY, drawingBounds.y + drawingBounds.height);
+
+                      // Calculate center and zoom to fit combined bounds
+                      const centerX = (minX + maxX) / 2;
+                      const centerY = (minY + maxY) / 2;
+                      const width = maxX - minX;
+                      const height = maxY - minY;
+
+                      // Get viewport dimensions
+                      const containerWidth = reactFlowWrapperRef.current?.clientWidth || window.innerWidth;
+                      const containerHeight = reactFlowWrapperRef.current?.clientHeight || window.innerHeight;
+
+                      // Calculate zoom to fit with padding
+                      const padding = 0.1;
+                      const zoomX = (containerWidth * (1 - padding * 2)) / width;
+                      const zoomY = (containerHeight * (1 - padding * 2)) / height;
+                      const zoom = Math.min(Math.max(Math.min(zoomX, zoomY), 0.1), 2);
+
+                      // Set viewport to center on combined bounds
+                      reactFlowInstance.setViewport({
+                        x: containerWidth / 2 - centerX * zoom,
+                        y: containerHeight / 2 - centerY * zoom,
+                        zoom: zoom
+                      });
+                    } else {
+                      // Default fitView if no drawing data or no nodes
+                      reactFlowInstance.fitView({ padding: 0.1 });
+                    }
+                  }
+                }}
               />
               {/* Real-time collaboration cursors */}
               <CollaboratorCursors />
@@ -7088,7 +7127,7 @@ export default function MindMap() {
             document.dispatchEvent(event);
           }}
         />
-      </div>
+      </div >
     </>
   )
 }

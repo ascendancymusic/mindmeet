@@ -23,6 +23,43 @@ interface DrawingCanvasProps {
   isFullscreen?: boolean;
 }
 
+// Helper function to calculate bounds of drawing data
+export const getDrawingBounds = (drawingData: DrawingData) => {
+  if (!drawingData?.strokes?.length) {
+    return null;
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  drawingData.strokes.forEach(stroke => {
+    if (stroke?.points?.length) {
+      stroke.points.forEach(point => {
+        if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+          minX = Math.min(minX, point.x);
+          minY = Math.min(minY, point.y);
+          maxX = Math.max(maxX, point.x);
+          maxY = Math.max(maxY, point.y);
+        }
+      });
+    }
+  });
+
+  // Return null if no valid bounds found
+  if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+    return null;
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  };
+};
+
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   isDrawingMode,
   isEraserMode,
