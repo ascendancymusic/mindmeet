@@ -296,21 +296,33 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // Find the ReactFlow container
-      const reactFlowContainer = canvas.parentElement?.querySelector('.react-flow');
-      if (reactFlowContainer && reactFlowInstance) {
-        // Use ReactFlow's built-in zoom functionality
-        const rect = reactFlowContainer.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+      if (reactFlowInstance) {
+        // Get mouse position relative to the canvas
+        const canvasRect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - canvasRect.left;
+        const mouseY = e.clientY - canvasRect.top;
+
+        // Get current viewport
+        const currentViewport = reactFlowInstance.getViewport();
+        const { x: viewX, y: viewY, zoom: currentZoom } = currentViewport;
 
         // Calculate zoom delta (negative because wheel down should zoom out)
         const zoomDelta = -e.deltaY * 0.002;
-        const currentZoom = reactFlowInstance.getZoom();
         const newZoom = Math.max(0.1, Math.min(2, currentZoom * (1 + zoomDelta)));
 
-        // Apply zoom to the mouse position
-        reactFlowInstance.zoomTo(newZoom, { x, y });
+        // Calculate the zoom factor
+        const zoomFactor = newZoom / currentZoom;
+
+        // Calculate new viewport position to zoom towards mouse position
+        const newViewX = mouseX - (mouseX - viewX) * zoomFactor;
+        const newViewY = mouseY - (mouseY - viewY) * zoomFactor;
+
+        // Apply the new viewport
+        reactFlowInstance.setViewport({
+          x: newViewX,
+          y: newViewY,
+          zoom: newZoom
+        });
       }
     };
 
