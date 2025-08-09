@@ -5378,7 +5378,8 @@ export default function MindMap() {
           style={{
             zIndex: 1,
             backgroundColor: backgroundColor || '#11192C',
-            pointerEvents: isPenModeActive ? 'none' : 'auto'
+            // Always allow pointer events so ReactFlow can handle zooming
+            pointerEvents: 'auto'
           }}
         ><ReactFlowProvider>
             <ReactFlow

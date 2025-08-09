@@ -286,6 +286,42 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     };
   }, [reactFlowInstance, redrawCanvas]);
 
+  // Add native wheel event listener to handle wheel events properly
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isDrawingMode) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      // Prevent the canvas from handling the wheel event
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Find the ReactFlow container
+      const reactFlowContainer = canvas.parentElement?.querySelector('.react-flow');
+      if (reactFlowContainer && reactFlowInstance) {
+        // Use ReactFlow's built-in zoom functionality
+        const rect = reactFlowContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Calculate zoom delta (negative because wheel down should zoom out)
+        const zoomDelta = -e.deltaY * 0.002;
+        const currentZoom = reactFlowInstance.getZoom();
+        const newZoom = Math.max(0.1, Math.min(2, currentZoom * (1 + zoomDelta)));
+
+        // Apply zoom to the mouse position
+        reactFlowInstance.zoomTo(newZoom, { x, y });
+      }
+    };
+
+    // Add the native event listener
+    canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, [isDrawingMode, reactFlowInstance]);
+
   // Handle eraser functionality
   const eraseAtPoint = useCallback((x: number, y: number) => {
     try {
@@ -346,6 +382,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Skip mouse down on error
     }
   }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint]);
+
+
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     try {
@@ -431,10 +469,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ref={canvasRef}
       className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
       style={{
-        zIndex: 1000,
+        zIndex: isDrawingMode ? 1001 : -1, // Higher z-index when drawing, lower when not
         cursor: isDrawingMode ? (isEraserMode ? 'crosshair' : 'crosshair') : 'default',
         width: '100%',
         height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
+        // Capture all pointer events when drawing mode is active
         pointerEvents: isDrawingMode ? 'auto' : 'none',
         left: 0,
         opacity: 1, // Always visible
