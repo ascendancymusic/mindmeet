@@ -857,6 +857,146 @@ export default function MindMap() {
     }
   }, [currentMap?.id, id, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
 
+  // Apply custom fitView when drawing data is loaded and ReactFlow instance is ready
+  useEffect(() => {
+    if (reactFlowInstance && nodes.length > 0 && !isLoading) {
+      const timer = setTimeout(() => {
+        try {
+          // Ensure ReactFlow instance has required methods
+          if (typeof reactFlowInstance.fitView !== 'function' || 
+              typeof reactFlowInstance.setViewport !== 'function' ||
+              typeof reactFlowInstance.getViewport !== 'function') {
+            console.warn('ReactFlow instance not fully ready, using fallback');
+            return;
+          }
+
+          const drawingBounds = drawingData?.strokes?.length ? getDrawingBounds(drawingData) : null;
+
+          if (drawingBounds && drawingBounds.width > 0 && drawingBounds.height > 0) {
+            // Calculate combined bounds of nodes and drawing
+            let minX = Math.min(...nodes.map(n => n.position.x));
+            let minY = Math.min(...nodes.map(n => n.position.y));
+            let maxX = Math.max(...nodes.map(n => n.position.x + (n.width || 150)));
+            let maxY = Math.max(...nodes.map(n => n.position.y + (n.height || 40)));
+
+            // Expand bounds to include drawing
+            minX = Math.min(minX, drawingBounds.x);
+            minY = Math.min(minY, drawingBounds.y);
+            maxX = Math.max(maxX, drawingBounds.x + drawingBounds.width);
+            maxY = Math.max(maxY, drawingBounds.y + drawingBounds.height);
+
+            // Calculate center and zoom to fit combined bounds
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            // Get viewport dimensions with fallback
+            const containerWidth = reactFlowWrapperRef.current?.clientWidth || window.innerWidth;
+            const containerHeight = reactFlowWrapperRef.current?.clientHeight || (window.innerHeight - 48);
+
+            // Ensure we have valid dimensions
+            if (containerWidth <= 0 || containerHeight <= 0) {
+              console.warn('Invalid container dimensions, falling back to standard fitView');
+              reactFlowInstance.fitView({ padding: 0.1 });
+              return;
+            }
+
+            // Calculate zoom to fit with padding
+            const padding = 0.1;
+            const zoomX = (containerWidth * (1 - padding * 2)) / width;
+            const zoomY = (containerHeight * (1 - padding * 2)) / height;
+            const zoom = Math.min(Math.max(Math.min(zoomX, zoomY), 0.1), 2);
+
+            // Validate zoom value
+            if (!isFinite(zoom) || zoom <= 0) {
+              console.warn('Invalid zoom calculated, falling back to standard fitView');
+              reactFlowInstance.fitView({ padding: 0.1 });
+              return;
+            }
+
+            // Set viewport to center on combined bounds
+            reactFlowInstance.setViewport({
+              x: containerWidth / 2 - centerX * zoom,
+              y: containerHeight / 2 - centerY * zoom,
+              zoom: zoom
+            });
+
+            console.log('🎨 [MindMap] Applied initial fitView including drawing bounds');
+          } else if (isInitialLoad) {
+            // Only apply default fitView on initial load to avoid conflicts
+            reactFlowInstance.fitView({ padding: 0.1 });
+            console.log('🎨 [MindMap] Applied initial fitView for nodes only');
+          }
+        } catch (error) {
+          console.error('Error applying initial fitView:', error);
+          // Fallback to standard fitView on error
+          if (reactFlowInstance && typeof reactFlowInstance.fitView === 'function') {
+            reactFlowInstance.fitView({ padding: 0.1 });
+          }
+        }
+      }, 300); // Reduced delay for faster response
+
+      return () => clearTimeout(timer);
+    }
+  }, [reactFlowInstance, drawingData, nodes, isLoading, isInitialLoad])
+
+  // Backup fitView effect - runs after loading is complete to ensure proper centering
+  useEffect(() => {
+    if (reactFlowInstance && nodes.length > 0 && !isLoading && isInitialLoad) {
+      const timer = setTimeout(() => {
+        try {
+          // Check if viewport is at origin (indicating fitView hasn't worked properly)
+          const currentViewport = reactFlowInstance.getViewport();
+          const isAtOrigin = Math.abs(currentViewport.x) < 10 && Math.abs(currentViewport.y) < 10 && currentViewport.zoom === 1;
+          
+          if (isAtOrigin) {
+            console.log('🔄 [MindMap] Applying backup fitView');
+            const drawingBounds = drawingData?.strokes?.length ? getDrawingBounds(drawingData) : null;
+            
+            if (drawingBounds && drawingBounds.width > 0 && drawingBounds.height > 0) {
+              // Use the same logic as the manual fitView button
+              let minX = Math.min(...nodes.map(n => n.position.x));
+              let minY = Math.min(...nodes.map(n => n.position.y));
+              let maxX = Math.max(...nodes.map(n => n.position.x + (n.width || 150)));
+              let maxY = Math.max(...nodes.map(n => n.position.y + (n.height || 40)));
+
+              minX = Math.min(minX, drawingBounds.x);
+              minY = Math.min(minY, drawingBounds.y);
+              maxX = Math.max(maxX, drawingBounds.x + drawingBounds.width);
+              maxY = Math.max(maxY, drawingBounds.y + drawingBounds.height);
+
+              const centerX = (minX + maxX) / 2;
+              const centerY = (minY + maxY) / 2;
+              const width = maxX - minX;
+              const height = maxY - minY;
+
+              const containerWidth = reactFlowWrapperRef.current?.clientWidth || window.innerWidth;
+              const containerHeight = reactFlowWrapperRef.current?.clientHeight || (window.innerHeight - 48);
+
+              const padding = 0.1;
+              const zoomX = (containerWidth * (1 - padding * 2)) / width;
+              const zoomY = (containerHeight * (1 - padding * 2)) / height;
+              const zoom = Math.min(Math.max(Math.min(zoomX, zoomY), 0.1), 2);
+
+              reactFlowInstance.setViewport({
+                x: containerWidth / 2 - centerX * zoom,
+                y: containerHeight / 2 - centerY * zoom,
+                zoom: zoom
+              });
+            } else {
+              reactFlowInstance.fitView({ padding: 0.1 });
+            }
+          }
+        } catch (error) {
+          console.error('Error in backup fitView:', error);
+        }
+      }, 1000); // Run after 1 second to check if initial fitView worked
+
+      return () => clearTimeout(timer);
+    }
+  }, [reactFlowInstance, nodes, isLoading, isInitialLoad, drawingData])
+
   // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
   const lastFetchedUserIdRef = useRef<string | null>(null);
@@ -5561,7 +5701,7 @@ export default function MindMap() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onInit={setReactFlowInstanceSafely}
-              fitView
+              fitView={!drawingData?.strokes?.length} // Only use default fitView if no drawing data
               onDrop={onDrop}
               onDragOver={onDragOver}
               onNodeClick={(event, node) => selectNode(event, node.id)}

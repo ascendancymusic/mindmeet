@@ -518,7 +518,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ref={canvasRef}
       className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
       style={{
-        zIndex: isDrawingMode ? 1001 : -1, // Higher z-index when drawing, lower when not
+        zIndex: isDrawingMode ? 10 : 1, // Above ReactFlow and background dots but well below header elements (z-50) and UI elements
         cursor: isDrawingMode ? (isEraserMode ? 'crosshair' : 'crosshair') : 'default',
         width: '100%',
         height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
