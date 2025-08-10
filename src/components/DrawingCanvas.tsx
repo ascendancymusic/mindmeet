@@ -6,6 +6,7 @@ export interface DrawingStroke {
   color: string;
   width: number;
   timestamp: number;
+  selected?: boolean;
 }
 
 export interface DrawingData {
@@ -79,6 +80,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const isInitializingRef = useRef(false);
 
+  // Stroke selection and dragging state
+  const [selectedStrokeId, setSelectedStrokeId] = useState<string | null>(null);
+  const [isDraggingStroke, setIsDraggingStroke] = useState(false);
+  const [dragStartPoint, setDragStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [isInteractingWithStroke, setIsInteractingWithStroke] = useState(false);
+  const [isHoveringStroke, setIsHoveringStroke] = useState(false);
+
   // Initialize with drawing data from parent
   useEffect(() => {
     if (initialDrawingData !== undefined) {
@@ -126,6 +134,45 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   }, [reactFlowInstance]);
 
+  // Helper function to check if a point is near a stroke
+  const isPointNearStroke = useCallback((point: { x: number; y: number }, stroke: DrawingStroke, threshold: number = 10): boolean => {
+    if (!stroke.points || stroke.points.length < 2) return false;
+
+    for (let i = 0; i < stroke.points.length - 1; i++) {
+      const p1 = stroke.points[i];
+      const p2 = stroke.points[i + 1];
+      
+      if (!p1 || !p2 || typeof p1.x !== 'number' || typeof p1.y !== 'number' || 
+          typeof p2.x !== 'number' || typeof p2.y !== 'number') continue;
+
+      // Calculate distance from point to line segment
+      const A = point.x - p1.x;
+      const B = point.y - p1.y;
+      const C = p2.x - p1.x;
+      const D = p2.y - p1.y;
+
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      
+      if (lenSq === 0) continue;
+      
+      let param = dot / lenSq;
+      param = Math.max(0, Math.min(1, param));
+
+      const xx = p1.x + param * C;
+      const yy = p1.y + param * D;
+
+      const dx = point.x - xx;
+      const dy = point.y - yy;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance <= threshold) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   // Canvas rendering - optimized for smooth performance
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -160,47 +207,47 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // Optimized rendering: batch similar strokes together
-      const strokesByColor = new Map<string, DrawingStroke[]>();
-
-      // Group strokes by color and width for batch rendering
+      // Render strokes individually to handle selection highlighting
       strokes.forEach((stroke) => {
         if (!stroke || !stroke.points || stroke.points.length < 2) return;
 
-        const key = `${stroke.color || '#ffffff'}-${stroke.width || 3}`;
-        if (!strokesByColor.has(key)) {
-          strokesByColor.set(key, []);
+        const isSelected = stroke.id === selectedStrokeId;
+        
+        // Set stroke style
+        ctx.strokeStyle = stroke.color || '#ffffff';
+        ctx.lineWidth = stroke.width || 3;
+        
+        // Add selection highlight
+        if (isSelected && !isDrawingMode) {
+          ctx.shadowColor = '#00bfff';
+          ctx.shadowBlur = 8;
+          ctx.lineWidth = (stroke.width || 3) + 2;
+        } else {
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
         }
-        strokesByColor.get(key)!.push(stroke);
-      });
 
-      // Render strokes in batches by color/width
-      strokesByColor.forEach((strokeGroup, key) => {
-        const [color, width] = key.split('-');
-        ctx.strokeStyle = color;
-        ctx.lineWidth = parseFloat(width);
+        ctx.beginPath();
+        const firstPoint = stroke.points[0];
+        if (firstPoint && typeof firstPoint.x === 'number' && typeof firstPoint.y === 'number') {
+          ctx.moveTo(firstPoint.x, firstPoint.y);
 
-        strokeGroup.forEach((stroke) => {
-          ctx.beginPath();
-          const firstPoint = stroke.points[0];
-          if (firstPoint && typeof firstPoint.x === 'number' && typeof firstPoint.y === 'number') {
-            ctx.moveTo(firstPoint.x, firstPoint.y);
-
-            for (let i = 1; i < stroke.points.length; i++) {
-              const point = stroke.points[i];
-              if (point && typeof point.x === 'number' && typeof point.y === 'number') {
-                ctx.lineTo(point.x, point.y);
-              }
+          for (let i = 1; i < stroke.points.length; i++) {
+            const point = stroke.points[i];
+            if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+              ctx.lineTo(point.x, point.y);
             }
-            ctx.stroke();
           }
-        });
+          ctx.stroke();
+        }
       });
 
       // Draw current stroke if drawing
       if (currentStroke && currentStroke.points && currentStroke.points.length > 1) {
         ctx.strokeStyle = currentStroke.color || '#ffffff';
         ctx.lineWidth = currentStroke.width || 3;
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
         ctx.beginPath();
 
         const firstPoint = currentStroke.points[0];
@@ -222,7 +269,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     } catch (error) {
       // Skip frame on error
     }
-  }, [strokes, currentStroke, reactFlowInstance]);
+  }, [strokes, currentStroke, reactFlowInstance, selectedStrokeId, isDrawingMode]);
 
   // Canvas resize handling - only debounce resize, not viewport changes
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -405,100 +452,169 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   // Mouse event handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     try {
-      if (!isDrawingMode) return;
-
       e.preventDefault();
       e.stopPropagation();
 
       const coords = getFlowCoordinates(e.clientX, e.clientY);
-
       userHasInteractedRef.current = true;
 
-      if (isEraserMode) {
-        eraseAtPoint(coords.x, coords.y);
+      if (isDrawingMode) {
+        if (isEraserMode) {
+          eraseAtPoint(coords.x, coords.y);
+        } else {
+          setIsDrawing(true);
+          const newStroke: DrawingStroke = {
+            id: `stroke-${Date.now()}-${Math.random()}`,
+            points: [coords],
+            color: drawingColor || '#ffffff',
+            width: lineWidth || 3,
+            timestamp: Date.now(),
+          };
+          setCurrentStroke(newStroke);
+        }
       } else {
-        setIsDrawing(true);
-        const newStroke: DrawingStroke = {
-          id: `stroke-${Date.now()}-${Math.random()}`,
-          points: [coords],
-          color: drawingColor || '#ffffff',
-          width: lineWidth || 3,
-          timestamp: Date.now(),
-        };
-        setCurrentStroke(newStroke);
+        // Normal mode - handle stroke selection and dragging
+        const clickedStroke = strokes.find(stroke => 
+          isPointNearStroke(coords, stroke, 15)
+        );
+
+        if (clickedStroke) {
+          setSelectedStrokeId(clickedStroke.id);
+          setIsDraggingStroke(true);
+          setDragStartPoint(coords);
+          setIsInteractingWithStroke(true);
+        } else {
+          // Clicked on empty space - deselect
+          setSelectedStrokeId(null);
+          setIsInteractingWithStroke(false);
+        }
       }
     } catch (error) {
       // Skip mouse down on error
     }
-  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint]);
+  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke]);
 
 
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     try {
-      if (!isDrawingMode) return;
-
       const coords = getFlowCoordinates(e.clientX, e.clientY);
 
-      if (isEraserMode) {
-        eraseAtPoint(coords.x, coords.y);
-      } else if (isDrawing && currentStroke) {
-        // Optimize point addition - avoid unnecessary array spreading for better performance
-        setCurrentStroke(prev => {
-          if (!prev) return null;
+      if (isDrawingMode) {
+        if (isEraserMode) {
+          eraseAtPoint(coords.x, coords.y);
+        } else if (isDrawing && currentStroke) {
+          // Optimize point addition - avoid unnecessary array spreading for better performance
+          setCurrentStroke(prev => {
+            if (!prev) return null;
 
-          // Skip adding point if it's too close to the last point (reduces noise)
-          const lastPoint = prev.points[prev.points.length - 1];
-          if (lastPoint) {
-            const distance = Math.sqrt(
-              Math.pow(coords.x - lastPoint.x, 2) + Math.pow(coords.y - lastPoint.y, 2)
-            );
-            // Only add point if it's moved at least 1 unit (reduces redundant points)
-            if (distance < 1) {
-              return prev;
+            // Skip adding point if it's too close to the last point (reduces noise)
+            const lastPoint = prev.points[prev.points.length - 1];
+            if (lastPoint) {
+              const distance = Math.sqrt(
+                Math.pow(coords.x - lastPoint.x, 2) + Math.pow(coords.y - lastPoint.y, 2)
+              );
+              // Only add point if it's moved at least 1 unit (reduces redundant points)
+              if (distance < 1) {
+                return prev;
+              }
             }
-          }
 
-          return {
-            ...prev,
-            points: [...prev.points, coords]
-          };
+            return {
+              ...prev,
+              points: [...prev.points, coords]
+            };
+          });
+        }
+      } else if (isDraggingStroke && selectedStrokeId && dragStartPoint) {
+        // Normal mode - handle stroke dragging
+        const deltaX = coords.x - dragStartPoint.x;
+        const deltaY = coords.y - dragStartPoint.y;
+
+        setStrokes(prevStrokes => {
+          return prevStrokes.map(stroke => {
+            if (stroke.id === selectedStrokeId) {
+              return {
+                ...stroke,
+                points: stroke.points.map(point => ({
+                  x: point.x + deltaX,
+                  y: point.y + deltaY
+                }))
+              };
+            }
+            return stroke;
+          });
         });
+
+        // Update drag start point for next move
+        setDragStartPoint(coords);
+      } else if (!isDrawingMode && strokes.length > 0) {
+        // Check if hovering over any stroke for cursor feedback
+        const hoveredStroke = strokes.find(stroke => 
+          isPointNearStroke(coords, stroke, 15)
+        );
+        setIsHoveringStroke(!!hoveredStroke);
       }
     } catch (error) {
       // Skip mouse move on error
     }
-  }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint]);
+  }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint, isDraggingStroke, selectedStrokeId, dragStartPoint, strokes, isPointNearStroke]);
 
   const handleMouseUp = useCallback(() => {
     try {
-      if (!isDrawingMode || !isDrawing) return;
-
-      if (currentStroke && currentStroke.points && currentStroke.points.length > 1) {
-        setStrokes(prev => Array.isArray(prev) ? [...prev, currentStroke] : [currentStroke]);
+      if (isDrawingMode && isDrawing) {
+        if (currentStroke && currentStroke.points && currentStroke.points.length > 1) {
+          setStrokes(prev => Array.isArray(prev) ? [...prev, currentStroke] : [currentStroke]);
+        }
+        setIsDrawing(false);
+        setCurrentStroke(null);
+      } else if (isDraggingStroke) {
+        // End stroke dragging
+        setIsDraggingStroke(false);
+        setDragStartPoint(null);
+        setIsInteractingWithStroke(false);
       }
-
-      setIsDrawing(false);
-      setCurrentStroke(null);
     } catch (error) {
-      // Reset drawing state on error
+      // Reset states on error
       setIsDrawing(false);
       setCurrentStroke(null);
+      setIsDraggingStroke(false);
+      setDragStartPoint(null);
+      setIsInteractingWithStroke(false);
     }
-  }, [isDrawingMode, isDrawing, currentStroke]);
+  }, [isDrawingMode, isDrawing, currentStroke, isDraggingStroke]);
 
   const userHasInteractedRef = useRef(false);
+  const lastChangeTimeRef = useRef(0);
+  const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Notify parent when strokes change
+  // Notify parent when strokes change with throttling for drag operations
   useEffect(() => {
     // Only notify parent if:
     // 1. Data is loaded
     // 2. Not currently initializing  
     // 3. User has actually interacted with the canvas
     if (dataLoaded && !isInitializingRef.current && userHasInteractedRef.current) {
-      onDrawingChange({ strokes });
+      const now = Date.now();
+      
+      // If we're dragging a stroke, throttle the updates to prevent too many history entries
+      if (isDraggingStroke) {
+        if (changeTimeoutRef.current) {
+          clearTimeout(changeTimeoutRef.current);
+        }
+        
+        // Debounce stroke drag updates
+        changeTimeoutRef.current = setTimeout(() => {
+          onDrawingChange({ strokes });
+          lastChangeTimeRef.current = now;
+        }, 100); // 100ms debounce for drag operations
+      } else {
+        // Immediate update for non-drag operations (drawing, erasing, etc.)
+        onDrawingChange({ strokes });
+        lastChangeTimeRef.current = now;
+      }
     }
-  }, [strokes, onDrawingChange, dataLoaded]);
+  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke]);
 
   // Cleanup
   useEffect(() => {
@@ -509,8 +625,56 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }
+      if (changeTimeoutRef.current) {
+        clearTimeout(changeTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Handle keyboard events for stroke deletion
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isDrawingMode && selectedStrokeId && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        setStrokes(prevStrokes => prevStrokes.filter(stroke => stroke.id !== selectedStrokeId));
+        setSelectedStrokeId(null);
+        userHasInteractedRef.current = true;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isDrawingMode, selectedStrokeId]);
+
+  // Global mouse move listener to detect stroke hovering when canvas doesn't have pointer events
+  useEffect(() => {
+    if (isDrawingMode || strokes.length === 0) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!canvasRef.current || !reactFlowInstance) return;
+
+      try {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const isOverCanvas = e.clientX >= rect.left && e.clientX <= rect.right && 
+                            e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+        if (isOverCanvas) {
+          const coords = getFlowCoordinates(e.clientX, e.clientY);
+          const hoveredStroke = strokes.find(stroke => 
+            isPointNearStroke(coords, stroke, 15)
+          );
+          setIsHoveringStroke(!!hoveredStroke);
+        } else {
+          setIsHoveringStroke(false);
+        }
+      } catch (error) {
+        setIsHoveringStroke(false);
+      }
+    };
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [isDrawingMode, strokes, getFlowCoordinates, isPointNearStroke, reactFlowInstance]);
 
   // Render canvas
   return (
@@ -518,12 +682,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ref={canvasRef}
       className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
       style={{
-        zIndex: isDrawingMode ? 10 : 1, // Above ReactFlow and background dots but well below header elements (z-50) and UI elements
-        cursor: isDrawingMode ? (isEraserMode ? 'crosshair' : 'crosshair') : 'default',
+        zIndex: isDrawingMode ? 10 : (strokes.length > 0 ? 2 : 1), // Above ReactFlow when drawing or when strokes exist
+        cursor: isDrawingMode 
+          ? (isEraserMode ? 'crosshair' : 'crosshair') 
+          : (isDraggingStroke ? 'grabbing' : (selectedStrokeId || isHoveringStroke ? 'grab' : 'default')),
         width: '100%',
         height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
-        // Capture all pointer events when drawing mode is active
-        pointerEvents: isDrawingMode ? 'auto' : 'none',
+        // Only capture pointer events when drawing mode is active OR when actively interacting with strokes OR when hovering over strokes
+        pointerEvents: (isDrawingMode || isInteractingWithStroke || selectedStrokeId || isHoveringStroke) ? 'auto' : 'none',
         left: 0,
         opacity: 1, // Always visible
       }}

@@ -103,7 +103,7 @@ import { decompressDrawingData } from '../utils/drawingDataCompression';
 
 
 interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change"
+  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke"
   data: {
     nodes?: Node[]
     edges?: Edge[]
@@ -124,6 +124,7 @@ interface HistoryAction {
     dotColor?: string
     replacedEdgeId?: string
     drawingData?: DrawingData
+    strokeId?: string
   }
   previousState?: {
     nodes: Node[]
@@ -1267,13 +1268,18 @@ export default function MindMap() {
     const newStrokeCount = newDrawingData?.strokes?.length || 0;
     const hasStrokeCountChange = previousStrokeCount !== newStrokeCount;
 
+    // Check for stroke position changes (for dragging)
+    const hasStrokePositionChange = !hasStrokeCountChange && previousStrokeCount > 0 && newStrokeCount > 0 &&
+      JSON.stringify(previousDrawingData?.strokes) !== JSON.stringify(newDrawingData?.strokes);
+
     // Always update the drawing data
     setDrawingData(newDrawingData);
 
     // Only create history if there's a meaningful change and we're not in initial load
-    if (!isInitialLoad && hasStrokeCountChange) {
+    if (!isInitialLoad && (hasStrokeCountChange || hasStrokePositionChange)) {
+      const actionType = hasStrokeCountChange ? "drawing_change" : "move_stroke";
       const action = createHistoryAction(
-        "drawing_change",
+        actionType,
         { drawingData: newDrawingData },
         nodes,
         edges,
@@ -3641,7 +3647,7 @@ export default function MindMap() {
           setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#11192C')
         } else if (action.type === "change_dot_color" && action.previousState && 'dotColor' in action.previousState) {
           setDotColor(action.previousState.dotColor || dotColor || '#81818a')
-        } else if (action.type === "drawing_change" && action.previousState && 'drawingData' in action.previousState) {
+        } else if ((action.type === "drawing_change" || action.type === "move_stroke") && action.previousState && 'drawingData' in action.previousState) {
           const previousDrawingData = action.previousState.drawingData || { strokes: [] };
           setDrawingData(previousDrawingData);
         } else if (action.previousState?.nodes) {
@@ -3953,6 +3959,7 @@ export default function MindMap() {
           setDotColor(nextAction.data.dotColor || dotColor || '#81818a')
           break
         case "drawing_change":
+        case "move_stroke":
           if (nextAction.data.drawingData) {
             setDrawingData(nextAction.data.drawingData);
           }
@@ -6012,6 +6019,8 @@ export default function MindMap() {
             reactFlowInstance={reactFlowInstance}
             isFullscreen={isFullscreen}
           />
+
+
 
           {/* Loading Overlay - Covers ReactFlow during initial load */}
           {isLoading && (
