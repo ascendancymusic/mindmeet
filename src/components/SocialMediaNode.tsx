@@ -62,11 +62,8 @@ export function SocialMediaNode(props: any) {
   const url = username && username !== "username" ? socialMediaUrls[type]?.(username) : undefined;
 
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
+    <div
+      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ wordWrap: "break-word", whiteSpace: "normal" }} // Ensure text wraps properly
     >
       <Handle
@@ -77,14 +74,31 @@ export function SocialMediaNode(props: any) {
       />
       <div className="flex items-center">
         {(icons[type] || icons.default)()}
-        <span
-          ref={textRef}
-          className={`ml-2 ${username === "" ? "text-gray-400" : "text-white"} ${hoverTextColors[type] || ""
-            } transition-colors duration-200`}
-          title={username !== "username" ? username : undefined}
-        >
-          {username === "" ? "username" : username}
-        </span>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 cursor-pointer"
+          >
+            <span
+              ref={textRef}
+              className={`${username === "" ? "text-gray-400" : "text-white"} ${hoverTextColors[type] || ""
+                } transition-colors duration-200`}
+              title={username !== "username" ? username : undefined}
+            >
+              {username === "" ? "username" : username}
+            </span>
+          </a>
+        ) : (
+          <span
+            ref={textRef}
+            className={`ml-2 ${username === "" ? "text-gray-400" : "text-white"} transition-colors duration-200`}
+            title={username !== "username" ? username : undefined}
+          >
+            {username === "" ? "username" : username}
+          </span>
+        )}
       </div>
       <Handle
         type="source"
@@ -92,6 +106,6 @@ export function SocialMediaNode(props: any) {
         isConnectable={isConnectable}
         className="!bottom-[-16px]"
       />
-    </a>
+    </div>
   );
 }

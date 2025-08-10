@@ -172,8 +172,8 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
   }, [showTooltip]);
 
   return (
-    <div 
-      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer flex items-center"
+    <div
+      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ minWidth: nodeWidth, transition: 'min-width 0.2s ease-in-out' }}
     >
       <Handle
@@ -192,7 +192,7 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
           onClick={handleNodeClick}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className={`ml-2 ${data.url === '' ? 'text-gray-400' : 'text-white'} cursor-pointer no-underline hover:no-underline`}
+          className={`ml-2 ${data.url === '' ? 'text-gray-400' : 'text-white hover:text-blue-400'} cursor-pointer no-underline hover:no-underline transition-colors duration-200`}
         >
           {displayText}
         </a>
@@ -204,8 +204,8 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
         className="!bottom-[-16px]"
       />
       {showTooltip && data.displayText && createPortal(
-        <div 
-          className="fixed bg-gray-800 text-white text-sm p-2 rounded shadow-lg" 
+        <div
+          className="fixed bg-gray-800 text-white text-sm p-2 rounded shadow-lg"
           style={tooltipStyle}
         >
           {data.url}
