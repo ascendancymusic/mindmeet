@@ -4280,8 +4280,9 @@ export default function MindMap() {
       })
     );
 
-
-    if (!isInitialLoad) {
+    // Only mark as unsaved if this is a new upload (user action)
+    // Don't mark as unsaved for existing images loading their dimensions during initial load
+    if (isNewUpload && !isInitialLoad) {
       setHasUnsavedChanges(true);
     }
   }, [nodes, isInitialLoad]);
