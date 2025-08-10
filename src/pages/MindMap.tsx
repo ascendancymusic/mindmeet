@@ -98,7 +98,7 @@ import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
 import { DrawModal } from "../components/DrawModal";
-import { DrawingCanvas, DrawingData } from "../components/DrawingCanvas";
+import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 
 
@@ -321,6 +321,7 @@ export default function MindMap() {
   const [drawingLineWidth, setDrawingLineWidth] = useState(3);
   const [isEraserMode, setIsEraserMode] = useState(false);
   const [drawingData, setDrawingData] = useState<DrawingData>({ strokes: [] });
+  const drawingCanvasRef = useRef<DrawingCanvasRef | null>(null);
 
 
 
@@ -5570,13 +5571,23 @@ export default function MindMap() {
               onInit={setReactFlowInstanceSafely}
               onDrop={onDrop}
               onDragOver={onDragOver}
-              onNodeClick={(event, node) => selectNode(event, node.id)}
-              onNodeDragStart={onNodeDragStart}
+              onNodeClick={(event, node) => {
+                // Clear stroke selection when clicking on nodes
+                drawingCanvasRef.current?.clearStrokeSelection();
+                selectNode(event, node.id);
+              }}
+              onNodeDragStart={(event, node) => {
+                // Clear stroke selection when starting to drag nodes
+                drawingCanvasRef.current?.clearStrokeSelection();
+                onNodeDragStart(event, node);
+              }}
               onNodeDragStop={onNodeDragStop}
               onPaneContextMenu={(event) => {
                 event.preventDefault()
                 setSelectedNodeId(null)
                 setVisuallySelectedNodeId(null)
+                // Clear stroke selection when right-clicking on pane
+                drawingCanvasRef.current?.clearStrokeSelection();
               }}
               onPaneClick={() => {
                 // Exit "add to playlist" mode when clicking on the pane
@@ -5588,14 +5599,20 @@ export default function MindMap() {
                 // Clear node selection
                 setSelectedNodeId(null);
                 setVisuallySelectedNodeId(null);
+
+                // Clear stroke selection when clicking on pane
+                drawingCanvasRef.current?.clearStrokeSelection();
               }}
               onEdgeClick={(event) => {
                 // Prevent edge selection from interfering with node selection
                 event.preventDefault()
                 event.stopPropagation()
+                // Clear stroke selection when clicking on edges
+                drawingCanvasRef.current?.clearStrokeSelection();
               }}
               onSelectionStart={() => {
-                // Selection start is handled by ReactFlow internally
+                // Clear stroke selection when starting multi-selection
+                drawingCanvasRef.current?.clearStrokeSelection();
               }}
               onSelectionEnd={() => {
                 // Update selection bounds for toolbar positioning
@@ -6018,6 +6035,7 @@ export default function MindMap() {
             initialDrawingData={drawingData}
             reactFlowInstance={reactFlowInstance}
             isFullscreen={isFullscreen}
+            ref={drawingCanvasRef}
           />
 
 

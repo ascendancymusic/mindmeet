@@ -24,6 +24,10 @@ interface DrawingCanvasProps {
   isFullscreen?: boolean;
 }
 
+export interface DrawingCanvasRef {
+  clearStrokeSelection: () => void;
+}
+
 // Helper function to calculate bounds of drawing data
 export const getDrawingBounds = (drawingData: DrawingData) => {
   if (!drawingData?.strokes?.length) {
@@ -61,7 +65,7 @@ export const getDrawingBounds = (drawingData: DrawingData) => {
   };
 };
 
-export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
+export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({
   isDrawingMode,
   isEraserMode,
   drawingColor,
@@ -70,7 +74,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   initialDrawingData,
   reactFlowInstance,
   isFullscreen = false,
-}) => {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<DrawingStroke | null>(null);
@@ -606,6 +610,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   const userHasInteractedRef = useRef(false);
 
+  // Expose methods to parent component
+  React.useImperativeHandle(ref, () => ({
+    clearStrokeSelection: () => {
+      setSelectedStrokeId(null);
+    }
+  }), []);
+
   // Notify parent when strokes change - but NOT during dragging
   useEffect(() => {
     // Only notify parent if:
@@ -685,11 +696,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         zIndex: isDrawingMode ? 10 : (strokes.length > 0 ? 2 : 1), // Above ReactFlow when drawing or when strokes exist
         cursor: isDrawingMode 
           ? (isEraserMode ? 'crosshair' : 'crosshair') 
-          : (isDraggingStroke ? 'grabbing' : (selectedStrokeId || isHoveringStroke ? 'grab' : 'default')),
+          : (isDraggingStroke ? 'grabbing' : (isHoveringStroke ? 'grab' : 'default')),
         width: '100%',
         height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
         // Only capture pointer events when drawing mode is active OR when actively interacting with strokes OR when hovering over strokes
-        pointerEvents: (isDrawingMode || isInteractingWithStroke || selectedStrokeId || isHoveringStroke) ? 'auto' : 'none',
+        // Don't capture events just because a stroke is selected - allow normal mindmap interaction
+        pointerEvents: (isDrawingMode || isInteractingWithStroke || isHoveringStroke) ? 'auto' : 'none',
         left: 0,
         opacity: 1, // Always visible
       }}
@@ -699,4 +711,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       onMouseLeave={handleMouseUp}
     />
   );
-};
+});
+
+DrawingCanvas.displayName = 'DrawingCanvas';
