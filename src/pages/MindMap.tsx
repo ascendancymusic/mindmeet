@@ -313,6 +313,7 @@ export default function MindMap() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const nodeTypesMenuRef = useRef<HTMLDivElement>(null);
 
   // Drawing state
   const [isPenModeActive, setIsPenModeActive] = useState(false);
@@ -342,6 +343,19 @@ export default function MindMap() {
       isVisible: false,
       nodeId: ''
     });
+  }, []);
+
+  // Calculate search bar position relative to NodeTypesMenu
+  const getSearchBarPosition = useCallback(() => {
+    if (nodeTypesMenuRef.current) {
+      const menuRect = nodeTypesMenuRef.current.getBoundingClientRect();
+      return {
+        left: menuRect.right + 8, // 8px gap from the right edge of the menu
+        top: menuRect.top, // Same vertical position as the menu
+      };
+    }
+    // Fallback position if ref is not available
+    return { left: 80, top: 112 }; // 112px = 7rem
   }, []);
 
   // Search functionality
@@ -468,6 +482,32 @@ export default function MindMap() {
   useEffect(() => {
     performSearch(searchTerm);
   }, [searchTerm, performSearch]);
+
+  // Force search bar position update when NodeTypesMenu might change size
+  const [searchBarPositionKey, setSearchBarPositionKey] = useState(0);
+
+  useEffect(() => {
+    if (showSearch) {
+      // Update position when search is opened
+      setSearchBarPositionKey(prev => prev + 1);
+
+      // Set up a mutation observer to watch for NodeTypesMenu size changes
+      if (nodeTypesMenuRef.current) {
+        const observer = new MutationObserver(() => {
+          setSearchBarPositionKey(prev => prev + 1);
+        });
+
+        observer.observe(nodeTypesMenuRef.current, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'style']
+        });
+
+        return () => observer.disconnect();
+      }
+    }
+  }, [showSearch]);
 
   // Listen for pen mode changes from NodeTypesMenu
   useEffect(() => {
@@ -5361,7 +5401,7 @@ export default function MindMap() {
 
       {/* Always render NodeTypesMenu first - independent of loading states */}
       {!isFullscreen && (
-        <div className="fixed left-0 top-[7rem] node-types-menu-container" style={{ zIndex: 9999 }}>
+        <div ref={nodeTypesMenuRef} className="fixed left-0 top-[7rem] node-types-menu-container" style={{ zIndex: 9999 }}>
           <NodeTypesMenu
             key={nodeTypesMenuKey} // Force re-render to fix refresh issues
             moveWithChildren={moveWithChildren}
@@ -7037,9 +7077,16 @@ export default function MindMap() {
           updateNodeData={updateNodeData}
         />
 
-        {/* Search Bar - VS Code style */}
+        {/* Search Bar - Dynamically positioned relative to NodeTypesMenu */}
         {showSearch && (
-          <div className="fixed top-20 left-4 z-50 animate-in slide-in-from-top-2 duration-200">
+          <div
+            key={searchBarPositionKey}
+            className="fixed z-50 animate-in slide-in-from-top-2 duration-200"
+            style={{
+              left: `${getSearchBarPosition().left}px`,
+              top: `${getSearchBarPosition().top}px`,
+            }}
+          >
             <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg shadow-xl border border-slate-700/50 p-3 w-80">
               <div className="flex items-center space-x-2">
                 <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
