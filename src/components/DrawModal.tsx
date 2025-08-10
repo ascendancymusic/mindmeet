@@ -68,7 +68,7 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
         }
       `}</style>
 
-      <div className="fixed bottom-0 left-1/2 z-50 w-full max-w-4xl -translate-x-1/2 transform px-4 pb-4">
+      <div className="fixed bottom-0 left-1/2 z-50 w-full max-w-4xl -translate-x-1/2 transform px-4">
         <div className="mx-auto w-full rounded-t-3xl border border-white/10 bg-gradient-to-br from-slate-800/90 via-slate-900/90 to-purple-900/90 p-4 backdrop-blur-xl shadow-2xl">
           {/* Row 1: Tools + Close */}
           <div className="mb-4 flex items-center justify-between">
@@ -78,11 +78,10 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 {/* Pen */}
                 <button
                   onClick={() => handleToolChange("pen")}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${
-                    selectedTool === "pen"
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${selectedTool === "pen"
                       ? "border-blue-400/50 bg-blue-500/20 text-white shadow-lg shadow-blue-500/20"
                       : "border-transparent text-slate-300 hover:bg-white/10"
-                  }`}
+                    }`}
                   title="Pen tool"
                 >
                   <Edit3 className="h-5 w-5" />
@@ -90,11 +89,10 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 {/* Eraser */}
                 <button
                   onClick={() => handleToolChange("eraser")}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${
-                    selectedTool === "eraser"
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${selectedTool === "eraser"
                       ? "border-blue-400/50 bg-blue-500/20 text-white shadow-lg shadow-blue-500/20"
                       : "border-transparent text-slate-300 hover:bg-white/10"
-                  }`}
+                    }`}
                   title="Eraser tool"
                 >
                   <Eraser className="h-5 w-5" />
@@ -106,11 +104,10 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 {/* Rectangle */}
                 <button
                   onClick={() => handleToolChange("rectangle")}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${
-                    selectedTool === "rectangle"
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${selectedTool === "rectangle"
                       ? "border-blue-400/50 bg-blue-500/20 text-white shadow-lg shadow-blue-500/20"
                       : "border-transparent text-slate-300 hover:bg-white/10"
-                  }`}
+                    }`}
                   title="Rectangle tool"
                 >
                   <Square className="h-5 w-5" />
@@ -118,11 +115,10 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 {/* Circle */}
                 <button
                   onClick={() => handleToolChange("circle")}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${
-                    selectedTool === "circle"
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${selectedTool === "circle"
                       ? "border-blue-400/50 bg-blue-500/20 text-white shadow-lg shadow-blue-500/20"
                       : "border-transparent text-slate-300 hover:bg-white/10"
-                  }`}
+                    }`}
                   title="Circle tool"
                 >
                   <Circle className="h-5 w-5" />
@@ -130,11 +126,10 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 {/* Triangle */}
                 <button
                   onClick={() => handleToolChange("triangle")}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${
-                    selectedTool === "triangle"
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${selectedTool === "triangle"
                       ? "border-blue-400/50 bg-blue-500/20 text-white shadow-lg shadow-blue-500/20"
                       : "border-transparent text-slate-300 hover:bg-white/10"
-                  }`}
+                    }`}
                   title="Triangle tool"
                 >
                   <Triangle className="h-5 w-5" />
@@ -142,11 +137,10 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 {/* Line */}
                 <button
                   onClick={() => handleToolChange("line")}
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${
-                    selectedTool === "line"
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-200 ${selectedTool === "line"
                       ? "border-blue-400/50 bg-blue-500/20 text-white shadow-lg shadow-blue-500/20"
                       : "border-transparent text-slate-300 hover:bg-white/10"
-                  }`}
+                    }`}
                   title="Line tool"
                 >
                   <Minus className="h-5 w-5" />
@@ -214,9 +208,8 @@ export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
                 }}
                 className="draw-slider h-2 w-40 cursor-pointer appearance-none rounded-lg"
                 style={{
-                  background: `linear-gradient(to right, #60a5fa 0%, #60a5fa ${
-                    ((lineWidth - 1) / 19) * 100
-                  }%, rgba(255,255,255,0.1) ${((lineWidth - 1) / 19) * 100}%, rgba(255,255,255,0.1) 100%)`,
+                  background: `linear-gradient(to right, #60a5fa 0%, #60a5fa ${((lineWidth - 1) / 19) * 100
+                    }%, rgba(255,255,255,0.1) ${((lineWidth - 1) / 19) * 100}%, rgba(255,255,255,0.1) 100%)`,
                 }}
               />
               <input

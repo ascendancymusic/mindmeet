@@ -8,6 +8,7 @@ export interface DrawingStroke {
   timestamp: number;
   selected?: boolean;
   rotation?: number; // Rotation angle in radians
+  type?: 'pen' | 'rectangle' | 'circle' | 'triangle' | 'line'; // Shape type
 }
 
 export interface DrawingData {
@@ -23,6 +24,7 @@ interface DrawingCanvasProps {
   initialDrawingData?: DrawingData;
   reactFlowInstance: any;
   isFullscreen?: boolean;
+  drawingTool?: 'pen' | 'eraser' | 'rectangle' | 'circle' | 'triangle' | 'line';
 }
 
 export interface DrawingCanvasRef {
@@ -75,6 +77,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   initialDrawingData,
   reactFlowInstance,
   isFullscreen = false,
+  drawingTool = 'pen',
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -108,6 +111,10 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   const [originalRotation, setOriginalRotation] = useState<number | null>(null);
   const [rotationChanged, setRotationChanged] = useState(false);
   const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
+
+  // Shape drawing state
+  const [isDrawingShape, setIsDrawingShape] = useState(false);
+  const [shapeStartPoint, setShapeStartPoint] = useState<{ x: number; y: number } | null>(null);
 
   // Initialize with drawing data from parent
   useEffect(() => {
@@ -336,6 +343,54 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     return Math.atan2(point.y - center.y, point.x - center.x);
   }, []);
 
+  // Helper functions for creating shape points
+  const createRectanglePoints = useCallback((start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }[] => {
+    return [
+      { x: start.x, y: start.y },
+      { x: end.x, y: start.y },
+      { x: end.x, y: end.y },
+      { x: start.x, y: end.y },
+      { x: start.x, y: start.y } // Close the rectangle
+    ];
+  }, []);
+
+  const createCirclePoints = useCallback((start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }[] => {
+    const centerX = (start.x + end.x) / 2;
+    const centerY = (start.y + end.y) / 2;
+    const radiusX = Math.abs(end.x - start.x) / 2;
+    const radiusY = Math.abs(end.y - start.y) / 2;
+
+    const points: { x: number; y: number }[] = [];
+    const numPoints = 64; // Number of points to create smooth circle
+
+    for (let i = 0; i <= numPoints; i++) {
+      const angle = (i / numPoints) * 2 * Math.PI;
+      points.push({
+        x: centerX + radiusX * Math.cos(angle),
+        y: centerY + radiusY * Math.sin(angle)
+      });
+    }
+
+    return points;
+  }, []);
+
+  const createTrianglePoints = useCallback((start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }[] => {
+    const centerX = (start.x + end.x) / 2;
+    const topY = Math.min(start.y, end.y);
+    const bottomY = Math.max(start.y, end.y);
+
+    return [
+      { x: centerX, y: topY }, // Top point
+      { x: start.x, y: bottomY }, // Bottom left
+      { x: end.x, y: bottomY }, // Bottom right
+      { x: centerX, y: topY } // Close the triangle
+    ];
+  }, []);
+
+  const createLinePoints = useCallback((start: { x: number; y: number }, end: { x: number; y: number }): { x: number; y: number }[] => {
+    return [start, end];
+  }, []);
+
 
 
   // Canvas rendering - optimized for smooth performance
@@ -416,18 +471,55 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           ctx.shadowBlur = 0;
         }
 
-        ctx.beginPath();
-        const firstPoint = stroke.points[0];
-        if (firstPoint && typeof firstPoint.x === 'number' && typeof firstPoint.y === 'number') {
-          ctx.moveTo(firstPoint.x, firstPoint.y);
-
-          for (let i = 1; i < stroke.points.length; i++) {
-            const point = stroke.points[i];
-            if (point && typeof point.x === 'number' && typeof point.y === 'number') {
-              ctx.lineTo(point.x, point.y);
-            }
+        // Render stroke based on its type
+        if (stroke.type === 'rectangle') {
+          // For rectangles, we need to draw a proper rectangle shape
+          if (stroke.points.length >= 4) {
+            ctx.beginPath();
+            ctx.rect(
+              Math.min(stroke.points[0].x, stroke.points[2].x),
+              Math.min(stroke.points[0].y, stroke.points[2].y),
+              Math.abs(stroke.points[2].x - stroke.points[0].x),
+              Math.abs(stroke.points[2].y - stroke.points[0].y)
+            );
+            ctx.stroke();
           }
-          ctx.stroke();
+        } else if (stroke.type === 'circle') {
+          // For circles, we need to extract the original bounds from the generated points
+          // The circle points are generated around the circumference, so we need to find the bounding box
+          if (stroke.points.length >= 4) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            stroke.points.forEach(point => {
+              minX = Math.min(minX, point.x);
+              minY = Math.min(minY, point.y);
+              maxX = Math.max(maxX, point.x);
+              maxY = Math.max(maxY, point.y);
+            });
+
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const radiusX = (maxX - minX) / 2;
+            const radiusY = (maxY - minY) / 2;
+
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        } else {
+          // For pen, triangle, line, and other stroke types, draw as connected lines
+          ctx.beginPath();
+          const firstPoint = stroke.points[0];
+          if (firstPoint && typeof firstPoint.x === 'number' && typeof firstPoint.y === 'number') {
+            ctx.moveTo(firstPoint.x, firstPoint.y);
+
+            for (let i = 1; i < stroke.points.length; i++) {
+              const point = stroke.points[i];
+              if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+                ctx.lineTo(point.x, point.y);
+              }
+            }
+            ctx.stroke();
+          }
         }
 
         // Draw resize handles and rotation handle for selected stroke
@@ -505,19 +597,55 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         ctx.lineWidth = currentStroke.width || 3;
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
-        ctx.beginPath();
 
-        const firstPoint = currentStroke.points[0];
-        if (firstPoint && typeof firstPoint.x === 'number' && typeof firstPoint.y === 'number') {
-          ctx.moveTo(firstPoint.x, firstPoint.y);
-
-          for (let i = 1; i < currentStroke.points.length; i++) {
-            const point = currentStroke.points[i];
-            if (point && typeof point.x === 'number' && typeof point.y === 'number') {
-              ctx.lineTo(point.x, point.y);
-            }
+        // Render current stroke based on its type
+        if (currentStroke.type === 'rectangle') {
+          // For rectangles, draw a proper rectangle shape
+          if (currentStroke.points.length >= 4) {
+            ctx.beginPath();
+            ctx.rect(
+              Math.min(currentStroke.points[0].x, currentStroke.points[2].x),
+              Math.min(currentStroke.points[0].y, currentStroke.points[2].y),
+              Math.abs(currentStroke.points[2].x - currentStroke.points[0].x),
+              Math.abs(currentStroke.points[2].y - currentStroke.points[0].y)
+            );
+            ctx.stroke();
           }
-          ctx.stroke();
+        } else if (currentStroke.type === 'circle') {
+          // For circles, we need to extract the original bounds from the generated points
+          if (currentStroke.points.length >= 4) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            currentStroke.points.forEach(point => {
+              minX = Math.min(minX, point.x);
+              minY = Math.min(minY, point.y);
+              maxX = Math.max(maxX, point.x);
+              maxY = Math.max(maxY, point.y);
+            });
+
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const radiusX = (maxX - minX) / 2;
+            const radiusY = (maxY - minY) / 2;
+
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        } else {
+          // For pen, triangle, line, and other stroke types, draw as connected lines
+          ctx.beginPath();
+          const firstPoint = currentStroke.points[0];
+          if (firstPoint && typeof firstPoint.x === 'number' && typeof firstPoint.y === 'number') {
+            ctx.moveTo(firstPoint.x, firstPoint.y);
+
+            for (let i = 1; i < currentStroke.points.length; i++) {
+              const point = currentStroke.points[i];
+              if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+                ctx.lineTo(point.x, point.y);
+              }
+            }
+            ctx.stroke();
+          }
         }
       }
 
@@ -718,7 +846,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       if (isDrawingMode) {
         if (isEraserMode) {
           eraseAtPoint(coords.x, coords.y);
-        } else {
+        } else if (drawingTool === 'pen') {
           setIsDrawing(true);
           const newStroke: DrawingStroke = {
             id: `stroke-${Date.now()}-${Math.random()}`,
@@ -726,6 +854,20 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
             color: drawingColor || '#ffffff',
             width: lineWidth || 3,
             timestamp: Date.now(),
+            type: 'pen',
+          };
+          setCurrentStroke(newStroke);
+        } else {
+          // Shape tools (rectangle, circle, triangle, line)
+          setIsDrawingShape(true);
+          setShapeStartPoint(coords);
+          const newStroke: DrawingStroke = {
+            id: `stroke-${Date.now()}-${Math.random()}`,
+            points: [coords, coords], // Start with same point twice
+            color: drawingColor || '#ffffff',
+            width: lineWidth || 3,
+            timestamp: Date.now(),
+            type: drawingTool === 'eraser' ? 'pen' : drawingTool,
           };
           setCurrentStroke(newStroke);
         }
@@ -790,7 +932,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Skip mouse down on error
     }
-  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke, selectedStrokeId, getResizeHandleAtPoint, getStrokeBounds]);
+  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke, selectedStrokeId, getResizeHandleAtPoint, getStrokeBounds, drawingTool]);
 
 
 
@@ -801,7 +943,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       if (isDrawingMode) {
         if (isEraserMode) {
           eraseAtPoint(coords.x, coords.y);
-        } else if (isDrawing && currentStroke) {
+        } else if (isDrawing && currentStroke && drawingTool === 'pen') {
           // Optimize point addition - avoid unnecessary array spreading for better performance
           setCurrentStroke(prev => {
             if (!prev) return null;
@@ -821,6 +963,35 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
             return {
               ...prev,
               points: [...prev.points, coords]
+            };
+          });
+        } else if (isDrawingShape && currentStroke && shapeStartPoint) {
+          // Update shape as user drags
+          setCurrentStroke(prev => {
+            if (!prev || !shapeStartPoint) return prev;
+
+            let newPoints: { x: number; y: number }[] = [];
+
+            switch (drawingTool) {
+              case 'rectangle':
+                newPoints = createRectanglePoints(shapeStartPoint, coords);
+                break;
+              case 'circle':
+                newPoints = createCirclePoints(shapeStartPoint, coords);
+                break;
+              case 'triangle':
+                newPoints = createTrianglePoints(shapeStartPoint, coords);
+                break;
+              case 'line':
+                newPoints = createLinePoints(shapeStartPoint, coords);
+                break;
+              default:
+                newPoints = prev.points;
+            }
+
+            return {
+              ...prev,
+              points: newPoints
             };
           });
         }
@@ -993,15 +1164,17 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Skip mouse move on error
     }
-  }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint, isRotatingStroke, selectedStrokeId, dragStartPoint, rotationStartAngle, rotationCenter, originalRotation, rotationChanged, calculateAngle, getStrokeBounds, isResizingStroke, originalStrokeBounds, originalStrokeWidth, resizeHandle, resizeStrokePoints, isDraggingStroke, strokes, isPointNearStroke, getResizeHandleAtPoint, isPointNearRotationHandle]);
+  }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint, isRotatingStroke, selectedStrokeId, dragStartPoint, rotationStartAngle, rotationCenter, originalRotation, rotationChanged, calculateAngle, getStrokeBounds, isResizingStroke, originalStrokeBounds, originalStrokeWidth, resizeHandle, resizeStrokePoints, isDraggingStroke, strokes, isPointNearStroke, getResizeHandleAtPoint, isPointNearRotationHandle, drawingTool, isDrawingShape, shapeStartPoint, createRectanglePoints, createCirclePoints, createTrianglePoints, createLinePoints]);
 
   const handleMouseUp = useCallback(() => {
     try {
-      if (isDrawingMode && isDrawing) {
+      if (isDrawingMode && (isDrawing || isDrawingShape)) {
         if (currentStroke && currentStroke.points && currentStroke.points.length > 1) {
           setStrokes(prev => Array.isArray(prev) ? [...prev, currentStroke] : [currentStroke]);
         }
         setIsDrawing(false);
+        setIsDrawingShape(false);
+        setShapeStartPoint(null);
         setCurrentStroke(null);
       } else if (isRotatingStroke) {
         // End stroke rotation - only create history entry if rotation actually changed
@@ -1044,6 +1217,8 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Reset states on error
       setIsDrawing(false);
+      setIsDrawingShape(false);
+      setShapeStartPoint(null);
       setCurrentStroke(null);
       setIsRotatingStroke(false);
       setRotationStartAngle(null);
@@ -1060,7 +1235,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       setStrokeMovedDuringDrag(false);
       setIsInteractingWithStroke(false);
     }
-  }, [isDrawingMode, isDrawing, currentStroke, isRotatingStroke, rotationChanged, isResizingStroke, isDraggingStroke, strokes, onDrawingChange]);
+  }, [isDrawingMode, isDrawing, isDrawingShape, currentStroke, isRotatingStroke, rotationChanged, isResizingStroke, isDraggingStroke, strokes, onDrawingChange]);
 
   const userHasInteractedRef = useRef(false);
 
@@ -1174,7 +1349,20 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   // Get cursor style based on current state
   const getCursorStyle = () => {
     if (isDrawingMode) {
-      return isEraserMode ? 'crosshair' : 'crosshair';
+      if (isEraserMode) {
+        return 'crosshair';
+      }
+      switch (drawingTool) {
+        case 'pen':
+          return 'crosshair';
+        case 'rectangle':
+        case 'circle':
+        case 'triangle':
+        case 'line':
+          return 'crosshair';
+        default:
+          return 'crosshair';
+      }
     }
 
     if (isRotatingStroke) {

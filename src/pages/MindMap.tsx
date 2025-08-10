@@ -320,6 +320,7 @@ export default function MindMap() {
   const [drawingColor, setDrawingColor] = useState('#ffffff');
   const [drawingLineWidth, setDrawingLineWidth] = useState(3);
   const [isEraserMode, setIsEraserMode] = useState(false);
+  const [drawingTool, setDrawingTool] = useState<'pen' | 'eraser' | 'rectangle' | 'circle' | 'triangle' | 'line'>('pen');
   const [drawingData, setDrawingData] = useState<DrawingData>({ strokes: [] });
   const drawingCanvasRef = useRef<DrawingCanvasRef | null>(null);
 
@@ -477,10 +478,15 @@ export default function MindMap() {
     };
 
     const handleDrawingSettingsChange = (event: CustomEvent) => {
-      const { color, lineWidth, isEraserMode } = event.detail;
+      const { color, lineWidth, isEraserMode, tool } = event.detail;
       if (color !== undefined) setDrawingColor(color);
       if (lineWidth !== undefined) setDrawingLineWidth(lineWidth);
       if (isEraserMode !== undefined) setIsEraserMode(isEraserMode);
+      if (tool !== undefined) {
+        setDrawingTool(tool);
+        // Update eraser mode based on tool selection
+        setIsEraserMode(tool === 'eraser');
+      }
     };
 
     document.addEventListener('pen-mode-changed', handlePenModeChange as EventListener);
@@ -6035,6 +6041,7 @@ export default function MindMap() {
             initialDrawingData={drawingData}
             reactFlowInstance={reactFlowInstance}
             isFullscreen={isFullscreen}
+            drawingTool={drawingTool}
             ref={drawingCanvasRef}
           />
 
