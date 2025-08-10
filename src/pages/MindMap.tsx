@@ -2964,10 +2964,22 @@ export default function MindMap() {
   // Helper function for delete operations (without clipboard)
   const handleDeleteOperation = useCallback(() => {
     const selectedNodes = nodes.filter(node => node.selected);
-    if (selectedNodes.length === 0) return;
+    // Fallback: if no nodes have .selected but a selectedNodeId exists, use it
+    let effectiveSelectedNodes = selectedNodes;
+    if (effectiveSelectedNodes.length === 0 && selectedNodeId) {
+      const fallbackNode = nodes.find(n => n.id === selectedNodeId);
+      if (fallbackNode) {
+        effectiveSelectedNodes = [fallbackNode];
+      }
+    }
+    if (effectiveSelectedNodes.length === 0) return;
 
     // Get all selected node IDs
-    const selectedNodeIds = selectedNodes.map(node => node.id);
+    let selectedNodeIds = effectiveSelectedNodes.map(node => node.id);
+
+    // Never delete the root node via non-cascading shortcut
+    selectedNodeIds = selectedNodeIds.filter(id => id !== '1');
+    if (selectedNodeIds.length === 0) return;
 
     // Create history action for deleting nodes
     const action = createHistoryAction(
@@ -2987,6 +2999,18 @@ export default function MindMap() {
       edge => !selectedNodeIds.includes(edge.source) && !selectedNodeIds.includes(edge.target)
     ));
 
+    // Broadcast live node deletions to collaborators (non-cascading)
+    if (currentMindMapId && broadcastLiveChange) {
+      selectedNodeIds.forEach(deletedNodeId => {
+        broadcastLiveChange({
+          id: deletedNodeId,
+            type: 'node',
+            action: 'delete',
+            data: { id: deletedNodeId }
+          });
+      });
+    }
+
     // Update state
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
@@ -2997,7 +3021,7 @@ export default function MindMap() {
 
     // Clear selection bounds
     setSelectionBounds(null);
-  }, [nodes, edges, isInitialLoad, addToHistory, createHistoryAction]);
+  }, [nodes, edges, isInitialLoad, addToHistory, createHistoryAction, selectedNodeId, currentMindMapId, broadcastLiveChange]);
 
   // Permanently removes selected nodes from the mindmap
   // Records deletion in history for undo functionality
@@ -3210,7 +3234,7 @@ export default function MindMap() {
                   ? "200px"
                   : "80px"
                 : node.style?.minWidth,
-            color: truncatedLabel === "" ? "#6B7280" : "#FFFFFF",
+            // text color now computed dynamically at render time
           },
         };
       },
@@ -3715,9 +3739,10 @@ export default function MindMap() {
           // Handle different action types during undo
           if (action.type === "delete_node" && action.previousState.nodes) {
             // For delete operations, when undoing we're restoring nodes, so broadcast 'create' actions
+            // If it was a non-cascading delete, affectedNodes lists explicit nodes; otherwise previousState.nodes may include entire branch
+            const restoredNodes = action.previousState.nodes;
             const currentNodeIds = new Set(nodes.map(n => n.id));
-            action.previousState.nodes.forEach(node => {
-              // Only broadcast nodes that were actually restored (not already present)
+            restoredNodes.forEach(node => {
               if (!currentNodeIds.has(node.id)) {
                 broadcastLiveChange({
                   id: node.id,
@@ -3911,11 +3936,17 @@ export default function MindMap() {
           )
           break
         case "delete_node":
-          const allNodesToDelete = [nextAction.data.nodeId || '', ...getNodeDescendants(nextAction.data.nodeId || '')]
-          setNodes((nodes) => nodes.filter((node) => !allNodesToDelete.includes(node.id)))
-          setEdges((edges) =>
-            edges.filter((edge) => !allNodesToDelete.includes(edge.source) && !allNodesToDelete.includes(edge.target)),
-          )
+          if (nextAction.data.affectedNodes && nextAction.data.affectedNodes.length > 0) {
+            // Non-cascading redo: only remove explicitly affected nodes
+            const toDelete = nextAction.data.affectedNodes;
+            setNodes(nodes => nodes.filter(n => !toDelete.includes(n.id)));
+            setEdges(edges => edges.filter(e => !toDelete.includes(e.source) && !toDelete.includes(e.target)));
+          } else {
+            // Cascading redo (original behavior)
+            const allNodesToDelete = [nextAction.data.nodeId || '', ...getNodeDescendants(nextAction.data.nodeId || '')];
+            setNodes(nodes => nodes.filter(node => !allNodesToDelete.includes(node.id)));
+            setEdges(edges => edges.filter(edge => !allNodesToDelete.includes(edge.source) && !allNodesToDelete.includes(edge.target)));
+          }
           break
         case "update_node":
           setNodes((nodes) =>
@@ -4146,9 +4177,19 @@ export default function MindMap() {
           event.preventDefault()
           handleSearchOpen()
         }
+      } else if (!event.ctrlKey && !event.metaKey && event.key === 'Delete') {
+        // Reserve Delete key for node deletion even if an input/textarea is focused
+        event.preventDefault();
+        handleDeleteOperation();
+      } else if (!event.ctrlKey && !event.metaKey && event.key === 'Backspace') {
+        // Backspace deletes selected nodes ONLY when not typing in an input/textarea
+        if (!isInputField) {
+          event.preventDefault();
+          handleDeleteOperation();
+        }
       }
     },
-    [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo, isSaving, handleSearchOpen],
+    [undo, redo, hasUnsavedChanges, handleSave, canUndo, canRedo, isSaving, handleSearchOpen, handleDeleteOperation],
   )
 
   useEffect(() => {
@@ -5512,6 +5553,11 @@ export default function MindMap() {
 
                 // Merge default styles with node-specific styles
                 const nodeTypeStyle = defaultNodeStyles[node.type as keyof typeof defaultNodeStyles] || defaultNodeStyles.default;
+                // Dynamic text color based on actual underlying label/username (not the rendered element)
+                const underlyingLabel = SOCIAL_MEDIA_NODE_TYPES.includes(node.type || '')
+                  ? (nodeData.username || '')
+                  : (typeof nodeData.label === 'string' ? nodeData.label : '');
+                const computedTextColor = underlyingLabel.trim() === '' ? '#6B7280' : '#FFFFFF';
 
                 // Create a properly typed node object with all required properties
                 return {
@@ -5580,6 +5626,7 @@ export default function MindMap() {
 
                     // Make root node text bold
                     fontWeight: node.id === "1" ? "bold" : "normal",
+                    color: computedTextColor,
                   },
                 } as Node;
               }), [nodes, edges, collapsedNodes, selectedNodeId, visuallySelectedNodeId, previewColor, autocolorSubnodes, getNodeDescendants, isAddingToPlaylist])}
