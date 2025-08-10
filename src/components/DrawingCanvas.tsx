@@ -87,6 +87,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [originalStrokePoints, setOriginalStrokePoints] = useState<{ x: number; y: number }[] | null>(null);
   const [isInteractingWithStroke, setIsInteractingWithStroke] = useState(false);
   const [isHoveringStroke, setIsHoveringStroke] = useState(false);
+  const [strokeMovedDuringDrag, setStrokeMovedDuringDrag] = useState(false);
 
   // Initialize with drawing data from parent
   useEffect(() => {
@@ -485,6 +486,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           setDragStartPoint(coords);
           // Store the original points of the stroke for accurate dragging
           setOriginalStrokePoints([...clickedStroke.points]);
+          setStrokeMovedDuringDrag(false);
           setIsInteractingWithStroke(true);
         } else {
           // Clicked on empty space - deselect
@@ -535,6 +537,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         const deltaX = coords.x - dragStartPoint.x;
         const deltaY = coords.y - dragStartPoint.y;
 
+        // Check if stroke has moved significantly (1px threshold like node dragging)
+        if (!strokeMovedDuringDrag && (Math.abs(deltaX) >= 1 || Math.abs(deltaY) >= 1)) {
+          setStrokeMovedDuringDrag(true);
+        }
+
         setStrokes(prevStrokes => {
           return prevStrokes.map(stroke => {
             if (stroke.id === selectedStrokeId) {
@@ -573,10 +580,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         setIsDrawing(false);
         setCurrentStroke(null);
       } else if (isDraggingStroke) {
-        // End stroke dragging
+        // End stroke dragging - create history entry if stroke actually moved
+        if (strokeMovedDuringDrag) {
+          // Trigger history creation by calling onDrawingChange
+          onDrawingChange({ strokes });
+        }
+        
         setIsDraggingStroke(false);
         setDragStartPoint(null);
         setOriginalStrokePoints(null);
+        setStrokeMovedDuringDrag(false);
         setIsInteractingWithStroke(false);
       }
     } catch (error) {
@@ -586,39 +599,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsDraggingStroke(false);
       setDragStartPoint(null);
       setOriginalStrokePoints(null);
+      setStrokeMovedDuringDrag(false);
       setIsInteractingWithStroke(false);
     }
   }, [isDrawingMode, isDrawing, currentStroke, isDraggingStroke]);
 
   const userHasInteractedRef = useRef(false);
-  const lastChangeTimeRef = useRef(0);
-  const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Notify parent when strokes change with throttling for drag operations
+  // Notify parent when strokes change - but NOT during dragging
   useEffect(() => {
     // Only notify parent if:
     // 1. Data is loaded
     // 2. Not currently initializing  
     // 3. User has actually interacted with the canvas
-    if (dataLoaded && !isInitializingRef.current && userHasInteractedRef.current) {
-      const now = Date.now();
-      
-      // If we're dragging a stroke, throttle the updates to prevent too many history entries
-      if (isDraggingStroke) {
-        if (changeTimeoutRef.current) {
-          clearTimeout(changeTimeoutRef.current);
-        }
-        
-        // Debounce stroke drag updates
-        changeTimeoutRef.current = setTimeout(() => {
-          onDrawingChange({ strokes });
-          lastChangeTimeRef.current = now;
-        }, 100); // 100ms debounce for drag operations
-      } else {
-        // Immediate update for non-drag operations (drawing, erasing, etc.)
-        onDrawingChange({ strokes });
-        lastChangeTimeRef.current = now;
-      }
+    // 4. NOT currently dragging a stroke (to match node dragging behavior)
+    if (dataLoaded && !isInitializingRef.current && userHasInteractedRef.current && !isDraggingStroke) {
+      // Immediate update for all operations except dragging
+      onDrawingChange({ strokes });
     }
   }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke]);
 
@@ -630,9 +627,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       }
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
-      }
-      if (changeTimeoutRef.current) {
-        clearTimeout(changeTimeoutRef.current);
       }
     };
   }, []);
