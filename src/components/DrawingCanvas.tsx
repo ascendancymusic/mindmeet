@@ -84,6 +84,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [selectedStrokeId, setSelectedStrokeId] = useState<string | null>(null);
   const [isDraggingStroke, setIsDraggingStroke] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [originalStrokePoints, setOriginalStrokePoints] = useState<{ x: number; y: number }[] | null>(null);
   const [isInteractingWithStroke, setIsInteractingWithStroke] = useState(false);
   const [isHoveringStroke, setIsHoveringStroke] = useState(false);
 
@@ -482,6 +483,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           setSelectedStrokeId(clickedStroke.id);
           setIsDraggingStroke(true);
           setDragStartPoint(coords);
+          // Store the original points of the stroke for accurate dragging
+          setOriginalStrokePoints([...clickedStroke.points]);
           setIsInteractingWithStroke(true);
         } else {
           // Clicked on empty space - deselect
@@ -526,8 +529,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             };
           });
         }
-      } else if (isDraggingStroke && selectedStrokeId && dragStartPoint) {
+      } else if (isDraggingStroke && selectedStrokeId && dragStartPoint && originalStrokePoints) {
         // Normal mode - handle stroke dragging
+        // Calculate delta from the original drag start point
         const deltaX = coords.x - dragStartPoint.x;
         const deltaY = coords.y - dragStartPoint.y;
 
@@ -536,9 +540,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             if (stroke.id === selectedStrokeId) {
               return {
                 ...stroke,
-                points: stroke.points.map(point => ({
-                  x: point.x + deltaX,
-                  y: point.y + deltaY
+                // Apply delta to the original points, not the current points
+                points: originalStrokePoints.map(originalPoint => ({
+                  x: originalPoint.x + deltaX,
+                  y: originalPoint.y + deltaY
                 }))
               };
             }
@@ -546,8 +551,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           });
         });
 
-        // Update drag start point for next move
-        setDragStartPoint(coords);
+        // Don't update dragStartPoint - keep it as the original start point
       } else if (!isDrawingMode && strokes.length > 0) {
         // Check if hovering over any stroke for cursor feedback
         const hoveredStroke = strokes.find(stroke => 
@@ -572,6 +576,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         // End stroke dragging
         setIsDraggingStroke(false);
         setDragStartPoint(null);
+        setOriginalStrokePoints(null);
         setIsInteractingWithStroke(false);
       }
     } catch (error) {
@@ -580,6 +585,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setCurrentStroke(null);
       setIsDraggingStroke(false);
       setDragStartPoint(null);
+      setOriginalStrokePoints(null);
       setIsInteractingWithStroke(false);
     }
   }, [isDrawingMode, isDrawing, currentStroke, isDraggingStroke]);
