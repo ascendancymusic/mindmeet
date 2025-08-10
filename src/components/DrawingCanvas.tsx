@@ -7,6 +7,7 @@ export interface DrawingStroke {
   width: number;
   timestamp: number;
   selected?: boolean;
+  rotation?: number; // Rotation angle in radians
 }
 
 export interface DrawingData {
@@ -93,6 +94,21 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   const [isHoveringStroke, setIsHoveringStroke] = useState(false);
   const [strokeMovedDuringDrag, setStrokeMovedDuringDrag] = useState(false);
 
+  // Stroke resizing state
+  const [isResizingStroke, setIsResizingStroke] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<'nw' | 'ne' | 'sw' | 'se' | null>(null);
+  const [originalStrokeBounds, setOriginalStrokeBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [originalStrokeWidth, setOriginalStrokeWidth] = useState<number | null>(null);
+  const [isHoveringResizeHandle, setIsHoveringResizeHandle] = useState<string | null>(null);
+
+  // Stroke rotation state
+  const [isRotatingStroke, setIsRotatingStroke] = useState(false);
+  const [rotationStartAngle, setRotationStartAngle] = useState<number | null>(null);
+  const [rotationCenter, setRotationCenter] = useState<{ x: number; y: number } | null>(null);
+  const [originalRotation, setOriginalRotation] = useState<number | null>(null);
+  const [rotationChanged, setRotationChanged] = useState(false);
+  const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
+
   // Initialize with drawing data from parent
   useEffect(() => {
     if (initialDrawingData !== undefined) {
@@ -140,36 +156,92 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
   }, [reactFlowInstance]);
 
+  // Helper function to get stroke bounds
+  const getStrokeBounds = useCallback((stroke: DrawingStroke) => {
+    if (!stroke.points || stroke.points.length === 0) return null;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    stroke.points.forEach(point => {
+      if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      }
+    });
+
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+      return null;
+    }
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    };
+  }, []);
+
+  // Helper function to transform a point by inverse rotation
+  const transformPointInverse = useCallback((point: { x: number; y: number }, center: { x: number; y: number }, rotation: number): { x: number; y: number } => {
+    if (!rotation) return point;
+
+    // Apply inverse rotation
+    const cos = Math.cos(-rotation);
+    const sin = Math.sin(-rotation);
+    const dx = point.x - center.x;
+    const dy = point.y - center.y;
+
+    return {
+      x: center.x + dx * cos - dy * sin,
+      y: center.y + dx * sin + dy * cos
+    };
+  }, []);
+
   // Helper function to check if a point is near a stroke
   const isPointNearStroke = useCallback((point: { x: number; y: number }, stroke: DrawingStroke, threshold: number = 10): boolean => {
     if (!stroke.points || stroke.points.length < 2) return false;
 
+    // If stroke is rotated, transform the point to the stroke's local space
+    let testPoint = point;
+    if (stroke.rotation) {
+      const bounds = getStrokeBounds(stroke);
+      if (bounds) {
+        const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+        testPoint = transformPointInverse(point, center, stroke.rotation);
+      }
+    }
+
     for (let i = 0; i < stroke.points.length - 1; i++) {
       const p1 = stroke.points[i];
       const p2 = stroke.points[i + 1];
-      
-      if (!p1 || !p2 || typeof p1.x !== 'number' || typeof p1.y !== 'number' || 
-          typeof p2.x !== 'number' || typeof p2.y !== 'number') continue;
+
+      if (!p1 || !p2 || typeof p1.x !== 'number' || typeof p1.y !== 'number' ||
+        typeof p2.x !== 'number' || typeof p2.y !== 'number') continue;
 
       // Calculate distance from point to line segment
-      const A = point.x - p1.x;
-      const B = point.y - p1.y;
+      const A = testPoint.x - p1.x;
+      const B = testPoint.y - p1.y;
       const C = p2.x - p1.x;
       const D = p2.y - p1.y;
 
       const dot = A * C + B * D;
       const lenSq = C * C + D * D;
-      
+
       if (lenSq === 0) continue;
-      
+
       let param = dot / lenSq;
       param = Math.max(0, Math.min(1, param));
 
       const xx = p1.x + param * C;
       const yy = p1.y + param * D;
 
-      const dx = point.x - xx;
-      const dy = point.y - yy;
+      const dx = testPoint.x - xx;
+      const dy = testPoint.y - yy;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       if (distance <= threshold) {
@@ -177,7 +249,94 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       }
     }
     return false;
+  }, [getStrokeBounds, transformPointInverse]);
+
+  // Helper function to check if a point is near a resize handle
+  const getResizeHandleAtPoint = useCallback((point: { x: number; y: number }, stroke: DrawingStroke): string | null => {
+    const bounds = getStrokeBounds(stroke);
+    if (!bounds) return null;
+
+    const handleSize = 8; // Size of resize handles
+    const threshold = handleSize / 2;
+    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+
+    // Transform point to stroke's local space if rotated
+    let testPoint = point;
+    if (stroke.rotation) {
+      testPoint = transformPointInverse(point, center, stroke.rotation);
+    }
+
+    // Define handle positions in local space
+    const handles = {
+      nw: { x: bounds.x, y: bounds.y },
+      ne: { x: bounds.x + bounds.width, y: bounds.y },
+      sw: { x: bounds.x, y: bounds.y + bounds.height },
+      se: { x: bounds.x + bounds.width, y: bounds.y + bounds.height }
+    };
+
+    // Check each handle
+    for (const [handleName, handlePos] of Object.entries(handles)) {
+      const distance = Math.sqrt(
+        Math.pow(testPoint.x - handlePos.x, 2) + Math.pow(testPoint.y - handlePos.y, 2)
+      );
+      if (distance <= threshold) {
+        return handleName;
+      }
+    }
+
+    return null;
+  }, [getStrokeBounds, transformPointInverse]);
+
+  // Helper function to resize stroke points
+  const resizeStrokePoints = useCallback((
+    originalPoints: { x: number; y: number }[],
+    originalBounds: { x: number; y: number; width: number; height: number },
+    newBounds: { x: number; y: number; width: number; height: number }
+  ): { x: number; y: number }[] => {
+    if (originalBounds.width === 0 || originalBounds.height === 0) return originalPoints;
+
+    const scaleX = newBounds.width / originalBounds.width;
+    const scaleY = newBounds.height / originalBounds.height;
+
+    return originalPoints.map(point => ({
+      x: newBounds.x + (point.x - originalBounds.x) * scaleX,
+      y: newBounds.y + (point.y - originalBounds.y) * scaleY
+    }));
   }, []);
+
+  // Helper function to get rotation handle position (top-right corner + offset)
+  const getRotationHandlePosition = useCallback((bounds: { x: number; y: number; width: number; height: number }) => {
+    const handleX = bounds.x + bounds.width + 15; // 15px to the right of the top-right corner
+    const handleY = bounds.y - 15; // 15px above the top-right corner
+    return { x: handleX, y: handleY };
+  }, []);
+
+  // Helper function to check if a point is near the rotation handle
+  const isPointNearRotationHandle = useCallback((point: { x: number; y: number }, stroke: DrawingStroke): boolean => {
+    const bounds = getStrokeBounds(stroke);
+    if (!bounds) return false;
+
+    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+
+    // Transform point to stroke's local space if rotated
+    let testPoint = point;
+    if (stroke.rotation) {
+      testPoint = transformPointInverse(point, center, stroke.rotation);
+    }
+
+    const handlePos = getRotationHandlePosition(bounds);
+    const distance = Math.sqrt(
+      Math.pow(testPoint.x - handlePos.x, 2) + Math.pow(testPoint.y - handlePos.y, 2)
+    );
+    return distance <= 8; // 8px threshold
+  }, [getStrokeBounds, getRotationHandlePosition, transformPointInverse]);
+
+  // Helper function to calculate angle between two points
+  const calculateAngle = useCallback((center: { x: number; y: number }, point: { x: number; y: number }): number => {
+    return Math.atan2(point.y - center.y, point.x - center.x);
+  }, []);
+
+
 
   // Canvas rendering - optimized for smooth performance
   const redrawCanvas = useCallback(() => {
@@ -218,11 +377,35 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         if (!stroke || !stroke.points || stroke.points.length < 2) return;
 
         const isSelected = stroke.id === selectedStrokeId;
-        
+
+        // Calculate stroke bounds for rotation center
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        stroke.points.forEach(point => {
+          if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+          }
+        });
+
+        if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return;
+
+        const bounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+
+        // Apply rotation transform if stroke has rotation
+        ctx.save();
+        if (stroke.rotation) {
+          ctx.translate(center.x, center.y);
+          ctx.rotate(stroke.rotation);
+          ctx.translate(-center.x, -center.y);
+        }
+
         // Set stroke style
         ctx.strokeStyle = stroke.color || '#ffffff';
         ctx.lineWidth = stroke.width || 3;
-        
+
         // Add selection highlight
         if (isSelected && !isDrawingMode) {
           ctx.shadowColor = '#00bfff';
@@ -246,6 +429,74 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           }
           ctx.stroke();
         }
+
+        // Draw resize handles and rotation handle for selected stroke
+        if (isSelected && !isDrawingMode) {
+          const handleSize = 6;
+          const handles = [
+            { x: bounds.x, y: bounds.y, name: 'nw' },
+            { x: bounds.x + bounds.width, y: bounds.y, name: 'ne' },
+            { x: bounds.x, y: bounds.y + bounds.height, name: 'sw' },
+            { x: bounds.x + bounds.width, y: bounds.y + bounds.height, name: 'se' }
+          ];
+
+          // Draw resize handles (these will be rotated with the stroke)
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          handles.forEach(handle => {
+            ctx.fillStyle = isHoveringResizeHandle === handle.name ? '#ffffff' : '#00bfff';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.rect(
+              handle.x - handleSize / 2,
+              handle.y - handleSize / 2,
+              handleSize,
+              handleSize
+            );
+            ctx.fill();
+            ctx.stroke();
+          });
+
+          // Draw rotation handle (this will also be rotated with the stroke)
+          const rotateHandlePos = getRotationHandlePosition(bounds);
+          const rotateHandleSize = 8;
+
+          // Draw connection line from top-right corner to rotation handle
+          ctx.strokeStyle = '#00bfff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(bounds.x + bounds.width, bounds.y);
+          ctx.lineTo(rotateHandlePos.x, rotateHandlePos.y);
+          ctx.stroke();
+
+          // Draw rotation handle (circle)
+          ctx.fillStyle = isHoveringRotateHandle ? '#ffffff' : '#00bfff';
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(rotateHandlePos.x, rotateHandlePos.y, rotateHandleSize / 2, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+
+          // Draw rotation icon inside the handle
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
+          const iconRadius = rotateHandleSize / 4;
+          ctx.beginPath();
+          ctx.arc(rotateHandlePos.x, rotateHandlePos.y, iconRadius, 0, Math.PI * 1.5);
+          ctx.stroke();
+          // Add arrow tip
+          ctx.beginPath();
+          ctx.moveTo(rotateHandlePos.x + iconRadius * 0.7, rotateHandlePos.y - iconRadius * 0.7);
+          ctx.lineTo(rotateHandlePos.x + iconRadius, rotateHandlePos.y - iconRadius);
+          ctx.lineTo(rotateHandlePos.x + iconRadius * 0.7, rotateHandlePos.y - iconRadius * 1.3);
+          ctx.stroke();
+        }
+
+        // Restore the transformation
+        ctx.restore();
       });
 
       // Draw current stroke if drawing
@@ -275,7 +526,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Skip frame on error
     }
-  }, [strokes, currentStroke, reactFlowInstance, selectedStrokeId, isDrawingMode]);
+  }, [strokes, currentStroke, reactFlowInstance, selectedStrokeId, isDrawingMode, isHoveringResizeHandle, isHoveringRotateHandle, getRotationHandlePosition]);
 
   // Canvas resize handling - only debounce resize, not viewport changes
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -479,8 +730,46 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           setCurrentStroke(newStroke);
         }
       } else {
-        // Normal mode - handle stroke selection and dragging
-        const clickedStroke = strokes.find(stroke => 
+        // Normal mode - handle stroke selection, resizing, and dragging
+        const selectedStroke = selectedStrokeId ? strokes.find(s => s.id === selectedStrokeId) : null;
+
+        // Check if clicking on rotation handle first
+        if (selectedStroke && isPointNearRotationHandle(coords, selectedStroke)) {
+          setIsRotatingStroke(true);
+          setDragStartPoint(coords);
+          const bounds = getStrokeBounds(selectedStroke);
+          if (bounds) {
+            const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+            const initialAngle = calculateAngle(center, coords);
+            setRotationStartAngle(initialAngle);
+            setRotationCenter(center);
+            setOriginalRotation(selectedStroke.rotation || 0);
+            setRotationChanged(false);
+          }
+          setIsInteractingWithStroke(true);
+          return;
+        }
+
+        // Check if clicking on a resize handle
+        if (selectedStroke) {
+          const handleName = getResizeHandleAtPoint(coords, selectedStroke);
+          if (handleName) {
+            setIsResizingStroke(true);
+            setResizeHandle(handleName as 'nw' | 'ne' | 'sw' | 'se');
+            setDragStartPoint(coords);
+            const bounds = getStrokeBounds(selectedStroke);
+            if (bounds) {
+              setOriginalStrokeBounds(bounds);
+              setOriginalStrokePoints([...selectedStroke.points]);
+              setOriginalStrokeWidth(selectedStroke.width);
+            }
+            setIsInteractingWithStroke(true);
+            return;
+          }
+        }
+
+        // Check for stroke selection
+        const clickedStroke = strokes.find(stroke =>
           isPointNearStroke(coords, stroke, 15)
         );
 
@@ -501,7 +790,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Skip mouse down on error
     }
-  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke]);
+  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke, selectedStrokeId, getResizeHandleAtPoint, getStrokeBounds]);
 
 
 
@@ -535,6 +824,112 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
             };
           });
         }
+      } else if (isRotatingStroke && selectedStrokeId && dragStartPoint && rotationStartAngle !== null && rotationCenter && originalRotation !== null) {
+        // Handle stroke rotation using transform approach
+        const currentAngle = calculateAngle(rotationCenter, coords);
+        const rotationAngle = currentAngle - rotationStartAngle;
+        const newRotation = originalRotation + rotationAngle;
+
+        // Check if rotation has changed significantly (threshold of ~1 degree)
+        if (!rotationChanged && Math.abs(rotationAngle) >= 0.017) { // 0.017 radians ≈ 1 degree
+          setRotationChanged(true);
+        }
+
+        // Apply rotation transform to stroke
+        setStrokes(prevStrokes => {
+          return prevStrokes.map(stroke => {
+            if (stroke.id === selectedStrokeId) {
+              return {
+                ...stroke,
+                rotation: newRotation
+              };
+            }
+            return stroke;
+          });
+        });
+      } else if (isResizingStroke && selectedStrokeId && dragStartPoint && originalStrokeBounds && originalStrokePoints && originalStrokeWidth && resizeHandle) {
+        // Handle stroke resizing
+        const deltaX = coords.x - dragStartPoint.x;
+        const deltaY = coords.y - dragStartPoint.y;
+
+        let newBounds = { ...originalStrokeBounds };
+
+        // Calculate new bounds based on resize handle
+        switch (resizeHandle) {
+          case 'nw':
+            newBounds.x = originalStrokeBounds.x + deltaX;
+            newBounds.y = originalStrokeBounds.y + deltaY;
+            newBounds.width = originalStrokeBounds.width - deltaX;
+            newBounds.height = originalStrokeBounds.height - deltaY;
+            break;
+          case 'ne':
+            newBounds.y = originalStrokeBounds.y + deltaY;
+            newBounds.width = originalStrokeBounds.width + deltaX;
+            newBounds.height = originalStrokeBounds.height - deltaY;
+            break;
+          case 'sw':
+            newBounds.x = originalStrokeBounds.x + deltaX;
+            newBounds.width = originalStrokeBounds.width - deltaX;
+            newBounds.height = originalStrokeBounds.height + deltaY;
+            break;
+          case 'se':
+            newBounds.width = originalStrokeBounds.width + deltaX;
+            newBounds.height = originalStrokeBounds.height + deltaY;
+            break;
+        }
+
+        // Ensure minimum size
+        const minSize = 10;
+        if (newBounds.width < minSize) {
+          if (resizeHandle.includes('w')) {
+            newBounds.x = originalStrokeBounds.x + originalStrokeBounds.width - minSize;
+          }
+          newBounds.width = minSize;
+        }
+        if (newBounds.height < minSize) {
+          if (resizeHandle.includes('n')) {
+            newBounds.y = originalStrokeBounds.y + originalStrokeBounds.height - minSize;
+          }
+          newBounds.height = minSize;
+        }
+
+        // Calculate scale factor for line width based on stretch direction
+        const scaleX = newBounds.width / originalStrokeBounds.width;
+        const scaleY = newBounds.height / originalStrokeBounds.height;
+
+        // For stretch effect, determine which dimension is being stretched more
+        // and scale the line width based on the perpendicular dimension
+        let widthScale;
+
+        if (Math.abs(scaleX - 1) > Math.abs(scaleY - 1)) {
+          // X dimension is being stretched more, so scale width by Y dimension
+          widthScale = scaleY;
+        } else {
+          // Y dimension is being stretched more, so scale width by X dimension  
+          widthScale = scaleX;
+        }
+
+        // If both dimensions are being scaled equally, use the average
+        if (Math.abs(scaleX - scaleY) < 0.1) {
+          widthScale = (scaleX + scaleY) / 2;
+        }
+
+        const newLineWidth = Math.max(1, Math.min(50, (originalStrokeWidth || 3) * widthScale)); // Clamp between 1 and 50
+
+        // Apply resize to stroke
+        setStrokes(prevStrokes => {
+          return prevStrokes.map(stroke => {
+            if (stroke.id === selectedStrokeId) {
+              return {
+                ...stroke,
+                points: resizeStrokePoints(originalStrokePoints, originalStrokeBounds, newBounds),
+                width: newLineWidth
+              };
+            }
+            return stroke;
+          });
+        });
+
       } else if (isDraggingStroke && selectedStrokeId && dragStartPoint && originalStrokePoints) {
         // Normal mode - handle stroke dragging
         // Calculate delta from the original drag start point
@@ -564,16 +959,41 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
         // Don't update dragStartPoint - keep it as the original start point
       } else if (!isDrawingMode && strokes.length > 0) {
+        // Check if hovering over rotation handle, resize handles, or strokes for cursor feedback
+        const selectedStroke = selectedStrokeId ? strokes.find(s => s.id === selectedStrokeId) : null;
+
+        if (selectedStroke) {
+          // Check rotation handle first
+          const isNearRotateHandle = isPointNearRotationHandle(coords, selectedStroke);
+          setIsHoveringRotateHandle(isNearRotateHandle);
+
+          if (isNearRotateHandle) {
+            setIsHoveringStroke(false);
+            setIsHoveringResizeHandle(null);
+            return;
+          }
+
+          // Check resize handles
+          const handleName = getResizeHandleAtPoint(coords, selectedStroke);
+          setIsHoveringResizeHandle(handleName);
+
+          if (handleName) {
+            setIsHoveringStroke(false);
+            return;
+          }
+        }
+
         // Check if hovering over any stroke for cursor feedback
-        const hoveredStroke = strokes.find(stroke => 
+        const hoveredStroke = strokes.find(stroke =>
           isPointNearStroke(coords, stroke, 15)
         );
         setIsHoveringStroke(!!hoveredStroke);
+        setIsHoveringResizeHandle(null);
       }
     } catch (error) {
       // Skip mouse move on error
     }
-  }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint, isDraggingStroke, selectedStrokeId, dragStartPoint, strokes, isPointNearStroke]);
+  }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint, isRotatingStroke, selectedStrokeId, dragStartPoint, rotationStartAngle, rotationCenter, originalRotation, rotationChanged, calculateAngle, getStrokeBounds, isResizingStroke, originalStrokeBounds, originalStrokeWidth, resizeHandle, resizeStrokePoints, isDraggingStroke, strokes, isPointNearStroke, getResizeHandleAtPoint, isPointNearRotationHandle]);
 
   const handleMouseUp = useCallback(() => {
     try {
@@ -583,13 +1003,38 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         }
         setIsDrawing(false);
         setCurrentStroke(null);
+      } else if (isRotatingStroke) {
+        // End stroke rotation - only create history entry if rotation actually changed
+        if (rotationChanged) {
+          onDrawingChange({ strokes });
+        }
+
+        setIsRotatingStroke(false);
+        setRotationStartAngle(null);
+        setRotationCenter(null);
+        setOriginalRotation(null);
+        setRotationChanged(false);
+        setDragStartPoint(null);
+        setOriginalStrokePoints(null);
+        setIsInteractingWithStroke(false);
+      } else if (isResizingStroke) {
+        // End stroke resizing - always create history entry for resize operations
+        onDrawingChange({ strokes });
+
+        setIsResizingStroke(false);
+        setResizeHandle(null);
+        setDragStartPoint(null);
+        setOriginalStrokeBounds(null);
+        setOriginalStrokePoints(null);
+        setOriginalStrokeWidth(null);
+        setIsInteractingWithStroke(false);
       } else if (isDraggingStroke) {
         // End stroke dragging - create history entry if stroke actually moved
         if (strokeMovedDuringDrag) {
           // Trigger history creation by calling onDrawingChange
           onDrawingChange({ strokes });
         }
-        
+
         setIsDraggingStroke(false);
         setDragStartPoint(null);
         setOriginalStrokePoints(null);
@@ -600,13 +1045,22 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       // Reset states on error
       setIsDrawing(false);
       setCurrentStroke(null);
+      setIsRotatingStroke(false);
+      setRotationStartAngle(null);
+      setRotationCenter(null);
+      setOriginalRotation(null);
+      setRotationChanged(false);
+      setIsResizingStroke(false);
+      setResizeHandle(null);
       setIsDraggingStroke(false);
       setDragStartPoint(null);
+      setOriginalStrokeBounds(null);
       setOriginalStrokePoints(null);
+      setOriginalStrokeWidth(null);
       setStrokeMovedDuringDrag(false);
       setIsInteractingWithStroke(false);
     }
-  }, [isDrawingMode, isDrawing, currentStroke, isDraggingStroke]);
+  }, [isDrawingMode, isDrawing, currentStroke, isRotatingStroke, rotationChanged, isResizingStroke, isDraggingStroke, strokes, onDrawingChange]);
 
   const userHasInteractedRef = useRef(false);
 
@@ -617,18 +1071,18 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
   }), []);
 
-  // Notify parent when strokes change - but NOT during dragging
+  // Notify parent when strokes change - but NOT during dragging, resizing, or rotating
   useEffect(() => {
     // Only notify parent if:
     // 1. Data is loaded
     // 2. Not currently initializing  
     // 3. User has actually interacted with the canvas
-    // 4. NOT currently dragging a stroke (to match node dragging behavior)
-    if (dataLoaded && !isInitializingRef.current && userHasInteractedRef.current && !isDraggingStroke) {
-      // Immediate update for all operations except dragging
+    // 4. NOT currently dragging, resizing, or rotating a stroke (to match node dragging behavior)
+    if (dataLoaded && !isInitializingRef.current && userHasInteractedRef.current && !isDraggingStroke && !isResizingStroke && !isRotatingStroke) {
+      // Immediate update for all operations except dragging, resizing, and rotating
       onDrawingChange({ strokes });
     }
-  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke]);
+  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke, isResizingStroke, isRotatingStroke]);
 
   // Cleanup
   useEffect(() => {
@@ -666,26 +1120,109 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
       try {
         const rect = canvasRef.current.getBoundingClientRect();
-        const isOverCanvas = e.clientX >= rect.left && e.clientX <= rect.right && 
-                            e.clientY >= rect.top && e.clientY <= rect.bottom;
+        const isOverCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
+          e.clientY >= rect.top && e.clientY <= rect.bottom;
 
         if (isOverCanvas) {
           const coords = getFlowCoordinates(e.clientX, e.clientY);
-          const hoveredStroke = strokes.find(stroke => 
+
+          // Check for rotation and resize handles first
+          const selectedStroke = selectedStrokeId ? strokes.find(s => s.id === selectedStrokeId) : null;
+          if (selectedStroke) {
+            // Check rotation handle first
+            const isNearRotateHandle = isPointNearRotationHandle(coords, selectedStroke);
+            setIsHoveringRotateHandle(isNearRotateHandle);
+
+            if (isNearRotateHandle) {
+              setIsHoveringStroke(false);
+              setIsHoveringResizeHandle(null);
+              return;
+            }
+
+            // Check resize handles
+            const handleName = getResizeHandleAtPoint(coords, selectedStroke);
+            setIsHoveringResizeHandle(handleName);
+
+            if (handleName) {
+              setIsHoveringStroke(false);
+              return;
+            }
+          }
+
+          // Check for stroke hovering
+          const hoveredStroke = strokes.find(stroke =>
             isPointNearStroke(coords, stroke, 15)
           );
           setIsHoveringStroke(!!hoveredStroke);
+          setIsHoveringResizeHandle(null);
         } else {
           setIsHoveringStroke(false);
+          setIsHoveringResizeHandle(null);
+          setIsHoveringRotateHandle(false);
         }
       } catch (error) {
         setIsHoveringStroke(false);
+        setIsHoveringResizeHandle(null);
+        setIsHoveringRotateHandle(false);
       }
     };
 
     document.addEventListener('mousemove', handleGlobalMouseMove);
     return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
-  }, [isDrawingMode, strokes, getFlowCoordinates, isPointNearStroke, reactFlowInstance]);
+  }, [isDrawingMode, strokes, getFlowCoordinates, isPointNearStroke, reactFlowInstance, selectedStrokeId, getResizeHandleAtPoint, isPointNearRotationHandle]);
+
+  // Get cursor style based on current state
+  const getCursorStyle = () => {
+    if (isDrawingMode) {
+      return isEraserMode ? 'crosshair' : 'crosshair';
+    }
+
+    if (isRotatingStroke) {
+      return 'grabbing';
+    }
+
+    if (isResizingStroke) {
+      // Return appropriate resize cursor based on handle
+      switch (resizeHandle) {
+        case 'nw':
+        case 'se':
+          return 'nw-resize';
+        case 'ne':
+        case 'sw':
+          return 'ne-resize';
+        default:
+          return 'default';
+      }
+    }
+
+    if (isDraggingStroke) {
+      return 'grabbing';
+    }
+
+    if (isHoveringRotateHandle) {
+      return 'grab';
+    }
+
+    if (isHoveringResizeHandle) {
+      // Return appropriate resize cursor based on hovered handle
+      switch (isHoveringResizeHandle) {
+        case 'nw':
+        case 'se':
+          return 'nw-resize';
+        case 'ne':
+        case 'sw':
+          return 'ne-resize';
+        default:
+          return 'default';
+      }
+    }
+
+    if (isHoveringStroke) {
+      return 'grab';
+    }
+
+    return 'default';
+  };
 
   // Render canvas
   return (
@@ -694,14 +1231,12 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
       style={{
         zIndex: isDrawingMode ? 10 : (strokes.length > 0 ? 2 : 1), // Above ReactFlow when drawing or when strokes exist
-        cursor: isDrawingMode 
-          ? (isEraserMode ? 'crosshair' : 'crosshair') 
-          : (isDraggingStroke ? 'grabbing' : (isHoveringStroke ? 'grab' : 'default')),
+        cursor: getCursorStyle(),
         width: '100%',
         height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
-        // Only capture pointer events when drawing mode is active OR when actively interacting with strokes OR when hovering over strokes
+        // Only capture pointer events when drawing mode is active OR when actively interacting with strokes OR when hovering over strokes/handles
         // Don't capture events just because a stroke is selected - allow normal mindmap interaction
-        pointerEvents: (isDrawingMode || isInteractingWithStroke || isHoveringStroke) ? 'auto' : 'none',
+        pointerEvents: (isDrawingMode || isInteractingWithStroke || isHoveringStroke || isHoveringResizeHandle || isHoveringRotateHandle) ? 'auto' : 'none',
         left: 0,
         opacity: 1, // Always visible
       }}
