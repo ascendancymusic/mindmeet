@@ -684,6 +684,20 @@ export default function MindMapList(): JSX.Element {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
+                                  // TODO: Implement clone functionality
+                                  console.log("Clone map:", map.id)
+                                  toggleMenu(map.id)
+                                }}
+                                className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+                              >
+                                <Network className="w-4 h-4" />
+                                Clone
+                              </button>
+                            )}
+                            {viewMode === "owned" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   handleDeleteMap(map.id)
                                   toggleMenu(map.id)
                                 }}

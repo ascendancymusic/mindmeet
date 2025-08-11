@@ -593,7 +593,7 @@ updateMap: async (id, nodes, edges, title, userId, customization = { edgeType: '
 
   const mapKey = mindmap.key;
   const updatedNodes = [...nodes];
-  const currentMap = get().maps.find((map) => map.id === id);
+  const currentMap = get().maps.find((map) => map.id === id) || get().collaborationMaps.find((map) => map.id === id);
 
   // Find deleted image and audio nodes to clean up their files
   // First check if we have a current map to compare against
@@ -860,8 +860,9 @@ updateMap: async (id, nodes, edges, title, userId, customization = { edgeType: '
     return cleanEdge;
   });
 
-  // Save the updated map
-  const updatedMap = get().maps.find((map) => map.id === id);
+  // Save the updated map - check both maps and collaborationMaps
+  const updatedMap = get().maps.find((map) => map.id === id) || get().collaborationMaps.find((map) => map.id === id);
+  
   if (updatedMap) {
     const updatedMapData = {
       ...updatedMap,

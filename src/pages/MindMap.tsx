@@ -43,6 +43,8 @@ import {
   Youtube,
   Edit3,
   Search,
+  MoreVertical,
+  Monitor,
 
 } from "lucide-react"
 import {
@@ -191,6 +193,24 @@ export default function MindMap() {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState(currentMap?.title || "")
   const [originalTitle, setOriginalTitle] = useState(currentMap?.title || "")
+
+  // Update title when currentMap becomes available (important for collaborators)
+  useEffect(() => {
+    if (currentMap?.title && !editedTitle) {
+      setEditedTitle(currentMap.title)
+      setOriginalTitle(currentMap.title)
+    }
+  }, [currentMap?.title, editedTitle])
+
+  // Update nodes and edges when currentMap becomes available (important for collaborators)
+  useEffect(() => {
+    if (currentMap?.nodes && nodes.length === 0) {
+      setNodes(currentMap.nodes)
+    }
+    if (currentMap?.edges && edges.length === 0) {
+      setEdges(currentMap.edges)
+    }
+  }, [currentMap?.nodes, currentMap?.edges, nodes.length, edges.length])
   const titleRef = useRef<HTMLInputElement>(null)
   const [history, setHistory] = useState<HistoryAction[]>([])
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1)
@@ -211,6 +231,7 @@ export default function MindMap() {
   usePageTitle(editedTitle ? `Editing: ${editedTitle}` : 'Editing: Untitled');
   const [multiDragStartPosition, setMultiDragStartPosition] = useState<Record<string, { x: number; y: number }> | null>(null)
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
@@ -229,6 +250,7 @@ export default function MindMap() {
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showThreeDotMenu, setShowThreeDotMenu] = useState(false);
   const {
     initializeCollaboration,
     cleanupCollaboration,
@@ -3004,10 +3026,10 @@ export default function MindMap() {
       selectedNodeIds.forEach(deletedNodeId => {
         broadcastLiveChange({
           id: deletedNodeId,
-            type: 'node',
-            action: 'delete',
-            data: { id: deletedNodeId }
-          });
+          type: 'node',
+          action: 'delete',
+          data: { id: deletedNodeId }
+        });
       });
     }
 
@@ -4516,6 +4538,23 @@ export default function MindMap() {
     };
   }, [showAutosaveMenu]);
 
+  // Click outside handler for Three-dot menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showThreeDotMenu && !(event.target as Element).closest('.three-dot-dropdown')) {
+        setShowThreeDotMenu(false);
+      }
+    };
+
+    if (showThreeDotMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showThreeDotMenu]);
+
   // Schedule autosave when changes occur or interval changes (debounced)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -4547,13 +4586,33 @@ export default function MindMap() {
     if (response === "yes") {
       await handleSave()
       setShowUnsavedChangesModal(false)
-      navigate("/mindmap")
+      if (pendingNavigation) {
+        navigate(pendingNavigation)
+        setPendingNavigation(null)
+      } else {
+        navigate("/mindmap")
+      }
     } else if (response === "no") {
       setShowUnsavedChangesModal(false)
       setHasUnsavedChanges(false)
-      navigate("/mindmap")
+      if (pendingNavigation) {
+        navigate(pendingNavigation)
+        setPendingNavigation(null)
+      } else {
+        navigate("/mindmap")
+      }
     } else {
       setShowUnsavedChangesModal(false)
+      setPendingNavigation(null)
+    }
+  }
+
+  const handleViewNavigation = () => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(`/${username}/${id}`)
+      setShowUnsavedChangesModal(true)
+    } else {
+      navigate(`/${username}/${id}`)
     }
   }
   const handleColorChange = (nodeId: string, color: string) => {
@@ -5944,14 +6003,60 @@ export default function MindMap() {
 
                   {/* Action buttons group - Top Right */}
                   <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
-                    {/* Pen icon - Only show for creator */}
+                    {/* Three-dot menu - Only show for creator */}
                     {user?.id === currentMap?.creator && (
-                      <button
-                        onClick={() => setShowEditDetailsModal(true)}
+                      <div className="relative three-dot-dropdown">
+                        <button
+                          onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
+                          className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {/* Three-dot dropdown menu */}
+                        {showThreeDotMenu && (
+                          <div className="absolute top-full right-0 mt-1 w-40 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
+                            <div className="p-1">
+                              <button
+                                onClick={() => {
+                                  setShowEditDetailsModal(true);
+                                  setShowThreeDotMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                                <span>Edit details</span>
+                              </button>
+                              <a
+                                href={`/${username}/${id}`}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setShowThreeDotMenu(false);
+                                  handleViewNavigation();
+                                }}
+                                className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
+                              >
+                                <Monitor className="w-4 h-4" />
+                                <span>View</span>
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* View button - Only show for collaborators (not creators) */}
+                    {user?.id !== currentMap?.creator && currentMap?.collaborators?.includes(user?.id) && (
+                      <a
+                        href={`/${username}/${id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleViewNavigation();
+                        }}
                         className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
                       >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                        <Monitor className="w-4 h-4" />
+                      </a>
                     )}
 
                     {/* Save button with dropdown */}
