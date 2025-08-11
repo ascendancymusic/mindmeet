@@ -99,7 +99,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
   // Stroke resizing state
   const [isResizingStroke, setIsResizingStroke] = useState(false);
-  const [resizeHandle, setResizeHandle] = useState<'nw' | 'ne' | 'sw' | 'se' | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | null>(null);
   const [originalStrokeBounds, setOriginalStrokeBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [originalStrokeWidth, setOriginalStrokeWidth] = useState<number | null>(null);
   const [isHoveringResizeHandle, setIsHoveringResizeHandle] = useState<string | null>(null);
@@ -263,7 +263,10 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     const bounds = getStrokeBounds(stroke);
     if (!bounds) return null;
 
-    const handleSize = 8; // Size of resize handles
+    // Use smaller handles for very small strokes (like dots)
+    const strokeSize = Math.max(bounds.width, bounds.height);
+    const isSmallStroke = strokeSize < 30;
+    const handleSize = isSmallStroke ? 6 : 10;
     const threshold = handleSize / 2;
     const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
 
@@ -274,12 +277,25 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
 
     // Define handle positions in local space
-    const handles = {
+    const handles: { [key: string]: { x: number; y: number } } = {
       nw: { x: bounds.x, y: bounds.y },
       ne: { x: bounds.x + bounds.width, y: bounds.y },
       sw: { x: bounds.x, y: bounds.y + bounds.height },
       se: { x: bounds.x + bounds.width, y: bounds.y + bounds.height }
     };
+
+    // Add side resize handles if stroke has enough space (minimum 60px width/height)
+    const minSizeForSideHandles = 60;
+    if (bounds.width >= minSizeForSideHandles) {
+      // When width is large enough, show top/bottom handles
+      handles.n = { x: bounds.x + bounds.width / 2, y: bounds.y };
+      handles.s = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height };
+    }
+    if (bounds.height >= minSizeForSideHandles) {
+      // When height is large enough, show left/right handles
+      handles.w = { x: bounds.x, y: bounds.y + bounds.height / 2 };
+      handles.e = { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 };
+    }
 
     // Check each handle
     for (const [handleName, handlePos] of Object.entries(handles)) {
@@ -298,17 +314,34 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   const resizeStrokePoints = useCallback((
     originalPoints: { x: number; y: number }[],
     originalBounds: { x: number; y: number; width: number; height: number },
-    newBounds: { x: number; y: number; width: number; height: number }
+    newBounds: { x: number; y: number; width: number; height: number },
+    flipX: boolean = false,
+    flipY: boolean = false
   ): { x: number; y: number }[] => {
     if (originalBounds.width === 0 || originalBounds.height === 0) return originalPoints;
 
     const scaleX = newBounds.width / originalBounds.width;
     const scaleY = newBounds.height / originalBounds.height;
 
-    return originalPoints.map(point => ({
-      x: newBounds.x + (point.x - originalBounds.x) * scaleX,
-      y: newBounds.y + (point.y - originalBounds.y) * scaleY
-    }));
+    return originalPoints.map(point => {
+      // Calculate relative position within original bounds (0 to 1)
+      let relativeX = (point.x - originalBounds.x) / originalBounds.width;
+      let relativeY = (point.y - originalBounds.y) / originalBounds.height;
+
+      // Apply mirroring if needed
+      if (flipX) {
+        relativeX = 1 - relativeX;
+      }
+      if (flipY) {
+        relativeY = 1 - relativeY;
+      }
+
+      // Scale to new bounds
+      return {
+        x: newBounds.x + relativeX * newBounds.width,
+        y: newBounds.y + relativeY * newBounds.height
+      };
+    });
   }, []);
 
   // Helper function to get rotation handle position (top-right corner + offset)
@@ -331,11 +364,16 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       testPoint = transformPointInverse(point, center, stroke.rotation);
     }
 
+    // Use smaller threshold for very small strokes (like dots)
+    const strokeSize = Math.max(bounds.width, bounds.height);
+    const isSmallStroke = strokeSize < 30;
+    const threshold = isSmallStroke ? 4 : 6; // Smaller threshold for small strokes
+
     const handlePos = getRotationHandlePosition(bounds);
     const distance = Math.sqrt(
       Math.pow(testPoint.x - handlePos.x, 2) + Math.pow(testPoint.y - handlePos.y, 2)
     );
-    return distance <= 8; // 8px threshold
+    return distance <= threshold;
   }, [getStrokeBounds, getRotationHandlePosition, transformPointInverse]);
 
   // Helper function to calculate angle between two points
@@ -524,13 +562,34 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
         // Draw resize handles and rotation handle for selected stroke
         if (isSelected && !isDrawingMode) {
-          const handleSize = 6;
+          // Use smaller handles for very small strokes (like dots)
+          const strokeSize = Math.max(bounds.width, bounds.height);
+          const isSmallStroke = strokeSize < 30; // Consider strokes smaller than 30px as "small"
+          const handleSize = isSmallStroke ? 6 : 10; // Smaller handles for small strokes
+
           const handles = [
             { x: bounds.x, y: bounds.y, name: 'nw' },
             { x: bounds.x + bounds.width, y: bounds.y, name: 'ne' },
             { x: bounds.x, y: bounds.y + bounds.height, name: 'sw' },
             { x: bounds.x + bounds.width, y: bounds.y + bounds.height, name: 'se' }
           ];
+
+          // Add side resize handles if stroke has enough space (minimum 60px width/height)
+          const minSizeForSideHandles = 60;
+          if (bounds.width >= minSizeForSideHandles) {
+            // When width is large enough, show top/bottom handles
+            handles.push(
+              { x: bounds.x + bounds.width / 2, y: bounds.y, name: 'n' },
+              { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height, name: 's' }
+            );
+          }
+          if (bounds.height >= minSizeForSideHandles) {
+            // When height is large enough, show left/right handles
+            handles.push(
+              { x: bounds.x, y: bounds.y + bounds.height / 2, name: 'w' },
+              { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2, name: 'e' }
+            );
+          }
 
           // Draw resize handles (these will be rotated with the stroke)
           ctx.shadowColor = 'transparent';
@@ -553,7 +612,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
           // Draw rotation handle (this will also be rotated with the stroke)
           const rotateHandlePos = getRotationHandlePosition(bounds);
-          const rotateHandleSize = 8;
+          const rotateHandleSize = isSmallStroke ? 8 : 12; // Smaller rotation handle for small strokes
 
           // Draw connection line from top-right corner to rotation handle
           ctx.strokeStyle = '#00bfff';
@@ -897,7 +956,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           const handleName = getResizeHandleAtPoint(coords, selectedStroke);
           if (handleName) {
             setIsResizingStroke(true);
-            setResizeHandle(handleName as 'nw' | 'ne' | 'sw' | 'se');
+            setResizeHandle(handleName as 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w');
             setDragStartPoint(coords);
             const bounds = getStrokeBounds(selectedStroke);
             if (bounds) {
@@ -1047,20 +1106,44 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
             newBounds.width = originalStrokeBounds.width + deltaX;
             newBounds.height = originalStrokeBounds.height + deltaY;
             break;
+          case 'n':
+            newBounds.y = originalStrokeBounds.y + deltaY;
+            newBounds.height = originalStrokeBounds.height - deltaY;
+            break;
+          case 's':
+            newBounds.height = originalStrokeBounds.height + deltaY;
+            break;
+          case 'w':
+            newBounds.x = originalStrokeBounds.x + deltaX;
+            newBounds.width = originalStrokeBounds.width - deltaX;
+            break;
+          case 'e':
+            newBounds.width = originalStrokeBounds.width + deltaX;
+            break;
         }
 
-        // Ensure minimum size
+        // Handle mirroring when dimensions become negative
+        let flipX = false;
+        let flipY = false;
+
+        if (newBounds.width < 0) {
+          newBounds.x = newBounds.x + newBounds.width;
+          newBounds.width = Math.abs(newBounds.width);
+          flipX = true;
+        }
+
+        if (newBounds.height < 0) {
+          newBounds.y = newBounds.y + newBounds.height;
+          newBounds.height = Math.abs(newBounds.height);
+          flipY = true;
+        }
+
+        // Ensure minimum size after mirroring
         const minSize = 10;
         if (newBounds.width < minSize) {
-          if (resizeHandle.includes('w')) {
-            newBounds.x = originalStrokeBounds.x + originalStrokeBounds.width - minSize;
-          }
           newBounds.width = minSize;
         }
         if (newBounds.height < minSize) {
-          if (resizeHandle.includes('n')) {
-            newBounds.y = originalStrokeBounds.y + originalStrokeBounds.height - minSize;
-          }
           newBounds.height = minSize;
         }
 
@@ -1093,7 +1176,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
             if (stroke.id === selectedStrokeId) {
               return {
                 ...stroke,
-                points: resizeStrokePoints(originalStrokePoints, originalStrokeBounds, newBounds),
+                points: resizeStrokePoints(originalStrokePoints, originalStrokeBounds, newBounds, flipX, flipY),
                 width: newLineWidth
               };
             }
@@ -1378,6 +1461,12 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         case 'ne':
         case 'sw':
           return 'ne-resize';
+        case 'n':
+        case 's':
+          return 'ns-resize';
+        case 'e':
+        case 'w':
+          return 'ew-resize';
         default:
           return 'default';
       }
@@ -1400,6 +1489,12 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         case 'ne':
         case 'sw':
           return 'ne-resize';
+        case 'n':
+        case 's':
+          return 'ns-resize';
+        case 'e':
+        case 'w':
+          return 'ew-resize';
         default:
           return 'default';
       }
