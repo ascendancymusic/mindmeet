@@ -14,41 +14,24 @@ interface ImageNodeProps {
   isConnectable: boolean;
   width?: number;
   height?: number;
+  selected?: boolean; // added to mirror TextNode behavior for showing resize handle only when selected
 }
 
+// Match TextNode's minimal corner resize icon
 const ResizeIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    strokeWidth="2"
-    stroke="#4B5563"
-    fill="none"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{
-      position: 'absolute',
-      right: 0,
-      bottom: 0,
-      zIndex: 10,
-      padding: '8px',
-      margin: '4px',
-      cursor: 'nwse-resize',
-      background: 'rgba(0, 0, 0, 0.5)',
-      borderRadius: '4px',
-      boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
-    }}
-  >
-    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-    <polyline points="16 20 20 20 20 16" stroke="#ffffff" />
-    <line x1="14" y1="14" x2="20" y2="20" stroke="#ffffff" />
-    <polyline points="8 4 4 4 4 8" stroke="#ffffff" />
-    <line x1="4" y1="4" x2="10" y2="10" stroke="#ffffff" />
+  <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-400 hover:text-slate-300 transition-colors">
+    <path
+      d="M1 1L1 4M1 1L4 1M1 1L7 7M7 7L4 7M7 7L7 4"
+      stroke="currentColor"
+      strokeWidth="1"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
-export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeProps) {
+export function ImageNode({ id, data, isConnectable, width, height, selected }: ImageNodeProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +41,8 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
   const reactFlowInstance = useReactFlow();
   const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+  const captionRef = useRef<HTMLDivElement | null>(null);
+  const [captionHeight, setCaptionHeight] = useState(0);
 
   // Get the actual node to access its style/background
   const node = reactFlowInstance.getNode(id);
@@ -193,6 +178,15 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
     if (data.file || data.imageUrl) {
       loadImage();
     }
+    // Observe caption height changes to position resize control precisely at image bottom edge
+    const el = captionRef.current;
+    if (el) {
+      const update = () => setCaptionHeight(el.getBoundingClientRect().height);
+      update();
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
     return () => {
       // Cleanup object URL only if it was created from a file and no imageUrl exists
       if (imageSrc && !imageSrc.includes('mindmap-images') && data.file && !data.imageUrl) {
@@ -204,7 +198,9 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
 
   return (
     <div className={"relative overflow-visible no-node-overlay"}>
-      {imageSrc && (
+      {/* Show resize control only when image is present AND node is selected (parity with TextNode) */}
+  {imageSrc && selected && (
+    // We position the resize control so the visible grip sits just inside the bottom-right corner
         <NodeResizeControl
           nodeId={id}
           minWidth={100}
@@ -215,11 +211,13 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
             background: 'transparent',
             border: 'none',
             borderRadius: '4px',
-            padding: '0',
-            margin: '0',
+            padding: 0,
+            margin: 0,
             position: 'absolute',
             right: 0,
-            bottom: data.label ? 30 : 0, // Adjust position when title is shown
+      // Dynamically offset by caption height; then we nudge inward with a transform so it feels attached.
+      bottom: data.label ? captionHeight : 0,
+      transform: 'translate(-8px, -8px)',
             zIndex: 10,
           }}
           keepAspectRatio={true}
@@ -262,7 +260,7 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
             }
           }}
         >
-          <div className="p-2 hover:bg-gray-800/50 transition-colors duration-200 rounded-bl-lg">
+          <div className="p-1 rounded-bl-lg cursor-se-resize hover:bg-slate-800/40 transition-colors">
             <ResizeIcon />
           </div>
         </NodeResizeControl>
@@ -310,7 +308,8 @@ export function ImageNode({ id, data, isConnectable, width, height }: ImageNodeP
             
             {/* Title Section */}
             {data.label && (
-              <div 
+              <div
+                ref={captionRef}
                 className="image-node-title-extension border-t border-slate-600/30 rounded-b-[14px] px-3 py-2 text-center border-l border-r border-b"
                 style={{
                   backgroundColor: nodeBackground,

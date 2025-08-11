@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Type, Edit3, Bold, Italic, Code, Palette } from 'lucide-react';
+import { Type, Edit3, Bold, Italic, Code, Palette, Strikethrough } from 'lucide-react';
 import { Handle, Position, NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
 import MarkdownRenderer from './MarkdownRenderer';
 import { getNodeWidth, getNodeHeight } from '../utils/nodeUtils';
@@ -45,7 +45,7 @@ const TextNode: React.FC<TextNodeProps> = ({
     });
   }, [label, nodeId, showAdvancedEditor]);
 
-  const handleFormatText = (formatType: 'bold' | 'italic' | 'code') => {
+  const handleFormatText = (formatType: 'bold' | 'italic' | 'code' | 'strike') => {
     const textarea = document.querySelector(`textarea[data-node-id="${nodeId}"]`) as HTMLTextAreaElement;
     if (!textarea) return;
 
@@ -72,6 +72,11 @@ const TextNode: React.FC<TextNodeProps> = ({
         newText = selectedText ? `\`${selectedText}\`` : '`code`';
         selectionOffset = 1;
         selectionLength = selectedText ? selectedText.length : 4;
+        break;
+      case 'strike':
+        newText = selectedText ? `--${selectedText}--` : '--strike--';
+        selectionOffset = 2;
+        selectionLength = selectedText ? selectedText.length : 6;
         break;
     }
 
@@ -256,10 +261,15 @@ const TextNode: React.FC<TextNodeProps> = ({
         >
           <Code className="w-4 h-4" />
         </button>
-        
+        <button
+          onClick={() => handleFormatText('strike')}
+          className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-md transition-all duration-200"
+          title="Strikethrough (--text--)"
+        >
+          <Strikethrough className="w-4 h-4" />
+        </button>
         {/* Divider */}
         <div className="w-px h-6 bg-slate-600/50 mx-1"></div>
-        
         {/* Text Color Button with Dropdown */}
         <div className="relative">
           <button

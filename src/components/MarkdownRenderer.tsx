@@ -8,14 +8,29 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+  // Custom inline formatting: ++text++ -> overline
+  // We do a light preprocessing step before handing to ReactMarkdown (rehypeRaw enabled)
+  const processedContent = React.useMemo(() => {
+    // Skip replacement inside inline code spans delimited by backticks by temporarily extracting them
+    const codeSpans: string[] = [];
+    let temp = content.replace(/`[^`]*`/g, (m) => {
+      codeSpans.push(m);
+      return `__CODE_SPAN_${codeSpans.length - 1}__`;
+    });
+  // Replace --text-- with strikethrough span
+  temp = temp.replace(/--([\s\S]*?)--/g, '<span class="mm-strike">$1</span>');
+    // Restore code spans
+    temp = temp.replace(/__CODE_SPAN_(\d+)__/g, (_m, i) => codeSpans[Number(i)]);
+    return temp;
+  }, [content]);
   // Check if content contains markdown formatting (bold, italic, code, etc.)
-  const hasMarkdownFormatting = /[*_`#\[\]()]/g.test(content) || /<[^>]*>/g.test(content);
+  const hasMarkdownFormatting = /[*_`#\[\]()]/g.test(processedContent) || /<[^>]*>/g.test(processedContent);
   
   // If it's just plain text with newlines, render it directly to preserve empty lines
   if (!hasMarkdownFormatting) {
     return (
       <div className={`markdown-content whitespace-pre-wrap ${className}`} style={{ pointerEvents: 'none' }}>
-        {content}
+  {processedContent}
       </div>
     );
   }
@@ -51,7 +66,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           li: ({ children }) => <span>{children} </span>,
         }}
       >
-        {content}
+  {processedContent}
       </ReactMarkdown>
     </div>
   );

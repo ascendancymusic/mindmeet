@@ -162,6 +162,11 @@
   color: #e5e7eb;
 }
 
+/* Custom overline formatting for ++text++ syntax */
+.markdown-content .mm-strike {
+  text-decoration: line-through;
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
