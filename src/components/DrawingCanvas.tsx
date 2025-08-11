@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { StrokeContextMenu } from './StrokeContextMenu';
 
 export interface DrawingStroke {
   id: string;
@@ -115,6 +116,29 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   // Shape drawing state
   const [isDrawingShape, setIsDrawingShape] = useState(false);
   const [shapeStartPoint, setShapeStartPoint] = useState<{ x: number; y: number } | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    isVisible: boolean;
+    position: { x: number; y: number };
+    strokeId: string | null;
+  }>({
+    isVisible: false,
+    position: { x: 0, y: 0 },
+    strokeId: null
+  });
+
+  // Store original stroke properties for cancel functionality
+  const [originalStrokeProperties, setOriginalStrokeProperties] = useState<{
+    color: string;
+    width: number;
+  } | null>(null);
+
+  // Track if we're currently editing a stroke via context menu
+  const [isEditingStrokeProperties, setIsEditingStrokeProperties] = useState(false);
+  
+  // Track if we should save changes to history when editing ends
+  const [shouldSaveChangesToHistory, setShouldSaveChangesToHistory] = useState(false);
 
   // Initialize with drawing data from parent
   useEffect(() => {
@@ -893,11 +917,181 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
   }, [lineWidth]);
 
+  // Context menu handlers
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isDrawingMode) return; // Don't show context menu in drawing mode
+
+    const coords = getFlowCoordinates(e.clientX, e.clientY);
+
+    // Find stroke at click position
+    const clickedStroke = strokes.find(stroke =>
+      isPointNearStroke(coords, stroke, 15)
+    );
+
+    if (clickedStroke) {
+      // Select the stroke and show context menu
+      setSelectedStrokeId(clickedStroke.id);
+      
+      // Store original properties for cancel functionality
+      setOriginalStrokeProperties({
+        color: clickedStroke.color,
+        width: clickedStroke.width
+      });
+      
+      // Mark that we're editing stroke properties
+      setIsEditingStrokeProperties(true);
+      setShouldSaveChangesToHistory(false);
+      
+      setContextMenu({
+        isVisible: true,
+        position: { x: e.clientX, y: e.clientY },
+        strokeId: clickedStroke.id
+      });
+    } else {
+      // Hide context menu if clicking on empty space
+      setContextMenu({
+        isVisible: false,
+        position: { x: 0, y: 0 },
+        strokeId: null
+      });
+      setOriginalStrokeProperties(null);
+      setIsEditingStrokeProperties(false);
+      setShouldSaveChangesToHistory(false);
+    }
+  }, [isDrawingMode, getFlowCoordinates, strokes, isPointNearStroke]);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu({
+      isVisible: false,
+      position: { x: 0, y: 0 },
+      strokeId: null
+    });
+    setOriginalStrokeProperties(null);
+    setIsEditingStrokeProperties(false);
+    setShouldSaveChangesToHistory(false);
+  }, []);
+
+  const handleStrokeColorChange = useCallback((color: string) => {
+    if (!contextMenu.strokeId) return;
+
+    // Live preview - update stroke immediately but don't save to history yet
+    setStrokes(prevStrokes => {
+      return prevStrokes.map(stroke => {
+        if (stroke.id === contextMenu.strokeId) {
+          return {
+            ...stroke,
+            color: color
+          };
+        }
+        return stroke;
+      });
+    });
+
+    userHasInteractedRef.current = true;
+  }, [contextMenu.strokeId]);
+
+  const handleStrokeWidthChange = useCallback((width: number) => {
+    if (!contextMenu.strokeId) return;
+
+    // Live preview - update stroke immediately but don't save to history yet
+    setStrokes(prevStrokes => {
+      return prevStrokes.map(stroke => {
+        if (stroke.id === contextMenu.strokeId) {
+          return {
+            ...stroke,
+            width: width
+          };
+        }
+        return stroke;
+      });
+    });
+
+    userHasInteractedRef.current = true;
+  }, [contextMenu.strokeId]);
+
+  const handleAcceptChanges = useCallback(() => {
+    // Mark that we should save changes to history
+    setShouldSaveChangesToHistory(true);
+    
+    // Mark that we're no longer editing (so history will be triggered)
+    setIsEditingStrokeProperties(false);
+    
+    // Save changes to history
+    setTimeout(() => {
+      onDrawingChange({ strokes });
+    }, 0);
+    
+    handleCloseContextMenu();
+  }, [strokes, onDrawingChange, handleCloseContextMenu]);
+
+  const handleCancelChanges = useCallback(() => {
+    if (!contextMenu.strokeId) {
+      // Just close the menu if no stroke is selected
+      setContextMenu({
+        isVisible: false,
+        position: { x: 0, y: 0 },
+        strokeId: null
+      });
+      setOriginalStrokeProperties(null);
+      setIsEditingStrokeProperties(false);
+      setShouldSaveChangesToHistory(false);
+      return;
+    }
+
+    if (!originalStrokeProperties) {
+      // If no original properties stored, just close without reverting
+      setContextMenu({
+        isVisible: false,
+        position: { x: 0, y: 0 },
+        strokeId: null
+      });
+      setOriginalStrokeProperties(null);
+      setIsEditingStrokeProperties(false);
+      setShouldSaveChangesToHistory(false);
+      return;
+    }
+
+    // Mark that we should NOT save changes to history
+    setShouldSaveChangesToHistory(false);
+
+    // Revert stroke to original properties
+    setStrokes(prevStrokes => {
+      return prevStrokes.map(stroke => {
+        if (stroke.id === contextMenu.strokeId) {
+          return {
+            ...stroke,
+            color: originalStrokeProperties.color,
+            width: originalStrokeProperties.width
+          };
+        }
+        return stroke;
+      });
+    });
+
+    // Close the menu without triggering history
+    setContextMenu({
+      isVisible: false,
+      position: { x: 0, y: 0 },
+      strokeId: null
+    });
+    setOriginalStrokeProperties(null);
+    setIsEditingStrokeProperties(false);
+  }, [contextMenu.strokeId, originalStrokeProperties]);
+
   // Mouse event handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     try {
       e.preventDefault();
       e.stopPropagation();
+
+      // Close context menu on any mouse down - this should cancel changes
+      if (contextMenu.isVisible) {
+        handleCancelChanges();
+        return; // Don't process the mouse down further when canceling
+      }
 
       const coords = getFlowCoordinates(e.clientX, e.clientY);
       userHasInteractedRef.current = true;
@@ -991,7 +1185,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Skip mouse down on error
     }
-  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke, selectedStrokeId, getResizeHandleAtPoint, getStrokeBounds, drawingTool]);
+  }, [isDrawingMode, isEraserMode, getFlowCoordinates, drawingColor, lineWidth, eraseAtPoint, strokes, isPointNearStroke, selectedStrokeId, getResizeHandleAtPoint, getStrokeBounds, drawingTool, contextMenu.isVisible, handleCloseContextMenu]);
 
 
 
@@ -1147,37 +1341,15 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           newBounds.height = minSize;
         }
 
-        // Calculate scale factor for line width based on stretch direction
-        const scaleX = newBounds.width / originalStrokeBounds.width;
-        const scaleY = newBounds.height / originalStrokeBounds.height;
-
-        // For stretch effect, determine which dimension is being stretched more
-        // and scale the line width based on the perpendicular dimension
-        let widthScale;
-
-        if (Math.abs(scaleX - 1) > Math.abs(scaleY - 1)) {
-          // X dimension is being stretched more, so scale width by Y dimension
-          widthScale = scaleY;
-        } else {
-          // Y dimension is being stretched more, so scale width by X dimension  
-          widthScale = scaleX;
-        }
-
-        // If both dimensions are being scaled equally, use the average
-        if (Math.abs(scaleX - scaleY) < 0.1) {
-          widthScale = (scaleX + scaleY) / 2;
-        }
-
-        const newLineWidth = Math.max(1, Math.min(50, (originalStrokeWidth || 3) * widthScale)); // Clamp between 1 and 50
-
-        // Apply resize to stroke
+        // Apply resize to stroke - treat as rasterized object with constant line width
         setStrokes(prevStrokes => {
           return prevStrokes.map(stroke => {
             if (stroke.id === selectedStrokeId) {
               return {
                 ...stroke,
                 points: resizeStrokePoints(originalStrokePoints, originalStrokeBounds, newBounds, flipX, flipY),
-                width: newLineWidth
+                // Keep original line width - no scaling
+                width: originalStrokeWidth || stroke.width
               };
             }
             return stroke;
@@ -1329,18 +1501,35 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
   }), []);
 
-  // Notify parent when strokes change - but NOT during dragging, resizing, or rotating
+  // Notify parent when strokes change - but NOT during dragging, resizing, rotating, or editing properties
   useEffect(() => {
     // Only notify parent if:
     // 1. Data is loaded
     // 2. Not currently initializing  
     // 3. User has actually interacted with the canvas
-    // 4. NOT currently dragging, resizing, or rotating a stroke (to match node dragging behavior)
-    if (dataLoaded && !isInitializingRef.current && userHasInteractedRef.current && !isDraggingStroke && !isResizingStroke && !isRotatingStroke) {
-      // Immediate update for all operations except dragging, resizing, and rotating
+    // 4. NOT currently dragging, resizing, rotating a stroke, or editing stroke properties via context menu
+    // 5. If we just finished editing properties, only save if we should save to history (accept was clicked)
+    const shouldNotify = dataLoaded && 
+                        !isInitializingRef.current && 
+                        userHasInteractedRef.current && 
+                        !isDraggingStroke && 
+                        !isResizingStroke && 
+                        !isRotatingStroke && 
+                        !isEditingStrokeProperties;
+
+    // If we just finished editing properties, only save if shouldSaveChangesToHistory is true
+    const wasJustEditingProperties = !isEditingStrokeProperties && shouldSaveChangesToHistory;
+    
+    if (shouldNotify || wasJustEditingProperties) {
+      // Immediate update for all operations except dragging, resizing, rotating, and property editing
       onDrawingChange({ strokes });
+      
+      // Reset the save flag after saving
+      if (wasJustEditingProperties) {
+        setShouldSaveChangesToHistory(false);
+      }
     }
-  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke, isResizingStroke, isRotatingStroke]);
+  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke, isResizingStroke, isRotatingStroke, isEditingStrokeProperties, shouldSaveChangesToHistory]);
 
   // Cleanup
   useEffect(() => {
@@ -1362,12 +1551,23 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         setStrokes(prevStrokes => prevStrokes.filter(stroke => stroke.id !== selectedStrokeId));
         setSelectedStrokeId(null);
         userHasInteractedRef.current = true;
+        // Close context menu if deleting the stroke - cancel any pending changes
+        if (contextMenu.strokeId === selectedStrokeId) {
+          handleCancelChanges();
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawingMode, selectedStrokeId]);
+  }, [isDrawingMode, selectedStrokeId, contextMenu.strokeId, handleCloseContextMenu]);
+
+  // Close context menu when drawing mode changes - cancel any pending changes
+  useEffect(() => {
+    if (isDrawingMode && contextMenu.isVisible) {
+      handleCancelChanges();
+    }
+  }, [isDrawingMode, contextMenu.isVisible, handleCancelChanges]);
 
   // Global mouse move listener to detect stroke hovering when canvas doesn't have pointer events
   useEffect(() => {
@@ -1507,27 +1707,49 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     return 'default';
   };
 
+  // Get current stroke for context menu
+  const contextMenuStroke = contextMenu.strokeId ? strokes.find(s => s.id === contextMenu.strokeId) : null;
+
   // Render canvas
   return (
-    <canvas
-      ref={canvasRef}
-      className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
-      style={{
-        zIndex: isDrawingMode ? 10 : (strokes.length > 0 ? 2 : 1), // Above ReactFlow when drawing or when strokes exist
-        cursor: getCursorStyle(),
-        width: '100%',
-        height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
-        // Only capture pointer events when drawing mode is active OR when actively interacting with strokes OR when hovering over strokes/handles
-        // Don't capture events just because a stroke is selected - allow normal mindmap interaction
-        pointerEvents: (isDrawingMode || isInteractingWithStroke || isHoveringStroke || isHoveringResizeHandle || isHoveringRotateHandle) ? 'auto' : 'none',
-        left: 0,
-        opacity: 1, // Always visible
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={`absolute inset-0 ${isFullscreen ? '' : 'top-12'}`}
+        style={{
+          zIndex: isDrawingMode ? 10 : (strokes.length > 0 ? 2 : 1), // Above ReactFlow when drawing or when strokes exist
+          cursor: getCursorStyle(),
+          width: '100%',
+          height: isFullscreen ? '100%' : 'calc(100% - 3rem)',
+          // Only capture pointer events when drawing mode is active OR when actively interacting with strokes OR when hovering over strokes/handles
+          // Don't capture events just because a stroke is selected - allow normal mindmap interaction
+          pointerEvents: (isDrawingMode || isInteractingWithStroke || isHoveringStroke || isHoveringResizeHandle || isHoveringRotateHandle || contextMenu.isVisible) ? 'auto' : 'none',
+          left: 0,
+          opacity: 1, // Always visible
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onContextMenu={handleContextMenu}
+      />
+
+      {/* Stroke Context Menu */}
+      {contextMenuStroke && (
+        <StrokeContextMenu
+          isVisible={contextMenu.isVisible}
+          position={contextMenu.position}
+          strokeColor={contextMenuStroke.color}
+          strokeWidth={contextMenuStroke.width}
+          strokePoints={contextMenuStroke.points || []}
+          strokeType={contextMenuStroke.type}
+          onColorChange={handleStrokeColorChange}
+          onWidthChange={handleStrokeWidthChange}
+          onAccept={handleAcceptChanges}
+          onCancel={handleCancelChanges}
+        />
+      )}
+    </>
   );
 });
 
