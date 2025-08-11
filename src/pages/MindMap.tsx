@@ -267,8 +267,8 @@ export default function MindMap() {
   const [clipboardNodes, setClipboardNodes] = useState<Node[]>([]);
   const [clipboardEdges, setClipboardEdges] = useState<Edge[]>([]);
   const [selectionBounds, setSelectionBounds] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
-  const [showPasteToolbox, setShowPasteToolbox] = useState(false);
-  const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 });
+  // Removed floating paste toolbox; paste now handled exclusively via PaneContextMenu
+  const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 }); // retained only for legacy calls
   const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
   const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [isHoveringPlaylist, setIsHoveringPlaylist] = useState(false);
@@ -2964,8 +2964,7 @@ export default function MindMap() {
       setClipboardNodes(selectedNodes);
       setClipboardEdges(selectedEdges);
 
-      // Show the paste toolbox
-      setShowPasteToolbox(true);
+  // (Removed) legacy paste toolbox activation
 
       if (operation === 'cut') {
         // Create history action for cutting nodes
@@ -3022,6 +3021,31 @@ export default function MindMap() {
   const handleCutSelectedNodes = useCallback(() => {
     handleClipboardOperation('cut');
   }, [handleClipboardOperation]);
+
+  // Ref to suppress the click event that triggers paste immediately after a copy action
+  const ignoreNextClickRef = useRef(false);
+
+  // Copies a single node (invoked from NodeContextMenu) without relying on async selection state
+  const copySingleNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) {
+      console.warn('copySingleNode: node not found', nodeId);
+      return;
+    }
+    // For single-node copy there are no internal edges
+    setClipboardNodes([ { ...node, selected: false } ]);
+    setClipboardEdges([]);
+    // Initialize paste toolbox position at current mouse location (last tracked)
+    setPasteToolboxPosition({ x: lastMousePosition.x, y: lastMousePosition.y });
+  // Do not show legacy paste toolbox; user will invoke paste via pane context menu
+    // Clear any current selection to mimic existing copy UX
+    setNodes(nds => nds.map(n => ({ ...n, selected: false })));
+    setSelectionBounds(null);
+    // Suppress the originating click so it doesn't trigger an immediate paste
+  ignoreNextClickRef.current = true; // still suppress first click after context menu copy
+    // Provide feedback
+    console.log('Copied node to internal clipboard:', nodeId);
+  }, [nodes, lastMousePosition]);
 
   // Helper function for delete operations (without clipboard)
   const handleDeleteOperation = useCallback(() => {
@@ -4896,9 +4920,7 @@ export default function MindMap() {
       // Always track last mouse position for image pasting
       setLastMousePosition({ x: e.clientX, y: e.clientY });
 
-      if (showPasteToolbox) {
-        setPasteToolboxPosition({ x: e.clientX, y: e.clientY });
-      }
+  // (Removed) legacy paste toolbox follow
       // Track cursor position for collaboration if we're in a collaborative session
       if (currentMindMapId && reactFlowInstance && reactFlowWrapperRef.current?.contains(e.target as Element)) {
         const rect = reactFlowWrapperRef.current.getBoundingClientRect();
@@ -4924,136 +4946,28 @@ export default function MindMap() {
     };
 
     // Provide visual feedback when mouse buttons are pressed
-    const handleMouseDown = (e: MouseEvent) => {
-      if (showPasteToolbox) {
-        if (e.button === 0) { // Left mouse button
-          // Highlight confirm button with green
-          const leftButton = document.querySelector('.paste-button-left');
-          if (leftButton) {
-            leftButton.classList.add('bg-green-600');
-            leftButton.classList.remove('bg-gray-700');
-          }
-        } else if (e.button === 2) { // Right mouse button
-          // Highlight cancel button with red
-          const rightButton = document.querySelector('.paste-button-right');
-          if (rightButton) {
-            rightButton.classList.add('bg-red-600');
-            rightButton.classList.remove('bg-gray-700');
-          }
-        }
-      }
-    };
+  const handleMouseDown = (_e: MouseEvent) => {};
 
     // Restore button colors when mouse is released
-    const handleMouseUp = () => {
-      if (showPasteToolbox) {
-
-        const leftButton = document.querySelector('.paste-button-left');
-        const rightButton = document.querySelector('.paste-button-right');
-
-        if (leftButton) {
-          leftButton.classList.remove('bg-green-600');
-          leftButton.classList.add('bg-gray-700');
-        }
-
-        if (rightButton) {
-          rightButton.classList.remove('bg-red-600');
-          rightButton.classList.add('bg-gray-700');
-        }
-      }
-    };
+  const handleMouseUp = () => {};
 
     // Execute paste operation on left mouse click
-    const handleMouseClick = (e: MouseEvent) => {
-      // Verify paste toolbox is active and clipboard has content
-      if (showPasteToolbox && clipboardNodes.length > 0 && e.button === 0) { // Left mouse button
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (!reactFlowInstance) {
-          return;
-        } const { newNodes, newEdges } = createPasteAction(
-          clipboardNodes,
-          clipboardEdges,
-          pasteToolboxPosition,
-          reactFlowInstance
-        );
-
-        setNodes(nds => {
-          const updatedNodes = [...nds, ...newNodes];
-
-          // Broadcast live node creation to collaborators for pasted nodes
-          if (currentMindMapId && broadcastLiveChange) {
-            newNodes.forEach(newNode => {
-              broadcastLiveChange({
-                id: newNode.id,
-                type: 'node',
-                action: 'create',
-                data: newNode
-              });
-            });
-          }
-
-          // Create history action for pasting nodes
-          const action = createHistoryAction(
-            "add_node",
-            { nodes: updatedNodes },
-            nds
-          );
-          addToHistory(action);
-
-          return updatedNodes;
-        });
-
-        setEdges(eds => {
-          const updatedEdges = [...eds, ...validateAndFixEdgeIds(newEdges)];
-
-          // Broadcast live edge creation to collaborators for pasted edges
-          if (currentMindMapId && broadcastLiveChange) {
-            newEdges.forEach(newEdge => {
-              broadcastLiveChange({
-                id: newEdge.id,
-                type: 'edge',
-                action: 'create',
-                data: newEdge
-              });
-            });
-          }
-
-          return updatedEdges;
-        });
-
-        if (!isInitialLoad) {
-          setHasUnsavedChanges(true);
-        }
-        setIsInitialLoad(false);
-
-
-
-        // Clean up UI state and clear clipboard after successful paste
-        setShowPasteToolbox(false);
-        setClipboardNodes([]);
-        setClipboardEdges([]);
+  const handleMouseClick = (e: MouseEvent) => {
+      if (ignoreNextClickRef.current) {
+        // Ignore this click (it was the copy click), then allow future clicks
+        ignoreNextClickRef.current = false;
+        return;
       }
     };
 
     // Cancel paste operation on right-click
-    const handleContextMenu = (e: MouseEvent) => {
-      if (showPasteToolbox) {
-        e.preventDefault();
-        // Cancel paste operation and clear clipboard
-        setShowPasteToolbox(false);
-        setClipboardNodes([]);
-        setClipboardEdges([]);
-
-      }
-    };
+  const handleContextMenu = (_e: MouseEvent) => {};
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('click', handleMouseClick);
-    document.addEventListener('contextmenu', handleContextMenu); return () => {
+  document.addEventListener('contextmenu', handleContextMenu); return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -5065,7 +4979,7 @@ export default function MindMap() {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [showPasteToolbox, clipboardNodes, clipboardEdges, reactFlowInstance, pasteToolboxPosition, edges, isInitialLoad, addToHistory]);
+  }, [clipboardNodes, clipboardEdges, reactFlowInstance, pasteToolboxPosition, edges, isInitialLoad, addToHistory]);
 
   // Manages keyboard shortcuts and modifier key states
   // Handles clipboard operations and selection modifiers
@@ -5235,8 +5149,7 @@ export default function MindMap() {
             }
             setIsInitialLoad(false);
 
-            // Reset UI state and clear clipboard after paste operation
-            setShowPasteToolbox(false);
+            // Clear clipboard after successful native paste
             setClipboardNodes([]);
             setClipboardEdges([]);
           }
@@ -5258,20 +5171,13 @@ export default function MindMap() {
             if (!isInitialLoad) setHasUnsavedChanges(true);
             setIsInitialLoad(false);
 
-            setShowPasteToolbox(false);
             setClipboardNodes([]);
             setClipboardEdges([]);
           }
         });
       }
 
-      // Cancel paste operation with Escape key
-      if (e.key === 'Escape' && showPasteToolbox) {
-        // Cancel paste operation and clear clipboard
-        setShowPasteToolbox(false);
-        setClipboardNodes([]);
-        setClipboardEdges([]);
-      }
+  // (Removed) Escape handling for legacy paste toolbox
     };
 
     // Reset shift key state when released
@@ -5288,7 +5194,7 @@ export default function MindMap() {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [clipboardNodes, clipboardEdges, edges, isInitialLoad, addToHistory, reactFlowInstance, pasteToolboxPosition, showPasteToolbox, lastMousePosition, getViewportCenter]);
+  }, [clipboardNodes, clipboardEdges, edges, isInitialLoad, addToHistory, reactFlowInstance, pasteToolboxPosition, lastMousePosition, getViewportCenter]);
 
   const nodeEditorClass = `w-full`
   const nodeEditorStyle = { maxWidth: `${nodeEditorWidth}px`, width: `${nodeEditorWidth}px` }
@@ -5915,50 +5821,7 @@ export default function MindMap() {
 
 
 
-              {/* Paste toolbox that follows the cursor */}
-              {showPasteToolbox && clipboardNodes.length > 0 && (
-                <div
-                  className="fixed bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex flex-col pointer-events-none border border-gray-700"
-                  style={{
-                    left: pasteToolboxPosition.x - 200,
-                    top: pasteToolboxPosition.y - 300,
-                    zIndex: 9999,
-                    transform: 'translate(0, 0)',
-                    transition: 'none',
-                    backdropFilter: 'blur(4px)',
-                    backgroundColor: 'rgba(31, 41, 55, 0.95)'
-                  }}
-                >
-                  <div className="flex items-center space-x-2 mb-1 pb-2 border-b border-gray-700">
-                    <div className="bg-blue-500 p-1 rounded-md">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-                      </svg>
-                    </div>
-                    <span className="font-medium">Paste {clipboardNodes.length} node{clipboardNodes.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="flex justify-between mt-2 px-4">
-                    <div
-                      className="flex items-center bg-gray-700 transition-colors duration-150 rounded-md px-3 py-1.5 cursor-pointer paste-button-left"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                      </svg>
-                      <img src="/assets/click/leftclick.svg" alt="Left Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
-                    </div>
-                    <div
-                      className="flex items-center bg-gray-700 transition-colors duration-150 rounded-md px-3 py-1.5 ml-4 cursor-pointer paste-button-right"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                      <img src="/assets/click/rightclick.svg" alt="Right Click" width="18" height="18" style={{ filter: 'brightness(0) invert(1)' }} />
-                    </div>
-                  </div>
-                </div>)}
+              {/* Removed floating paste toolbox UI */}
 
               {/* Header Elements - Always visible, positioned over ReactFlow */}
               {!isFullscreen && (
@@ -7276,9 +7139,9 @@ export default function MindMap() {
           onClose={handleCloseContextMenu}
           nodes={nodes}
           edges={edges}
-          onNodesChange={setNodes}
           onAutoLayout={handleAutoLayout}
           updateNodeData={updateNodeData}
+          onCopyNode={copySingleNode}
         />
 
         {/* Pane Context Menu */}
@@ -7286,6 +7149,43 @@ export default function MindMap() {
           isVisible={paneContextMenu.isVisible}
           position={paneContextMenu.position}
           onClose={handleClosePaneContextMenu}
+          hasClipboard={clipboardNodes.length > 0}
+          onPasteAt={(screenPos) => {
+            if (!reactFlowInstance || clipboardNodes.length === 0) return;
+            // Use createPasteAction with current clipboard and screen position
+            const { newNodes, newEdges } = createPasteAction(
+              clipboardNodes,
+              clipboardEdges,
+              screenPos,
+              reactFlowInstance
+            );
+            setNodes(nds => {
+              const updatedNodes = [...nds, ...newNodes];
+              if (currentMindMapId && broadcastLiveChange) {
+                newNodes.forEach(newNode => {
+                  broadcastLiveChange({ id: newNode.id, type: 'node', action: 'create', data: newNode });
+                });
+              }
+              const action = createHistoryAction('add_node', { nodes: updatedNodes }, nds);
+              addToHistory(action);
+              return updatedNodes;
+            });
+            setEdges(eds => {
+              const newFixedEdges = validateAndFixEdgeIds(newEdges);
+              const updatedEdges = [...eds, ...newFixedEdges];
+              if (currentMindMapId && broadcastLiveChange) {
+                newFixedEdges.forEach(newEdge => {
+                  broadcastLiveChange({ id: newEdge.id, type: 'edge', action: 'create', data: newEdge });
+                });
+              }
+              return updatedEdges;
+            });
+            if (!isInitialLoad) setHasUnsavedChanges(true);
+            setIsInitialLoad(false);
+            // Clear clipboard after paste (optional; comment out if you want multi-paste)
+            setClipboardNodes([]);
+            setClipboardEdges([]);
+          }}
         />
 
         {/* Search Bar - Dynamically positioned relative to NodeTypesMenu */}

@@ -7,9 +7,11 @@ interface PaneContextMenuProps {
   onClose: () => void;
   /** Initial screen (client) position where the context menu was invoked */
   position: { x: number; y: number };
+  hasClipboard?: boolean; // whether there is data in custom clipboard
+  onPasteAt?: (screenPosition: { x: number; y: number }) => void; // callback to perform paste
 }
 
-export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onClose, position }) => {
+export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onClose, position, hasClipboard = false, onPasteAt }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Internal state for the on-screen (client) coordinates we render at.
@@ -23,8 +25,12 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
   const lastOpenPositionRef = useRef<{ x: number; y: number } | null>(null);
 
   const handlePaste = () => {
-    // TODO: Implement paste functionality (world position available in worldPositionRef.current)
-    console.log('Paste at flow position:', worldPositionRef.current, 'screen:', screenPosition);
+    if (!hasClipboard) return;
+    if (onPasteAt) {
+      onPasteAt(screenPosition);
+    } else {
+      console.log('Paste requested but no handler provided');
+    }
     onClose();
   };
 
@@ -180,9 +186,10 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
       </div>
       <button
         onClick={handlePaste}
-        className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
+        disabled={!hasClipboard}
+        className={`w-full px-3 py-2 text-left text-sm transition-all duration-150 flex items-center gap-2.5 group ${hasClipboard ? 'text-slate-200 hover:bg-slate-700/50' : 'text-slate-500 cursor-not-allowed opacity-60'}`}
       >
-        <Clipboard className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+        <Clipboard className={`w-3.5 h-3.5 ${hasClipboard ? 'text-slate-400 group-hover:text-slate-300' : 'text-slate-600' } transition-colors`} />
         Paste
       </button>
     </div>,

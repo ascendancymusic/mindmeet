@@ -9,9 +9,9 @@ interface NodeContextMenuProps {
   nodeId: string;
   nodes: FlowNode[];
   edges: Edge[];
-  onNodesChange: (nodes: FlowNode[]) => void;
   onAutoLayout: (nodeId: string, originalNodes: FlowNode[], updatedNodes: FlowNode[]) => void;
   updateNodeData: (nodeId: string, updateFn: (node: FlowNode) => Partial<FlowNode>, historyData: any) => void;
+  onCopyNode?: (nodeId: string) => void; // new optional prop to trigger external copy logic
 }
 
 export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
@@ -20,9 +20,9 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   nodeId,
   nodes,
   edges,
-  onNodesChange,
   onAutoLayout,
-  updateNodeData
+  updateNodeData,
+  onCopyNode
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -143,8 +143,11 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   };
 
   const handleCopy = () => {
-    // TODO: Implement copy functionality
-    console.log('Copy node:', nodeId);
+    if (onCopyNode) {
+      onCopyNode(nodeId);
+    } else {
+      console.log('Copy node (no handler provided):', nodeId);
+    }
     onClose();
   };
 
