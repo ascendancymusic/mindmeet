@@ -99,6 +99,7 @@ import EditDetailsModal from "../components/EditDetailsModal";
 import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
+import { PaneContextMenu } from "../components/PaneContextMenu";
 import { DrawModal } from "../components/DrawModal";
 import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
@@ -329,6 +330,15 @@ export default function MindMap() {
     nodeId: ''
   });
 
+  // Pane context menu state
+  const [paneContextMenu, setPaneContextMenu] = useState<{
+    isVisible: boolean;
+    position: { x: number; y: number };
+  }>({
+    isVisible: false,
+    position: { x: 0, y: 0 }
+  });
+
   // Search state
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -354,6 +364,12 @@ export default function MindMap() {
     event.preventDefault();
     event.stopPropagation();
 
+    // Close pane context menu if open
+    setPaneContextMenu({
+      isVisible: false,
+      position: { x: 0, y: 0 }
+    });
+
     setContextMenu({
       isVisible: true,
       nodeId
@@ -364,6 +380,30 @@ export default function MindMap() {
     setContextMenu({
       isVisible: false,
       nodeId: ''
+    });
+  }, []);
+
+  // Pane context menu handlers
+  const handlePaneContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Close node context menu if open
+    setContextMenu({
+      isVisible: false,
+      nodeId: ''
+    });
+
+    setPaneContextMenu({
+      isVisible: true,
+      position: { x: event.clientX, y: event.clientY }
+    });
+  }, []);
+
+  const handleClosePaneContextMenu = useCallback(() => {
+    setPaneContextMenu({
+      isVisible: false,
+      position: { x: 0, y: 0 }
     });
   }, []);
 
@@ -5741,6 +5781,8 @@ export default function MindMap() {
                 setVisuallySelectedNodeId(null)
                 // Clear stroke selection when right-clicking on pane
                 drawingCanvasRef.current?.clearStrokeSelection();
+                // Show pane context menu
+                handlePaneContextMenu(event);
               }}
               onPaneClick={() => {
                 // Exit "add to playlist" mode when clicking on the pane
@@ -5755,6 +5797,16 @@ export default function MindMap() {
 
                 // Clear stroke selection when clicking on pane
                 drawingCanvasRef.current?.clearStrokeSelection();
+
+                // Close context menus
+                setContextMenu({
+                  isVisible: false,
+                  nodeId: ''
+                });
+                setPaneContextMenu({
+                  isVisible: false,
+                  position: { x: 0, y: 0 }
+                });
               }}
               onEdgeClick={(event) => {
                 // Prevent edge selection from interfering with node selection
@@ -7227,6 +7279,13 @@ export default function MindMap() {
           onNodesChange={setNodes}
           onAutoLayout={handleAutoLayout}
           updateNodeData={updateNodeData}
+        />
+
+        {/* Pane Context Menu */}
+        <PaneContextMenu
+          isVisible={paneContextMenu.isVisible}
+          position={paneContextMenu.position}
+          onClose={handleClosePaneContextMenu}
         />
 
         {/* Search Bar - Dynamically positioned relative to NodeTypesMenu */}

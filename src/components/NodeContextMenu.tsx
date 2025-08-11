@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Network, Bold } from 'lucide-react';
+import { Network, Bold, Copy } from 'lucide-react';
 import { Node as FlowNode, Edge } from 'reactflow';
 
 interface NodeContextMenuProps {
@@ -26,6 +26,85 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [openCounter, setOpenCounter] = useState(0); // force remount to avoid flash from old position
+  const lastNodeIdRef = useRef<string | null>(null);
+  const frameRef = useRef<number | null>(null);
+
+  // Helper to compute current on-screen coordinates for the node (right side of node)
+  const computeNodeScreenPosition = () => {
+    if (!nodeId) return null;
+    const nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+    if (!nodeElement) return null;
+    const rect = (nodeElement as HTMLElement).getBoundingClientRect();
+    return { x: rect.right + 6, y: rect.top };
+  };
+
+  // Sync initial position BEFORE paint to prevent jump/flicker when opening on a new node
+  useLayoutEffect(() => {
+    if (!isVisible || !nodeId) return;
+    const isNewNode = lastNodeIdRef.current !== nodeId;
+    if (isNewNode) {
+      setOpenCounter(c => c + 1); // force new DOM node for fresh position
+      lastNodeIdRef.current = nodeId;
+    }
+    const pos = computeNodeScreenPosition();
+    if (pos) {
+      setPosition(pos);
+    } else {
+      // If not yet in DOM (rare), retry next frame
+      requestAnimationFrame(() => {
+        const retry = computeNodeScreenPosition();
+        if (retry) setPosition(retry);
+      });
+    }
+  }, [isVisible, nodeId]);
+
+  // Observe viewport transforms (pan/zoom) and node size changes; throttle with rAF
+  useEffect(() => {
+    if (!isVisible || !nodeId) return;
+
+    const updatePosition = () => {
+      const pos = computeNodeScreenPosition();
+      if (pos) setPosition(pos);
+    };
+
+    const scheduleUpdate = () => {
+      if (frameRef.current != null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        updatePosition();
+      });
+    };
+
+    // MutationObserver on the viewport element for transform changes
+    const viewportEl = document.querySelector('.react-flow__viewport');
+    let viewportObserver: MutationObserver | null = null;
+    if (viewportEl) {
+      viewportObserver = new MutationObserver(scheduleUpdate);
+      viewportObserver.observe(viewportEl, { attributes: true, attributeFilter: ['style'] });
+    }
+
+    // ResizeObserver on the node element (size could change w/ content)
+    const nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+    let resizeObserver: ResizeObserver | null = null;
+    if (nodeElement) {
+      resizeObserver = new ResizeObserver(scheduleUpdate);
+      resizeObserver.observe(nodeElement);
+    }
+
+    // Wheel & window resize
+    viewportEl?.addEventListener('wheel', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+
+    return () => {
+      viewportObserver?.disconnect();
+      resizeObserver?.disconnect();
+      viewportEl?.removeEventListener('wheel', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    };
+  }, [isVisible, nodeId]);
 
   const handleBold = () => {
     const currentNode = nodes.find(node => node.id === nodeId);
@@ -63,6 +142,12 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     onClose();
   };
 
+  const handleCopy = () => {
+    // TODO: Implement copy functionality
+    console.log('Copy node:', nodeId);
+    onClose();
+  };
+
   const handleAutoLayout = () => {
     // Find the parent node
     const parentNode = nodes.find(node => node.id === nodeId);
@@ -82,7 +167,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     const nodeSpacing = 20; // Horizontal spacing between sibling nodes
     const subtreeSpacing = 60; // Extra spacing between different subtrees (for visual grouping)
     const levelSpacing = 120; // Vertical spacing between levels
-    const rowSpacing = 60; // Vertical spacing between rows when stacking
+  // (Removed: rowSpacing constant was unused after layout refinements)
 
     // Calculate the required width for each subtree (bottom-up approach)
     const calculateSubtreeWidth = (nodeId: string): number => {
@@ -205,7 +290,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
 
           // Position each row with dynamic spacing based on node heights
           let currentRowY = startY;
-          rows.forEach((rowChildren, rowIndex) => {
+          rows.forEach((rowChildren) => {
             const rowChildWidths = rowChildren.map(childId => calculateSubtreeWidth(childId));
             const rowTotalWidth = rowChildWidths.reduce((sum, width) => sum + width, 0) + (rowChildren.length - 1) * nodeSpacing;
             let rowCurrentX = childrenCenterX - rowTotalWidth / 2;
@@ -358,45 +443,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     onClose();
   };
 
-  // Update position when menu becomes visible or node moves
-  useEffect(() => {
-    if (isVisible && nodeId) {
-      const updatePosition = () => {
-        const nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
-        if (nodeElement) {
-          const nodeRect = nodeElement.getBoundingClientRect();
-          setPosition({
-            x: nodeRect.right + 6,
-            y: nodeRect.top
-          });
-        }
-      };
-
-      updatePosition();
-
-      // Update position when the viewport changes (pan/zoom)
-      const reactFlowElement = document.querySelector('.react-flow');
-      if (reactFlowElement) {
-        const observer = new MutationObserver(updatePosition);
-        observer.observe(reactFlowElement, {
-          attributes: true,
-          subtree: true,
-          attributeFilter: ['style', 'transform']
-        });
-
-        // Also listen for transform changes
-        const handleTransform = () => updatePosition();
-        reactFlowElement.addEventListener('wheel', handleTransform);
-        window.addEventListener('resize', handleTransform);
-
-        return () => {
-          observer.disconnect();
-          reactFlowElement.removeEventListener('wheel', handleTransform);
-          window.removeEventListener('resize', handleTransform);
-        };
-      }
-    }
-  }, [isVisible, nodeId]);
+  // (Removed old after-open positioning effect; replaced with layout & observer logic above)
 
   // Close menu when clicking outside or on ReactFlow
   useEffect(() => {
@@ -448,6 +495,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   const isTextNode = currentNode?.type === 'default' || !currentNode?.type;
   const isRootNode = nodeId === "1";
   const showBoldOption = isTextNode && !isRootNode;
+  const showCopyOption = isTextNode; // Show copy for all text nodes including root
   
   // Check if text is currently bold
   const currentLabel = currentNode?.data?.label || '';
@@ -456,6 +504,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   // Use portal to render at document level but position relative to node
   return createPortal(
     <div
+      key={openCounter}
       ref={menuRef}
       className="fixed bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-xl shadow-2xl py-2 min-w-[140px] z-[1000]"
       style={{
@@ -480,6 +529,15 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
         >
           <Bold className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
           {isBold ? 'Unbold' : 'Bold'}
+        </button>
+      )}
+      {showCopyOption && (
+        <button
+          onClick={handleCopy}
+          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
+        >
+          <Copy className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+          Copy
         </button>
       )}
     </div>,
