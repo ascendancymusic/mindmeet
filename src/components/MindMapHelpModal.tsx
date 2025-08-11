@@ -463,7 +463,7 @@ export function MindMapHelpModal({ isOpen, onClose }: MindMapHelpModalProps) {
                   </div>
                   Right Click
                 </div>
-                <div>Open context menu on nodes, cancel paste operation</div>
+                <div>Open context menu on nodes. Open context menu on an empty area</div>
               </div>
               <div className="flex items-start gap-3">
                 <div className="min-w-[90px] flex items-center gap-1 text-purple-300 font-medium">
@@ -495,7 +495,7 @@ export function MindMapHelpModal({ isOpen, onClose }: MindMapHelpModalProps) {
                   <strong>Right-click on any node</strong> to access these options:
                 </p>
                 <div className="space-y-2 ml-4">
-                  {["Auto-layout children nodes", "Duplicate node", "Change node color", "Delete node (cascading)"].map(
+                  {["Auto-layout children nodes", "Bold text", "Copy node"].map(
                     (item) => (
                       <div key={item} className="flex items-center gap-2">
                         <div className="w-1 h-1 bg-green-400 rounded-full" />
@@ -511,15 +511,15 @@ export function MindMapHelpModal({ isOpen, onClose }: MindMapHelpModalProps) {
           <div className={sectionCard}>
             <h4 className="text-lg font-semibold text-slate-100 mb-3 flex items-center gap-2">
               <Copy className="w-5 h-5 text-purple-300" />
-              Clipboard Operations
+              Clipboard Operations (wrong info)
             </h4>
             <div className="space-y-3 text-slate-300 text-sm">
               <div className="rounded-xl p-3 border border-purple-400/40 bg-purple-900/20">
                 <p className="text-purple-200 mb-2">
-                  <strong>Copy/Cut nodes:</strong> Select multiple nodes and use Ctrl+C or Ctrl+X
+                  <strong>Copy/Cut nodes:</strong> Finish this section
                 </p>
                 <p className="text-purple-200 mb-2">
-                  <strong>Paste nodes:</strong> Use Ctrl+V to show paste cursor, then left-click to paste
+                  <strong>Paste nodes:</strong> Finish
                 </p>
                 <p className="text-purple-200">
                   <strong>Paste images:</strong> Copy images from anywhere and paste with Ctrl+V

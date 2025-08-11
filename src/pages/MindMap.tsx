@@ -3179,8 +3179,9 @@ export default function MindMap() {
       return {
         ...node,
         id: newId,
-        position: newPosition,
-        selected: true,
+  position: newPosition,
+  // Do NOT auto-select pasted nodes to avoid immovable multi-selection box issues
+  selected: false,
       };
     });
 
@@ -4952,7 +4953,7 @@ export default function MindMap() {
   const handleMouseUp = () => {};
 
     // Execute paste operation on left mouse click
-  const handleMouseClick = (e: MouseEvent) => {
+  const handleMouseClick = (_e: MouseEvent) => {
       if (ignoreNextClickRef.current) {
         // Ignore this click (it was the copy click), then allow future clicks
         ignoreNextClickRef.current = false;
@@ -5152,6 +5153,11 @@ export default function MindMap() {
             // Clear clipboard after successful native paste
             setClipboardNodes([]);
             setClipboardEdges([]);
+
+            // Deselect any selection box to prevent frozen selection after paste
+            setSelectedNodeId(null);
+            setVisuallySelectedNodeId(null);
+            setSelectionBounds(null);
           }
         }).catch(err => {
           console.error('Error reading clipboard:', err);
@@ -5173,6 +5179,11 @@ export default function MindMap() {
 
             setClipboardNodes([]);
             setClipboardEdges([]);
+
+            // Deselect selection state after fallback paste
+            setSelectedNodeId(null);
+            setVisuallySelectedNodeId(null);
+            setSelectionBounds(null);
           }
         });
       }
@@ -7185,6 +7196,11 @@ export default function MindMap() {
             // Clear clipboard after paste (optional; comment out if you want multi-paste)
             setClipboardNodes([]);
             setClipboardEdges([]);
+
+            // Clear selection to avoid issues moving selection box after pasting
+            setSelectedNodeId(null);
+            setVisuallySelectedNodeId(null);
+            setSelectionBounds(null);
           }}
         />
 
