@@ -13,6 +13,7 @@ import { useAuthStore } from "../store/authStore"
 import { useToastStore } from "../store/toastStore"
 import EditDetailsModal from "../components/EditDetailsModal"
 import PublishSuccessModal from "../components/PublishSuccessModal"
+import CloneSuccessModal from "../components/CloneSuccessModal"
 import { supabase } from "../supabaseClient"
 import { processNodesForTextRendering } from "../utils/textNodeUtils"
 
@@ -160,6 +161,7 @@ export default function MindMapList(): JSX.Element {
     fetchMaps,
     fetchCollaborationMaps,
     addMap,
+    cloneMap,
     deleteMap,
     toggleMapPin,
     updateMapId,
@@ -175,6 +177,7 @@ export default function MindMapList(): JSX.Element {
   const [newMapTitle, setNewMapTitle] = useState("")
   const [viewMode, setViewMode] = useState<"owned" | "collaboration">("owned")
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [showCloneSuccessPopup, setShowCloneSuccessPopup] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const reactFlowRef = useRef<ReactFlowInstance>(null)
 
@@ -325,6 +328,30 @@ export default function MindMapList(): JSX.Element {
     const currentMap = maps.find((map) => map.id === id)
     if (currentMap) {
       toggleMapPin(id)
+    }
+  }
+
+  const handleCloneMap = async (id: string) => {
+    if (!isValidUserId) {
+      console.error("Invalid or undefined userId. Cannot clone map.")
+      return
+    }
+
+    const { showToast } = useToastStore.getState();
+
+    try {
+      const newMapId = await cloneMap(id, userId)
+      setShowCloneSuccessPopup(true);
+      // Hide the popup after 3 seconds
+      setTimeout(() => {
+        setShowCloneSuccessPopup(false);
+      }, 3000);
+      setOpenMenuId(null)
+      // Optionally navigate to the new cloned map
+      // navigate(`/${user.username}/${newMapId}/edit`)
+    } catch (error) {
+      console.error("Error cloning mindmap:", error);
+      showToast("Failed to clone mindmap. Please try again.", "error");
     }
   }
 
@@ -684,9 +711,7 @@ export default function MindMapList(): JSX.Element {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  // TODO: Implement clone functionality
-                                  console.log("Clone map:", map.id)
-                                  toggleMenu(map.id)
+                                  handleCloneMap(map.id)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
                               >
@@ -913,6 +938,9 @@ export default function MindMapList(): JSX.Element {
 
       {/* Publish Success Modal */}
       <PublishSuccessModal isVisible={showSuccessPopup} />
+
+      {/* Clone Success Modal */}
+      <CloneSuccessModal isVisible={showCloneSuccessPopup} />
     </div>
   )
 }

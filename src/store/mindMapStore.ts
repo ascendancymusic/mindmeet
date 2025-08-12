@@ -48,6 +48,7 @@ interface MindMapState {
   aiProposedChanges: { id: string; nodes: Node[]; edges: Edge[]; title: string } | null;
   mapBackup: MindMap | null;
   addMap: (title: string, userId: string) => Promise<string>;
+  cloneMap: (mapId: string, userId: string) => Promise<string>;
   updateMap: (id: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData }) => Promise<void>;
   deleteMap: (id: string, userId: string) => void;
   setCurrentMap: (id: string | null) => void;
@@ -542,6 +543,90 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           errorMessage = "Permission denied - please make sure you're logged in";
         } else if (error.message.includes('validation') || error.message.includes('constraint')) {
           errorMessage = "Invalid mindmap data - please try a different title";
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    return id;
+  },
+  cloneMap: async (mapId, userId) => {
+    const mapToClone = get().maps.find((map) => map.id === mapId);
+    if (!mapToClone) {
+      throw new Error("Map not found");
+    }
+
+    // Fetch current user's avatar
+    let userAvatar = null;
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", userId)
+        .single();
+
+      if (!profileError && profileData) {
+        userAvatar = profileData.avatar_url;
+      }
+    } catch (error) {
+      console.warn("Could not fetch user avatar for cloned map:", error);
+    }
+
+    // Create new title with "Copy" suffix
+    const newTitle = `${mapToClone.title} (Copy)`;
+    const sanitizedTitle = sanitizeTitle(newTitle);
+    const existingIds = get().maps.map((map) => map.id);
+    let id = sanitizedTitle;
+    let counter = 1;
+
+    // Ensure unique ID
+    while (existingIds.includes(id)) {
+      id = `${sanitizedTitle}-${counter}`;
+      counter++;
+    }
+
+    // Clone the map with default settings (no privacy, likes, comments, collaborators)
+    const clonedMap: MindMap = {
+      id,
+      title: newTitle,
+      nodes: [...mapToClone.nodes], // Deep copy nodes
+      edges: [...mapToClone.edges], // Deep copy edges
+      edgeType: mapToClone.edgeType || 'default',
+      backgroundColor: mapToClone.backgroundColor,
+      dotColor: mapToClone.dotColor,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      likes: 0, // Reset to default
+      comment_count: 0, // Reset to default
+      saves: 0, // Reset to default
+      likedBy: [], // Reset to default
+      isPinned: false, // Reset to default
+      is_main: false, // Reset to default
+      visibility: 'private', // Default to private
+      description: '', // Reset to default
+      collaborators: [], // Reset to default (no collaborators)
+      creator: userId, // Set the current user as creator
+      creatorAvatar: userAvatar, // Include user's avatar
+      drawingData: mapToClone.drawingData ? { ...mapToClone.drawingData } : undefined, // Clone drawing data if exists
+    };
+
+    // Add to local state
+    set((state) => ({ maps: [...state.maps, clonedMap] }));
+
+    try {
+      await get().saveMapToSupabase(clonedMap, userId);
+    } catch (error) {
+      console.error("Error saving cloned map to Supabase:", error);
+      // Remove from local state if save failed
+      set((state) => ({ maps: state.maps.filter((map) => map.id !== id) }));
+      
+      let errorMessage = "Failed to clone mindmap";
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network error - please check your connection and try again";
+        } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+          errorMessage = "Permission denied - please make sure you're logged in";
         }
       }
       
