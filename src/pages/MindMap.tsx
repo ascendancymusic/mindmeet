@@ -2964,7 +2964,7 @@ export default function MindMap() {
       setClipboardNodes(selectedNodes);
       setClipboardEdges(selectedEdges);
 
-  // (Removed) legacy paste toolbox activation
+      // (Removed) legacy paste toolbox activation
 
       if (operation === 'cut') {
         // Create history action for cutting nodes
@@ -3033,16 +3033,16 @@ export default function MindMap() {
       return;
     }
     // For single-node copy there are no internal edges
-    setClipboardNodes([ { ...node, selected: false } ]);
+    setClipboardNodes([{ ...node, selected: false }]);
     setClipboardEdges([]);
     // Initialize paste toolbox position at current mouse location (last tracked)
     setPasteToolboxPosition({ x: lastMousePosition.x, y: lastMousePosition.y });
-  // Do not show legacy paste toolbox; user will invoke paste via pane context menu
+    // Do not show legacy paste toolbox; user will invoke paste via pane context menu
     // Clear any current selection to mimic existing copy UX
     setNodes(nds => nds.map(n => ({ ...n, selected: false })));
     setSelectionBounds(null);
     // Suppress the originating click so it doesn't trigger an immediate paste
-  ignoreNextClickRef.current = true; // still suppress first click after context menu copy
+    ignoreNextClickRef.current = true; // still suppress first click after context menu copy
     // Provide feedback
     console.log('Copied node to internal clipboard:', nodeId);
   }, [nodes, lastMousePosition]);
@@ -3179,9 +3179,9 @@ export default function MindMap() {
       return {
         ...node,
         id: newId,
-  position: newPosition,
-  // Do NOT auto-select pasted nodes to avoid immovable multi-selection box issues
-  selected: false,
+        position: newPosition,
+        // Do NOT auto-select pasted nodes to avoid immovable multi-selection box issues
+        selected: false,
       };
     });
 
@@ -4042,35 +4042,42 @@ export default function MindMap() {
                 nextAction.data.nodeId === node.id ||
                 (nextAction.data.affectedNodes && nextAction.data.affectedNodes.includes(node.id))
               ) {
+                // Handle both color and data changes
+                let updatedNode = { ...node };
+
+                // Handle color changes
                 if (nextAction.data.color) {
-                  return {
-                    ...node,
-                    background: nextAction.data.color, // Update the background property
+                  updatedNode = {
+                    ...updatedNode,
+                    background: nextAction.data.color,
                     style: {
-                      ...node.style,
+                      ...updatedNode.style,
                       background: nextAction.data.color,
                     },
-                  }
-                } else {
+                  };
+                }
+
+                // Handle data changes (label, etc.) - but not if this is just a color change
+                if ((nextAction.data.label !== undefined || nextAction.data.displayText !== undefined) && !nextAction.data.color) {
                   const updatedData = {
-                    ...node.data,
-                  }
+                    ...updatedNode.data,
+                  };
 
                   if (nextAction.data.label !== undefined) {
                     // For social media nodes, update username property
                     if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type || '')) {
-                      updatedData.username = nextAction.data.label
+                      updatedData.username = nextAction.data.label;
                     } else {
                       // For other node types, update label as before
-                      updatedData.label = nextAction.data.label
+                      updatedData.label = nextAction.data.label;
                       if (node.type === "youtube-video") {
-                        updatedData.videoUrl = nextAction.data.label
+                        updatedData.videoUrl = nextAction.data.label;
                       } else if (node.type === "spotify") {
-                        updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label
+                        updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label;
                       } else if (node.type === "soundcloud") {
-                        updatedData.soundCloudUrl = nextAction.data.label
+                        updatedData.soundCloudUrl = nextAction.data.label;
                       } else if (node.type === "link") {
-                        updatedData.url = nextAction.data.label
+                        updatedData.url = nextAction.data.label;
                       } else if (node.type === "mindmap") {
                         // Find the map to get its key
                         const selectedMap = maps.find(map => map.id === nextAction.data.label) || collaborationMaps.find(map => map.id === nextAction.data.label);
@@ -4080,16 +4087,51 @@ export default function MindMap() {
                   }
 
                   if (nextAction.data.displayText !== undefined) {
-                    updatedData.displayText = nextAction.data.displayText
+                    updatedData.displayText = nextAction.data.displayText;
                   }
 
-                  return {
-                    ...node,
+                  updatedNode = {
+                    ...updatedNode,
                     data: updatedData,
-                  }
+                  };
                 }
+
+                // Handle combined color + label changes (like mark as done)
+                else if (nextAction.data.color && nextAction.data.label !== undefined && nextAction.data.oldLabel !== undefined) {
+                  const updatedData = {
+                    ...updatedNode.data,
+                  };
+
+                  // For social media nodes, update username property
+                  if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type || '')) {
+                    updatedData.username = nextAction.data.label;
+                  } else {
+                    // For other node types, update label
+                    updatedData.label = nextAction.data.label;
+                    if (node.type === "youtube-video") {
+                      updatedData.videoUrl = nextAction.data.label;
+                    } else if (node.type === "spotify") {
+                      updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label;
+                    } else if (node.type === "soundcloud") {
+                      updatedData.soundCloudUrl = nextAction.data.label;
+                    } else if (node.type === "link") {
+                      updatedData.url = nextAction.data.label;
+                    } else if (node.type === "mindmap") {
+                      // Find the map to get its key
+                      const selectedMap = maps.find(map => map.id === nextAction.data.label) || collaborationMaps.find(map => map.id === nextAction.data.label);
+                      updatedData.mapKey = selectedMap?.key; // Only use mapKey
+                    }
+                  }
+
+                  updatedNode = {
+                    ...updatedNode,
+                    data: updatedData,
+                  };
+                }
+
+                return updatedNode;
               }
-              return node
+              return node;
             }),
           )
           if (selectedNodeId && nextAction.data.color) {
@@ -4921,7 +4963,7 @@ export default function MindMap() {
       // Always track last mouse position for image pasting
       setLastMousePosition({ x: e.clientX, y: e.clientY });
 
-  // (Removed) legacy paste toolbox follow
+      // (Removed) legacy paste toolbox follow
       // Track cursor position for collaboration if we're in a collaborative session
       if (currentMindMapId && reactFlowInstance && reactFlowWrapperRef.current?.contains(e.target as Element)) {
         const rect = reactFlowWrapperRef.current.getBoundingClientRect();
@@ -4947,13 +4989,13 @@ export default function MindMap() {
     };
 
     // Provide visual feedback when mouse buttons are pressed
-  const handleMouseDown = (_e: MouseEvent) => {};
+    const handleMouseDown = (_e: MouseEvent) => { };
 
     // Restore button colors when mouse is released
-  const handleMouseUp = () => {};
+    const handleMouseUp = () => { };
 
     // Execute paste operation on left mouse click
-  const handleMouseClick = (_e: MouseEvent) => {
+    const handleMouseClick = (_e: MouseEvent) => {
       if (ignoreNextClickRef.current) {
         // Ignore this click (it was the copy click), then allow future clicks
         ignoreNextClickRef.current = false;
@@ -4962,13 +5004,13 @@ export default function MindMap() {
     };
 
     // Cancel paste operation on right-click
-  const handleContextMenu = (_e: MouseEvent) => {};
+    const handleContextMenu = (_e: MouseEvent) => { };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('click', handleMouseClick);
-  document.addEventListener('contextmenu', handleContextMenu); return () => {
+    document.addEventListener('contextmenu', handleContextMenu); return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -5188,7 +5230,7 @@ export default function MindMap() {
         });
       }
 
-  // (Removed) Escape handling for legacy paste toolbox
+      // (Removed) Escape handling for legacy paste toolbox
     };
 
     // Reset shift key state when released

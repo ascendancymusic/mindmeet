@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Network, Bold, Copy } from 'lucide-react';
+import { Network, Bold, Copy, Check, X } from 'lucide-react';
 import { Node as FlowNode, Edge } from 'reactflow';
 
 interface NodeContextMenuProps {
@@ -111,10 +111,10 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     if (!currentNode) return;
 
     const currentLabel = currentNode.data?.label || '';
-    
+
     // Check if the text is already bold (wrapped in **)
     const isBold = currentLabel.startsWith('**') && currentLabel.endsWith('**');
-    
+
     let newLabel: string;
     if (isBold) {
       // Remove bold formatting
@@ -151,6 +151,56 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     onClose();
   };
 
+  const handleMarkAsDone = () => {
+    const currentNode = nodes.find(node => node.id === nodeId);
+    if (!currentNode) return;
+
+    const currentLabel = currentNode.data?.label || '';
+    const currentBackground = currentNode.background || '#000000';
+
+    // Check if currently marked as done by looking at the text formatting
+    const isCurrentlyDone = currentLabel.startsWith('--') && currentLabel.endsWith('--');
+
+    let newLabel: string;
+    let newBackground: string;
+
+    if (isCurrentlyDone) {
+      // Mark as undone - remove strikethrough and restore to black background
+      newLabel = currentLabel.slice(2, -2); // Remove -- from start and end
+      newBackground = '#000000'; // Always restore to black
+    } else {
+      // Mark as done - add strikethrough and red background
+      newLabel = `--${currentLabel}--`;
+      newBackground = '#ff1a1a'; // red-500
+    }
+
+    // Use updateNodeData with complete node update including background
+    updateNodeData(
+      nodeId,
+      (node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          label: newLabel
+        },
+        background: newBackground,
+        style: {
+          ...node.style,
+          background: newBackground
+        }
+      }),
+      {
+        nodeId,
+        label: newLabel,
+        oldLabel: currentLabel,
+        color: newBackground,
+        oldColor: currentBackground
+      }
+    );
+
+    onClose();
+  };
+
   const handleAutoLayout = () => {
     // Find the parent node
     const parentNode = nodes.find(node => node.id === nodeId);
@@ -170,7 +220,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     const nodeSpacing = 20; // Horizontal spacing between sibling nodes
     const subtreeSpacing = 60; // Extra spacing between different subtrees (for visual grouping)
     const levelSpacing = 120; // Vertical spacing between levels
-  // (Removed: rowSpacing constant was unused after layout refinements)
+    // (Removed: rowSpacing constant was unused after layout refinements)
 
     // Calculate the required width for each subtree (bottom-up approach)
     const calculateSubtreeWidth = (nodeId: string): number => {
@@ -499,10 +549,14 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   const isRootNode = nodeId === "1";
   const showBoldOption = isTextNode && !isRootNode;
   const showCopyOption = isTextNode; // Show copy for all text nodes including root
-  
+  const showMarkAsDoneOption = isTextNode; // Show mark as done for all text nodes
+
   // Check if text is currently bold
   const currentLabel = currentNode?.data?.label || '';
   const isBold = currentLabel.startsWith('**') && currentLabel.endsWith('**');
+
+  // Check if node is marked as done by looking at the text formatting
+  const isDone = currentLabel.startsWith('--') && currentLabel.endsWith('--');
 
   // Use portal to render at document level but position relative to node
   return createPortal(
@@ -541,6 +595,19 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
         >
           <Copy className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
           Copy
+        </button>
+      )}
+      {showMarkAsDoneOption && (
+        <button
+          onClick={handleMarkAsDone}
+          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
+        >
+          {isDone ? (
+            <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+          ) : (
+            <Check className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+          )}
+          {isDone ? 'Mark as undone' : 'Mark as done'}
         </button>
       )}
     </div>,
