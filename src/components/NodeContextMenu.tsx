@@ -14,6 +14,9 @@ interface NodeContextMenuProps {
   onCopyNode?: (nodeId: string) => void; // new optional prop to trigger external copy logic
 }
 
+// Store original colors temporarily in memory (not saved to JSON)
+const originalColors = new Map<string, string>();
+
 export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   isVisible,
   onClose,
@@ -165,13 +168,44 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     let newBackground: string;
 
     if (isCurrentlyDone) {
-      // Mark as undone - remove strikethrough and restore to black background
+      // Mark as undone - remove strikethrough and restore original background
       newLabel = currentLabel.slice(2, -2); // Remove -- from start and end
-      newBackground = '#000000'; // Always restore to black
+      
+      // Get the stored original color, or fallback to parent color, or black
+      const storedOriginalColor = originalColors.get(nodeId);
+      
+      if (storedOriginalColor) {
+        newBackground = storedOriginalColor;
+        console.log('Marking as undone, using stored color:', newBackground);
+      } else {
+        // No stored color, try to use parent's color
+        const parentEdge = edges.find(edge => edge.target === nodeId);
+        if (parentEdge) {
+          const parentNode = nodes.find(node => node.id === parentEdge.source);
+          if (parentNode) {
+            newBackground = (parentNode as any).background || parentNode.style?.background || '#000000';
+            console.log('Marking as undone, using parent color:', newBackground);
+          } else {
+            newBackground = '#000000';
+            console.log('Marking as undone, parent not found, using black');
+          }
+        } else {
+          newBackground = '#000000';
+          console.log('Marking as undone, no parent, using black');
+        }
+      }
+      
+      // Remove the stored color since we're marking as undone
+      originalColors.delete(nodeId);
     } else {
       // Mark as done - add strikethrough and red background
+      // First, store the current background color before changing it
+      originalColors.set(nodeId, currentBackground);
+      
       newLabel = `--${currentLabel}--`;
-      newBackground = '#ff1a1a'; // red-500
+      newBackground = '#e80f00';
+      
+      console.log('Marking as done, stored original color:', currentBackground);
     }
 
     // Use updateNodeData with complete node update including background
