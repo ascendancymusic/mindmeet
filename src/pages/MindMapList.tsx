@@ -337,6 +337,9 @@ export default function MindMapList(): JSX.Element {
       return
     }
 
+    // Close the menu immediately
+    setOpenMenuId(null)
+
     const { showToast } = useToastStore.getState();
 
     try {
@@ -346,7 +349,6 @@ export default function MindMapList(): JSX.Element {
       setTimeout(() => {
         setShowCloneSuccessPopup(false);
       }, 3000);
-      setOpenMenuId(null)
       // Optionally navigate to the new cloned map
       // navigate(`/${user.username}/${newMapId}/edit`)
     } catch (error) {
