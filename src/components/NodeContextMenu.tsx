@@ -203,7 +203,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
       originalColors.set(nodeId, currentBackground);
       
       newLabel = `--${currentLabel}--`;
-      newBackground = '#e80f00';
+      newBackground = '#ff0000';
       
       console.log('Marking as done, stored original color:', currentBackground);
     }
