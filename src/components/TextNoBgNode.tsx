@@ -26,29 +26,24 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     const reactFlowInstance = useReactFlow();
     const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
 
-    // Get the initial text content
-    const initialTextContent = typeof data?.label === 'string' ? data.label : '';
+    // Get the text content from data.label
+    const textContent = typeof data?.label === 'string' ? data.label : '';
 
     const [isEditing, setIsEditing] = useState(false);
-    const [textContent, setTextContent] = useState(initialTextContent);
-    const [editValue, setEditValue] = useState(initialTextContent);
+    const [editValue, setEditValue] = useState(textContent);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [containerSize, setContainerSize] = useState({ width: 120, height: 40 });
 
-
-    // Only update from props on initial mount
+    // Update edit value when data.label changes
     useEffect(() => {
-        if (initialTextContent && !textContent) {
-            setTextContent(initialTextContent);
-            setEditValue(initialTextContent);
-        }
-    }, [initialTextContent, textContent]);
+        setEditValue(textContent);
+    }, [textContent]);
 
     // Recalculate height when width changes or text content changes
     useEffect(() => {
         if (textContent && containerSize.width > 0) {
             const newHeight = calculateTextNoBgHeight(textContent, containerSize.width);
-            
+
             if (newHeight !== containerSize.height) {
                 setContainerSize(prev => ({ ...prev, height: newHeight }));
             }
@@ -58,7 +53,7 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     // Custom height calculation for TextNoBgNode with correct font sizing
     const calculateTextNoBgHeight = (text: string, width: number): number => {
         if (!text || text.trim() === '') return 40;
-        
+
         const tempDiv = document.createElement('div');
         tempDiv.style.position = 'absolute';
         tempDiv.style.visibility = 'hidden';
@@ -69,11 +64,11 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
         tempDiv.style.wordWrap = 'break-word';
         tempDiv.style.whiteSpace = 'pre-wrap';
         tempDiv.innerHTML = text.replace(/\n/g, '<br>');
-        
+
         document.body.appendChild(tempDiv);
         const textHeight = tempDiv.offsetHeight;
         document.body.removeChild(tempDiv);
-        
+
         return Math.max(40, textHeight + 16); // Add padding
     };
 
@@ -81,7 +76,7 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     useEffect(() => {
         if (isEditing && editValue && containerSize.width > 0) {
             const newHeight = calculateTextNoBgHeight(editValue, containerSize.width);
-            
+
             if (newHeight !== containerSize.height) {
                 setContainerSize(prev => ({ ...prev, height: newHeight }));
             }
@@ -108,10 +103,11 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     const handleSave = () => {
         // Calculate proper height using custom calculation
         const newHeight = calculateTextNoBgHeight(editValue, containerSize.width);
-        
-        // Update container size and text content
+
+        // Update container size
         setContainerSize(prev => ({ ...prev, height: newHeight }));
-        setTextContent(editValue);
+
+        // No need to dispatch event here since we're already doing it on every character change
         setIsEditing(false);
     };
 
@@ -120,7 +116,7 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
             e.preventDefault();
             handleSave();
         } else if (e.key === 'Escape') {
-            setEditValue(textContent);
+            setEditValue(textContent); // Reset to current data.label value
             setIsEditing(false);
         }
     };
@@ -157,7 +153,20 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
                     <textarea
                         ref={textareaRef}
                         value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
+                        onChange={(e) => {
+                            const newValue = e.target.value;
+                            setEditValue(newValue);
+
+                            // Dispatch event for every character change (like TextNode does)
+                            const customEvent = new CustomEvent('text-node-label-changed', {
+                                detail: {
+                                    nodeId: id,
+                                    newLabel: newValue
+                                },
+                                bubbles: true
+                            });
+                            document.dispatchEvent(customEvent);
+                        }}
                         onKeyDown={handleKeyDown}
                         onBlur={handleBlur}
                         onMouseDown={(e) => e.stopPropagation()}

@@ -4462,6 +4462,14 @@ export default function MindMap() {
     setIsInitialLoad(false);
   }, [nodes, edges, addToHistory, isInitialLoad, currentMindMapId, broadcastLiveChange]);
 
+  // Handle text node label changes from TextNoBgNode
+  const handleTextNodeLabelChanged = useCallback((event: CustomEvent) => {
+    const { nodeId, newLabel } = event.detail;
+    
+    // Update the node's data.label using the existing updateNodeLabel function
+    updateNodeLabel(nodeId, newLabel);
+  }, [updateNodeLabel]);
+
   // Handle image node dimensions set when image is loaded
   const handleImageNodeDimensionsSet = useCallback((event: CustomEvent) => {
     const { nodeId, width, height, isNewUpload } = event.detail;
@@ -4582,6 +4590,7 @@ export default function MindMap() {
   useEffect(() => {
     document.addEventListener('image-node-resized', handleImageNodeResize as EventListener);
     document.addEventListener('text-node-resized', handleTextNodeResize as EventListener);
+    document.addEventListener('text-node-label-changed', handleTextNodeLabelChanged as EventListener);
     document.addEventListener('image-node-dimensions-set', handleImageNodeDimensionsSet as EventListener);
     document.addEventListener('audio-node-compressed', handleAudioNodeCompressed as EventListener);
     document.addEventListener('audio-node-duration', handleAudioNodeDuration as EventListener);
@@ -4591,6 +4600,7 @@ export default function MindMap() {
     return () => {
       document.removeEventListener('image-node-resized', handleImageNodeResize as EventListener);
       document.removeEventListener('text-node-resized', handleTextNodeResize as EventListener);
+      document.removeEventListener('text-node-label-changed', handleTextNodeLabelChanged as EventListener);
       document.removeEventListener('image-node-dimensions-set', handleImageNodeDimensionsSet as EventListener);
       document.removeEventListener('audio-node-compressed', handleAudioNodeCompressed as EventListener);
       document.removeEventListener('audio-node-duration', handleAudioNodeDuration as EventListener);
@@ -4598,7 +4608,7 @@ export default function MindMap() {
       document.removeEventListener('playlist-hover', handlePlaylistHover as EventListener);
       document.removeEventListener('audio-volume-hover', handleAudioVolumeHover as EventListener);
     };
-  }, [handleImageNodeResize, handleTextNodeResize, handleImageNodeDimensionsSet, handleAudioNodeCompressed, handleAudioNodeDuration, handlePlaylistPlaybackAction, handlePlaylistHover, handleAudioVolumeHover])
+  }, [handleImageNodeResize, handleTextNodeResize, handleTextNodeLabelChanged, handleImageNodeDimensionsSet, handleAudioNodeCompressed, handleAudioNodeDuration, handlePlaylistPlaybackAction, handlePlaylistHover, handleAudioVolumeHover])
 
   const handleBeforeUnload = useCallback(
     (e: BeforeUnloadEvent) => {
@@ -6694,89 +6704,103 @@ export default function MindMap() {
 
               {selectedNodeId !== "1" && (
                 <div className="flex justify-center items-center gap-2 pt-2 border-t border-slate-700/30">
-                  <button
-                    onClick={() => handleDetachConnections(selectedNodeId)}
-                    className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
-                    title="Detach node's connections"
-                  >
-                    <Unlink className="w-5 h-5" />
-                  </button>
-
-                  <div className="relative" ref={colorPickerRef}>
+                  {selectedNode.type === "text-no-bg" ? (
+                    // For text-no-bg nodes, only show delete button
                     <button
-                      onClick={() => setShowColorPicker(!showColorPicker)}
-                      className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
-                      title="Change node color"
+                      onClick={() => deleteNodeAndChildren(selectedNodeId)}
+                      className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                      title="Delete node and its children"
                     >
-                      <Palette className="w-5 h-5" />
+                      <Trash2 className="w-5 h-5" />
                     </button>
+                  ) : (
+                    // For all other node types, show all buttons
+                    <>
+                      <button
+                        onClick={() => handleDetachConnections(selectedNodeId)}
+                        className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
+                        title="Detach node's connections"
+                      >
+                        <Unlink className="w-5 h-5" />
+                      </button>
 
-                    {showColorPicker && (
-                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => {
-                              handleDefaultColorChange(selectedNodeId)
-                              setShowColorPicker(false)
-                            }}
-                            className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
-                          >
-                            <div
-                              className="w-4 h-4 rounded border border-slate-600"
-                              style={{
-                                backgroundColor: (() => {
-                                  const parentEdge = edges.find(edge => edge.target === selectedNodeId);
-                                  const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
-                                  return parentNode
-                                    ? ((parentNode as any).background || parentNode.style?.background || "#4c5b6f")
-                                    : "#4c5b6f";
-                                })()
-                              }}
-                            ></div>
-                            <span>Default</span>
-                          </button>
+                      <div className="relative" ref={colorPickerRef}>
+                        <button
+                          onClick={() => setShowColorPicker(!showColorPicker)}
+                          className="p-3 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition-all duration-200"
+                          title="Change node color"
+                        >
+                          <Palette className="w-5 h-5" />
+                        </button>
 
-                          <HexColorPicker
-                            color={selectedColor}
-                            onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
-                            className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
-                          />
-                          <div className="flex justify-between gap-2">
-                            <button
-                              onClick={() => handleColorPickerConfirm(selectedNodeId)}
-                              className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                              title="Confirm color change"
-                            >
-                              <Check className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleColorPickerCancel(selectedNodeId)}
-                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                              title="Cancel color change"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
+                        {showColorPicker && (
+                          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[82.5%] mb-2 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/30 z-50">
+                            <div className="space-y-3">
+                              <button
+                                onClick={() => {
+                                  handleDefaultColorChange(selectedNodeId)
+                                  setShowColorPicker(false)
+                                }}
+                                className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
+                              >
+                                <div
+                                  className="w-4 h-4 rounded border border-slate-600"
+                                  style={{
+                                    backgroundColor: (() => {
+                                      const parentEdge = edges.find(edge => edge.target === selectedNodeId);
+                                      const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+                                      return parentNode
+                                        ? ((parentNode as any).background || parentNode.style?.background || "#4c5b6f")
+                                        : "#4c5b6f";
+                                    })()
+                                  }}
+                                ></div>
+                                <span>Default</span>
+                              </button>
+
+                              <HexColorPicker
+                                color={selectedColor}
+                                onChange={(color) => handleColorPickerChange(selectedNodeId, color)}
+                                className="w-full h-8 cursor-pointer rounded-xl border border-slate-600/50"
+                              />
+                              <div className="flex justify-between gap-2">
+                                <button
+                                  onClick={() => handleColorPickerConfirm(selectedNodeId)}
+                                  className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                                  title="Confirm color change"
+                                >
+                                  <Check className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleColorPickerCancel(selectedNodeId)}
+                                  className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                                  title="Cancel color change"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  <button
-                    onClick={() => setShowAIFillModal(true)}
-                    className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
-                    title="AI fill - Add AI-generated child nodes"
-                  >
-                    <Brain className="w-5 h-5" />
-                  </button>
+                      <button
+                        onClick={() => setShowAIFillModal(true)}
+                        className="p-3 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-xl transition-all duration-200"
+                        title="AI fill - Add AI-generated child nodes"
+                      >
+                        <Brain className="w-5 h-5" />
+                      </button>
 
-                  <button
-                    onClick={() => deleteNodeAndChildren(selectedNodeId)}
-                    className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
-                    title="Delete node and its children"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                      <button
+                        onClick={() => deleteNodeAndChildren(selectedNodeId)}
+                        className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                        title="Delete node and its children"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
