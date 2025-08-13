@@ -97,6 +97,13 @@
   transform: translateY(-2px);
 }
 
+/* TextNoBgNode wrapper should not add extra space/background */
+.react-flow__node.text-no-bg-node {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Extend edges by 8 pixels to minimize gaps */
 .react-flow__edge path {
   /* Use round line caps to extend the visual connection */
@@ -179,6 +186,7 @@
   position: relative;
   overflow: visible;
 }
+
 
 .markdown-content strong {
   font-weight: 700;
