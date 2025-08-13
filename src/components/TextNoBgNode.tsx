@@ -118,12 +118,16 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSave();
-        } else if (e.key === 'Escape') {
+        if (e.key === 'Escape') {
             setEditValue(textContent); // Reset to current data.label value
             setIsEditing(false);
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            // Let textarea insert a newline, but stop propagation so it doesn't affect React Flow
+            e.stopPropagation();
+            return; // don't preventDefault so newline is inserted
         }
     };
 
