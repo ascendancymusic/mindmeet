@@ -2237,7 +2237,11 @@ export default function MindMap() {
       }
 
       setNodes((nds) => {
-        const updatedNodes = [...nds, newNode as Node]
+        // Add node, and if it's a TextNoBg node, mark it selected and others deselected
+        const baseNodes = [...nds, newNode as Node];
+        const updatedNodes = nodeType === 'text-no-bg'
+          ? baseNodes.map(n => ({ ...n, selected: n.id === (newNode as Node).id }))
+          : baseNodes;
         if (nodeType === "image" && updatedNodes.filter((node) => node.type === "image").length > 10) {
           setShowErrorModal(true)
           return nds
@@ -2266,6 +2270,12 @@ export default function MindMap() {
       })
       setSelectedNodeId(newNode.id)
       setVisuallySelectedNodeId(newNode.id)
+      // If TextNoBgNode, auto-open editing after mount
+      if (nodeType === 'text-no-bg') {
+        setTimeout(() => {
+          document.dispatchEvent(new CustomEvent('text-no-bg-start-edit', { detail: { nodeId: newNode.id } }));
+        }, 50);
+      }
       if (!isInitialLoad) {
         setHasUnsavedChanges(true)
       }
@@ -6593,7 +6603,7 @@ export default function MindMap() {
                     />
                   ) : selectedNode.type === "text-no-bg" ? (
                     <div className="text-center text-gray-400 py-4">
-                      <p className="text-sm">Double-click the node to edit text inline</p>
+                      <p className="text-sm">Click the text to edit inline</p>
                     </div>
                   ) : (
                     <input

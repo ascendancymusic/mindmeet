@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
 import { getNodeWidth, getNodeHeight } from '../utils/nodeUtils';
-import { calculateTextNodeMinHeight } from '../utils/textNodeUtils';
 
 const ResizeIcon = () => (
     <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-400 hover:text-slate-300 transition-colors">
@@ -32,7 +31,8 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(textContent);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [containerSize, setContainerSize] = useState({ width: 120, height: 40 });
+    const [containerSize, setContainerSize] = useState({ width: 160, height: 40 });
+    const CONTENT_PADDING = 8; // px padding on each side
 
     // Update edit value when data.label changes
     useEffect(() => {
@@ -57,7 +57,9 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
         const tempDiv = document.createElement('div');
         tempDiv.style.position = 'absolute';
         tempDiv.style.visibility = 'hidden';
-        tempDiv.style.width = `${width - 8}px`; // Account for minimal padding
+    // Account for inner padding on both sides
+    const contentWidth = Math.max(0, width - CONTENT_PADDING * 2);
+    tempDiv.style.width = `${contentWidth}px`;
         tempDiv.style.fontSize = '16px'; // Match actual TextNoBgNode font size
         tempDiv.style.lineHeight = '1.625'; // Match leading-relaxed
         tempDiv.style.fontFamily = 'inherit';
@@ -69,7 +71,8 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
         const textHeight = tempDiv.offsetHeight;
         document.body.removeChild(tempDiv);
 
-        return Math.max(40, textHeight + 16); // Add padding
+    // Add vertical padding top+bottom
+    return Math.max(40, textHeight + CONTENT_PADDING * 2);
     };
 
     // Update height in real-time while typing
@@ -87,7 +90,9 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     useEffect(() => {
         if (isEditing && textareaRef.current) {
             textareaRef.current.focus();
-            textareaRef.current.select();
+            // Place caret at end without selecting all text
+            const len = textareaRef.current.value.length;
+            textareaRef.current.setSelectionRange(len, len);
 
             // Auto-resize textarea to fit content
             textareaRef.current.style.height = 'auto';
@@ -95,8 +100,9 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
         }
     }, [isEditing]);
 
-    const handleDoubleClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
+    // Start editing on single click of displayed text
+    const handleStartEditing = () => {
+        // Allow selection to occur; don't stop propagation here
         setIsEditing(true);
     };
 
@@ -124,6 +130,30 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     const handleBlur = () => {
         handleSave();
     };
+
+    // Close editing when node becomes deselected
+    useEffect(() => {
+        if (!selected && isEditing) {
+            handleSave();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selected]);
+
+    // Optional: start editing when requested externally (e.g., right after drop)
+    useEffect(() => {
+        const handleStartEditEvent = (event: Event) => {
+            const e = event as CustomEvent<{ nodeId: string }>; 
+            if (e.detail?.nodeId === id) {
+                setIsEditing(true);
+                // focus happens via the isEditing effect
+            }
+        };
+
+        document.addEventListener('text-no-bg-start-edit', handleStartEditEvent as EventListener);
+        return () => {
+            document.removeEventListener('text-no-bg-start-edit', handleStartEditEvent as EventListener);
+        };
+    }, [id]);
 
     const handleContextMenu = (event: React.MouseEvent) => {
         if (onContextMenu) {
@@ -182,11 +212,11 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
                             minHeight: '40px',
                             height: 'auto',
                             fontFamily: 'inherit',
-                            fontSize: 'inherit',
+                            fontSize: '16px',
                             lineHeight: '1.625', // Match leading-relaxed
                             pointerEvents: 'auto',
                             textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,1), -1px -1px 0 rgba(0,0,0,1), 1px -1px 0 rgba(0,0,0,1), -1px 1px 0 rgba(0,0,0,1)',
-                            padding: '0',
+                            padding: `${CONTENT_PADDING}px`,
                             margin: '0',
                             wordWrap: 'break-word',
                             whiteSpace: 'pre-wrap',
@@ -196,17 +226,17 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
                         }}
                         placeholder="Add comment..."
                     />
-                ) : (
+        ) : (
                     <div
                         className="w-full break-words whitespace-pre-wrap leading-relaxed text-white cursor-text"
-                        onDoubleClick={handleDoubleClick}
-                        onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleStartEditing}
                         style={{
                             width: '100%',
                             maxWidth: '100%',
                             boxSizing: 'border-box',
                             wordWrap: 'break-word',
                             overflowWrap: 'break-word',
+                            padding: `${CONTENT_PADDING}px`,
                         }}
                     >
                         {!textContent || textContent === '' ? (
