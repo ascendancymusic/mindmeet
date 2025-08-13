@@ -644,6 +644,7 @@ export default function MindMap() {
   // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
     default: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
+    "text-no-bg": (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
     input: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
     spotify: SpotifyNode,
     soundcloud: SoundCloudNode,
@@ -5636,13 +5637,13 @@ export default function MindMap() {
                           typeof node.style?.width === 'string' ? node.style.width :
                             node.type === "image" ? "100px" : nodeTypeStyle.width) :
                       nodeTypeStyle.width, // Ensure resizing works for ImageNode and DefaultTextNode
-                    height: (node.type === "image" || node.type === "default") ?
+                    height: (node.type === "image" || node.type === "default" || node.type === "text-no-bg") ?
                       (typeof node.height === 'number' ? `${node.height}px` :
                         typeof node.style?.height === 'number' ? `${node.style.height}px` :
                           typeof node.style?.height === 'string' ? node.style.height :
                             "auto") :
                       (nodeTypeStyle as any).height || 'auto',
-                    minHeight: node.type === "default" ?
+                    minHeight: (node.type === "default" || node.type === "text-no-bg") ?
                       calculateTextNodeMinHeight(
                         typeof nodeData.label === 'string' ? nodeData.label : '',
                         getNodeCurrentWidth(node),
