@@ -8,6 +8,12 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+  // Safety check: ensure content is a string
+  if (typeof content !== 'string') {
+    console.warn('MarkdownRenderer received non-string content:', content);
+    return <span className={className}>{String(content)}</span>;
+  }
+
   // Custom inline formatting: ++text++ -> overline
   // We do a light preprocessing step before handing to ReactMarkdown (rehypeRaw enabled)
   const processedContent = React.useMemo(() => {

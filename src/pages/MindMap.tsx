@@ -98,6 +98,7 @@ import { CollaborationChat } from "../components/CollaborationChat";
 import EditDetailsModal from "../components/EditDetailsModal";
 import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
+import { TextNoBgNode } from "../components/TextNoBgNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
 import { PaneContextMenu } from "../components/PaneContextMenu";
 import { DrawModal } from "../components/DrawModal";
@@ -644,7 +645,7 @@ export default function MindMap() {
   // Node types for ReactFlow
   const nodeTypes = useMemo(() => ({
     default: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
-    "text-no-bg": (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
+    "text-no-bg": (props: any) => <TextNoBgNode {...props} onContextMenu={handleNodeContextMenu} />,
     input: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
     spotify: SpotifyNode,
     soundcloud: SoundCloudNode,
@@ -4388,6 +4389,8 @@ export default function MindMap() {
     setIsInitialLoad(false);
   }, [nodes, edges, addToHistory, isInitialLoad]);
 
+
+
   // Handle text node resize events
   const handleTextNodeResize = useCallback((event: CustomEvent) => {
     const { nodeId, previousWidth, previousHeight, width, height } = event.detail;
@@ -4573,6 +4576,8 @@ export default function MindMap() {
       setIsHoveringAudioVolume(event.detail.hovering);
     }
   }, []);
+
+
 
   useEffect(() => {
     document.addEventListener('image-node-resized', handleImageNodeResize as EventListener);
@@ -5573,41 +5578,44 @@ export default function MindMap() {
                 const nodeLabel = nodeData.label || "";
 
                 // Create the node label with chevron if it has children
-                const displayLabel = hasChildren ? (
-                  <div className="flex items-center justify-between w-full">
-                    <div
-                      className="break-words overflow-hidden"
-                      style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
-                    >
-                      {node.type === "default" && nodeLabel === "" ? (
-                        <span className="text-gray-400">Text...</span>
-                      ) : node.type === "default" ? (
-                        <MarkdownRenderer content={nodeLabel} />
-                      ) : (
-                        nodeLabel
-                      )}
+                // Skip display label processing for text-no-bg nodes - they handle their own rendering
+                const displayLabel = node.type === "text-no-bg" ? nodeLabel : (
+                  hasChildren ? (
+                    <div className="flex items-center justify-between w-full">
+                      <div
+                        className="break-words overflow-hidden"
+                        style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
+                      >
+                        {node.type === "default" && nodeLabel === "" ? (
+                          <span className="text-gray-400">Text...</span>
+                        ) : node.type === "default" ? (
+                          <MarkdownRenderer content={nodeLabel} />
+                        ) : (
+                          nodeLabel
+                        )}
+                      </div>
+                      <button
+                        className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleNodeCollapse(node.id, e);
+                        }}
+                        title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
+                        key={node.id}
+                      >
+                        <ChevronDown
+                          className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
+                            }`}
+                        />
+                      </button>
                     </div>
-                    <button
-                      className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleNodeCollapse(node.id, e);
-                      }}
-                      title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
-                      key={node.id}
-                    >
-                      <ChevronDown
-                        className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                          }`}
-                      />
-                    </button>
-                  </div>
-                ) : node.type === "default" && nodeLabel === "" ? (
-                  <span className="text-gray-400">Text...</span>
-                ) : node.type === "default" ? (
-                  <MarkdownRenderer content={nodeLabel} />
-                ) : (
-                  nodeLabel
+                  ) : node.type === "default" && nodeLabel === "" ? (
+                    <span className="text-gray-400">Text...</span>
+                  ) : node.type === "default" ? (
+                    <MarkdownRenderer content={nodeLabel} />
+                  ) : (
+                    nodeLabel
+                  )
                 );
 
                 // Merge default styles with node-specific styles
@@ -5624,9 +5632,11 @@ export default function MindMap() {
                   hidden: isHidden,
                   // Keep ReactFlow's selection state separate from our visual selection
                   selected: node.selected,
+                  className: node.type === "text-no-bg" ? "no-node-overlay text-no-bg-node" : undefined,
                   data: {
                     ...nodeData,
                     label: displayLabel,
+                    originalLabel: nodeLabel, // Store the original string value for ALL nodes
                   },
                   style: {
                     ...nodeTypeStyle,
@@ -5636,19 +5646,19 @@ export default function MindMap() {
                         typeof node.style?.width === 'number' ? `${node.style.width}px` :
                           typeof node.style?.width === 'string' ? node.style.width :
                             node.type === "image" ? "100px" : nodeTypeStyle.width) :
-                      nodeTypeStyle.width, // Ensure resizing works for ImageNode and DefaultTextNode
-                    height: (node.type === "image" || node.type === "default" || node.type === "text-no-bg") ?
+                      node.type === "text-no-bg" ? "auto" : nodeTypeStyle.width, // Let TextNoBgNode handle its own width
+                    height: (node.type === "image" || node.type === "default") ?
                       (typeof node.height === 'number' ? `${node.height}px` :
                         typeof node.style?.height === 'number' ? `${node.style.height}px` :
                           typeof node.style?.height === 'string' ? node.style.height :
                             "auto") :
-                      (nodeTypeStyle as any).height || 'auto',
-                    minHeight: (node.type === "default" || node.type === "text-no-bg") ?
+                      node.type === "text-no-bg" ? "auto" : (nodeTypeStyle as any).height || 'auto', // Let TextNoBgNode handle its own height
+                    minHeight: node.type === "default" ?
                       calculateTextNodeMinHeight(
                         typeof nodeData.label === 'string' ? nodeData.label : '',
                         getNodeCurrentWidth(node),
                         hasChildren
-                      ) : "auto",
+                      ) : "auto", // Remove minHeight calculation for text-no-bg
                     minWidth: "auto",
                     // Special border radius handling for image nodes with titles
                     borderRadius: node.type === "image" && nodeData.label ?
@@ -6571,6 +6581,10 @@ export default function MindMap() {
                       onLabelChange={updateNodeLabel}
                       isRootNode={selectedNodeId === "1"}
                     />
+                  ) : selectedNode.type === "text-no-bg" ? (
+                    <div className="text-center text-gray-400 py-4">
+                      <p className="text-sm">Double-click the node to edit text inline</p>
+                    </div>
                   ) : (
                     <input
                       autoFocus

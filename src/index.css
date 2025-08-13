@@ -8,7 +8,8 @@
   .site-wrapper {
     transform: scale(0.67);
     transform-origin: top left;
-    width: 149.25vw;   /* 100 / 0.67 */
+    width: 149.25vw;
+    /* 100 / 0.67 */
     min-height: 149.25vh;
     /* Optional: prevent scrollbars */
     overflow: auto;
@@ -21,6 +22,7 @@
     opacity: 0;
     transform: scale(0.8);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -33,6 +35,7 @@
     opacity: 0;
     transform: translateY(20px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -48,24 +51,26 @@
   from {
     width: 100%;
   }
+
   to {
     width: 0%;
   }
 }
 
 /* Modern Node Overlay Effects */
-.react-flow__node:not(.no-node-overlay)::before {
+.react-flow__node:not(.no-node-overlay):not(.text-no-bg-node)::before {
   content: '';
   position: absolute;
   top: -2px;
   left: -2px;
   right: -2px;
   bottom: -2px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.10) 40%, rgba(0,0,0,0.2) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.10) 40%, rgba(0, 0, 0, 0.2) 100%);
   border-radius: inherit;
   pointer-events: none;
   z-index: 1;
-  opacity: 1; /* Always on */
+  opacity: 1;
+  /* Always on */
   transition: opacity 0.3s ease-in-out;
 }
 
@@ -120,7 +125,7 @@
   border: 2px solid #374151 !important;
 }
 
-/* Modern Edge Overlay Effects - Apply gradient overlay to edges *-- Maybe try box shadow instead of filter? */ 
+/* Modern Edge Overlay Effects - Apply gradient overlay to edges *-- Maybe try box shadow instead of filter? */
 .react-flow__edge path {
   /* Add a subtle gradient overlay effect to edges */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.9);
@@ -141,6 +146,38 @@
 .markdown-content * {
   /* Ensure all child elements also don't block pointer events */
   pointer-events: none;
+}
+
+/* TextNoBgNode editing state - prevent viewport interference */
+.text-no-bg-editing {
+  /* Contain layout changes within the node */
+  contain: layout style;
+  /* Prevent the node from affecting parent layout calculations */
+  position: relative;
+  /* Ensure it stays above other elements but doesn't affect ReactFlow bounds */
+  z-index: 9999;
+  /* Prevent overflow from affecting parent containers */
+  overflow: visible;
+  /* Isolate the node's rendering context */
+  isolation: isolate;
+}
+
+/* Prevent text-no-bg nodes from affecting ReactFlow viewport calculations */
+.react-flow__node.text-no-bg-node {
+  /* Prevent the node from triggering ReactFlow bounds recalculation */
+  will-change: auto;
+  /* Ensure proper containment */
+  contain: layout;
+}
+
+.react-flow__node.text-no-bg-editing {
+  /* Override ReactFlow's default positioning behavior during editing */
+  transform-origin: top left;
+  /* Enhanced containment during editing */
+  contain: layout style;
+  /* Prevent viewport shifts */
+  position: relative;
+  overflow: visible;
 }
 
 .markdown-content strong {
