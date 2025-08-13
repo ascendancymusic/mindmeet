@@ -19,6 +19,7 @@ import { SocialMediaNode } from "../components/SocialMediaNode"
 import { LinkNode } from "../components/LinkNode"
 import { MindMapNode } from "../components/MindMapNode"
 import { DefaultTextNode } from "../components/TextNode"
+import { TextNoBgNode } from "../components/TextNoBgNode";
 import MarkdownRenderer from "../components/MarkdownRenderer"
 import { prepareNodesForRendering } from "../utils/reactFlowUtils"
 import { calculateTextNodeMinHeight, getNodeCurrentWidth } from "../utils/textNodeUtils"
@@ -74,6 +75,7 @@ const nodeTypes: NodeTypes = {
   spotify: SpotifyViewNode,
   soundcloud: SoundCloudViewNode,
   "youtube-video": YouTubeViewNode,
+  'text-no-bg':TextNoBgNode,
   image: ImageNode,
   audio: AudioNode,
   playlist: PlaylistNode,

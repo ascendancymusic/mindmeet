@@ -24,6 +24,28 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
 }) => {
     const reactFlowInstance = useReactFlow();
     const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+
+    // Ensure the outer React Flow node wrapper has the correct classes/styles to disable overlays globally
+    useEffect(() => {
+        const wrapper = rootRef.current?.closest('.react-flow__node') as HTMLElement | null;
+        if (wrapper) {
+            wrapper.classList.add('text-no-bg-node', 'no-node-overlay');
+            wrapper.style.background = 'transparent';
+            wrapper.style.border = 'none';
+            wrapper.style.boxShadow = 'none';
+        }
+
+        return () => {
+            if (wrapper) {
+                wrapper.classList.remove('text-no-bg-node', 'no-node-overlay', 'text-no-bg-editing');
+                wrapper.style.background = '';
+                wrapper.style.border = '';
+                wrapper.style.boxShadow = '';
+            }
+        };
+    }, [id]);
+
 
     // Get the text content from data.label
     const textContent = typeof data?.label === 'string' ? data.label : '';
@@ -88,6 +110,13 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
 
     // Focus textarea when editing starts and auto-resize
     useEffect(() => {
+        // Toggle an additional editing class while editing to leverage CSS that isolates layout
+        const wrapper = rootRef.current?.closest('.react-flow__node') as HTMLElement | null;
+        if (wrapper) {
+            if (isEditing) wrapper.classList.add('text-no-bg-editing');
+            else wrapper.classList.remove('text-no-bg-editing');
+        }
+
         if (isEditing && textareaRef.current) {
             textareaRef.current.focus();
             // Place caret at end without selecting all text
@@ -98,7 +127,7 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
             textareaRef.current.style.height = 'auto';
             textareaRef.current.style.height = `${Math.max(40, textareaRef.current.scrollHeight)}px`;
         }
-    }, [isEditing]);
+    }, [id, isEditing]);
 
     // Start editing on single click of displayed text
     const handleStartEditing = () => {
@@ -167,6 +196,7 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
 
     return (
         <div
+            ref={rootRef}
             className={`relative overflow-visible no-node-overlay ${selected
                 ? 'border border-blue-400/50 rounded-md'
                 : 'border border-transparent rounded-md hover:border-gray-500/30'

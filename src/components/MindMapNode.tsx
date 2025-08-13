@@ -14,6 +14,7 @@ import { PlaylistLiteNode } from './PlaylistLiteNode';
 import { SocialMediaNode } from './SocialMediaNode';
 import { LinkNode } from './LinkNode';
 import { useNavigate } from 'react-router-dom';
+import { TextNoBgNode } from "../components/TextNoBgNode";
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
 import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { supabase } from '../supabaseClient';
@@ -321,6 +322,7 @@ const nodeTypes = {
   spotify: SpotifyLiteNode,
   soundcloud: SoundCloudLiteNode,
   'youtube-video': YouTubeLiteNode,
+  'text-no-bg':TextNoBgNode,
   image: ImageNode,
   audio: AudioLiteNode,
   playlist: PlaylistLiteNode,
