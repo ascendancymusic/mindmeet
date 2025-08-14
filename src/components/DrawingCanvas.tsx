@@ -140,6 +140,11 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   // Track if we should save changes to history when editing ends
   const [shouldSaveChangesToHistory, setShouldSaveChangesToHistory] = useState(false);
 
+  // Custom cursor state
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+  const [showCustomCursor, setShowCustomCursor] = useState(false);
+  const [currentZoom, setCurrentZoom] = useState(1);
+
   // Initialize with drawing data from parent
   useEffect(() => {
     if (initialDrawingData !== undefined) {
@@ -732,6 +737,8 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         }
       }
 
+
+
       // Restore canvas transformation
       ctx.restore();
     } catch (error) {
@@ -785,7 +792,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
 
 
-  // Redraw canvas when strokes change - use requestAnimationFrame for smooth updates
+  // Redraw canvas when strokes change or cursor position changes - use requestAnimationFrame for smooth updates
   useEffect(() => {
     const frameId = requestAnimationFrame(() => {
       redrawCanvas();
@@ -794,7 +801,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     return () => {
       cancelAnimationFrame(frameId);
     };
-  }, [strokes, currentStroke, redrawCanvas]);
+  }, [strokes, currentStroke, cursorPosition, showCustomCursor, redrawCanvas]);
 
   // Viewport tracking - immediate updates for smooth movement
   const lastViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
@@ -818,12 +825,20 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           Math.abs(currentViewport.zoom - lastViewport.zoom) > 0.0001) {
 
           lastViewportRef.current = { ...currentViewport };
+
+          // Update zoom state for cursor size updates
+          if (Math.abs(currentViewport.zoom - currentZoom) > 0.0001) {
+            setCurrentZoom(currentViewport.zoom);
+          }
+
           // Immediate redraw for smooth movement - no debouncing
           redrawCanvas();
         }
       } catch (error) {
         // Skip frame on error
       }
+
+
 
       animationFrameRef.current = requestAnimationFrame(checkViewportChange);
     };
@@ -836,7 +851,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [reactFlowInstance, redrawCanvas]);
+  }, [reactFlowInstance, redrawCanvas, showCustomCursor, currentZoom]);
 
   // Add native wheel event listener to handle wheel events properly
   useEffect(() => {
@@ -1245,6 +1260,14 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     try {
       const coords = getFlowCoordinates(e.clientX, e.clientY);
 
+      // Update cursor position for custom cursor (use screen coordinates) - do this FIRST
+      if (isDrawingMode && (drawingTool === 'pen' || isEraserMode)) {
+        setCursorPosition({ x: e.clientX, y: e.clientY });
+        setShowCustomCursor(true);
+      } else {
+        setShowCustomCursor(false);
+      }
+
       if (isDrawingMode) {
         if (isEraserMode && isDrawing) {
           eraseAtPoint(coords.x, coords.y);
@@ -1473,6 +1496,18 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
   }, [isDrawingMode, isEraserMode, isDrawing, currentStroke, getFlowCoordinates, eraseAtPoint, isRotatingStroke, selectedStrokeId, dragStartPoint, rotationStartAngle, rotationCenter, originalRotation, rotationChanged, calculateAngle, getStrokeBounds, isResizingStroke, originalStrokeBounds, originalStrokeWidth, resizeHandle, resizeStrokePoints, isDraggingStroke, strokes, isPointNearStroke, getResizeHandleAtPoint, isPointNearRotationHandle, drawingTool, isDrawingShape, shapeStartPoint, createRectanglePoints, createCirclePoints, createTrianglePoints, createLinePoints]);
 
+  const handleMouseEnter = useCallback((e: React.MouseEvent) => {
+    if (isDrawingMode && (drawingTool === 'pen' || isEraserMode)) {
+      setCursorPosition({ x: e.clientX, y: e.clientY });
+      setShowCustomCursor(true);
+    }
+  }, [isDrawingMode, drawingTool, isEraserMode]);
+
+  const handleMouseLeave = useCallback(() => {
+    setShowCustomCursor(false);
+    setCursorPosition(null);
+  }, []);
+
   const handleMouseUp = useCallback(() => {
     try {
       if (isDrawingMode && (isDrawing || isDrawingShape)) {
@@ -1621,10 +1656,8 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     }
   }, [isDrawingMode, contextMenu.isVisible, handleCancelChanges]);
 
-  // Global mouse move listener to detect stroke hovering when canvas doesn't have pointer events
+  // Global mouse move listener for custom cursor and stroke hovering
   useEffect(() => {
-    if (isDrawingMode || strokes.length === 0) return;
-
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (!canvasRef.current || !reactFlowInstance) return;
 
@@ -1634,43 +1667,55 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
           e.clientY >= rect.top && e.clientY <= rect.bottom;
 
         if (isOverCanvas) {
-          const coords = getFlowCoordinates(e.clientX, e.clientY);
-
-          // Check for rotation and resize handles first
-          const selectedStroke = selectedStrokeId ? strokes.find(s => s.id === selectedStrokeId) : null;
-          if (selectedStroke) {
-            // Check rotation handle first
-            const isNearRotateHandle = isPointNearRotationHandle(coords, selectedStroke);
-            setIsHoveringRotateHandle(isNearRotateHandle);
-
-            if (isNearRotateHandle) {
-              setIsHoveringStroke(false);
-              setIsHoveringResizeHandle(null);
-              return;
-            }
-
-            // Check resize handles
-            const handleName = getResizeHandleAtPoint(coords, selectedStroke);
-            setIsHoveringResizeHandle(handleName);
-
-            if (handleName) {
-              setIsHoveringStroke(false);
-              return;
-            }
+          // Update custom cursor position for drawing tools
+          if (isDrawingMode && (drawingTool === 'pen' || isEraserMode)) {
+            setCursorPosition({ x: e.clientX, y: e.clientY });
+            setShowCustomCursor(true);
           }
 
-          // Check for stroke hovering
-          const hoveredStroke = strokes.find(stroke =>
-            isPointNearStroke(coords, stroke, 15)
-          );
-          setIsHoveringStroke(!!hoveredStroke);
-          setIsHoveringResizeHandle(null);
+          // Handle stroke hovering for non-drawing mode
+          if (!isDrawingMode && strokes.length > 0) {
+            const coords = getFlowCoordinates(e.clientX, e.clientY);
+
+            // Check for rotation and resize handles first
+            const selectedStroke = selectedStrokeId ? strokes.find(s => s.id === selectedStrokeId) : null;
+            if (selectedStroke) {
+              // Check rotation handle first
+              const isNearRotateHandle = isPointNearRotationHandle(coords, selectedStroke);
+              setIsHoveringRotateHandle(isNearRotateHandle);
+
+              if (isNearRotateHandle) {
+                setIsHoveringStroke(false);
+                setIsHoveringResizeHandle(null);
+                return;
+              }
+
+              // Check resize handles
+              const handleName = getResizeHandleAtPoint(coords, selectedStroke);
+              setIsHoveringResizeHandle(handleName);
+
+              if (handleName) {
+                setIsHoveringStroke(false);
+                return;
+              }
+            }
+
+            // Check for stroke hovering
+            const hoveredStroke = strokes.find(stroke =>
+              isPointNearStroke(coords, stroke, 15)
+            );
+            setIsHoveringStroke(!!hoveredStroke);
+            setIsHoveringResizeHandle(null);
+          }
         } else {
+          // Mouse is outside canvas
+          setShowCustomCursor(false);
           setIsHoveringStroke(false);
           setIsHoveringResizeHandle(null);
           setIsHoveringRotateHandle(false);
         }
       } catch (error) {
+        setShowCustomCursor(false);
         setIsHoveringStroke(false);
         setIsHoveringResizeHandle(null);
         setIsHoveringRotateHandle(false);
@@ -1679,17 +1724,15 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
     document.addEventListener('mousemove', handleGlobalMouseMove);
     return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
-  }, [isDrawingMode, strokes, getFlowCoordinates, isPointNearStroke, reactFlowInstance, selectedStrokeId, getResizeHandleAtPoint, isPointNearRotationHandle]);
+  }, [isDrawingMode, drawingTool, isEraserMode, strokes, getFlowCoordinates, isPointNearStroke, reactFlowInstance, selectedStrokeId, getResizeHandleAtPoint, isPointNearRotationHandle]);
 
   // Get cursor style based on current state
   const getCursorStyle = () => {
     if (isDrawingMode) {
-      if (isEraserMode) {
-        return 'crosshair';
+      if (isEraserMode || drawingTool === 'pen') {
+        return showCustomCursor ? 'none' : 'crosshair';
       }
       switch (drawingTool) {
-        case 'pen':
-          return 'crosshair';
         case 'rectangle':
         case 'circle':
         case 'triangle':
@@ -1782,9 +1825,33 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={(e) => {
+          handleMouseUp();
+          handleMouseLeave();
+        }}
         onContextMenu={handleContextMenu}
       />
+
+
+
+      {/* Custom Cursor for Pen and Eraser Tools */}
+      {showCustomCursor && cursorPosition && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{
+            left: cursorPosition.x,
+            top: cursorPosition.y,
+            width: Math.max(lineWidth * currentZoom, 6),
+            height: Math.max(lineWidth * currentZoom, 6),
+            borderRadius: '50%',
+            border: `2px solid black`,
+            boxShadow: `inset 0 0 0 1px ${isEraserMode ? '#ff4444' : drawingColor}`,
+            backgroundColor: isEraserMode ? 'rgba(255, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.2)',
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      )}
 
       {/* Stroke Context Menu */}
       {contextMenuStroke && (
