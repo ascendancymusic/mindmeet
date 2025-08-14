@@ -30,10 +30,12 @@ interface LinkNodeProps {
     displayText?: string;
   };
   isConnectable: boolean;
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
+  id?: string;
 }
 
 // Memoized LinkNode component to prevent unnecessary re-renders
-export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNodeProps) {
+export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextMenu, id }: LinkNodeProps) {
   const [favicon, setFavicon] = useState<string | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,6 +67,13 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
   // Memoize tooltip handlers
   const handleMouseEnter = useCallback(() => setShowTooltip(true), []);
   const handleMouseLeave = useCallback(() => setShowTooltip(false), []);
+
+  // Context menu handler
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    if (onContextMenu && id) {
+      onContextMenu(event, id);
+    }
+  }, [onContextMenu, id]);
 
   const updateWidth = useCallback(() => {
     if (textRef.current) {
@@ -175,6 +184,7 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable }: LinkNode
     <div
       className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ minWidth: nodeWidth, transition: 'min-width 0.2s ease-in-out' }}
+      onContextMenu={handleContextMenu}
     >
       <Handle
         type="target"

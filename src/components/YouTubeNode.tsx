@@ -11,9 +11,10 @@ interface YouTubeNodeProps {
   isConnectable: boolean;
   selected?: boolean;
   updateNodeData?: (nodeId: string, video: YouTubeVideo) => void;
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
 }
 
-export function YouTubeNode({ data, isConnectable }: YouTubeNodeProps) {
+export function YouTubeNode({ id, data, isConnectable, onContextMenu }: YouTubeNodeProps) {
   // Extract video ID from various YouTube URL formats
   const getYouTubeVideoId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -23,8 +24,14 @@ export function YouTubeNode({ data, isConnectable }: YouTubeNodeProps) {
 
   const videoId = data.videoUrl ? getYouTubeVideoId(data.videoUrl) : null;
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
-    <div className="group relative rounded-lg p-0 min-w-[300px]">
+    <div className="group relative rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
       <Handle
         type="target"
         position={Position.Top}

@@ -42,7 +42,7 @@ const hoverTextColors = {
 };
 
 export function SocialMediaNode(props: any) {
-  const { data, isConnectable, type: nodeType } = props;
+  const { data, isConnectable, type: nodeType, onContextMenu, id } = props;
   const textRef = useRef<HTMLSpanElement>(null);
   const { username = "" } = data || {};
 
@@ -61,10 +61,17 @@ export function SocialMediaNode(props: any) {
 
   const url = username && username !== "username" ? socialMediaUrls[type]?.(username) : undefined;
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu && id) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
     <div
       className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ wordWrap: "break-word", whiteSpace: "normal" }} // Ensure text wraps properly
+      onContextMenu={handleContextMenu}
     >
       <Handle
         type="target"

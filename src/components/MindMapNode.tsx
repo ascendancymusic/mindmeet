@@ -33,9 +33,10 @@ interface MindMapNodeProps {
     mapId?: string;  // Keep for backward compatibility (will be removed in future)
   };
   isConnectable: boolean;
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
 }
 
-const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data }) => {
+const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) => {
   const { maps } = useMindMapStore();
   const { user } = useAuthStore();
   const [selectedMap, setSelectedMap] = useState<any>(null);
@@ -193,8 +194,14 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data }) => {
     }
   };
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
-    <div className="relative min-w-[320px] bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl overflow-visible border border-slate-700/30 transition-all duration-300 hover:border-slate-600/50">
+    <div className="relative min-w-[320px] bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl overflow-visible border border-slate-700/30 transition-all duration-300 hover:border-slate-600/50" onContextMenu={handleContextMenu}>
       <Handle
         type="target"
         position={Position.Top}

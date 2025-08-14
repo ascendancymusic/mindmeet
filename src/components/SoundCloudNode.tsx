@@ -9,9 +9,17 @@ interface SoundCloudNodeProps {
     background?: string;
   };
   isConnectable: boolean;
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
+  id?: string;
 }
 
-export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnectable }) => {
+export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnectable, onContextMenu, id }) => {
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu && id) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
     <>
       <Handle
@@ -20,7 +28,7 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
         isConnectable={isConnectable}
         className="!top-[-8px]"
       />
-      <div className="group relative bg-gray-800 rounded-lg p-0 min-w-[300px]">
+      <div className="group relative bg-gray-800 rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
         {data.soundCloudUrl ? (
           <>
             <div className="border-2 border-gray-700 rounded-xl">

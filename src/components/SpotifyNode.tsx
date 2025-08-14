@@ -12,9 +12,11 @@ interface SpotifyNodeProps {
     background?: string;
   };
   isConnectable: boolean;
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
+  id?: string;
 }
 
-export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable }) => {
+export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, onContextMenu, id }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
@@ -69,8 +71,14 @@ export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable }
     };
   }, [data.spotifyUrl, iframeLoaded]);
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu && id) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
-    <div className="group relative rounded-lg p-0 min-w-[300px]">
+    <div className="group relative rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
       <Handle
         type="target"
         position={Position.Top}

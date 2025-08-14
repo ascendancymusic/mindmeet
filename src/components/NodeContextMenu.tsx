@@ -170,10 +170,10 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     if (isCurrentlyDone) {
       // Mark as undone - remove strikethrough and restore original background
       newLabel = currentLabel.slice(2, -2); // Remove -- from start and end
-      
+
       // Get the stored original color, or fallback to parent color, or black
       const storedOriginalColor = originalColors.get(nodeId);
-      
+
       if (storedOriginalColor) {
         newBackground = storedOriginalColor;
         console.log('Marking as undone, using stored color:', newBackground);
@@ -194,17 +194,17 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
           console.log('Marking as undone, no parent, using black');
         }
       }
-      
+
       // Remove the stored color since we're marking as undone
       originalColors.delete(nodeId);
     } else {
       // Mark as done - add strikethrough and red background
       // First, store the current background color before changing it
       originalColors.set(nodeId, currentBackground);
-      
+
       newLabel = `--${currentLabel}--`;
       newBackground = '#ff0000';
-      
+
       console.log('Marking as done, stored original color:', currentBackground);
     }
 
@@ -580,10 +580,31 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   // Get the current node to check its type
   const currentNode = nodes.find(node => node.id === nodeId);
   const isTextNode = currentNode?.type === 'default' || !currentNode?.type;
+  const isTextNoBgNode = currentNode?.type === 'text-no-bg';
+  const isLinkNode = currentNode?.type === 'link';
+  const isYouTubeVideoNode = currentNode?.type === 'youtube-video';
+  const isImageNode = currentNode?.type === 'image';
+  const isMindmapNode = currentNode?.type === 'mindmap';
+  const isSpotifyNode = currentNode?.type === 'spotify';
+  const isSoundCloudNode = currentNode?.type === 'soundcloud';
+  const isAudioNode = currentNode?.type === 'audio';
+  const isPlaylistNode = currentNode?.type === 'playlist';
+  const isInstagramNode = currentNode?.type === 'instagram';
+  const isTwitterNode = currentNode?.type === 'twitter';
+  const isFacebookNode = currentNode?.type === 'facebook';
+  const isYouTubeNode = currentNode?.type === 'youtube';
+  const isTikTokNode = currentNode?.type === 'tiktok';
+  const isMindMeetNode = currentNode?.type === 'mindmeet';
   const isRootNode = nodeId === "1";
-  const showBoldOption = isTextNode && !isRootNode;
-  const showCopyOption = isTextNode; // Show copy for all text nodes including root
-  const showMarkAsDoneOption = isTextNode; // Show mark as done for all text nodes
+
+  // Check if node has children
+  const nodeHasChildren = edges.some(edge => edge.source === nodeId);
+
+  // Define which options to show based on node type
+  const showBoldOption = isTextNoBgNode ? false : (isTextNode && !isRootNode);
+  const showCopyOption = isTextNode || isTextNoBgNode || isLinkNode || isYouTubeVideoNode || isImageNode || isMindmapNode || isSpotifyNode || isSoundCloudNode || isAudioNode || isPlaylistNode || isInstagramNode || isTwitterNode || isFacebookNode || isYouTubeNode || isTikTokNode || isMindMeetNode; // Show copy for ALL supported node types
+  const showMarkAsDoneOption = isTextNoBgNode ? false : isTextNode; // Hide for TextNoBgNode
+  const showAutoLayoutOption = !isTextNoBgNode && nodeHasChildren; // Hide autolayout for TextNoBgNode or nodes without children
 
   // Check if text is currently bold
   const currentLabel = currentNode?.data?.label || '';
@@ -606,13 +627,15 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
       <div className="px-3 py-1 text-xs text-slate-400 font-medium border-b border-slate-700/50 mb-1">
         Node Actions
       </div>
-      <button
-        onClick={handleAutoLayout}
-        className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
-      >
-        <Network className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
-        Autolayout
-      </button>
+      {showAutoLayoutOption && (
+        <button
+          onClick={handleAutoLayout}
+          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
+        >
+          <Network className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+          Autolayout
+        </button>
+      )}
       {showBoldOption && (
         <button
           onClick={handleBold}

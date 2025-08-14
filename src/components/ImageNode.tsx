@@ -15,6 +15,7 @@ interface ImageNodeProps {
   width?: number;
   height?: number;
   selected?: boolean; // added to mirror TextNode behavior for showing resize handle only when selected
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
 }
 
 // Match TextNode's minimal corner resize icon
@@ -31,7 +32,7 @@ const ResizeIcon = () => (
   </svg>
 );
 
-export function ImageNode({ id, data, isConnectable, width, height, selected }: ImageNodeProps) {
+export function ImageNode({ id, data, isConnectable, width, height, selected, onContextMenu }: ImageNodeProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,8 +197,14 @@ export function ImageNode({ id, data, isConnectable, width, height, selected }: 
     };
   }, [loadImage, data.file, data.imageUrl]);
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
-    <div className={"relative overflow-visible no-node-overlay"}>
+    <div className={"relative overflow-visible no-node-overlay"} onContextMenu={handleContextMenu}>
       {/* Show resize control only when image is present AND node is selected (parity with TextNode) */}
   {imageSrc && selected && (
     // We position the resize control so the visible grip sits just inside the bottom-right corner

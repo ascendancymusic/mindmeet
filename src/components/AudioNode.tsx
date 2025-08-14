@@ -22,6 +22,7 @@ interface AudioNodeProps {
   style?: {
     background?: string;
   };
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
 }
 
 
@@ -36,7 +37,7 @@ const formatTime = (timeInSeconds: number): string => {
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-export function AudioNode({ id, data, isConnectable, background, style }: AudioNodeProps) {
+export function AudioNode({ id, data, isConnectable, background, style, onContextMenu }: AudioNodeProps) {
   // Create a simple ref for the node container
   const nodeRef = useRef<HTMLDivElement>(null);
 
@@ -662,8 +663,14 @@ export function AudioNode({ id, data, isConnectable, background, style }: AudioN
     };
   }, [audioSrc]); // Only re-run when audio source changes
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(event, id);
+    }
+  };
+
   return (
-    <div ref={nodeRef} className="relative overflow-visible" style={{ width: '300px' }}>
+    <div ref={nodeRef} className="relative overflow-visible" style={{ width: '300px' }} onContextMenu={handleContextMenu}>
       {/* Fixed width audio node without resize control */}
       <Handle
         type="target"
