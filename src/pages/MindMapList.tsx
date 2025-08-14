@@ -24,6 +24,15 @@ import {
   FolderOpen,
   X,
   Check,
+  Briefcase,
+  Heart,
+  Lightbulb,
+  Target,
+  Zap,
+  Coffee,
+  Book,
+  Palette,
+  Music,
 } from "lucide-react"
 import ReactFlow, { type ReactFlowInstance, type NodeTypes } from "reactflow"
 import "reactflow/dist/style.css"
@@ -63,7 +72,8 @@ interface Group {
   name: string
   mindmapIds: string[]
   createdAt: number
-  color: string
+  icon: string
+  color?: string // legacy optional color support for existing styling
 }
 
 const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
@@ -155,13 +165,29 @@ const SkeletonLoader = () => {
   )
 }
 
+// Group icon options (Music icon inserted 3rd, Star removed per request)
+const groupIcons = [
+  { name: "Folder", component: Folder },
+  { name: "Briefcase", component: Briefcase },
+  { name: "Music", component: Music },
+  { name: "Heart", component: Heart },
+  { name: "Lightbulb", component: Lightbulb },
+  { name: "Target", component: Target },
+  { name: "Zap", component: Zap },
+  { name: "Coffee", component: Coffee },
+  { name: "Book", component: Book },
+  { name: "Palette", component: Palette },
+  { name: "Users", component: Users },
+  { name: "Network", component: Network },
+]
+
 const GroupMenu = ({
   isOpen,
   position,
-  groupId,
+  groupId: _groupId,
   onEdit,
   onDelete,
-  onClose,
+  onClose: _onClose,
 }: {
   isOpen: boolean
   position: { x: number; y: number } | null
@@ -213,37 +239,27 @@ const EditGroupModal = ({
   onClose: () => void
   group: Group | null
   availableMindmaps: any[]
-  onSave: (groupId: string, newName: string, selectedMindmapIds: string[], newColor: string) => Promise<void>
+  onSave: (groupId: string, newName: string, selectedMindmapIds: string[], newIcon: string) => Promise<void>
 }) => {
   const [groupName, setGroupName] = useState("")
   const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
-  const [selectedColor, setSelectedColor] = useState("#3B82F6")
+  const [selectedIcon, setSelectedIcon] = useState("Folder")
   const [sortOption, setSortOption] = useState("newest")
-
-  const groupColors = [
-    "#3B82F6", // Blue
-    "#10B981", // Emerald
-    "#F59E0B", // Amber
-    "#EF4444", // Red
-    "#8B5CF6", // Violet
-    "#EC4899", // Pink
-    "#06B6D4", // Cyan
-    "#84CC16", // Lime
-  ]
+  // icon selection replaces legacy color selection
 
   // Initialize form when group changes
   useEffect(() => {
     if (group) {
       setGroupName(group.name)
       setSelectedMindmapIds(group.mindmapIds)
-      setSelectedColor(group.color)
+  setSelectedIcon(group.icon || "Folder")
     }
   }, [group])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (groupName.trim() && group) {
-      await onSave(group.id, groupName.trim(), selectedMindmapIds, selectedColor)
+  await onSave(group.id, groupName.trim(), selectedMindmapIds, selectedIcon)
       onClose()
     }
   }
@@ -302,22 +318,26 @@ const EditGroupModal = ({
             />
           </div>
 
-          {/* Color Selection */}
+          {/* Icon Selection */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">Group Color</label>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Group Icon</label>
             <div className="flex flex-wrap gap-3">
-              {groupColors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setSelectedColor(color)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${selectedColor === color
-                    ? "border-white scale-110 shadow-lg"
-                    : "border-slate-600 hover:border-slate-400 hover:scale-105"
-                    }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+              {groupIcons.map((icon) => {
+                const IconComponent = icon.component
+                return (
+                  <button
+                    key={icon.name}
+                    type="button"
+                    onClick={() => setSelectedIcon(icon.name)}
+                    className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${selectedIcon === icon.name
+                      ? "border-blue-500 bg-blue-500/20 text-blue-300 scale-110 shadow-lg"
+                      : "border-slate-600 text-slate-400 hover:border-slate-400 hover:scale-105 hover:bg-slate-700/50 hover:text-slate-300"
+                      }`}
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -395,32 +415,23 @@ const CreateGroupModal = ({
 }: {
   isOpen: boolean
   onClose: () => void
-  onCreateGroup: (name: string, selectedMindmapIds: string[], color: string) => Promise<void>
+  onCreateGroup: (name: string, selectedMindmapIds: string[], icon: string) => Promise<void>
   availableMindmaps: any[]
 }) => {
   const [groupName, setGroupName] = useState("")
   const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
-  const [selectedColor, setSelectedColor] = useState("#3B82F6")
+  const [selectedIcon, setSelectedIcon] = useState("Folder")
   const [sortOption, setSortOption] = useState("newest")
 
-  const groupColors = [
-    "#3B82F6", // Blue
-    "#10B981", // Emerald
-    "#F59E0B", // Amber
-    "#EF4444", // Red
-    "#8B5CF6", // Violet
-    "#EC4899", // Pink
-    "#06B6D4", // Cyan
-    "#84CC16", // Lime
-  ]
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (groupName.trim() && selectedMindmapIds.length > 0) {
-      await onCreateGroup(groupName.trim(), selectedMindmapIds, selectedColor)
+      await onCreateGroup(groupName.trim(), selectedMindmapIds, selectedIcon)
       setGroupName("")
       setSelectedMindmapIds([])
-      setSelectedColor("#3B82F6")
+      setSelectedIcon("Folder")
       onClose()
     }
   }
@@ -479,22 +490,26 @@ const CreateGroupModal = ({
             />
           </div>
 
-          {/* Color Selection */}
+          {/* Icon Selection */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">Group Color</label>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Group Icon</label>
             <div className="flex flex-wrap gap-3">
-              {groupColors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setSelectedColor(color)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${selectedColor === color
-                    ? "border-white scale-110 shadow-lg"
-                    : "border-slate-600 hover:border-slate-400 hover:scale-105"
-                    }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+              {groupIcons.map((icon) => {
+                const IconComponent = icon.component
+                return (
+                  <button
+                    key={icon.name}
+                    type="button"
+                    onClick={() => setSelectedIcon(icon.name)}
+                    className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${selectedIcon === icon.name
+                      ? "border-blue-500 bg-blue-500/20 text-blue-300 scale-110 shadow-lg"
+                      : "border-slate-600 text-slate-400 hover:border-slate-400 hover:scale-105 hover:bg-slate-700/50 hover:text-slate-300"
+                      }`}
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -629,7 +644,7 @@ export default function MindMapList() {
   const [isLoading, setIsLoading] = useState(true)
   const reactFlowRef = useRef<ReactFlowInstance>(null)
 
-  const createGroup = async (name: string, mindmapIds: string[], color: string) => {
+  const createGroup = async (name: string, mindmapIds: string[], icon: string) => {
     if (!isValidUserId) return
 
     try {
@@ -639,7 +654,7 @@ export default function MindMapList() {
         .insert({
           user_id: userId,
           name: name.trim(),
-          color
+          icon
         })
         .select()
         .single()
@@ -666,7 +681,7 @@ export default function MindMapList() {
         name: groupData.name,
         mindmapIds,
         createdAt: new Date(groupData.created_at).getTime(),
-        color: groupData.color,
+        icon: groupData.icon,
       }
       setGroups((prev) => [...prev, newGroup])
 
@@ -772,16 +787,16 @@ export default function MindMapList() {
     }
   }
 
-  const editGroup = async (groupId: string, newName: string, selectedMindmapIds: string[], newColor: string) => {
+  const editGroup = async (groupId: string, newName: string, selectedMindmapIds: string[], newIcon: string) => {
     if (!isValidUserId) return
 
     try {
-      // Update group name and color
+      // Update group name and icon
       const { error: groupError } = await supabase
         .from('mindmap_groups')
         .update({
           name: newName.trim(),
-          color: newColor
+          icon: newIcon
         })
         .eq('id', groupId)
         .eq('user_id', userId)
@@ -827,7 +842,7 @@ export default function MindMapList() {
       setGroups((prev) =>
         prev.map((group) =>
           group.id === groupId
-            ? { ...group, name: newName.trim(), color: newColor, mindmapIds: selectedMindmapIds }
+            ? { ...group, name: newName.trim(), icon: newIcon, mindmapIds: selectedMindmapIds }
             : group
         )
       )
@@ -869,7 +884,7 @@ export default function MindMapList() {
         .select(`
           id,
           name,
-          color,
+          icon,
           created_at,
           mindmap_group_memberships (
             mindmap_key
@@ -884,7 +899,7 @@ export default function MindMapList() {
       const transformedGroups: Group[] = groupsData.map(group => ({
         id: group.id,
         name: group.name,
-        color: group.color,
+        icon: group.icon || 'Folder', // Default to Folder if no icon
         createdAt: new Date(group.created_at).getTime(),
         mindmapIds: group.mindmap_group_memberships.map((membership: any) => {
           // Find the mindmap ID by matching the key
@@ -1092,7 +1107,7 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-      const newMapId = await cloneMap(id, userId)
+  await cloneMap(id, userId)
       setShowCloneSuccessPopup(true)
       // Hide the popup after 3 seconds
       setTimeout(() => {
@@ -1341,13 +1356,15 @@ export default function MindMapList() {
                     ? "text-white border border-opacity-50"
                     : "bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white border border-slate-600/30"
                     }`}
-                  style={{
+                  style={group.color ? {
                     backgroundColor: selectedGroupId === group.id ? `${group.color}20` : undefined,
                     borderColor: selectedGroupId === group.id ? `${group.color}80` : undefined,
-                  }}
+                  } : undefined}
                 >
-                  <div className="w-[1vh] h-[1vh] rounded-full" style={{ backgroundColor: group.color }} />
-                  <FolderOpen className="w-[1.4vh] h-[1.4vh]" />
+                  {(() => {
+                    const IconComponent = groupIcons.find(i => i.name === group.icon)?.component || FolderOpen
+                    return <IconComponent className="w-[1.4vh] h-[1.4vh]" />
+                  })()}
                   <span>
                     {group.name} ({group.mindmapIds.length})
                   </span>
@@ -1854,7 +1871,7 @@ export default function MindMapList() {
                       >
                         {isInGroup && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                      {group.color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />}
                       <span className="flex-1 text-left">{group.name}</span>
                       <span className="text-xs text-slate-500">({group.mindmapIds.length})</span>
                     </button>
