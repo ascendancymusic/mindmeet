@@ -1,9 +1,30 @@
+"use client"
+
 import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { usePageTitle } from '../hooks/usePageTitle'
-import { Network, Plus, Clock, Edit2, Trash2, Link, MoreVertical, EyeOff, Eye, AlertTriangle, Pin, Star, Users } from 'lucide-react'
-import ReactFlow, { type ReactFlowInstance, NodeTypes } from "reactflow"
+import { usePageTitle } from "../hooks/usePageTitle"
+import {
+  Network,
+  Plus,
+  Clock,
+  Edit2,
+  Trash2,
+  Link,
+  MoreVertical,
+  EyeOff,
+  Eye,
+  AlertTriangle,
+  Pin,
+  Star,
+  Users,
+  FolderPlus,
+  Folder,
+  FolderOpen,
+  X,
+  Check,
+} from "lucide-react"
+import ReactFlow, { type ReactFlowInstance, type NodeTypes } from "reactflow"
 import "reactflow/dist/style.css"
 import { useMindMapStore } from "../store/mindMapStore"
 import { nodeTypes } from "../config/nodeTypes"
@@ -29,11 +50,19 @@ const shimmerStyles = `
 `
 
 // Inject styles into the document head
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style')
-  styleSheet.type = 'text/css'
+if (typeof document !== "undefined") {
+  const styleSheet = document.createElement("style")
+  styleSheet.type = "text/css"
   styleSheet.innerText = shimmerStyles
   document.head.appendChild(styleSheet)
+}
+
+interface Group {
+  id: string
+  name: string
+  mindmapIds: string[]
+  createdAt: number
+  color: string
 }
 
 const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
@@ -41,10 +70,7 @@ const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => 
     return (
       <>
         {/* Base background color */}
-        <div
-          className="absolute inset-0 rounded-lg"
-          style={{ backgroundColor, zIndex: -2 }}
-        />
+        <div className="absolute inset-0 rounded-lg" style={{ backgroundColor, zIndex: -2 }} />
         {/* Subtle gradient overlay for better visual appeal */}
         <div
           className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
@@ -128,6 +154,157 @@ const SkeletonLoader = () => {
   )
 }
 
+const CreateGroupModal = ({
+  isOpen,
+  onClose,
+  onCreateGroup,
+  availableMindmaps,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onCreateGroup: (name: string, selectedMindmapIds: string[], color: string) => void
+  availableMindmaps: any[]
+}) => {
+  const [groupName, setGroupName] = useState("")
+  const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
+  const [selectedColor, setSelectedColor] = useState("#3B82F6")
+
+  const groupColors = [
+    "#3B82F6", // Blue
+    "#10B981", // Emerald
+    "#F59E0B", // Amber
+    "#EF4444", // Red
+    "#8B5CF6", // Violet
+    "#EC4899", // Pink
+    "#06B6D4", // Cyan
+    "#84CC16", // Lime
+  ]
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (groupName.trim() && selectedMindmapIds.length > 0) {
+      onCreateGroup(groupName.trim(), selectedMindmapIds, selectedColor)
+      setGroupName("")
+      setSelectedMindmapIds([])
+      setSelectedColor("#3B82F6")
+      onClose()
+    }
+  }
+
+  const toggleMindmapSelection = (mindmapId: string) => {
+    setSelectedMindmapIds((prev) =>
+      prev.includes(mindmapId) ? prev.filter((id) => id !== mindmapId) : [...prev, mindmapId],
+    )
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-2xl border border-slate-700/50 shadow-2xl max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+            Create New Group
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-700/50"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Group Name Input */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Group Name</label>
+            <input
+              type="text"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder="Enter group name..."
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+              autoFocus
+              maxLength={30}
+            />
+          </div>
+
+          {/* Color Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Group Color</label>
+            <div className="flex flex-wrap gap-3">
+              {groupColors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setSelectedColor(color)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${selectedColor === color
+                    ? "border-white scale-110 shadow-lg"
+                    : "border-slate-600 hover:border-slate-400 hover:scale-105"
+                    }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Mindmap Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              Select Mindmaps ({selectedMindmapIds.length} selected)
+            </label>
+            <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
+              {availableMindmaps.map((mindmap) => (
+                <div
+                  key={mindmap.id}
+                  onClick={() => toggleMindmapSelection(mindmap.id)}
+                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${selectedMindmapIds.includes(mindmap.id)
+                    ? "bg-blue-500/20 border border-blue-500/50"
+                    : "bg-slate-700/30 hover:bg-slate-700/50 border border-transparent"
+                    }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedMindmapIds.includes(mindmap.id) ? "bg-blue-500 border-blue-500" : "border-slate-500"
+                      }`}
+                  >
+                    {selectedMindmapIds.includes(mindmap.id) && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-white">{mindmap.title}</h4>
+                    <p className="text-xs text-slate-400">
+                      {mindmap.nodes?.length || 0} nodes • {mindmap.edges?.length || 0} connections
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {selectedMindmapIds.length === 0 && (
+              <p className="text-xs text-slate-500 mt-2">Select at least one mindmap to create a group</p>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700/50">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3 text-slate-400 hover:text-slate-300 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!groupName.trim() || selectedMindmapIds.length === 0}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              Create Group
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 /**
  * MindMapList Component
  *
@@ -139,10 +316,9 @@ const SkeletonLoader = () => {
  * - Pinning/unpinning maps for quick access
  * - Deleting maps with confirmation
  * - Interactive previews of each map using ReactFlow
- *
- * @returns {JSX.Element} The rendered MindMapList component
+ * - Group management for organizing mindmaps
  */
-export default function MindMapList(): JSX.Element {
+export default function MindMapList() {
   // Authentication and navigation
   const { user } = useAuthStore()
   const userId = user?.id
@@ -152,7 +328,7 @@ export default function MindMapList(): JSX.Element {
   const isValidUserId = userId && /^[0-9a-fA-F-]{36}$/.test(userId)
 
   // Dynamic page title
-  usePageTitle('My Mindmaps');
+  usePageTitle("My Mindmaps")
 
   // MindMap store actions and state
   const {
@@ -166,6 +342,14 @@ export default function MindMapList(): JSX.Element {
     toggleMapPin,
     updateMapId,
   } = useMindMapStore()
+
+  const [groups, setGroups] = useState<Group[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false)
+  const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
+  const [groupToRename, setGroupToRename] = useState<string | null>(null)
+  const [addToGroupMapId, setAddToGroupMapId] = useState<string | null>(null)
+
   // UI state management
   const location = useLocation()
   const [isCreating, setIsCreating] = useState(false)
@@ -180,6 +364,78 @@ export default function MindMapList(): JSX.Element {
   const [showCloneSuccessPopup, setShowCloneSuccessPopup] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const reactFlowRef = useRef<ReactFlowInstance>(null)
+
+  const createGroup = (name: string, mindmapIds: string[], color: string) => {
+    const newGroup: Group = {
+      id: Date.now().toString(),
+      name,
+      mindmapIds,
+      createdAt: Date.now(),
+      color,
+    }
+    setGroups((prev) => [...prev, newGroup])
+  }
+
+  const deleteGroup = (groupId: string) => {
+    setGroups((prev) => prev.filter((group) => group.id !== groupId))
+    if (selectedGroupId === groupId) {
+      setSelectedGroupId(null)
+    }
+  }
+
+  const confirmDeleteGroup = () => {
+    if (groupToDelete) {
+      deleteGroup(groupToDelete)
+      setGroupToDelete(null)
+    }
+  }
+
+  const addMapToGroup = (mapId: string, groupId: string) => {
+    setGroups((prev) =>
+      prev.map((group) =>
+        group.id === groupId
+          ? { ...group, mindmapIds: [...new Set([...group.mindmapIds, mapId])] }
+          : group
+      )
+    )
+  }
+
+  const removeMapFromGroup = (mapId: string, groupId: string) => {
+    setGroups((prev) =>
+      prev.map((group) =>
+        group.id === groupId
+          ? { ...group, mindmapIds: group.mindmapIds.filter((id) => id !== mapId) }
+          : group
+      )
+    )
+  }
+
+  const renameGroup = (groupId: string, newName: string) => {
+    setGroups((prev) =>
+      prev.map((group) =>
+        group.id === groupId ? { ...group, name: newName.trim() } : group
+      )
+    )
+  }
+
+  const getFilteredMaps = () => {
+    const currentMaps = viewMode === "owned" ? maps : collaborationMaps
+
+    if (!selectedGroupId) {
+      return currentMaps // Show all maps when no group is selected
+    }
+
+    const selectedGroup = groups.find((group) => group.id === selectedGroupId)
+    if (!selectedGroup) {
+      return currentMaps
+    }
+
+    return currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.id))
+  }
+
+  const getAllMaps = () => {
+    return viewMode === "owned" ? maps : collaborationMaps
+  }
 
   /**
    * Handle automatic opening of create map modal when navigated with state
@@ -202,10 +458,7 @@ export default function MindMapList(): JSX.Element {
       if (isValidUserId) {
         setIsLoading(true)
         try {
-          await Promise.all([
-            fetchMaps(userId),
-            fetchCollaborationMaps(userId)
-          ])
+          await Promise.all([fetchMaps(userId), fetchCollaborationMaps(userId)])
         } catch (error) {
           console.error("Error fetching maps:", error)
         } finally {
@@ -220,7 +473,6 @@ export default function MindMapList(): JSX.Element {
     fetchData()
   }, [isValidUserId, userId, fetchMaps, fetchCollaborationMaps])
 
-
   const handleCreateMap = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newMapTitle.trim() || !isValidUserId) {
@@ -228,17 +480,17 @@ export default function MindMapList(): JSX.Element {
       return
     }
 
-    const { showToast } = useToastStore.getState();
+    const { showToast } = useToastStore.getState()
 
     try {
       const id = await addMap(newMapTitle.trim().substring(0, 20), userId)
       setNewMapTitle("")
       setIsCreating(false)
-      showToast("Mindmap created successfully!", "success");
+      showToast("Mindmap created successfully!", "success")
       navigate(`/${user.username}/${id}/edit`)
     } catch (error) {
-      console.error("Error creating mindmap:", error);
-      showToast("Failed to create mindmap. Please try again.", "error");
+      console.error("Error creating mindmap:", error)
+      showToast("Failed to create mindmap. Please try again.", "error")
     }
   }
 
@@ -252,17 +504,16 @@ export default function MindMapList(): JSX.Element {
     return () => window.removeEventListener("resize", handleResize)
   }, [handleResize])
 
-
   const onInit = useCallback((instance: ReactFlowInstance) => {
-    (reactFlowRef as any).current = instance
+    ; (reactFlowRef as any).current = instance
   }, [])
 
   /**
    * Sort maps based on user selection while keeping pinned maps at the top
    * Creates a new sorted array without modifying the original maps array
    */
-  const currentMaps = viewMode === "owned" ? maps : collaborationMaps
-  const sortedMaps = [...currentMaps].sort((a, b) => {
+  const filteredMaps = getFilteredMaps()
+  const sortedMaps = [...filteredMaps].sort((a, b) => {
     // First sort by pin status (pinned maps always appear first)
     if (a.isPinned && !b.isPinned) return -1
     if (!a.isPinned && b.isPinned) return 1
@@ -315,14 +566,12 @@ export default function MindMapList(): JSX.Element {
     setOpenMenuId(null)
   }
 
-
   const confirmDelete = async () => {
     if (mapToDelete && isValidUserId) {
       deleteMap(mapToDelete, userId)
       setMapToDelete(null)
     }
   }
-
 
   const handleTogglePin = async (id: string) => {
     const currentMap = maps.find((map) => map.id === id)
@@ -340,29 +589,27 @@ export default function MindMapList(): JSX.Element {
     // Close the menu immediately
     setOpenMenuId(null)
 
-    const { showToast } = useToastStore.getState();
+    const { showToast } = useToastStore.getState()
 
     try {
       const newMapId = await cloneMap(id, userId)
-      setShowCloneSuccessPopup(true);
+      setShowCloneSuccessPopup(true)
       // Hide the popup after 3 seconds
       setTimeout(() => {
-        setShowCloneSuccessPopup(false);
-      }, 3000);
+        setShowCloneSuccessPopup(false)
+      }, 3000)
       // Optionally navigate to the new cloned map
       // navigate(`/${user.username}/${newMapId}/edit`)
     } catch (error) {
-      console.error("Error cloning mindmap:", error);
-      showToast("Failed to clone mindmap. Please try again.", "error");
+      console.error("Error cloning mindmap:", error)
+      showToast("Failed to clone mindmap. Please try again.", "error")
     }
   }
-
 
   const handleEditDetails = (id: string) => {
     setMapToEdit(id)
     setOpenMenuId(null)
   }
-
 
   /**
    * Saves updated map details including title, permalink, visibility, description, and collaborators
@@ -378,86 +625,86 @@ export default function MindMapList(): JSX.Element {
    * @throws {Error} If the permalink is already in use by another map
    */
   const saveMapDetails = async (details: {
-    title: string;
-    permalink: string;
-    visibility: "public" | "private" | "linkOnly";
-    description: string;
-    is_main: boolean;
-    collaborators: string[];
-    published_at?: string | null;
+    title: string
+    permalink: string
+    visibility: "public" | "private" | "linkOnly"
+    description: string
+    is_main: boolean
+    collaborators: string[]
+    published_at?: string | null
   }) => {
     if (mapToEdit && isValidUserId) {
-      const currentMap = maps.find((map) => map.id === mapToEdit);
+      const currentMap = maps.find((map) => map.id === mapToEdit)
       if (currentMap) {
         // Check if the new permalink already exists for the current user
-        const conflictingMap = maps.find(
-          (map) => map.id === details.permalink && map.id !== currentMap.id
-        );
+        const conflictingMap = maps.find((map) => map.id === details.permalink && map.id !== currentMap.id)
 
         if (conflictingMap) {
-          throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
+          throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`)
         }
 
         try {
-          const isPermalinkChanged = currentMap.id !== details.permalink;
+          const isPermalinkChanged = currentMap.id !== details.permalink
           const updatedMapData = {
             title: details.title,
             visibility: details.visibility,
             description: details.description || "",
             is_main: details.is_main,
             collaborators: details.collaborators,
-            published_at: details.published_at
-          };
+            published_at: details.published_at,
+          }
 
           if (isPermalinkChanged) {
             const updatedMap = {
               ...currentMap,
-              ...updatedMapData
-            };
+              ...updatedMapData,
+            }
 
             // Save the map with updated details
-            await useMindMapStore.getState().saveMapToSupabase(updatedMap, userId);
+            await useMindMapStore.getState().saveMapToSupabase(updatedMap, userId)
 
             // Then update the ID (this creates a new record and deletes the old one)
-            await updateMapId(currentMap.id, details.permalink);
+            await updateMapId(currentMap.id, details.permalink)
           } else {
             const updatedMap = {
               ...currentMap,
-              ...updatedMapData
-            };
+              ...updatedMapData,
+            }
 
             // Save the map with updated details
-            await useMindMapStore.getState().saveMapToSupabase(updatedMap, userId);
+            await useMindMapStore.getState().saveMapToSupabase(updatedMap, userId)
           }
 
           // If this is a publish/republish action, notify followers
           // Only send notifications if published_at was just set (not if it already existed)
-          const wasJustPublished = details.published_at &&
-            details.visibility === "public" &&
-            details.published_at !== currentMap.published_at;
+          const wasJustPublished =
+            details.published_at && details.visibility === "public" && details.published_at !== currentMap.published_at
           if (wasJustPublished && currentMap.key && user?.username) {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
                 creator_id: userId,
                 mindmap_key: currentMap.key,
                 mindmap_title: details.title,
-                creator_username: user.username
-              });
+                creator_username: user.username,
+              })
 
-              const { data: notificationData, error: notificationError } = await supabase.rpc('notify_followers_on_publish', {
-                p_creator_id: userId,
-                p_mindmap_key: currentMap.key,
-                p_mindmap_title: details.title,
-                p_creator_username: user.username
-              });
+              const { data: notificationData, error: notificationError } = await supabase.rpc(
+                "notify_followers_on_publish",
+                {
+                  p_creator_id: userId,
+                  p_mindmap_key: currentMap.key,
+                  p_mindmap_title: details.title,
+                  p_creator_username: user.username,
+                },
+              )
 
               if (notificationError) {
-                console.error("Error sending follower notifications:", notificationError);
+                console.error("Error sending follower notifications:", notificationError)
               } else {
-                console.log("Successfully sent notifications to followers:", notificationData);
+                console.log("Successfully sent notifications to followers:", notificationData)
               }
             } catch (notifyError) {
-              console.error("Failed to notify followers:", notifyError);
+              console.error("Failed to notify followers:", notifyError)
               // Don't throw here - we don't want to fail the publish because notifications failed
             }
           }
@@ -467,36 +714,34 @@ export default function MindMapList(): JSX.Element {
             ...currentMap,
             ...updatedMapData,
             id: isPermalinkChanged ? details.permalink : currentMap.id,
-          };
+          }
 
           // Update the maps array in state
-          useMindMapStore.getState().setMaps(
-            maps.map((map) => (map.id === currentMap.id ? updatedMap : map))
-          );
+          useMindMapStore.getState().setMaps(maps.map((map) => (map.id === currentMap.id ? updatedMap : map)))
 
           // Show success popup if publishing/republishing
           if (wasJustPublished) {
-            setShowSuccessPopup(true);
+            setShowSuccessPopup(true)
             // Hide the popup after 3 seconds
             setTimeout(() => {
-              setShowSuccessPopup(false);
-            }, 3000);
+              setShowSuccessPopup(false)
+            }, 3000)
           }
 
-          setMapToEdit(null);
+          setMapToEdit(null)
         } catch (error) {
-          console.error("Failed to update map details:", error);
-          throw error;
+          console.error("Failed to update map details:", error)
+          throw error
         }
       }
     }
-  };
+  }
 
   return (
     <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">
-      {/* Enhanced Header */}
+      {/* Enhanced Header with Integrated Groups */}
       <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-[2vh] border border-slate-700/30 shadow-2xl mb-[3vh]">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-start mb-[1.5vh]">
           <div className="flex flex-col space-y-[1.5vh]">
             <h1 className="text-[2.5vh] font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
               {viewMode === "owned" ? "Your Mindmaps" : "Collaboration Maps"}
@@ -506,7 +751,7 @@ export default function MindMapList(): JSX.Element {
             <div className="flex items-center space-x-[0.5vh] bg-slate-800/50 backdrop-blur-sm rounded-xl p-[0.5vh] border border-slate-700/30">
               <button
                 onClick={() => setViewMode("owned")}
-                className={`${isSmallScreen ? 'px-[1vh] py-[0.8vh]' : 'px-[1.5vh] py-[0.8vh]'} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "owned"
+                className={`${isSmallScreen ? "px-[1vh] py-[0.8vh]" : "px-[1.5vh] py-[0.8vh]"} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "owned"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
                   }`}
@@ -522,7 +767,7 @@ export default function MindMapList(): JSX.Element {
               </button>
               <button
                 onClick={() => setViewMode("collaboration")}
-                className={`${isSmallScreen ? 'px-[1vh] py-[0.8vh]' : 'px-[1.5vh] py-[0.8vh]'} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "collaboration"
+                className={`${isSmallScreen ? "px-[1vh] py-[0.8vh]" : "px-[1.5vh] py-[0.8vh]"} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "collaboration"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
                   }`}
@@ -546,12 +791,12 @@ export default function MindMapList(): JSX.Element {
               onChange={(e) =>
                 setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
               }
-              className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? 'px-[1vh] py-[0.8vh] text-[1.2vh]' : 'px-[1.5vh] py-[0.8vh] text-[1.4vh]'} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
+              className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? "px-[1vh] py-[0.8vh] text-[1.2vh]" : "px-[1.5vh] py-[0.8vh] text-[1.4vh]"} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
             >
-              <option value="newest">{isSmallScreen ? 'Newest' : 'Newest First'}</option>
-              <option value="oldest">{isSmallScreen ? 'Oldest' : 'Oldest First'}</option>
-              <option value="alphabeticalAsc">{isSmallScreen ? 'A-Z' : 'Alphabetical (A-Z)'}</option>
-              <option value="alphabeticalDesc">{isSmallScreen ? 'Z-A' : 'Alphabetical (Z-A)'}</option>
+              <option value="newest">{isSmallScreen ? "Newest" : "Newest First"}</option>
+              <option value="oldest">{isSmallScreen ? "Oldest" : "Oldest First"}</option>
+              <option value="alphabeticalAsc">{isSmallScreen ? "A-Z" : "Alphabetical (A-Z)"}</option>
+              <option value="alphabeticalDesc">{isSmallScreen ? "Z-A" : "Alphabetical (Z-A)"}</option>
             </select>
             {viewMode === "owned" && (
               <button
@@ -570,7 +815,88 @@ export default function MindMapList(): JSX.Element {
             )}
           </div>
         </div>
+
+        {/* Integrated Group Filter Tabs */}
+        {viewMode === "owned" && (
+          <div className="flex flex-wrap gap-[0.8vh] pt-[1vh] border-t border-slate-700/30">
+            <button
+              onClick={() => setSelectedGroupId(null)}
+              className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${selectedGroupId === null
+                ? "bg-blue-500/20 text-blue-300 border border-blue-500/50"
+                : "bg-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300 border border-slate-600/30"
+                }`}
+            >
+              <Folder className="w-[1.4vh] h-[1.4vh]" />
+              <span>All Maps ({(viewMode === "owned" ? maps : collaborationMaps).length})</span>
+            </button>
+
+            {groups.map((group) => (
+              <div key={group.id} className="relative group/group">
+                <button
+                  onClick={() => setSelectedGroupId(group.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setGroupToRename(group.id)
+                  }}
+                  className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${selectedGroupId === group.id
+                    ? "text-white border border-opacity-50"
+                    : "bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white border border-slate-600/30"
+                    }`}
+                  style={{
+                    backgroundColor: selectedGroupId === group.id ? `${group.color}20` : undefined,
+                    borderColor: selectedGroupId === group.id ? `${group.color}80` : undefined,
+                  }}
+                  title="Left click to filter, right click to rename"
+                >
+                  <div className="w-[1vh] h-[1vh] rounded-full" style={{ backgroundColor: group.color }} />
+                  <FolderOpen className="w-[1.4vh] h-[1.4vh]" />
+                  <span>
+                    {group.name} ({group.mindmapIds.length})
+                  </span>
+                </button>
+
+                {/* Group Actions */}
+                <div className="absolute -top-[0.3vh] -right-[0.3vh] flex gap-[0.2vh] opacity-0 group-hover/group:opacity-100 transition-opacity duration-200">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setGroupToRename(group.id)
+                    }}
+                    className="w-[1.8vh] h-[1.8vh] bg-blue-500 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-blue-600"
+                    title="Rename group"
+                  >
+                    <Edit2 className="w-[1.2vh] h-[1.2vh]" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setGroupToDelete(group.id)
+                    }}
+                    className="w-[1.8vh] h-[1.8vh] bg-red-500 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-red-600"
+                    title="Delete group"
+                  >
+                    <X className="w-[1.2vh] h-[1.2vh]" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* New Group Button - Integrated within group tabs */}
+            <button
+              onClick={() => setIsCreatingGroup(true)}
+              className="flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] bg-slate-700/20 text-slate-400 hover:bg-emerald-600/20 hover:text-emerald-300 border border-slate-600/30 hover:border-emerald-500/50 rounded-lg text-[1.3vh] font-medium transition-all duration-200 group"
+              title="Create new group"
+            >
+              <FolderPlus className="w-[1.4vh] h-[1.4vh] transition-transform group-hover:scale-110" />
+              <span>New Group</span>
+            </button>
+
+
+          </div>
+        )}
       </div>
+
+
 
       {!isValidUserId ? (
         <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
@@ -579,13 +905,15 @@ export default function MindMapList(): JSX.Element {
         </div>
       ) : isLoading ? (
         <SkeletonLoader />
-      ) : currentMaps.length === 0 ? (
+      ) : sortedMaps.length === 0 ? (
         <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
           <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
           <p className="text-slate-400 text-[1.6vh]">
-            {viewMode === "owned"
-              ? "No mindmaps yet. Create your first one!"
-              : "No collaboration maps yet. You'll see mindmaps here when someone adds you as a collaborator."}
+            {selectedGroupId
+              ? `No mindmaps in "${groups.find((g) => g.id === selectedGroupId)?.name}" group yet.`
+              : viewMode === "owned"
+                ? "No mindmaps yet. Create your first one!"
+                : "No collaboration maps yet. You'll see mindmaps here when someone adds you as a collaborator."}
           </p>
         </div>
       ) : (
@@ -606,32 +934,30 @@ export default function MindMapList(): JSX.Element {
                         map.creatorAvatar ? (
                           <img
                             src={map.creatorAvatar || "/placeholder.svg"}
-                            alt={map.creatorUsername || 'Creator'}
+                            alt={map.creatorUsername || "Creator"}
                             className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
                             <span className="text-xs font-bold text-slate-300">
-                              {map.creatorUsername?.charAt(0)?.toUpperCase() || '?'}
+                              {map.creatorUsername?.charAt(0)?.toUpperCase() || "?"}
                             </span>
                           </div>
                         )
-                      ) : (
-                        // For owned maps, show user avatar
+                      ) : // For owned maps, show user avatar
                         map.creatorAvatar ? (
                           <img
                             src={map.creatorAvatar || "/placeholder.svg"}
-                            alt={user?.username || 'User'}
+                            alt={user?.username || "User"}
                             className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
                             <span className="text-xs font-bold text-slate-300">
-                              {user?.username?.charAt(0)?.toUpperCase() || '?'}
+                              {user?.username?.charAt(0)?.toUpperCase() || "?"}
                             </span>
                           </div>
-                        )
-                      )}
+                        )}
                       {map.isPinned && viewMode === "owned" && (
                         <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500/20 to-blue-300/20 rounded-full border border-blue-500/30">
                           <Pin className="w-3 h-3 text-blue-400" />
@@ -645,22 +971,15 @@ export default function MindMapList(): JSX.Element {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-bold text-white truncate">
-                        {map.title}
-                      </h3>
+                      <h3 className="text-base font-bold text-white truncate">{map.title}</h3>
                       {viewMode === "collaboration" && map.creatorUsername && (
-                        <p className="text-xs text-blue-400 mt-1 font-medium">
-                          @{map.creatorUsername}
-                        </p>
+                        <p className="text-xs text-blue-400 mt-1 font-medium">@{map.creatorUsername}</p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-1">
                     <div className="relative visibility-container">
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-2 text-slate-500 cursor-default"
-                      >
+                      <div onClick={(e) => e.stopPropagation()} className="p-2 text-slate-500 cursor-default">
                         {map.visibility === "public" ? (
                           <Eye className="w-5 h-5" />
                         ) : map.visibility === "linkOnly" ? (
@@ -725,6 +1044,32 @@ export default function MindMapList(): JSX.Element {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
+                                  setAddToGroupMapId(map.id)
+                                  toggleMenu(map.id)
+                                }}
+                                className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+                              >
+                                <FolderPlus className="w-4 h-4" />
+                                Manage Groups
+                              </button>
+                            )}
+                            {viewMode === "owned" && selectedGroupId && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeMapFromGroup(map.id, selectedGroupId)
+                                  toggleMenu(map.id)
+                                }}
+                                className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-orange-400 flex items-center gap-3 transition-all duration-200"
+                              >
+                                <X className="w-4 h-4" />
+                                Remove from Group
+                              </button>
+                            )}
+                            {viewMode === "owned" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   handleDeleteMap(map.id)
                                   toggleMenu(map.id)
                                 }}
@@ -765,12 +1110,12 @@ export default function MindMapList(): JSX.Element {
                 <a
                   href={(() => {
                     if (viewMode === "collaboration" && map?.creatorUsername) {
-                      return `/${map.creatorUsername}/${map.id}/edit`;
+                      return `/${map.creatorUsername}/${map.id}/edit`
                     } else {
-                      return `/${user?.username}/${map.id}/edit`;
+                      return `/${user?.username}/${map.id}/edit`
                     }
                   })()}
-                  className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? 'pointer-events-auto' : ''}`}
+                  className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? "pointer-events-auto" : ""}`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {map.nodes?.length > 0 ? (
@@ -778,25 +1123,25 @@ export default function MindMapList(): JSX.Element {
                       nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
                       edges={map.edges.map((edge: any) => {
                         // Find the source node to get its color
-                        const sourceNode = map.nodes.find((node: any) => node.id === edge.source);
+                        const sourceNode = map.nodes.find((node: any) => node.id === edge.source)
                         const sourceNodeColor = sourceNode
-                          ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                          : "#374151";
+                          ? sourceNode.background || sourceNode.style?.background || "#374151"
+                          : "#374151"
 
                         // Get edgeType from map, default to 'default' if not valid
-                        const edgeType = ['default', 'straight', 'smoothstep'].includes(map.edgeType || '')
+                        const edgeType = ["default", "straight", "smoothstep"].includes(map.edgeType || "")
                           ? map.edgeType
-                          : 'default';
+                          : "default"
 
                         return {
                           ...edge,
-                          type: edgeType === 'default' ? 'default' : edgeType,
+                          type: edgeType === "default" ? "default" : edgeType,
                           style: {
                             ...edge.style,
                             strokeWidth: 2,
                             stroke: sourceNodeColor,
                           },
-                        };
+                        }
                       })}
                       nodeTypes={nodeTypes as unknown as NodeTypes}
                       fitView
@@ -820,7 +1165,7 @@ export default function MindMapList(): JSX.Element {
                       <div
                         className="absolute inset-0"
                         style={{
-                          backgroundColor: map.backgroundColor || 'rgba(30, 41, 59, 0.3)' // fallback to bg-slate-800/30
+                          backgroundColor: map.backgroundColor || "rgba(30, 41, 59, 0.3)", // fallback to bg-slate-800/30
                         }}
                       />
                       {/* Gradient overlay for better visual appeal */}
@@ -846,7 +1191,9 @@ export default function MindMapList(): JSX.Element {
       {isCreating && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6">Create a new mindmap</h2>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6">
+              Create a new mindmap
+            </h2>
             <form onSubmit={handleCreateMap} className="space-y-6">
               <input
                 type="text"
@@ -878,6 +1225,188 @@ export default function MindMapList(): JSX.Element {
         </div>
       )}
 
+      <CreateGroupModal
+        isOpen={isCreatingGroup}
+        onClose={() => setIsCreatingGroup(false)}
+        onCreateGroup={createGroup}
+        availableMindmaps={getAllMaps()}
+      />
+
+      {/* Group Deletion Confirmation Dialog */}
+      {groupToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Delete Group
+              </h2>
+              <button
+                onClick={() => setGroupToDelete(null)}
+                className="p-2 text-slate-400 hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-700/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <AlertTriangle className="w-6 h-6 text-amber-500" />
+                <p className="text-slate-300 font-medium">Are you sure you want to delete this group?</p>
+              </div>
+              <p className="text-slate-400 text-sm">
+                "{groups.find(g => g.id === groupToDelete)?.name}" will be permanently deleted. The mindmaps in this group will not be affected.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setGroupToDelete(null)}
+                className="px-4 py-2 text-slate-400 hover:text-slate-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteGroup}
+                className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-200 font-medium"
+              >
+                Delete Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Rename Dialog */}
+      {groupToRename && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Rename Group
+              </h2>
+              <button
+                onClick={() => setGroupToRename(null)}
+                className="p-2 text-slate-400 hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-700/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const formData = new FormData(e.currentTarget)
+                const newName = formData.get('groupName') as string
+                if (newName.trim()) {
+                  renameGroup(groupToRename, newName)
+                  setGroupToRename(null)
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Group Name</label>
+                <input
+                  name="groupName"
+                  type="text"
+                  defaultValue={groups.find(g => g.id === groupToRename)?.name || ''}
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+                  autoFocus
+                  maxLength={30}
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setGroupToRename(null)}
+                  className="px-4 py-2 text-slate-400 hover:text-slate-300 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium"
+                >
+                  Rename
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Group Dialog */}
+      {addToGroupMapId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Add to Group
+              </h2>
+              <button
+                onClick={() => setAddToGroupMapId(null)}
+                className="p-2 text-slate-400 hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-700/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-slate-300 text-sm mb-3">
+                Select groups to add "{getAllMaps().find(m => m.id === addToGroupMapId)?.title}" to:
+              </p>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {groups.map((group) => {
+                  const isInGroup = group.mindmapIds.includes(addToGroupMapId)
+                  return (
+                    <button
+                      key={group.id}
+                      onClick={() => {
+                        if (isInGroup) {
+                          removeMapFromGroup(addToGroupMapId, group.id)
+                        } else {
+                          addMapToGroup(addToGroupMapId, group.id)
+                        }
+                      }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${isInGroup
+                          ? "bg-blue-500/20 border border-blue-500/50 text-blue-300"
+                          : "bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 text-slate-300"
+                        }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isInGroup ? "bg-blue-500 border-blue-500" : "border-slate-500"
+                          }`}
+                      >
+                        {isInGroup && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                      <span className="flex-1 text-left">{group.name}</span>
+                      <span className="text-xs text-slate-500">({group.mindmapIds.length})</span>
+                    </button>
+                  )
+                })}
+                {groups.length === 0 && (
+                  <p className="text-slate-500 text-sm text-center py-4">
+                    No groups yet. Create a group first.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setAddToGroupMapId(null)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {mapToDelete && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
@@ -887,15 +1416,16 @@ export default function MindMapList(): JSX.Element {
             }
           }}
         >
-          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-red-400" />
-              <h2 className="text-xl font-bold text-white">
-                Delete Mindmap
-              </h2>
+              <h2 className="text-xl font-bold text-white">Delete Mindmap</h2>
             </div>
             <p className="text-slate-300 mb-2">
-              Are you sure you want to delete "{maps.find(map => map.id === mapToDelete)?.title}"?
+              Are you sure you want to delete "{maps.find((map) => map.id === mapToDelete)?.title}"?
             </p>
             <p className="text-slate-400 text-sm mb-6">
               This action cannot be undone and all data will be permanently lost.
@@ -924,13 +1454,13 @@ export default function MindMapList(): JSX.Element {
           isOpen={!!mapToEdit}
           onClose={() => setMapToEdit(null)}
           mapData={{
-            id: maps.find(map => map.id === mapToEdit)?.id || '',
-            title: maps.find(map => map.id === mapToEdit)?.title || '',
-            description: maps.find(map => map.id === mapToEdit)?.description || '',
-            visibility: maps.find(map => map.id === mapToEdit)?.visibility as "public" | "private" | "linkOnly",
-            is_main: maps.find(map => map.id === mapToEdit)?.is_main || false,
-            collaborators: maps.find(map => map.id === mapToEdit)?.collaborators || [],
-            published_at: maps.find(map => map.id === mapToEdit)?.published_at || null
+            id: maps.find((map) => map.id === mapToEdit)?.id || "",
+            title: maps.find((map) => map.id === mapToEdit)?.title || "",
+            description: maps.find((map) => map.id === mapToEdit)?.description || "",
+            visibility: maps.find((map) => map.id === mapToEdit)?.visibility as "public" | "private" | "linkOnly",
+            is_main: maps.find((map) => map.id === mapToEdit)?.is_main || false,
+            collaborators: maps.find((map) => map.id === mapToEdit)?.collaborators || [],
+            published_at: maps.find((map) => map.id === mapToEdit)?.published_at || null,
           }}
           showMainMapOption={false}
           username={user?.username}
