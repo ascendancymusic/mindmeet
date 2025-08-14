@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { useNavigate, useLocation } from "react-router-dom"
 import { usePageTitle } from "../hooks/usePageTitle"
 import {
@@ -154,6 +155,238 @@ const SkeletonLoader = () => {
   )
 }
 
+const GroupMenu = ({
+  isOpen,
+  position,
+  groupId,
+  onEdit,
+  onDelete,
+  onClose,
+}: {
+  isOpen: boolean
+  position: { x: number; y: number } | null
+  groupId: string
+  onEdit: () => void
+  onDelete: () => void
+  onClose: () => void
+}) => {
+  if (!isOpen || !position) return null
+
+  return createPortal(
+    <div
+      className="fixed w-48 bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 overflow-hidden"
+      style={{
+        left: position.x,
+        top: position.y,
+        zIndex: 9999,
+      }}
+    >
+      <div className="py-2">
+        <button
+          onClick={onEdit}
+          className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+        >
+          <Edit2 className="w-4 h-4" />
+          Edit Group
+        </button>
+        <button
+          onClick={onDelete}
+          className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-red-500 flex items-center gap-3 transition-all duration-200"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Group
+        </button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+const EditGroupModal = ({
+  isOpen,
+  onClose,
+  group,
+  availableMindmaps,
+  onSave,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  group: Group | null
+  availableMindmaps: any[]
+  onSave: (groupId: string, newName: string, selectedMindmapIds: string[], newColor: string) => Promise<void>
+}) => {
+  const [groupName, setGroupName] = useState("")
+  const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
+  const [selectedColor, setSelectedColor] = useState("#3B82F6")
+  const [sortOption, setSortOption] = useState("newest")
+
+  const groupColors = [
+    "#3B82F6", // Blue
+    "#10B981", // Emerald
+    "#F59E0B", // Amber
+    "#EF4444", // Red
+    "#8B5CF6", // Violet
+    "#EC4899", // Pink
+    "#06B6D4", // Cyan
+    "#84CC16", // Lime
+  ]
+
+  // Initialize form when group changes
+  useEffect(() => {
+    if (group) {
+      setGroupName(group.name)
+      setSelectedMindmapIds(group.mindmapIds)
+      setSelectedColor(group.color)
+    }
+  }, [group])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (groupName.trim() && group) {
+      await onSave(group.id, groupName.trim(), selectedMindmapIds, selectedColor)
+      onClose()
+    }
+  }
+
+  const toggleMindmapSelection = (mindmapId: string) => {
+    setSelectedMindmapIds((prev) =>
+      prev.includes(mindmapId) ? prev.filter((id) => id !== mindmapId) : [...prev, mindmapId],
+    )
+  }
+
+  // Sort mindmaps based on selected option
+  const sortedMindmaps = [...availableMindmaps].sort((a, b) => {
+    switch (sortOption) {
+      case "newest":
+        return b.updatedAt - a.updatedAt
+      case "oldest":
+        return a.updatedAt - b.updatedAt
+      case "alphabeticalAsc":
+        return a.title.localeCompare(b.title)
+      case "alphabeticalDesc":
+        return b.title.localeCompare(a.title)
+      default:
+        return b.updatedAt - a.updatedAt
+    }
+  })
+
+  if (!isOpen || !group) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-2xl border border-slate-700/50 shadow-2xl max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+            Edit Group
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-700/50"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Group Name Input */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Group Name</label>
+            <input
+              type="text"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder="Enter group name..."
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+              autoFocus
+              maxLength={30}
+            />
+          </div>
+
+          {/* Color Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Group Color</label>
+            <div className="flex flex-wrap gap-3">
+              {groupColors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setSelectedColor(color)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${selectedColor === color
+                    ? "border-white scale-110 shadow-lg"
+                    : "border-slate-600 hover:border-slate-400 hover:scale-105"
+                    }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Mindmap Selection */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-slate-300">
+                Mindmaps in Group ({selectedMindmapIds.length} selected)
+              </label>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")}
+                className="bg-slate-800/50 text-slate-100 border border-slate-600/50 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="alphabeticalAsc">A-Z</option>
+                <option value="alphabeticalDesc">Z-A</option>
+              </select>
+            </div>
+            <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
+              {sortedMindmaps.map((mindmap) => (
+                <div
+                  key={mindmap.id}
+                  onClick={() => toggleMindmapSelection(mindmap.id)}
+                  className={`flex items-center gap-3 p-4 rounded-xl transition-all duration-200 ${selectedMindmapIds.includes(mindmap.id)
+                    ? "bg-blue-500/20 border border-blue-500/50 shadow-sm"
+                    : "bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 hover:border-slate-500/50"
+                    }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedMindmapIds.includes(mindmap.id) ? "bg-blue-500 border-blue-500" : "border-slate-500"
+                      }`}
+                  >
+                    {selectedMindmapIds.includes(mindmap.id) && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-white">{mindmap.title}</h4>
+                    <p className="text-xs text-slate-400">
+                      {mindmap.nodes?.length || 0} nodes • {mindmap.edges?.length || 0} connections
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700/50">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3 text-slate-400 hover:text-slate-300 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!groupName.trim()}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 const CreateGroupModal = ({
   isOpen,
   onClose,
@@ -168,6 +401,7 @@ const CreateGroupModal = ({
   const [groupName, setGroupName] = useState("")
   const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
   const [selectedColor, setSelectedColor] = useState("#3B82F6")
+  const [sortOption, setSortOption] = useState("newest")
 
   const groupColors = [
     "#3B82F6", // Blue
@@ -196,6 +430,22 @@ const CreateGroupModal = ({
       prev.includes(mindmapId) ? prev.filter((id) => id !== mindmapId) : [...prev, mindmapId],
     )
   }
+
+  // Sort mindmaps based on selected option
+  const sortedMindmaps = [...availableMindmaps].sort((a, b) => {
+    switch (sortOption) {
+      case "newest":
+        return b.updatedAt - a.updatedAt
+      case "oldest":
+        return a.updatedAt - b.updatedAt
+      case "alphabeticalAsc":
+        return a.title.localeCompare(b.title)
+      case "alphabeticalDesc":
+        return b.title.localeCompare(a.title)
+      default:
+        return b.updatedAt - a.updatedAt
+    }
+  })
 
   if (!isOpen) return null
 
@@ -250,11 +500,23 @@ const CreateGroupModal = ({
 
           {/* Mindmap Selection */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">
-              Select Mindmaps ({selectedMindmapIds.length} selected)
-            </label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-slate-300">
+                Select Mindmaps ({selectedMindmapIds.length} selected)
+              </label>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")}
+                className="bg-slate-800/50 text-slate-100 border border-slate-600/50 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="alphabeticalAsc">A-Z</option>
+                <option value="alphabeticalDesc">Z-A</option>
+              </select>
+            </div>
             <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
-              {availableMindmaps.map((mindmap) => (
+              {sortedMindmaps.map((mindmap) => (
                 <div
                   key={mindmap.id}
                   onClick={() => toggleMindmapSelection(mindmap.id)}
@@ -273,7 +535,6 @@ const CreateGroupModal = ({
                     <h4 className="text-sm font-medium text-white">{mindmap.title}</h4>
                     <p className="text-xs text-slate-400">
                       {mindmap.nodes?.length || 0} nodes • {mindmap.edges?.length || 0} connections
-                      {mindmap.key && <span className="ml-2 text-slate-500">({mindmap.key})</span>}
                     </p>
                   </div>
                 </div>
@@ -348,8 +609,10 @@ export default function MindMapList() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
-  const [groupToRename, setGroupToRename] = useState<string | null>(null)
+  const [groupToEdit, setGroupToEdit] = useState<string | null>(null)
   const [addToGroupMapId, setAddToGroupMapId] = useState<string | null>(null)
+  const [openGroupMenuId, setOpenGroupMenuId] = useState<string | null>(null)
+  const [groupMenuPosition, setGroupMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
   // UI state management
   const location = useLocation()
@@ -509,29 +772,70 @@ export default function MindMapList() {
     }
   }
 
-  const renameGroup = async (groupId: string, newName: string) => {
+  const editGroup = async (groupId: string, newName: string, selectedMindmapIds: string[], newColor: string) => {
     if (!isValidUserId) return
 
     try {
-      const { error } = await supabase
+      // Update group name and color
+      const { error: groupError } = await supabase
         .from('mindmap_groups')
-        .update({ name: newName.trim() })
+        .update({
+          name: newName.trim(),
+          color: newColor
+        })
         .eq('id', groupId)
         .eq('user_id', userId)
 
-      if (error) throw error
+      if (groupError) throw groupError
+
+      // Get current memberships
+      const currentGroup = groups.find(g => g.id === groupId)
+      if (!currentGroup) return
+
+      const currentMindmapIds = currentGroup.mindmapIds
+      const toAdd = selectedMindmapIds.filter(id => !currentMindmapIds.includes(id))
+      const toRemove = currentMindmapIds.filter(id => !selectedMindmapIds.includes(id))
+
+      // Add new memberships
+      if (toAdd.length > 0) {
+        const memberships = toAdd.map(mindmapId => ({
+          group_id: groupId,
+          mindmap_key: maps.find(m => m.id === mindmapId)?.key || mindmapId
+        }))
+
+        const { error: addError } = await supabase
+          .from('mindmap_group_memberships')
+          .insert(memberships)
+
+        if (addError) throw addError
+      }
+
+      // Remove old memberships
+      if (toRemove.length > 0) {
+        const keysToRemove = toRemove.map(mindmapId => maps.find(m => m.id === mindmapId)?.key || mindmapId)
+
+        const { error: removeError } = await supabase
+          .from('mindmap_group_memberships')
+          .delete()
+          .eq('group_id', groupId)
+          .in('mindmap_key', keysToRemove)
+
+        if (removeError) throw removeError
+      }
 
       // Update local state
       setGroups((prev) =>
         prev.map((group) =>
-          group.id === groupId ? { ...group, name: newName.trim() } : group
+          group.id === groupId
+            ? { ...group, name: newName.trim(), color: newColor, mindmapIds: selectedMindmapIds }
+            : group
         )
       )
 
-      useToastStore.getState().showToast("Group renamed successfully!", "success")
+      useToastStore.getState().showToast("Group updated successfully!", "success")
     } catch (error) {
-      console.error("Error renaming group:", error)
-      useToastStore.getState().showToast("Failed to rename group. Please try again.", "error")
+      console.error("Error updating group:", error)
+      useToastStore.getState().showToast("Failed to update group. Please try again.", "error")
     }
   }
 
@@ -714,13 +1018,24 @@ export default function MindMapList() {
       if (openMenuId && !(event.target as Element).closest(".menu-container")) {
         setOpenMenuId(null)
       }
+      if (openGroupMenuId) {
+        // Check if click is outside the portal menu
+        const target = event.target as Element
+        const isClickOnGroupButton = target.closest('[title="Group options"]')
+        const isClickInPortalMenu = target.closest('[style*="zIndex: 9999"]')
+
+        if (!isClickOnGroupButton && !isClickInPortalMenu) {
+          setOpenGroupMenuId(null)
+          setGroupMenuPosition(null)
+        }
+      }
     }
 
     document.addEventListener("click", handleClickOutside)
     return () => {
       document.removeEventListener("click", handleClickOutside)
     }
-  }, [openMenuId])
+  }, [openMenuId, openGroupMenuId])
 
   /**
    * Opens the delete confirmation modal for a map
@@ -1018,10 +1333,6 @@ export default function MindMapList() {
               <div key={group.id} className="relative group/group">
                 <button
                   onClick={() => setSelectedGroupId(group.id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    setGroupToRename(group.id)
-                  }}
                   className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${selectedGroupId === group.id
                     ? "text-white border border-opacity-50"
                     : "bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white border border-slate-600/30"
@@ -1030,7 +1341,6 @@ export default function MindMapList() {
                     backgroundColor: selectedGroupId === group.id ? `${group.color}20` : undefined,
                     borderColor: selectedGroupId === group.id ? `${group.color}80` : undefined,
                   }}
-                  title="Left click to filter, right click to rename"
                 >
                   <div className="w-[1vh] h-[1vh] rounded-full" style={{ backgroundColor: group.color }} />
                   <FolderOpen className="w-[1.4vh] h-[1.4vh]" />
@@ -1039,27 +1349,27 @@ export default function MindMapList() {
                   </span>
                 </button>
 
-                {/* Group Actions */}
-                <div className="absolute -top-[0.3vh] -right-[0.3vh] flex gap-[0.2vh] opacity-0 group-hover/group:opacity-100 transition-opacity duration-200">
+                {/* Group Menu */}
+                <div className="absolute -top-[0.3vh] -right-[0.3vh] opacity-0 group-hover/group:opacity-100 transition-opacity duration-200">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      setGroupToRename(group.id)
+                      if (openGroupMenuId === group.id) {
+                        setOpenGroupMenuId(null)
+                        setGroupMenuPosition(null)
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setGroupMenuPosition({
+                          x: rect.right - 192, // 192px = w-48 width
+                          y: rect.bottom + 8
+                        })
+                        setOpenGroupMenuId(group.id)
+                      }
                     }}
-                    className="w-[1.8vh] h-[1.8vh] bg-blue-500 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-blue-600"
-                    title="Rename group"
+                    className="w-[1.8vh] h-[1.8vh] bg-slate-600 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-slate-500"
+                    title="Group options"
                   >
-                    <Edit2 className="w-[1.2vh] h-[1.2vh]" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setGroupToDelete(group.id)
-                    }}
-                    className="w-[1.8vh] h-[1.8vh] bg-red-500 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-red-600"
-                    title="Delete group"
-                  >
-                    <X className="w-[1.2vh] h-[1.2vh]" />
+                    <MoreVertical className="w-[1.2vh] h-[1.2vh]" />
                   </button>
                 </div>
               </div>
@@ -1409,11 +1719,43 @@ export default function MindMapList() {
         </div>
       )}
 
+      <GroupMenu
+        isOpen={openGroupMenuId !== null}
+        position={groupMenuPosition}
+        groupId={openGroupMenuId || ''}
+        onEdit={() => {
+          if (openGroupMenuId) {
+            setGroupToEdit(openGroupMenuId)
+            setOpenGroupMenuId(null)
+            setGroupMenuPosition(null)
+          }
+        }}
+        onDelete={() => {
+          if (openGroupMenuId) {
+            setGroupToDelete(openGroupMenuId)
+            setOpenGroupMenuId(null)
+            setGroupMenuPosition(null)
+          }
+        }}
+        onClose={() => {
+          setOpenGroupMenuId(null)
+          setGroupMenuPosition(null)
+        }}
+      />
+
       <CreateGroupModal
         isOpen={isCreatingGroup}
         onClose={() => setIsCreatingGroup(false)}
         onCreateGroup={createGroup}
         availableMindmaps={getAllMaps()}
+      />
+
+      <EditGroupModal
+        isOpen={!!groupToEdit}
+        onClose={() => setGroupToEdit(null)}
+        group={groups.find(g => g.id === groupToEdit) || null}
+        availableMindmaps={getAllMaps()}
+        onSave={editGroup}
       />
 
       {/* Group Deletion Confirmation Dialog */}
@@ -1460,66 +1802,9 @@ export default function MindMapList() {
         </div>
       )}
 
-      {/* Group Rename Dialog */}
-      {groupToRename && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                Rename Group
-              </h2>
-              <button
-                onClick={() => setGroupToRename(null)}
-                className="p-2 text-slate-400 hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-700/50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                const newName = formData.get('groupName') as string
-                if (newName.trim()) {
-                  renameGroup(groupToRename, newName)
-                  setGroupToRename(null)
-                }
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Group Name</label>
-                <input
-                  name="groupName"
-                  type="text"
-                  defaultValue={groups.find(g => g.id === groupToRename)?.name || ''}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
-                  autoFocus
-                  maxLength={30}
-                  required
-                />
-              </div>
 
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setGroupToRename(null)}
-                  className="px-4 py-2 text-slate-400 hover:text-slate-300 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium"
-                >
-                  Rename
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {/* Add to Group Dialog */}
       {addToGroupMapId && (
