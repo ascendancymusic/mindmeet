@@ -842,8 +842,9 @@ export default function MindMapList() {
   const getFilteredMaps = () => {
     const currentMaps = viewMode === "owned" ? maps : collaborationMaps
 
-    if (!selectedGroupId) {
-      return currentMaps // Show all maps when no group is selected
+    // Only apply group filtering for owned maps
+    if (viewMode === "collaboration" || !selectedGroupId) {
+      return currentMaps // Show all maps when in collaboration view or no group is selected
     }
 
     const selectedGroup = groups.find((group) => group.id === selectedGroupId)
@@ -1265,7 +1266,10 @@ export default function MindMapList() {
                 )}
               </button>
               <button
-                onClick={() => setViewMode("collaboration")}
+                onClick={() => {
+                  setViewMode("collaboration")
+                  setSelectedGroupId(null) // Clear group selection when switching to collaboration view
+                }}
                 className={`${isSmallScreen ? "px-[1vh] py-[0.8vh]" : "px-[1.5vh] py-[0.8vh]"} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "collaboration"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
@@ -1403,7 +1407,7 @@ export default function MindMapList() {
         <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
           <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
           <p className="text-slate-400 text-[1.6vh]">
-            {selectedGroupId
+            {viewMode === "owned" && selectedGroupId
               ? `No mindmaps in "${groups.find((g) => g.id === selectedGroupId)?.name}" group yet.`
               : viewMode === "owned"
                 ? "No mindmaps yet. Create your first one!"
