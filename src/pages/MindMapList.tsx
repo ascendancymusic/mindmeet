@@ -162,7 +162,7 @@ const CreateGroupModal = ({
 }: {
   isOpen: boolean
   onClose: () => void
-  onCreateGroup: (name: string, selectedMindmapIds: string[], color: string) => void
+  onCreateGroup: (name: string, selectedMindmapIds: string[], color: string) => Promise<void>
   availableMindmaps: any[]
 }) => {
   const [groupName, setGroupName] = useState("")
@@ -180,10 +180,10 @@ const CreateGroupModal = ({
     "#84CC16", // Lime
   ]
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (groupName.trim() && selectedMindmapIds.length > 0) {
-      onCreateGroup(groupName.trim(), selectedMindmapIds, selectedColor)
+      await onCreateGroup(groupName.trim(), selectedMindmapIds, selectedColor)
       setGroupName("")
       setSelectedMindmapIds([])
       setSelectedColor("#3B82F6")
@@ -273,6 +273,7 @@ const CreateGroupModal = ({
                     <h4 className="text-sm font-medium text-white">{mindmap.title}</h4>
                     <p className="text-xs text-slate-400">
                       {mindmap.nodes?.length || 0} nodes • {mindmap.edges?.length || 0} connections
+                      {mindmap.key && <span className="ml-2 text-slate-500">({mindmap.key})</span>}
                     </p>
                   </div>
                 </div>
@@ -365,21 +366,82 @@ export default function MindMapList() {
   const [isLoading, setIsLoading] = useState(true)
   const reactFlowRef = useRef<ReactFlowInstance>(null)
 
-  const createGroup = (name: string, mindmapIds: string[], color: string) => {
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name,
-      mindmapIds,
-      createdAt: Date.now(),
-      color,
+  const createGroup = async (name: string, mindmapIds: string[], color: string) => {
+    if (!isValidUserId) return
+
+    try {
+      // Create group in database
+      const { data: groupData, error: groupError } = await supabase
+        .from('mindmap_groups')
+        .insert({
+          user_id: userId,
+          name: name.trim(),
+          color
+        })
+        .select()
+        .single()
+
+      if (groupError) throw groupError
+
+      // Create memberships for selected mindmaps
+      if (mindmapIds.length > 0) {
+        const memberships = mindmapIds.map(mindmapId => ({
+          group_id: groupData.id,
+          mindmap_key: maps.find(m => m.id === mindmapId)?.key || mindmapId
+        }))
+
+        const { error: membershipError } = await supabase
+          .from('mindmap_group_memberships')
+          .insert(memberships)
+
+        if (membershipError) throw membershipError
+      }
+
+      // Update local state
+      const newGroup: Group = {
+        id: groupData.id,
+        name: groupData.name,
+        mindmapIds,
+        createdAt: new Date(groupData.created_at).getTime(),
+        color: groupData.color,
+      }
+      setGroups((prev) => [...prev, newGroup])
+
+      useToastStore.getState().showToast("Group created successfully!", "success")
+
+      // Refresh groups to get accurate membership data
+      setTimeout(() => {
+        fetchGroups()
+      }, 100)
+    } catch (error) {
+      console.error("Error creating group:", error)
+      useToastStore.getState().showToast("Failed to create group. Please try again.", "error")
     }
-    setGroups((prev) => [...prev, newGroup])
   }
 
-  const deleteGroup = (groupId: string) => {
-    setGroups((prev) => prev.filter((group) => group.id !== groupId))
-    if (selectedGroupId === groupId) {
-      setSelectedGroupId(null)
+  const deleteGroup = async (groupId: string) => {
+    if (!isValidUserId) return
+
+    try {
+      // Delete from database (CASCADE will handle memberships)
+      const { error } = await supabase
+        .from('mindmap_groups')
+        .delete()
+        .eq('id', groupId)
+        .eq('user_id', userId)
+
+      if (error) throw error
+
+      // Update local state
+      setGroups((prev) => prev.filter((group) => group.id !== groupId))
+      if (selectedGroupId === groupId) {
+        setSelectedGroupId(null)
+      }
+
+      useToastStore.getState().showToast("Group deleted successfully!", "success")
+    } catch (error) {
+      console.error("Error deleting group:", error)
+      useToastStore.getState().showToast("Failed to delete group. Please try again.", "error")
     }
   }
 
@@ -390,32 +452,87 @@ export default function MindMapList() {
     }
   }
 
-  const addMapToGroup = (mapId: string, groupId: string) => {
-    setGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId
-          ? { ...group, mindmapIds: [...new Set([...group.mindmapIds, mapId])] }
-          : group
+  const addMapToGroup = async (mapId: string, groupId: string) => {
+    if (!isValidUserId) return
+
+    try {
+      const mindmapKey = maps.find(m => m.id === mapId)?.key || mapId
+
+      const { error } = await supabase
+        .from('mindmap_group_memberships')
+        .insert({
+          group_id: groupId,
+          mindmap_key: mindmapKey
+        })
+
+      if (error) throw error
+
+      // Update local state
+      setGroups((prev) =>
+        prev.map((group) =>
+          group.id === groupId
+            ? { ...group, mindmapIds: [...new Set([...group.mindmapIds, mapId])] }
+            : group
+        )
       )
-    )
+    } catch (error) {
+      console.error("Error adding map to group:", error)
+      useToastStore.getState().showToast("Failed to add map to group.", "error")
+    }
   }
 
-  const removeMapFromGroup = (mapId: string, groupId: string) => {
-    setGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId
-          ? { ...group, mindmapIds: group.mindmapIds.filter((id) => id !== mapId) }
-          : group
+  const removeMapFromGroup = async (mapId: string, groupId: string) => {
+    if (!isValidUserId) return
+
+    try {
+      const mindmapKey = maps.find(m => m.id === mapId)?.key || mapId
+
+      const { error } = await supabase
+        .from('mindmap_group_memberships')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('mindmap_key', mindmapKey)
+
+      if (error) throw error
+
+      // Update local state
+      setGroups((prev) =>
+        prev.map((group) =>
+          group.id === groupId
+            ? { ...group, mindmapIds: group.mindmapIds.filter((id) => id !== mapId) }
+            : group
+        )
       )
-    )
+    } catch (error) {
+      console.error("Error removing map from group:", error)
+      useToastStore.getState().showToast("Failed to remove map from group.", "error")
+    }
   }
 
-  const renameGroup = (groupId: string, newName: string) => {
-    setGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId ? { ...group, name: newName.trim() } : group
+  const renameGroup = async (groupId: string, newName: string) => {
+    if (!isValidUserId) return
+
+    try {
+      const { error } = await supabase
+        .from('mindmap_groups')
+        .update({ name: newName.trim() })
+        .eq('id', groupId)
+        .eq('user_id', userId)
+
+      if (error) throw error
+
+      // Update local state
+      setGroups((prev) =>
+        prev.map((group) =>
+          group.id === groupId ? { ...group, name: newName.trim() } : group
+        )
       )
-    )
+
+      useToastStore.getState().showToast("Group renamed successfully!", "success")
+    } catch (error) {
+      console.error("Error renaming group:", error)
+      useToastStore.getState().showToast("Failed to rename group. Please try again.", "error")
+    }
   }
 
   const getFilteredMaps = () => {
@@ -435,6 +552,46 @@ export default function MindMapList() {
 
   const getAllMaps = () => {
     return viewMode === "owned" ? maps : collaborationMaps
+  }
+
+  const fetchGroups = async () => {
+    if (!isValidUserId) return
+
+    try {
+      // Fetch groups with their memberships
+      const { data: groupsData, error: groupsError } = await supabase
+        .from('mindmap_groups')
+        .select(`
+          id,
+          name,
+          color,
+          created_at,
+          mindmap_group_memberships (
+            mindmap_key
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (groupsError) throw groupsError
+
+      // Transform the data to match our Group interface
+      const transformedGroups: Group[] = groupsData.map(group => ({
+        id: group.id,
+        name: group.name,
+        color: group.color,
+        createdAt: new Date(group.created_at).getTime(),
+        mindmapIds: group.mindmap_group_memberships.map((membership: any) => {
+          // Find the mindmap ID by matching the key
+          const mindmap = maps.find(m => m.key === membership.mindmap_key)
+          return mindmap?.id || membership.mindmap_key
+        })
+      }))
+
+      setGroups(transformedGroups)
+    } catch (error) {
+      console.error("Error fetching groups:", error)
+    }
   }
 
   /**
@@ -472,6 +629,15 @@ export default function MindMapList() {
 
     fetchData()
   }, [isValidUserId, userId, fetchMaps, fetchCollaborationMaps])
+
+  /**
+   * Fetch groups after maps are loaded
+   */
+  useEffect(() => {
+    if (isValidUserId && maps.length > 0) {
+      fetchGroups()
+    }
+  }, [isValidUserId, userId, maps.length])
 
   const handleCreateMap = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -568,8 +734,26 @@ export default function MindMapList() {
 
   const confirmDelete = async () => {
     if (mapToDelete && isValidUserId) {
+      // Clean up group memberships when deleting a map
+      const mapToDeleteData = maps.find(m => m.id === mapToDelete)
+      if (mapToDeleteData?.key) {
+        try {
+          await supabase
+            .from('mindmap_group_memberships')
+            .delete()
+            .eq('mindmap_key', mapToDeleteData.key)
+        } catch (error) {
+          console.error("Error cleaning up group memberships:", error)
+        }
+      }
+
       deleteMap(mapToDelete, userId)
       setMapToDelete(null)
+
+      // Refresh groups to update counts
+      setTimeout(() => {
+        fetchGroups()
+      }, 500)
     }
   }
 
@@ -827,7 +1011,7 @@ export default function MindMapList() {
                 }`}
             >
               <Folder className="w-[1.4vh] h-[1.4vh]" />
-              <span>All Maps ({(viewMode === "owned" ? maps : collaborationMaps).length})</span>
+              <span>All Maps ({maps.length})</span>
             </button>
 
             {groups.map((group) => (
@@ -1371,8 +1555,8 @@ export default function MindMapList() {
                         }
                       }}
                       className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${isInGroup
-                          ? "bg-blue-500/20 border border-blue-500/50 text-blue-300"
-                          : "bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 text-slate-300"
+                        ? "bg-blue-500/20 border border-blue-500/50 text-blue-300"
+                        : "bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 text-slate-300"
                         }`}
                     >
                       <div
