@@ -136,7 +136,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
   // Track if we're currently editing a stroke via context menu
   const [isEditingStrokeProperties, setIsEditingStrokeProperties] = useState(false);
-  
+
   // Track if we should save changes to history when editing ends
   const [shouldSaveChangesToHistory, setShouldSaveChangesToHistory] = useState(false);
 
@@ -886,28 +886,79 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     };
   }, [isDrawingMode, reactFlowInstance]);
 
-  // Handle eraser functionality
+  // Handle eraser functionality - erase parts of strokes like a real eraser
   const eraseAtPoint = useCallback((x: number, y: number) => {
     try {
       if (!isFinite(x) || !isFinite(y)) return;
 
-      const eraserRadius = Math.max(lineWidth * 2, 5);
+      const eraserRadius = Math.max(lineWidth, 5);
 
       setStrokes(prevStrokes => {
         if (!Array.isArray(prevStrokes)) return [];
 
-        const newStrokes = prevStrokes.filter(stroke => {
-          if (!stroke || !Array.isArray(stroke.points)) return false;
+        const newStrokes: DrawingStroke[] = [];
 
-          // Check if stroke is within eraser radius
-          return !stroke.points.some(point => {
-            if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') return false;
+        prevStrokes.forEach(stroke => {
+          if (!stroke || !Array.isArray(stroke.points) || stroke.points.length === 0) {
+            newStrokes.push(stroke);
+            return;
+          }
 
+          // Transform eraser position to stroke's local space if stroke is rotated
+          let eraserPoint = { x, y };
+          if (stroke.rotation) {
+            const bounds = getStrokeBounds(stroke);
+            if (bounds) {
+              const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+              eraserPoint = transformPointInverse({ x, y }, center, stroke.rotation);
+            }
+          }
+
+          // Find segments that should be erased
+          const segmentsToKeep: { x: number; y: number }[][] = [];
+          let currentSegment: { x: number; y: number }[] = [];
+
+          for (let i = 0; i < stroke.points.length; i++) {
+            const point = stroke.points[i];
+            if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') continue;
+
+            // Check if this point is within eraser radius
             const distance = Math.sqrt(
-              Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2)
+              Math.pow(point.x - eraserPoint.x, 2) +
+              Math.pow(point.y - eraserPoint.y, 2)
             );
-            return distance <= eraserRadius;
+
+            if (distance > eraserRadius) {
+              // Point is outside eraser - keep it
+              currentSegment.push(point);
+            } else {
+              // Point is inside eraser - end current segment if it has points
+              if (currentSegment.length > 1) {
+                segmentsToKeep.push([...currentSegment]);
+              }
+              currentSegment = [];
+            }
+          }
+
+          // Add the last segment if it has points
+          if (currentSegment.length > 1) {
+            segmentsToKeep.push(currentSegment);
+          }
+
+          // Create new strokes from the segments that should be kept
+          segmentsToKeep.forEach((segment, index) => {
+            if (segment.length > 1) {
+              const newStroke: DrawingStroke = {
+                ...stroke,
+                id: index === 0 ? stroke.id : `${stroke.id}-split-${index}`,
+                points: segment,
+                timestamp: Date.now()
+              };
+              newStrokes.push(newStroke);
+            }
           });
+
+          // If no segments to keep and original stroke had points, the stroke is completely erased
         });
 
         return newStrokes;
@@ -915,7 +966,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     } catch (error) {
       // Skip erase operation on error
     }
-  }, [lineWidth]);
+  }, [lineWidth, getStrokeBounds, transformPointInverse]);
 
   // Context menu handlers
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -934,17 +985,17 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     if (clickedStroke) {
       // Select the stroke and show context menu
       setSelectedStrokeId(clickedStroke.id);
-      
+
       // Store original properties for cancel functionality
       setOriginalStrokeProperties({
         color: clickedStroke.color,
         width: clickedStroke.width
       });
-      
+
       // Mark that we're editing stroke properties
       setIsEditingStrokeProperties(true);
       setShouldSaveChangesToHistory(false);
-      
+
       setContextMenu({
         isVisible: true,
         position: { x: e.clientX, y: e.clientY },
@@ -1015,15 +1066,15 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
   const handleAcceptChanges = useCallback(() => {
     // Mark that we should save changes to history
     setShouldSaveChangesToHistory(true);
-    
+
     // Mark that we're no longer editing (so history will be triggered)
     setIsEditingStrokeProperties(false);
-    
+
     // Save changes to history
     setTimeout(() => {
       onDrawingChange({ strokes });
     }, 0);
-    
+
     handleCloseContextMenu();
   }, [strokes, onDrawingChange, handleCloseContextMenu]);
 
@@ -1098,6 +1149,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
 
       if (isDrawingMode) {
         if (isEraserMode) {
+          setIsDrawing(true);
           eraseAtPoint(coords.x, coords.y);
         } else if (drawingTool === 'pen') {
           setIsDrawing(true);
@@ -1194,7 +1246,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
       const coords = getFlowCoordinates(e.clientX, e.clientY);
 
       if (isDrawingMode) {
-        if (isEraserMode) {
+        if (isEraserMode && isDrawing) {
           eraseAtPoint(coords.x, coords.y);
         } else if (isDrawing && currentStroke && drawingTool === 'pen') {
           // Optimize point addition - avoid unnecessary array spreading for better performance
@@ -1509,21 +1561,21 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     // 3. User has actually interacted with the canvas
     // 4. NOT currently dragging, resizing, rotating a stroke, or editing stroke properties via context menu
     // 5. If we just finished editing properties, only save if we should save to history (accept was clicked)
-    const shouldNotify = dataLoaded && 
-                        !isInitializingRef.current && 
-                        userHasInteractedRef.current && 
-                        !isDraggingStroke && 
-                        !isResizingStroke && 
-                        !isRotatingStroke && 
-                        !isEditingStrokeProperties;
+    const shouldNotify = dataLoaded &&
+      !isInitializingRef.current &&
+      userHasInteractedRef.current &&
+      !isDraggingStroke &&
+      !isResizingStroke &&
+      !isRotatingStroke &&
+      !isEditingStrokeProperties;
 
     // If we just finished editing properties, only save if shouldSaveChangesToHistory is true
     const wasJustEditingProperties = !isEditingStrokeProperties && shouldSaveChangesToHistory;
-    
+
     if (shouldNotify || wasJustEditingProperties) {
       // Immediate update for all operations except dragging, resizing, rotating, and property editing
       onDrawingChange({ strokes });
-      
+
       // Reset the save flag after saving
       if (wasJustEditingProperties) {
         setShouldSaveChangesToHistory(false);
