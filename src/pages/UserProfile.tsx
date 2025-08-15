@@ -62,6 +62,7 @@ import UserListModal from "../components/UserListModal"
 import ShareModal from "../components/ShareModal"
 import InfoModal from "../components/InfoModal"
 import { usePageTitle } from "../hooks/usePageTitle"
+import eventEmitter from "../services/eventService"
 
 const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
   const bgColor = backgroundColor || '#11192C';
@@ -326,6 +327,41 @@ const UserProfile: React.FC = () => {
 
   usePageTitle(profile ? `${profile.full_name || profile.username}` : "Loading...")
 
+  // Listen for follow/unfollow events from UserListModal
+  useEffect(() => {
+    const handleFollowToggle = (data: { action: 'follow' | 'unfollow', targetUserId: string, currentUserId: string }) => {
+      if (!user?.id || !profile) return;
+
+      // Update counts based on the follow action
+      if (data.currentUserId === user.id) {
+        // Current user is following/unfollowing someone else
+        if (data.targetUserId === profile.id) {
+          // Current user is following/unfollowing the profile user - update isFollowing state
+          setIsFollowing(data.action === 'follow');
+        }
+      } else if (data.targetUserId === profile.id) {
+        // Someone is following/unfollowing the profile user - update followers count
+        setProfile((prevProfile: any) => {
+          if (!prevProfile) return prevProfile;
+          return {
+            ...prevProfile,
+            followers: data.action === 'follow' 
+              ? prevProfile.followers + 1 
+              : Math.max(prevProfile.followers - 1, 0)
+          };
+        });
+      }
+    };
+
+    // Subscribe to follow toggle events
+    eventEmitter.on('followToggle', handleFollowToggle);
+
+    // Cleanup
+    return () => {
+      eventEmitter.off('followToggle', handleFollowToggle);
+    };
+  }, [user?.id, profile]);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       setLoading(true)
@@ -361,11 +397,10 @@ const UserProfile: React.FC = () => {
         window.history.replaceState({}, "", `/${usernameWithoutAt}`)
       }
 
+      // Fetch basic profile data
       const { data, error } = await supabase
         .from("profiles")
-        .select(
-          "id, username, full_name, join_date, avatar_url, description, followed_by, following, followers, following_count",
-        )
+        .select("id, username, full_name, join_date, avatar_url, description")
         .eq("username", username?.replace("@", ""))
         .single()
 
@@ -373,8 +408,41 @@ const UserProfile: React.FC = () => {
         console.error("Error fetching user profile:", error || "User not found")
         setProfile(null)
       } else {
-        setProfile(data)
-        setIsFollowing(data.followed_by?.includes(user?.id))
+        // Fetch follower and following counts from new tables
+        const [followerCountResult, followingCountResult, isFollowingResult] = await Promise.all([
+          supabase
+            .from("user_followers_count")
+            .select("followers_count")
+            .eq("user_id", data.id)
+            .single(),
+          supabase
+            .from("user_following_count")
+            .select("following_count")
+            .eq("user_id", data.id)
+            .single(),
+          user?.id ? supabase
+            .from("user_follows")
+            .select("follower_id")
+            .eq("follower_id", user.id)
+            .eq("followed_id", data.id)
+            .single() : Promise.resolve({ data: null, error: null })
+        ]);
+
+        const followersCount = followerCountResult.data?.followers_count || 0;
+        const followingCount = followingCountResult.data?.following_count || 0;
+        const isCurrentlyFollowing = !!isFollowingResult.data;
+
+        // Create profile data with counts from new tables
+        const profileData = {
+          ...data,
+          followers: followersCount,
+          following_count: followingCount,
+          followed_by: [], // Deprecated, kept for compatibility
+          following: [] // Deprecated, kept for compatibility
+        };
+
+        setProfile(profileData)
+        setIsFollowing(isCurrentlyFollowing)
         fetchPublicMaps(data.id)
         fetchCollaborationMaps(data.id)
         fetchSavedMaps(data.id)
@@ -568,31 +636,38 @@ const UserProfile: React.FC = () => {
   const handleFollow = async () => {
     if (!user?.id || !profile?.id) return
 
-    const isCurrentlyFollowing = profile.followed_by?.includes(user.id)
+    const isCurrentlyFollowing = isFollowing
 
+    // Optimistically update UI
     setProfile((prev: any) => ({
       ...prev,
-      followed_by: isCurrentlyFollowing
-        ? prev.followed_by.filter((id: string) => id !== user.id)
-        : [...prev.followed_by, user.id],
       followers: isCurrentlyFollowing ? prev.followers - 1 : prev.followers + 1,
     }))
     setIsFollowing(!isCurrentlyFollowing)
 
     try {
-      const updatedFollowedBy = isCurrentlyFollowing
-        ? profile.followed_by.filter((id: string) => id !== user.id)
-        : [...profile.followed_by, user.id]
+      if (isCurrentlyFollowing) {
+        // Unfollow: remove from user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('followed_id', profile.id);
 
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          followed_by: updatedFollowedBy,
-        })
-        .eq("id", profile.id)
+        if (error) throw error;
+      } else {
+        // Follow: add to user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .insert({
+            follower_id: user.id,
+            followed_id: profile.id
+          });
 
-      if (profileError) throw profileError
+        if (error) throw error;
+      }
 
+      // Send notification
       if (user?.username && profile.id !== user.id) {
         await useNotificationStore.getState().addNotification({
           user_id: profile.id,
@@ -604,32 +679,12 @@ const UserProfile: React.FC = () => {
           related_user: user.id,
         })
       }
-
-      const { data: authUserProfile, error: authUserError } = await supabase
-        .from("profiles")
-        .select("following")
-        .eq("id", user.id)
-        .single()
-
-      if (authUserError) throw authUserError
-
-      const updatedFollowing = isCurrentlyFollowing
-        ? authUserProfile.following.filter((id: string) => id !== profile.id)
-        : [...authUserProfile.following, profile.id]
-
-      const { error: followingError } = await supabase
-        .from("profiles")
-        .update({ following: updatedFollowing })
-        .eq("id", user.id)
-
-      if (followingError) throw followingError
     } catch (error) {
       console.error("Error updating follow status:", error)
+      // Revert UI changes on failure
       setProfile((prev: any) => ({
         ...prev,
-        followed_by: isCurrentlyFollowing
-          ? [...prev.followed_by, user.id]
-          : prev.followed_by.filter((id: string) => id !== user.id),
+        followers: isCurrentlyFollowing ? prev.followers + 1 : prev.followers - 1,
       }))
       setIsFollowing(isCurrentlyFollowing)
     }
@@ -863,7 +918,7 @@ const UserProfile: React.FC = () => {
           </div>
             <div
               className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
-              onClick={() => openModal("Followers", profile.followed_by || [])}
+              onClick={() => openModal("Followers", [])}
             >
               <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {profile.followers || 0}
@@ -872,7 +927,7 @@ const UserProfile: React.FC = () => {
             </div>
             <div
               className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
-              onClick={() => openModal("Following", profile.following || [])}
+              onClick={() => openModal("Following", [])}
             >
               <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
                 {profile.following_count || 0}
@@ -1375,7 +1430,13 @@ const UserProfile: React.FC = () => {
         </div>
 
         {/* Modals */}
-        <UserListModal isOpen={isModalOpen} onClose={closeModal} title={modalTitle} userIds={modalUserIds} />
+        <UserListModal 
+          isOpen={isModalOpen} 
+          onClose={closeModal} 
+          title={modalTitle} 
+          userIds={modalUserIds}
+          profileUserId={profile?.id}
+        />
 
         {isShareModalOpen && shareMapData && (
           <ShareModal

@@ -18,10 +18,12 @@ interface UserListModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  userIds: string[];
+  userIds: string[]; // This will be deprecated, we'll use profileUserId instead
+  profileUserId?: string; // The user whose followers/following we're showing
 }
 
-const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) => {  const [users, setUsers] = useState<User[]>([]);
+const UserListModal = ({ isOpen, onClose, title, userIds, profileUserId }: UserListModalProps) => {
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -37,16 +39,16 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
       if (user?.user?.id) {
         setCurrentUserId(user.user.id);
 
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('following')
-          .eq('id', user.user.id)
-          .single();
+        // Fetch current user's following list from user_follows table
+        const { data: followingData, error } = await supabase
+          .from('user_follows')
+          .select('followed_id')
+          .eq('follower_id', user.user.id);
 
-        if (!error && profile) {
-          setCurrentUserFollowing(profile.following || []);
+        if (!error && followingData) {
+          setCurrentUserFollowing(followingData.map(f => f.followed_id));
         } else {
-          console.error('Error fetching current user profile:', error);
+          console.error('Error fetching current user following:', error);
           setCurrentUserFollowing([]);
         }
       }
@@ -58,23 +60,82 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
   useEffect(() => {
     if (isOpen && currentUserId) {
       const refreshFollowingList = async () => {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('following')
-          .eq('id', currentUserId)
-          .single();
+        const { data: followingData, error } = await supabase
+          .from('user_follows')
+          .select('followed_id')
+          .eq('follower_id', currentUserId);
 
-        if (!error && profile) {
-          setCurrentUserFollowing(profile.following || []);
+        if (!error && followingData) {
+          setCurrentUserFollowing(followingData.map(f => f.followed_id));
         }
       };
       refreshFollowingList();
-    }  }, [isOpen, currentUserId]);
+    }
+  }, [isOpen, currentUserId]);
 
-  // Fetch the list of users when modal is open or userIds change
+  // Fetch the list of users when modal is open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && profileUserId) {
       // Set loading immediately when modal opens
+      setIsLoading(true);
+
+      const fetchUsers = async () => {
+        let userIdsToFetch: string[] = [];
+
+        if (title === 'Followers') {
+          // Fetch followers: users who follow the profile user
+          const { data: followersData, error } = await supabase
+            .from('user_follows')
+            .select('follower_id')
+            .eq('followed_id', profileUserId);
+
+          if (error) {
+            console.error('Error fetching followers:', error);
+            setUsers([]);
+            setIsLoading(false);
+            return;
+          }
+
+          userIdsToFetch = followersData?.map(f => f.follower_id) || [];
+        } else if (title === 'Following') {
+          // Fetch following: users that the profile user follows
+          const { data: followingData, error } = await supabase
+            .from('user_follows')
+            .select('followed_id')
+            .eq('follower_id', profileUserId);
+
+          if (error) {
+            console.error('Error fetching following:', error);
+            setUsers([]);
+            setIsLoading(false);
+            return;
+          }
+
+          userIdsToFetch = followingData?.map(f => f.followed_id) || [];
+        }
+
+        // Fetch user profiles for the IDs we found
+        if (userIdsToFetch.length > 0) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, username, full_name, avatar_url')
+            .in('id', userIdsToFetch);
+
+          if (error) {
+            console.error('Error fetching user profiles:', error);
+            setUsers([]);
+          } else {
+            setUsers(data || []);
+          }
+        } else {
+          setUsers([]);
+        }
+        setIsLoading(false);
+      };
+
+      fetchUsers();
+    } else if (isOpen && !profileUserId) {
+      // Fallback to old behavior if profileUserId is not provided
       setIsLoading(true);
 
       if (Array.isArray(userIds) && userIds.length > 0) {
@@ -86,7 +147,8 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
 
           if (error) {
             console.error('Error fetching users:', error);
-            setUsers([]);          } else {
+            setUsers([]);
+          } else {
             setUsers(data || []);
           }
           setIsLoading(false);
@@ -100,7 +162,7 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
       setUsers([]);
       setIsLoading(false);
     }
-  }, [isOpen, userIds]);
+  }, [isOpen, profileUserId, title, userIds]);
 
   // Filter users based on search query
   useEffect(() => {
@@ -128,48 +190,31 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
     // Emit event for Profile component to update following count
     eventEmitter.emit('followToggle', {
       action: isFollowing ? 'unfollow' : 'follow',
-      targetUserId: userId
+      targetUserId: userId,
+      currentUserId: currentUserId
     });
 
     try {
-      const updatedFollowing = isFollowing
-        ? currentUserFollowing.filter((id) => id !== userId)
-        : [...currentUserFollowing, userId];
+      if (isFollowing) {
+        // Unfollow: remove from user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .delete()
+          .eq('follower_id', currentUserId)
+          .eq('followed_id', userId);
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ following: updatedFollowing })
-        .eq('id', currentUserId);
+        if (error) throw error;
+      } else {
+        // Follow: add to user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .insert({
+            follower_id: currentUserId,
+            followed_id: userId
+          });
 
-      if (error) throw error;
-
-      const { data: user, error: userError } = await supabase
-        .from('profiles')
-        .select('followed_by, username, followers')
-        .eq('id', userId)
-        .single();
-
-      if (userError) throw userError;
-
-      // Update followed_by array
-      const updatedFollowedBy = isFollowing
-        ? (user.followed_by || []).filter((id: string) => id !== currentUserId)
-        : [...(user.followed_by || []), currentUserId];
-
-      // Update followers count
-      const updatedFollowers = isFollowing
-        ? Math.max((user.followers || 0) - 1, 0) // Ensure it doesn't go below 0
-        : (user.followers || 0) + 1;
-
-      const { error: followError } = await supabase
-        .from('profiles')
-        .update({
-          followed_by: updatedFollowedBy,
-          followers: updatedFollowers
-        })
-        .eq('id', userId);
-
-      if (followError) throw followError;
+        if (error) throw error;
+      }
 
       // Get current user's username for notification
       const { data: currentUserData } = await supabase
@@ -200,23 +245,21 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
       // Emit revert event for Profile component
       eventEmitter.emit('followToggle', {
         action: isFollowing ? 'follow' : 'unfollow', // Reverse the action for revert
-        targetUserId: userId
+        targetUserId: userId,
+        currentUserId: currentUserId
       });
     }
-  };  return (
-    <div className={`fixed inset-0 z-50 transition-all duration-300 ${
-      isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
-    }`}>
-      <div 
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-all duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0'
-        }`} 
-        onClick={onClose} 
+  }; return (
+    <div className={`fixed inset-0 z-50 transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+      }`}>
+      <div
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'
+          }`}
+        onClick={onClose}
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className={`max-w-4xl w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 mx-auto shadow-2xl border border-slate-700/30 overflow-hidden transform transition-all duration-300 ${
-          isOpen ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95'
-        }`}>
+        <div className={`max-w-4xl w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 mx-auto shadow-2xl border border-slate-700/30 overflow-hidden transform transition-all duration-300 ${isOpen ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95'
+          }`}>
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">{title}</h2>
@@ -243,8 +286,8 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
                 <div className="space-y-3">
                   {/* Skeleton loading for user list */}
                   {[...Array(5)].map((_, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center space-x-4 py-4 px-3 rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30"
                     >
                       <div className="w-12 h-12 rounded-full bg-slate-700/50"></div>
@@ -260,8 +303,8 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
             ) : filteredUsers.length > 0 ? (
               <ul className="max-h-[70vh] overflow-y-auto space-y-2">
                 {filteredUsers.map((user) => (
-                  <li 
-                    key={user.id} 
+                  <li
+                    key={user.id}
                     className="flex items-center space-x-4 py-4 px-3 hover:bg-slate-700/50 rounded-xl transition-all duration-200 border border-slate-800/50 hover:border-slate-600/50"
                   >
                     <Link
@@ -289,11 +332,10 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
                     {user.id !== currentUserId && (
                       <button
                         onClick={() => handleFollowToggle(user.id)}
-                        className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 font-medium transition-all duration-200 shadow-sm ${
-                          currentUserFollowing.includes(user.id)
+                        className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 font-medium transition-all duration-200 shadow-sm ${currentUserFollowing.includes(user.id)
                             ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border border-red-400/30 hover:border-red-300/50'
                             : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 border border-purple-500/30 hover:border-purple-400/50'
-                        } text-white`}
+                          } text-white`}
                       >
                         {currentUserFollowing.includes(user.id) ? (
                           <>
@@ -324,7 +366,7 @@ const UserListModal = ({ isOpen, onClose, title, userIds }: UserListModalProps) 
           </div>
         </div>
       </div>
-    </div>  );
+    </div>);
 };
 
 export default UserListModal;

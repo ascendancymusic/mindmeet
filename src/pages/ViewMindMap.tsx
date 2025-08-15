@@ -75,7 +75,7 @@ const nodeTypes: NodeTypes = {
   spotify: SpotifyViewNode,
   soundcloud: SoundCloudViewNode,
   "youtube-video": YouTubeViewNode,
-  'text-no-bg':TextNoBgNode,
+  'text-no-bg': TextNoBgNode,
   image: ImageNode,
   audio: AudioNode,
   playlist: PlaylistNode,
@@ -302,6 +302,38 @@ const ViewMindMap: React.FC = () => {
   // Dynamic page title
   usePageTitle(currentMap && username ? `${currentMap.title || "Untitled"} by @${username}` : "Loading...")
 
+  // Listen for follow/unfollow events from other components
+  useEffect(() => {
+    const handleFollowToggle = (data: { action: 'follow' | 'unfollow', targetUserId: string, currentUserId: string }) => {
+      if (!user?.id || !creatorProfile) return;
+
+      // Update counts based on the follow action
+      if (data.currentUserId === user.id && data.targetUserId === creatorProfile.id) {
+        // Current user is following/unfollowing the creator - update isFollowing state
+        setIsFollowing(data.action === 'follow');
+      } else if (data.targetUserId === creatorProfile.id) {
+        // Someone is following/unfollowing the creator - update followers count
+        setCreatorProfile((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            followers: data.action === 'follow'
+              ? prev.followers + 1
+              : Math.max(prev.followers - 1, 0)
+          };
+        });
+      }
+    };
+
+    // Subscribe to follow toggle events
+    eventEmitter.on('followToggle', handleFollowToggle);
+
+    // Cleanup
+    return () => {
+      eventEmitter.off('followToggle', handleFollowToggle);
+    };
+  }, [user?.id, creatorProfile]);
+
   useEffect(() => {
     const fetchMindMap = async () => {
       setLoading(true)
@@ -428,20 +460,45 @@ const ViewMindMap: React.FC = () => {
     fetchUserProfile()
   }, [user])
 
-  useEffect(() => {    const fetchCreatorProfile = async () => {
+  useEffect(() => {
+    const fetchCreatorProfile = async () => {
+      // Fetch basic profile data
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, avatar_url, followed_by, followers, full_name")
+        .select("id, avatar_url, full_name")
         .eq("username", username)
         .single()
 
       if (error) {
         console.error("Error fetching creator profile:", error)
       } else {
-        setCreatorProfile(profile)
-        if (user?.id && profile.followed_by) {
-          setIsFollowing(profile.followed_by.includes(user.id))
-        }
+        // Fetch follower count from new tables
+        const [followerCountResult, isFollowingResult] = await Promise.all([
+          supabase
+            .from("user_followers_count")
+            .select("followers_count")
+            .eq("user_id", profile.id)
+            .single(),
+          user?.id ? supabase
+            .from("user_follows")
+            .select("follower_id")
+            .eq("follower_id", user.id)
+            .eq("followed_id", profile.id)
+            .single() : Promise.resolve({ data: null, error: null })
+        ]);
+
+        const followersCount = followerCountResult.data?.followers_count || 0;
+        const isCurrentlyFollowing = !!isFollowingResult.data;
+
+        // Create profile data with count from new table
+        const profileData = {
+          ...profile,
+          followers: followersCount,
+          followed_by: [], // Deprecated, kept for compatibility
+        };
+
+        setCreatorProfile(profileData)
+        setIsFollowing(isCurrentlyFollowing)
       }
     }
 
@@ -692,31 +749,33 @@ const ViewMindMap: React.FC = () => {
     setCreatorProfile((prev) =>
       prev
         ? {
-            ...prev,
-            followers: isCurrentlyFollowing ? Math.max(currentFollowersCount - 1, 0) : currentFollowersCount + 1,
-          }
+          ...prev,
+          followers: isCurrentlyFollowing ? Math.max(currentFollowersCount - 1, 0) : currentFollowersCount + 1,
+        }
         : null,
     )
 
     try {
-      // Update followed_by array for the creator's profile
-      const updatedFollowedBy = isCurrentlyFollowing
-        ? (creatorProfile.followed_by || []).filter((id: string) => id !== user.id)
-        : [...(creatorProfile.followed_by || []), user.id]
+      if (isCurrentlyFollowing) {
+        // Unfollow: remove from user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('followed_id', creatorProfile.id);
 
-      // Calculate updated followers count
-      const updatedFollowers = isCurrentlyFollowing ? Math.max(currentFollowersCount - 1, 0) : currentFollowersCount + 1
+        if (error) throw error;
+      } else {
+        // Follow: add to user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .insert({
+            follower_id: user.id,
+            followed_id: creatorProfile.id
+          });
 
-      // Update the creator's profile in Supabase
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          followed_by: updatedFollowedBy,
-          followers: updatedFollowers,
-        })
-        .eq("id", creatorProfile.id)
-
-      if (profileError) throw profileError
+        if (error) throw error;
+      }
 
       // Send notification for follow/unfollow
       if (user?.username && creatorProfile.id !== user.id) {
@@ -731,32 +790,11 @@ const ViewMindMap: React.FC = () => {
         })
       }
 
-      // Fetch the authenticated user's current following list
-      const { data: authUserProfile, error: authUserError } = await supabase
-        .from("profiles")
-        .select("following")
-        .eq("id", user.id)
-        .single()
-
-      if (authUserError) throw authUserError
-
-      // Update following array for the current user
-      const updatedFollowing = isCurrentlyFollowing
-        ? (authUserProfile.following || []).filter((id: string) => id !== creatorProfile.id)
-        : [...(authUserProfile.following || []), creatorProfile.id]
-
-      // Update the current user's profile in Supabase
-      const { error: followingError } = await supabase
-        .from("profiles")
-        .update({ following: updatedFollowing })
-        .eq("id", user.id)
-
-      if (followingError) throw followingError
-
       // Emit event for Profile component to update following count
       eventEmitter.emit("followToggle", {
         action: isCurrentlyFollowing ? "unfollow" : "follow",
         targetUserId: creatorProfile.id,
+        currentUserId: user.id
       })
     } catch (error) {
       console.error("Error updating follow status:", error)
@@ -765,9 +803,9 @@ const ViewMindMap: React.FC = () => {
       setCreatorProfile((prev) =>
         prev
           ? {
-              ...prev,
-              followers: currentFollowersCount,
-            }
+            ...prev,
+            followers: currentFollowersCount,
+          }
           : null,
       )
     }
@@ -918,8 +956,8 @@ const ViewMindMap: React.FC = () => {
 
     const updatedComments = isReply
       ? comments.map((comment) =>
-          comment.id === parentCommentId ? { ...comment, replies: updateCommentLikes(comment.replies || []) } : comment,
-        )
+        comment.id === parentCommentId ? { ...comment, replies: updateCommentLikes(comment.replies || []) } : comment,
+      )
       : updateCommentLikes(comments)
 
     setComments(updatedComments)
@@ -1108,7 +1146,8 @@ const ViewMindMap: React.FC = () => {
   }
 
   if (loading || !currentMap || !currentMap.nodes || !currentMap.edges || currentMap.nodes.length === 0) {
-    return <SkeletonLoader />  }  return (
+    return <SkeletonLoader />
+  } return (
     <div className="fixed inset-0 w-screen h-screen overflow-auto">
       {/* Success message for comment reporting */}
       {reportSuccessMessage && (
@@ -1123,28 +1162,28 @@ const ViewMindMap: React.FC = () => {
           </div>
         </div>
       )}
-      {isInfoModalOpen && (        <InfoModal
-          mindmap={{
-            username: username || "",
-            displayName: creatorProfile?.full_name || username || "Unknown User",
-            name: currentMap.title,
-            id: currentMap.id,
-            updatedAt: currentMap.updated_at,
-            description: currentMap.description || "No description provided.",
-            visibility: currentMap.visibility,
-            avatar_url: creatorProfile?.avatar_url,
-            collaborators: currentMap.collaborators || [],
-            published_at: currentMap.published_at,
-            stats: {
-              nodes: currentMap.nodes?.length || 0,
-              edges: currentMap.edges?.length || 0,
-              likes: currentMap.likes || 0,
-              comments: totalCommentsCount || 0,
-              saves: currentMap.saves || 0,
-            },
-          }}
-          onClose={() => setIsInfoModalOpen(false)}
-        />
+      {isInfoModalOpen && (<InfoModal
+        mindmap={{
+          username: username || "",
+          displayName: creatorProfile?.full_name || username || "Unknown User",
+          name: currentMap.title,
+          id: currentMap.id,
+          updatedAt: currentMap.updated_at,
+          description: currentMap.description || "No description provided.",
+          visibility: currentMap.visibility,
+          avatar_url: creatorProfile?.avatar_url,
+          collaborators: currentMap.collaborators || [],
+          published_at: currentMap.published_at,
+          stats: {
+            nodes: currentMap.nodes?.length || 0,
+            edges: currentMap.edges?.length || 0,
+            likes: currentMap.likes || 0,
+            comments: totalCommentsCount || 0,
+            saves: currentMap.saves || 0,
+          },
+        }}
+        onClose={() => setIsInfoModalOpen(false)}
+      />
       )}
       {isShareModalOpen && (
         <ShareModal
@@ -1153,7 +1192,7 @@ const ViewMindMap: React.FC = () => {
           creator={username || ""}
           onClose={() => setIsShareModalOpen(false)}
           isMainMap={currentMap.is_main || false}
-          mindmapId={currentMap.id}        />      )}
+          mindmapId={currentMap.id} />)}
       {isSpotifyModalOpen && (
         <SpotifyLoginModal
           isOpen={isSpotifyModalOpen}
@@ -1213,35 +1252,34 @@ const ViewMindMap: React.FC = () => {
 
             {/* Enhanced Action buttons */}
             <div className="flex items-center gap-3 flex-shrink-0">              {(isCreator || isCollaborator) && (
-                <a
-                  href={`/${username}/${id}/edit`}
-                  className="group inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
-                >
-                  <Edit2 className="w-4 h-4 transition-transform group-hover:scale-110" />
-                  <span className="hidden sm:inline">Edit</span>
-                </a>
-              )}              {!isCreator && user?.id && (
-                <button
-                  onClick={handleFollow}
-                  className={`group inline-flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:scale-105 ${
-                    isFollowing
-                      ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:shadow-red-500/25"
-                      : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25"
+              <a
+                href={`/${username}/${id}/edit`}
+                className="group inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
+              >
+                <Edit2 className="w-4 h-4 transition-transform group-hover:scale-110" />
+                <span className="hidden sm:inline">Edit</span>
+              </a>
+            )}              {!isCreator && user?.id && (
+              <button
+                onClick={handleFollow}
+                className={`group inline-flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:scale-105 ${isFollowing
+                    ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:shadow-red-500/25"
+                    : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25"
                   }`}
-                >
-                  {isFollowing ? (
-                    <>
-                      <UserMinus className="w-4 h-4 transition-transform group-hover:scale-110" />
-                      <span className="hidden sm:inline">Unfollow</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4 transition-transform group-hover:scale-110" />
-                      <span className="hidden sm:inline">Follow</span>
-                    </>
-                  )}
-                </button>
-              )}
+              >
+                {isFollowing ? (
+                  <>
+                    <UserMinus className="w-4 h-4 transition-transform group-hover:scale-110" />
+                    <span className="hidden sm:inline">Unfollow</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 transition-transform group-hover:scale-110" />
+                    <span className="hidden sm:inline">Follow</span>
+                  </>
+                )}
+              </button>
+            )}
             </div>
           </div>
         </div>        {/* Enhanced Main content area with full-width layout */}
@@ -1288,9 +1326,8 @@ const ViewMindMap: React.FC = () => {
                             title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
                           >
                             <ChevronDown
-                              className={`w-4 h-4 text-slate-300 transition-transform ${
-                                collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                              }`}
+                              className={`w-4 h-4 text-slate-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
+                                }`}
                             />
                           </button>
                         </div>
@@ -1326,16 +1363,16 @@ const ViewMindMap: React.FC = () => {
                             ? "auto"
                             : (node.type === "default") ?
                               (typeof node.width === 'number' ? `${node.width}px` :
-                               typeof node.style?.width === 'number' ? `${node.style.width}px` :
-                               typeof node.style?.width === 'string' ? node.style.width :
-                               (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.width)) :
+                                typeof node.style?.width === 'number' ? `${node.style.width}px` :
+                                  typeof node.style?.width === 'string' ? node.style.width :
+                                    (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.width)) :
                               node.style?.width ||
                               (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.width),
                           height: (node.type === "default") ?
                             (typeof node.height === 'number' ? `${node.height}px` :
-                             typeof node.style?.height === 'number' ? `${node.style.height}px` :
-                             typeof node.style?.height === 'string' ? node.style.height :
-                             "auto") :
+                              typeof node.style?.height === 'number' ? `${node.style.height}px` :
+                                typeof node.style?.height === 'string' ? node.style.height :
+                                  "auto") :
                             node.style?.height || "auto",
                           minHeight: node.type === "default" ?
                             calculateTextNodeMinHeight(
@@ -1347,7 +1384,7 @@ const ViewMindMap: React.FC = () => {
                             node.type === "image"
                               ? "0"
                               : node.style?.padding ||
-                                (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.padding),
+                              (node.type && defaultNodeStyles[node.type as keyof typeof defaultNodeStyles]?.padding),
                         },
                         data: {
                           ...node.data,
@@ -1408,13 +1445,13 @@ const ViewMindMap: React.FC = () => {
           {/* Enhanced Similar mindmaps sidebar - only visible on xl screens */}
           <div className="hidden xl:block">
             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 overflow-hidden shadow-2xl h-[75vh]">              <div className="p-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
-                <h3 className="font-semibold text-slate-200 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                  </svg>
-                  Suggested
-                </h3>
-              </div>
+              <h3 className="font-semibold text-slate-200 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+                Suggested
+              </h3>
+            </div>
               <div className="p-4 space-y-4 overflow-y-auto h-[calc(75vh-72px)] flex-1">
                 {similarMindmaps.map((mindmap, index) => (
                   <div
@@ -1449,11 +1486,10 @@ const ViewMindMap: React.FC = () => {
                 className="group flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-700/50 hover:bg-sky-400/20 border border-slate-600/50 hover:border-sky-400/50 transition-all duration-200 hover:scale-105"
               >
                 <Heart
-                  className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${
-                    user?.id && currentMap.likedBy?.includes(user.id)
+                  className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${user?.id && currentMap.likedBy?.includes(user.id)
                       ? "fill-current text-sky-400"
                       : "text-slate-300 group-hover:text-sky-400"
-                  }`}
+                    }`}
                 />
                 <span className="text-sm font-medium text-slate-200">
                   {currentMap.likes > 0 ? currentMap.likes : "Like"}
@@ -1473,11 +1509,10 @@ const ViewMindMap: React.FC = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className={`transition-all duration-200 group-hover:scale-110 ${
-                    user?.id && currentMap.savedBy?.includes(user.id)
+                  className={`transition-all duration-200 group-hover:scale-110 ${user?.id && currentMap.savedBy?.includes(user.id)
                       ? "text-blue-400"
                       : "text-slate-300 group-hover:text-blue-400"
-                  }`}
+                    }`}
                 >
                   <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
                 </svg>
@@ -1535,9 +1570,8 @@ const ViewMindMap: React.FC = () => {
                 Suggested
               </h3>
               <ChevronDown
-                className={`w-5 h-5 text-slate-300 transition-transform duration-200 ${
-                  similarMindmapsCollapsed ? "" : "transform rotate-180"
-                }`}
+                className={`w-5 h-5 text-slate-300 transition-transform duration-200 ${similarMindmapsCollapsed ? "" : "transform rotate-180"
+                  }`}
               />
             </div>
             {!similarMindmapsCollapsed && (
@@ -1647,19 +1681,18 @@ const ViewMindMap: React.FC = () => {
                 <div
                   key={comment.id}
                   id={`comment-${comment.id}`}
-                  className={`p-4 border-b border-slate-700/20 transition-all duration-300 rounded-lg ${
-                    comment.is_pinned
+                  className={`p-4 border-b border-slate-700/20 transition-all duration-300 rounded-lg ${comment.is_pinned
                       ? "bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/30 ring-1 ring-blue-500/20"
                       : highlightedCommentId === comment.id
                         ? "bg-blue-900/20 border-blue-500/30"
                         : "hover:bg-slate-800/30"
-                  }`}
+                    }`}
                 >
                   {" "}                  <div className="flex items-start gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <a 
+                          <a
                             href={`/${comment.profiles?.username}`}
                             className="flex items-center gap-3 hover:bg-slate-800/30 rounded-lg p-2 -m-2 transition-all duration-200 cursor-pointer group"
                           >
@@ -1675,11 +1708,10 @@ const ViewMindMap: React.FC = () => {
                                   {comment.profiles?.username?.charAt(0).toUpperCase() || "U"}
                                 </div>
                               )}
-                            </div>                            <span className={`text-sm font-semibold transition-colors ${
-                              comment.profiles?.username === username
+                            </div>                            <span className={`text-sm font-semibold transition-colors ${comment.profiles?.username === username
                                 ? "text-white group-hover:text-slate-300 px-2 py-1 rounded-lg bg-gradient-to-r from-blue-600/60 to-purple-600/60"
                                 : "text-white group-hover:text-slate-300"
-                            }`}>
+                              }`}>
                               @{comment.profiles?.username}
                             </span>
                           </a>
@@ -1740,9 +1772,8 @@ const ViewMindMap: React.FC = () => {
                               )}
                               {(comment.user_id === user?.id || currentMap.creator === user?.id) && (
                                 <button
-                                  className={`flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 transition-colors ${
-                                    comment.user_id === user?.id ? "" : "rounded-b-lg"
-                                  }`}
+                                  className={`flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-slate-700 transition-colors ${comment.user_id === user?.id ? "" : "rounded-b-lg"
+                                    }`}
                                   onClick={() => setCommentToDelete(comment.id)}
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1777,30 +1808,30 @@ const ViewMindMap: React.FC = () => {
                               setComments((prev) =>
                                 prev.map((c) => (c.id === comment.id ? { ...c, draftContent: e.target.value } : c)),
                               )
-                            }                            autoFocus
+                            } autoFocus
                           />                          <div className="flex justify-end mt-3 gap-3">                            <button
-                              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                              onClick={() => {
-                                const updatedContent = comment.draftContent?.trim()
-                                if (updatedContent && updatedContent !== comment.content) {
-                                  handleEditComment(comment.id, updatedContent)
-                                  setComments((prev) =>
-                                    prev.map((c) =>
-                                      c.id === comment.id
-                                        ? { ...c, content: updatedContent, isEditing: false, isEdited: true }
-                                        : c,
-                                    ),
-                                  )
-                                } else {
-                                  setComments((prev) =>
-                                    prev.map((c) => (c.id === comment.id ? { ...c, isEditing: false } : c)),
-                                  )
-                                }
-                              }}
-                            >
-                              <Check className="w-4 h-4 inline mr-1" />
-                              Save
-                            </button>
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                            onClick={() => {
+                              const updatedContent = comment.draftContent?.trim()
+                              if (updatedContent && updatedContent !== comment.content) {
+                                handleEditComment(comment.id, updatedContent)
+                                setComments((prev) =>
+                                  prev.map((c) =>
+                                    c.id === comment.id
+                                      ? { ...c, content: updatedContent, isEditing: false, isEdited: true }
+                                      : c,
+                                  ),
+                                )
+                              } else {
+                                setComments((prev) =>
+                                  prev.map((c) => (c.id === comment.id ? { ...c, isEditing: false } : c)),
+                                )
+                              }
+                            }}
+                          >
+                            <Check className="w-4 h-4 inline mr-1" />
+                            Save
+                          </button>
                             <button
                               className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm"
                               onClick={() =>
@@ -1824,11 +1855,10 @@ const ViewMindMap: React.FC = () => {
                           className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-300 transition-colors"
                         >
                           <Heart
-                            className={`w-4 h-4 transition-colors ${
-                              user?.id && comment.liked_by?.includes(user.id)
+                            className={`w-4 h-4 transition-colors ${user?.id && comment.liked_by?.includes(user.id)
                                 ? "fill-current text-sky-400"
                                 : "text-slate-400 hover:text-sky-400"
-                            }`}
+                              }`}
                           />
                           {comment.likes > 0 && <span>{comment.likes}</span>}
                         </button>
@@ -1933,7 +1963,7 @@ const ViewMindMap: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <a 
+                                  <a
                                     href={`/${reply.profiles?.username}`}
                                     className="flex items-center gap-2 hover:bg-slate-800/30 rounded-lg p-1 -m-1 transition-all duration-200 cursor-pointer group"
                                   >
@@ -1949,11 +1979,10 @@ const ViewMindMap: React.FC = () => {
                                           {reply.profiles?.username?.charAt(0).toUpperCase() || "U"}
                                         </div>
                                       )}
-                                    </div>                                    <span className={`text-sm font-semibold transition-colors ${
-                                      reply.profiles?.username === username 
-                                        ? "text-white group-hover:text-slate-300 px-2 py-1 rounded-lg bg-gradient-to-r from-blue-600/60 to-purple-600/60" 
+                                    </div>                                    <span className={`text-sm font-semibold transition-colors ${reply.profiles?.username === username
+                                        ? "text-white group-hover:text-slate-300 px-2 py-1 rounded-lg bg-gradient-to-r from-blue-600/60 to-purple-600/60"
                                         : "text-white group-hover:text-slate-300"
-                                    }`}>
+                                      }`}>
                                       @{reply.profiles?.username}
                                     </span></a>
                                   <span className="text-xs text-slate-400 flex items-center gap-1">
@@ -1971,11 +2000,11 @@ const ViewMindMap: React.FC = () => {
                                         prev.map((c) =>
                                           c.id === comment.id
                                             ? {
-                                                ...c,
-                                                replies: c.replies?.map((r: any) =>
-                                                  r.id === reply.id ? { ...r, isMenuOpen: !r.isMenuOpen } : r,
-                                                ),
-                                              }
+                                              ...c,
+                                              replies: c.replies?.map((r: any) =>
+                                                r.id === reply.id ? { ...r, isMenuOpen: !r.isMenuOpen } : r,
+                                              ),
+                                            }
                                             : c,
                                         ),
                                       )
@@ -1993,13 +2022,13 @@ const ViewMindMap: React.FC = () => {
                                               prev.map((c) =>
                                                 c.id === comment.id
                                                   ? {
-                                                      ...c,
-                                                      replies: c.replies?.map((r: any) =>
-                                                        r.id === reply.id
-                                                          ? { ...r, isEditing: true, isMenuOpen: false }
-                                                          : r,
-                                                      ),
-                                                    }
+                                                    ...c,
+                                                    replies: c.replies?.map((r: any) =>
+                                                      r.id === reply.id
+                                                        ? { ...r, isEditing: true, isMenuOpen: false }
+                                                        : r,
+                                                    ),
+                                                  }
                                                   : c,
                                               ),
                                             )
@@ -2028,11 +2057,11 @@ const ViewMindMap: React.FC = () => {
                                               prev.map((c) =>
                                                 c.id === comment.id
                                                   ? {
-                                                      ...c,
-                                                      replies: c.replies?.map((r: any) =>
-                                                        r.id === reply.id ? { ...r, isMenuOpen: false } : r,
-                                                      ),
-                                                    }
+                                                    ...c,
+                                                    replies: c.replies?.map((r: any) =>
+                                                      r.id === reply.id ? { ...r, isMenuOpen: false } : r,
+                                                    ),
+                                                  }
                                                   : c,
                                               ),
                                             )
@@ -2056,15 +2085,15 @@ const ViewMindMap: React.FC = () => {
                                         prev.map((c) =>
                                           c.id === comment.id
                                             ? {
-                                                ...c,
-                                                replies: c.replies?.map((r: any) =>
-                                                  r.id === reply.id ? { ...r, draftContent: e.target.value } : r,
-                                                ),
-                                              }
+                                              ...c,
+                                              replies: c.replies?.map((r: any) =>
+                                                r.id === reply.id ? { ...r, draftContent: e.target.value } : r,
+                                              ),
+                                            }
                                             : c,
                                         ),
                                       )
-                                    }                                    autoFocus
+                                    } autoFocus
                                   />
                                   <div className="flex justify-end gap-3 mt-3">
                                     <button
@@ -2087,19 +2116,19 @@ const ViewMindMap: React.FC = () => {
                                               prev.map((c) =>
                                                 c.id === comment.id
                                                   ? {
-                                                      ...c,
-                                                      replies: c.replies?.map((r: any) =>
-                                                        r.id === reply.id
-                                                          ? {
-                                                              ...r,
-                                                              content: draftContent.trim(),
-                                                              edited_at: new Date().toISOString(),
-                                                              isEditing: false,
-                                                              draftContent: undefined,
-                                                            }
-                                                          : r,
-                                                      ),
-                                                    }
+                                                    ...c,
+                                                    replies: c.replies?.map((r: any) =>
+                                                      r.id === reply.id
+                                                        ? {
+                                                          ...r,
+                                                          content: draftContent.trim(),
+                                                          edited_at: new Date().toISOString(),
+                                                          isEditing: false,
+                                                          draftContent: undefined,
+                                                        }
+                                                        : r,
+                                                    ),
+                                                  }
                                                   : c,
                                               ),
                                             )
@@ -2119,13 +2148,13 @@ const ViewMindMap: React.FC = () => {
                                           prev.map((c) =>
                                             c.id === comment.id
                                               ? {
-                                                  ...c,
-                                                  replies: c.replies?.map((r: any) =>
-                                                    r.id === reply.id
-                                                      ? { ...r, isEditing: false, draftContent: undefined }
-                                                      : r,
-                                                  ),
-                                                }
+                                                ...c,
+                                                replies: c.replies?.map((r: any) =>
+                                                  r.id === reply.id
+                                                    ? { ...r, isEditing: false, draftContent: undefined }
+                                                    : r,
+                                                ),
+                                              }
                                               : c,
                                           ),
                                         )
@@ -2145,11 +2174,10 @@ const ViewMindMap: React.FC = () => {
                                   className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-300 transition-colors"
                                 >
                                   <Heart
-                                    className={`w-4 h-4 transition-colors ${
-                                      user?.id && reply.liked_by?.includes(user.id)
+                                    className={`w-4 h-4 transition-colors ${user?.id && reply.liked_by?.includes(user.id)
                                         ? "fill-current text-sky-400"
                                         : "text-slate-400 hover:text-sky-400"
-                                    }`}
+                                      }`}
                                   />
                                   <span>{reply.likes || 0}</span>
                                 </button>

@@ -271,10 +271,8 @@ interface ProfileData {
   join_date: string
   description: string
   avatar_url?: string
-  followers: number // Add this field
-  followed_by: string[]
-  following: string[]
-  following_count: number // Add this field
+  followers: number // Fetched from user_followers_count table
+  following_count: number // Fetched from user_following_count table
 }
 
 // Username availability status
@@ -434,6 +432,7 @@ export default function Profile() {
 
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [countsLoaded, setCountsLoaded] = useState(false)
 
   // Username availability state
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("empty")
@@ -506,35 +505,33 @@ export default function Profile() {
 
   // Listen for follow/unfollow events from UserListModal
   useEffect(() => {
-    const handleFollowToggle = (data: { action: 'follow' | 'unfollow', targetUserId: string }) => {
-      setProfile(prevProfile => {
-        if (!prevProfile) return prevProfile;
+    const handleFollowToggle = (data: { action: 'follow' | 'unfollow', targetUserId: string, currentUserId: string }) => {
+      if (!user?.id || !profile) return;
 
-        // Update the following array and count
-        const updatedFollowing = data.action === 'follow'
-          ? [...prevProfile.following, data.targetUserId]
-          : prevProfile.following.filter(id => id !== data.targetUserId);
-
-        const updatedProfile = {
-          ...prevProfile,
-          following: updatedFollowing
-        };
-
-        // Also update the database to ensure consistency
-        if (user?.id) {
-          supabase
-            .from('profiles')
-            .update({ following: updatedFollowing })
-            .eq('id', user.id)
-            .then(({ error }) => {
-              if (error) {
-                console.error('Error updating following in database:', error);
-              }
-            });
-        }
-
-        return updatedProfile;
-      });
+      // Update counts based on the follow action
+      if (data.currentUserId === user.id) {
+        // Current user is following/unfollowing someone else - update following count
+        setProfile(prevProfile => {
+          if (!prevProfile) return prevProfile;
+          return {
+            ...prevProfile,
+            following_count: data.action === 'follow'
+              ? prevProfile.following_count + 1
+              : Math.max(prevProfile.following_count - 1, 0)
+          };
+        });
+      } else if (data.targetUserId === user.id) {
+        // Someone is following/unfollowing the current user - update followers count
+        setProfile(prevProfile => {
+          if (!prevProfile) return prevProfile;
+          return {
+            ...prevProfile,
+            followers: data.action === 'follow'
+              ? prevProfile.followers + 1
+              : Math.max(prevProfile.followers - 1, 0)
+          };
+        });
+      }
     };
 
     // Subscribe to follow toggle events
@@ -544,7 +541,7 @@ export default function Profile() {
     return () => {
       eventEmitter.off('followToggle', handleFollowToggle);
     };
-  }, [user?.id]);
+  }, [user?.id, profile]);
 
   // Load profile data and maps
   useEffect(() => {
@@ -559,29 +556,60 @@ export default function Profile() {
       // Fetch profile data
       let profileData = null;
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("username, full_name, join_date, description, avatar_url, followed_by, following, followers, following_count")
-          .eq("id", user.id)
-          .single()
+        // Fetch all data in parallel for better performance
+        const [profileResult, followerCountResult, followingCountResult] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("username, full_name, join_date, description, avatar_url")
+            .eq("id", user.id)
+            .single(),
+          supabase
+            .from("user_followers_count")
+            .select("followers_count")
+            .eq("user_id", user.id)
+            .single(),
+          supabase
+            .from("user_following_count")
+            .select("following_count")
+            .eq("user_id", user.id)
+            .single()
+        ]);
 
-        if (error) {
-          console.error("Error fetching profile:", error)
-        } else if (data) {
-          profileData = {
-            ...data,
-            followed_by: data.followed_by || [],
-            following: data.following || [],
-            followers: data.followers || 0,
-            following_count: data.following_count || 0
-          }
-          setProfile(profileData)
-          setEditProfileData({
-            username: data.username || "",
-            full_name: data.full_name || "",
-            description: data.description || "",
-          })
+        if (profileResult.error) {
+          console.error("Error fetching profile:", profileResult.error)
+          return;
         }
+
+        const data = profileResult.data;
+        const followersCount = followerCountResult.data?.followers_count || 0;
+        const followingCount = followingCountResult.data?.following_count || 0;
+
+        // Log any errors for the count queries (but don't fail)
+        if (followerCountResult.error) {
+          console.log("No follower count record found, defaulting to 0");
+        }
+        if (followingCountResult.error) {
+          console.log("No following count record found, defaulting to 0");
+        }
+
+        // Set profile data with counts from new tables only
+        profileData = {
+          username: data.username,
+          full_name: data.full_name,
+          join_date: data.join_date,
+          description: data.description,
+          avatar_url: data.avatar_url,
+          followers: followersCount, // Always use count from user_followers_count table
+          following_count: followingCount // Always use count from user_following_count table
+        }
+
+        setProfile(profileData)
+        setCountsLoaded(true)
+        setEditProfileData({
+          username: data.username || "",
+          full_name: data.full_name || "",
+          description: data.description || "",
+        })
       } catch (error) {
         console.error("Error in profile fetch:", error)
       }
@@ -866,8 +894,6 @@ export default function Profile() {
       description: editProfileData.description,
       join_date: profile?.join_date || new Date().toISOString().split('T')[0], // Ensure join_date is set
       followers: profile?.followers || 0, // Ensure followers is set
-      followed_by: profile?.followed_by || [], // Ensure followed_by is set
-      following: profile?.following || [], // Ensure following is set
       following_count: profile?.following_count || 0, // Ensure following_count is set
     }
 
@@ -1481,19 +1507,19 @@ export default function Profile() {
             </div>
             <div
               className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
-              onClick={() => openModal('Followers', profile?.followed_by || [])}
+              onClick={() => openModal('Followers', [])}
             >
               <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
-                {profile?.followers || 0}
+                {countsLoaded ? (profile?.followers || 0) : 0}
               </div>
               <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Followers</div>
             </div>
             <div
               className="text-center group cursor-pointer hover:bg-slate-700/30 rounded-lg p-1 transition-all duration-200"
-              onClick={() => openModal('Following', profile?.following || [])}
+              onClick={() => openModal('Following', [])}
             >
               <div className="text-base font-bold text-white mb-0.5 transition-colors group-hover:text-blue-400">
-                {profile?.following_count || 0}
+                {countsLoaded ? (profile?.following_count || 0) : 0}
               </div>
               <div className="text-xs text-slate-400 font-medium group-hover:text-slate-300">Following</div>
             </div>
@@ -2265,6 +2291,7 @@ export default function Profile() {
           onClose={closeModal}
           title={modalTitle}
           userIds={modalUserIds}
+          profileUserId={user?.id}
         />
 
         {/* Share Modal */}
