@@ -50,17 +50,18 @@ export const SuggestedUsers: React.FC<SuggestedUsersProps> = ({ currentUserId })
         } else if (ceoData) {
           setCeoProfile(ceoData)
         }        // Get current user's following list to exclude from suggestions
-        const { data: currentUserProfile, error: currentUserError } = await supabase
-          .from("profiles")
-          .select("following")
-          .eq("id", currentUserId)
-          .single()
+        const { data: followingData, error: followingError } = await supabase
+          .from("user_follows")
+          .select("followed_id")
+          .eq("follower_id", currentUserId)
 
-        if (currentUserError) {
-          console.error("Error fetching current user profile:", currentUserError)
+        if (followingError) {
+          console.error("Error fetching current user following:", followingError)
         }
 
-        const followingList = currentUserProfile?.following || []        // Then fetch random users for suggestions
+        const followingList = followingData?.map(f => f.followed_id) || []
+
+        // Then fetch random users for suggestions
         // This is where you could implement different algorithms in the future
         let query = supabase
           .from("profiles")

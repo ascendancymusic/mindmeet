@@ -34,13 +34,16 @@ export const SuggestedPerson: React.FC<SuggestedPersonProps> = ({ user, isLoadin
 
       try {
         const { data, error } = await supabase
-          .from("profiles")
-          .select("following")
-          .eq("id", currentUser.id)
+          .from("user_follows")
+          .select("follower_id")
+          .eq("follower_id", currentUser.id)
+          .eq("followed_id", user.id)
           .single()
 
         if (!error && data) {
-          setIsFollowing((data.following || []).includes(user.id))
+          setIsFollowing(true)
+        } else {
+          setIsFollowing(false)
         }
       } catch (error) {
         console.error("Error checking follow status:", error)
@@ -63,54 +66,26 @@ export const SuggestedPerson: React.FC<SuggestedPersonProps> = ({ user, isLoadin
     setIsFollowing(!wasFollowing)
 
     try {
-      // Get current user's following list
-      const { data: currentUserProfile, error: currentUserError } = await supabase
-        .from("profiles")
-        .select("following")
-        .eq("id", currentUser.id)
-        .single()
+      if (wasFollowing) {
+        // Unfollow: remove from user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .delete()
+          .eq('follower_id', currentUser.id)
+          .eq('followed_id', user.id);
 
-      if (currentUserError) throw currentUserError
+        if (error) throw error;
+      } else {
+        // Follow: add to user_follows table
+        const { error } = await supabase
+          .from('user_follows')
+          .insert({
+            follower_id: currentUser.id,
+            followed_id: user.id
+          });
 
-      // Update current user's following list
-      const updatedFollowing = wasFollowing
-        ? (currentUserProfile.following || []).filter((id: string) => id !== user.id)
-        : [...(currentUserProfile.following || []), user.id]
-
-      const { error: followingError } = await supabase
-        .from("profiles")
-        .update({ following: updatedFollowing })
-        .eq("id", currentUser.id)
-
-      if (followingError) throw followingError
-
-      // Get target user's profile to update their followed_by list
-      const { data: targetUserProfile, error: targetUserError } = await supabase
-        .from("profiles")
-        .select("followed_by, followers")
-        .eq("id", user.id)
-        .single()
-
-      if (targetUserError) throw targetUserError
-
-      // Update target user's followed_by list and followers count
-      const updatedFollowedBy = wasFollowing
-        ? (targetUserProfile.followed_by || []).filter((id: string) => id !== currentUser.id)
-        : [...(targetUserProfile.followed_by || []), currentUser.id]
-
-      const updatedFollowersCount = wasFollowing
-        ? Math.max((targetUserProfile.followers || 0) - 1, 0)
-        : (targetUserProfile.followers || 0) + 1
-
-      const { error: targetError } = await supabase
-        .from("profiles")
-        .update({
-          followed_by: updatedFollowedBy,
-          followers: updatedFollowersCount
-        })
-        .eq("id", user.id)
-
-      if (targetError) throw targetError
+        if (error) throw error;
+      }
 
       // Send notification
       if (currentUser?.username && user.id !== currentUser.id) {
