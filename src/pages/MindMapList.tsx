@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { useNavigate, useLocation } from "react-router-dom"
 import { usePageTitle } from "../hooks/usePageTitle"
@@ -99,6 +98,93 @@ const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => 
     />
   )
 }
+
+// Memoized ReactFlow preview component to prevent unnecessary re-renders
+const MindMapPreview = React.memo(({ map, isSmallScreen, onInit }: {
+  map: any,
+  isSmallScreen: boolean,
+  onInit: (instance: any) => void
+}) => {
+  // Memoize the expensive node and edge processing
+  const { processedNodes, processedEdges } = useMemo(() => {
+    if (!map.nodes?.length) return { processedNodes: [], processedEdges: [] }
+
+    const nodes = processNodesForTextRendering(prepareNodesForRendering(map.nodes))
+    const edges = map.edges.map((edge: any) => {
+      // Find the source node to get its color
+      const sourceNode = map.nodes.find((node: any) => node.id === edge.source)
+      const sourceNodeColor = sourceNode
+        ? sourceNode.background || sourceNode.style?.background || "#374151"
+        : "#374151"
+
+      // Get edgeType from map, default to 'default' if not valid
+      const edgeType = ["default", "straight", "smoothstep"].includes(map.edgeType || "")
+        ? map.edgeType
+        : "default"
+
+      return {
+        ...edge,
+        type: edgeType === "default" ? "default" : edgeType,
+        style: {
+          ...edge.style,
+          strokeWidth: 2,
+          stroke: sourceNodeColor,
+        },
+      }
+    })
+
+    return { processedNodes: nodes, processedEdges: edges }
+  }, [map.nodes, map.edges, map.edgeType])
+
+  if (!map.nodes?.length) {
+    return (
+      <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: map.backgroundColor || "rgba(30, 41, 59, 0.3)",
+          }}
+        />
+        <div className="relative z-10 text-slate-400 text-center">
+          <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Empty mindmap</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <ReactFlow
+      nodes={processedNodes}
+      edges={processedEdges}
+      nodeTypes={nodeTypes as unknown as NodeTypes}
+      fitView
+      nodesDraggable={false}
+      nodesConnectable={false}
+      elementsSelectable={false}
+      zoomOnScroll={!isSmallScreen}
+      zoomOnDoubleClick={false}
+      panOnDrag={!isSmallScreen}
+      minZoom={0.1}
+      maxZoom={2}
+      onInit={onInit}
+      proOptions={{ hideAttribution: true }}
+    >
+      <CustomBackground backgroundColor={map.backgroundColor} />
+    </ReactFlow>
+  )
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  return (
+    prevProps.map.id === nextProps.map.id &&
+    prevProps.map.updatedAt === nextProps.map.updatedAt &&
+    prevProps.isSmallScreen === nextProps.isSmallScreen &&
+    JSON.stringify(prevProps.map.nodes) === JSON.stringify(nextProps.map.nodes) &&
+    JSON.stringify(prevProps.map.edges) === JSON.stringify(nextProps.map.edges) &&
+    prevProps.map.backgroundColor === nextProps.map.backgroundColor &&
+    prevProps.map.edgeType === nextProps.map.edgeType
+  )
+})
 
 const SkeletonLoader = () => {
   return (
@@ -850,21 +936,7 @@ export default function MindMapList() {
     }
   }
 
-  const getFilteredMaps = () => {
-    const currentMaps = viewMode === "owned" ? maps : collaborationMaps
 
-    // Only apply group filtering for owned maps
-    if (viewMode === "collaboration" || !selectedGroupId) {
-      return currentMaps // Show all maps when in collaboration view or no group is selected
-    }
-
-    const selectedGroup = groups.find((group) => group.id === selectedGroupId)
-    if (!selectedGroup) {
-      return currentMaps
-    }
-
-    return currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.id))
-  }
 
   const getAllMaps = () => {
     return viewMode === "owned" ? maps : collaborationMaps
@@ -1050,29 +1122,41 @@ export default function MindMapList() {
   }, [])
 
   /**
-   * Sort maps based on user selection while keeping pinned maps at the top
-   * Creates a new sorted array without modifying the original maps array
+   * Memoized filtering and sorting to prevent expensive recalculations
    */
-  const filteredMaps = getFilteredMaps()
-  const sortedMaps = [...filteredMaps].sort((a, b) => {
-    // First sort by pin status (pinned maps always appear first)
-    if (a.isPinned && !b.isPinned) return -1
-    if (!a.isPinned && b.isPinned) return 1
+  const sortedMaps = useMemo(() => {
+    const currentMaps = viewMode === "owned" ? maps : collaborationMaps
 
-    // Then apply the selected sort option
-    switch (sortOption) {
-      case "newest":
-        return b.updatedAt - a.updatedAt
-      case "oldest":
-        return a.updatedAt - b.updatedAt
-      case "alphabeticalAsc":
-        return a.title.localeCompare(b.title)
-      case "alphabeticalDesc":
-        return b.title.localeCompare(a.title)
-      default:
-        return b.updatedAt - a.updatedAt // Default to newest
+    // Apply group filtering for owned maps
+    let filteredMaps = currentMaps
+    if (viewMode === "owned" && selectedGroupId) {
+      const selectedGroup = groups.find((group) => group.id === selectedGroupId)
+      if (selectedGroup) {
+        filteredMaps = currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.id))
+      }
     }
-  })
+
+    // Sort the filtered maps
+    return [...filteredMaps].sort((a, b) => {
+      // First sort by pin status (pinned maps always appear first)
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+
+      // Then apply the selected sort option
+      switch (sortOption) {
+        case "newest":
+          return b.updatedAt - a.updatedAt
+        case "oldest":
+          return a.updatedAt - b.updatedAt
+        case "alphabeticalAsc":
+          return a.title.localeCompare(b.title)
+        case "alphabeticalDesc":
+          return b.title.localeCompare(a.title)
+        default:
+          return b.updatedAt - a.updatedAt // Default to newest
+      }
+    })
+  }, [maps, collaborationMaps, viewMode, selectedGroupId, groups, sortOption])
 
   /**
    * Toggles the dropdown menu for a specific map
@@ -1700,46 +1784,11 @@ export default function MindMapList() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   {map.nodes?.length > 0 ? (
-                    <ReactFlow
-                      nodes={processNodesForTextRendering(prepareNodesForRendering(map.nodes))}
-                      edges={map.edges.map((edge: any) => {
-                        // Find the source node to get its color
-                        const sourceNode = map.nodes.find((node: any) => node.id === edge.source)
-                        const sourceNodeColor = sourceNode
-                          ? sourceNode.background || sourceNode.style?.background || "#374151"
-                          : "#374151"
-
-                        // Get edgeType from map, default to 'default' if not valid
-                        const edgeType = ["default", "straight", "smoothstep"].includes(map.edgeType || "")
-                          ? map.edgeType
-                          : "default"
-
-                        return {
-                          ...edge,
-                          type: edgeType === "default" ? "default" : edgeType,
-                          style: {
-                            ...edge.style,
-                            strokeWidth: 2,
-                            stroke: sourceNodeColor,
-                          },
-                        }
-                      })}
-                      nodeTypes={nodeTypes as unknown as NodeTypes}
-                      fitView
-                      nodesDraggable={false}
-                      nodesConnectable={false}
-                      elementsSelectable={false}
-                      zoomOnScroll={!isSmallScreen}
-                      zoomOnDoubleClick={false}
-                      panOnDrag={!isSmallScreen}
-                      minZoom={0.1}
-                      maxZoom={2}
+                    <MindMapPreview
+                      map={map}
+                      isSmallScreen={isSmallScreen}
                       onInit={onInit}
-                      ref={reactFlowRef as any}
-                      proOptions={{ hideAttribution: true }}
-                    >
-                      <CustomBackground backgroundColor={map.backgroundColor} />
-                    </ReactFlow>
+                    />
                   ) : (
                     <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
                       {/* Base background */}
