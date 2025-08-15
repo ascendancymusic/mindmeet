@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useEffect, useState } from "react"
+import React, { useEffect, useState, useMemo } from "react"
 import { useParams } from "react-router-dom"
 import { supabase } from "../supabaseClient"
 import {
@@ -84,6 +83,90 @@ const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => 
     </>
   )
 }
+
+// Memoized ReactFlow preview component to prevent unnecessary re-renders
+const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
+  // Memoize the expensive node and edge processing
+  const { processedNodes, processedEdges } = useMemo(() => {
+    if (!map.json_data?.nodes?.length) return { processedNodes: [], processedEdges: [] }
+
+    const nodes = processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))
+    const edges = map.json_data.edges.map((edge: any) => {
+      // Find the source node to get its color
+      const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source)
+      const sourceNodeColor = sourceNode
+        ? sourceNode.background || sourceNode.style?.background || "#374151"
+        : "#374151"
+
+      // Get edgeType from map data, default to 'default' if not valid
+      const edgeType = ["default", "straight", "smoothstep"].includes(map.json_data.edgeType)
+        ? map.json_data.edgeType
+        : "default"
+
+      return {
+        ...edge,
+        type: edgeType === "default" ? "default" : edgeType,
+        style: {
+          ...edge.style,
+          strokeWidth: 2,
+          stroke: sourceNodeColor,
+        },
+      }
+    })
+
+    return { processedNodes: nodes, processedEdges: edges }
+  }, [map.json_data?.nodes, map.json_data?.edges, map.json_data?.edgeType])
+
+  if (!map.json_data?.nodes?.length) {
+    return (
+      <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: map.json_data?.backgroundColor || '#11192C'
+          }}
+        />
+        {map.json_data?.backgroundColor && (
+          <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
+        )}
+        <div className="text-center text-slate-500 relative z-10">
+          <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Empty mindmap</p>
+          <p className="text-xs opacity-75">Click to view</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <ReactFlow
+      nodes={processedNodes}
+      edges={processedEdges}
+      nodeTypes={nodeTypes as unknown as NodeTypes}
+      fitView
+      nodesDraggable={false}
+      nodesConnectable={false}
+      elementsSelectable={false}
+      zoomOnScroll={true}
+      zoomOnDoubleClick={false}
+      minZoom={0.1}
+      maxZoom={2}
+      proOptions={{ hideAttribution: true }}
+    >
+      <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
+    </ReactFlow>
+  )
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  return (
+    prevProps.map.id === nextProps.map.id &&
+    prevProps.map.updated_at === nextProps.map.updated_at &&
+    JSON.stringify(prevProps.map.json_data?.nodes) === JSON.stringify(nextProps.map.json_data?.nodes) &&
+    JSON.stringify(prevProps.map.json_data?.edges) === JSON.stringify(nextProps.map.json_data?.edges) &&
+    prevProps.map.json_data?.backgroundColor === nextProps.map.json_data?.backgroundColor &&
+    prevProps.map.json_data?.edgeType === nextProps.map.json_data?.edgeType
+  )
+})
 
 const SkeletonLoader = () => {
   return (
@@ -921,43 +1004,7 @@ const UserProfile: React.FC = () => {
                         href={`/${username}/${map.id}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
-                        <ReactFlow
-                          nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
-                          edges={map.json_data.edges.map((edge: any) => {
-                            // Find the source node to get its color
-                            const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
-                            const sourceNodeColor = sourceNode
-                              ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                              : "#374151";
-
-                            // Get edgeType from map data, default to 'default' if not valid
-                            const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
-                              ? map.json_data.edgeType
-                              : 'default';
-
-                            return {
-                              ...edge,
-                              type: edgeType === 'default' ? 'default' : edgeType,
-                              style: {
-                                ...edge.style,
-                                strokeWidth: 2,
-                                stroke: sourceNodeColor,
-                              },
-                            };
-                          })}
-                          nodeTypes={nodeTypes as unknown as NodeTypes}
-                          fitView
-                          nodesDraggable={false}
-                          nodesConnectable={false}
-                          elementsSelectable={false}
-                          zoomOnScroll={true}
-                          zoomOnDoubleClick={false}
-                          minZoom={0.1}
-                          maxZoom={2}
-                          proOptions={{ hideAttribution: true }}
-                        >
-                          <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-                        </ReactFlow>
+                        <UserProfileMindMapPreview map={map} />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                       </a>
                     )}
@@ -1110,43 +1157,7 @@ const UserProfile: React.FC = () => {
                           href={`/${username}/${map.id}`}
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
-                          <ReactFlow
-                            nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
-                            edges={map.json_data.edges.map((edge: any) => {
-                              // Find the source node to get its color
-                              const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
-                              const sourceNodeColor = sourceNode
-                                ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                                : "#374151";
-
-                              // Get edgeType from map data, default to 'default' if not valid
-                              const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
-                                ? map.json_data.edgeType
-                                : 'default';
-
-                              return {
-                                ...edge,
-                                type: edgeType === 'default' ? 'default' : edgeType,
-                                style: {
-                                  ...edge.style,
-                                  strokeWidth: 2,
-                                  stroke: sourceNodeColor,
-                                },
-                              };
-                            })}
-                            nodeTypes={nodeTypes as unknown as NodeTypes}
-                            fitView
-                            nodesDraggable={false}
-                            nodesConnectable={false}
-                            elementsSelectable={false}
-                            zoomOnScroll={true}
-                            zoomOnDoubleClick={false}
-                            minZoom={0.1}
-                            maxZoom={2}
-                            proOptions={{ hideAttribution: true }}
-                          >
-                            <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-                          </ReactFlow>
+                          <UserProfileMindMapPreview map={map} />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
                       )}
@@ -1299,43 +1310,7 @@ const UserProfile: React.FC = () => {
                         href={`/${username}/${map.id}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
-                        <ReactFlow
-                          nodes={processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))}
-                          edges={map.json_data.edges.map((edge: any) => {
-                            // Find the source node to get its color
-                            const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source);
-                            const sourceNodeColor = sourceNode
-                              ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                              : "#374151";
-
-                            // Get edgeType from map data, default to 'default' if not valid
-                            const edgeType = ['default', 'straight', 'smoothstep'].includes(map.json_data.edgeType)
-                              ? map.json_data.edgeType
-                              : 'default';
-
-                            return {
-                              ...edge,
-                              type: edgeType === 'default' ? 'default' : edgeType,
-                              style: {
-                                ...edge.style,
-                                strokeWidth: 2,
-                                stroke: sourceNodeColor,
-                              },
-                            };
-                          })}
-                          nodeTypes={nodeTypes as unknown as NodeTypes}
-                          fitView
-                          nodesDraggable={false}
-                          nodesConnectable={false}
-                          elementsSelectable={false}
-                          zoomOnScroll={true}
-                          zoomOnDoubleClick={false}
-                          minZoom={0.1}
-                          maxZoom={2}
-                          proOptions={{ hideAttribution: true }}
-                        >
-                          <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-                        </ReactFlow>
+                        <UserProfileMindMapPreview map={map} />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>                        </a>
                     )}
 
