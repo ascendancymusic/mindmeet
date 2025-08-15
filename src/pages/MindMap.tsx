@@ -262,6 +262,37 @@ export default function MindMap() {
     currentMindMapId,
   } = useCollaborationStore();
 
+  // Throttled broadcast for position changes to reduce network traffic
+  const throttledBroadcastLiveChange = useMemo(() => {
+    const pendingBroadcasts = new Map<string, any>();
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    return (change: any) => {
+      // For position changes, throttle the broadcasts
+      if (change.type === 'node' && change.action === 'update' && change.data.position) {
+        pendingBroadcasts.set(change.id, change);
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        timeoutId = setTimeout(() => {
+          pendingBroadcasts.forEach((pendingChange) => {
+            if (broadcastLiveChange) {
+              broadcastLiveChange(pendingChange);
+            }
+          });
+          pendingBroadcasts.clear();
+        }, 50); // Throttle to 20fps for position updates
+      } else {
+        // For non-position changes, broadcast immediately
+        if (broadcastLiveChange) {
+          broadcastLiveChange(change);
+        }
+      }
+    };
+  }, [broadcastLiveChange]);
+
   // State for playlist song selection mode
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false);
   const [activePlaylistNodeId, setActivePlaylistNodeId] = useState<string | null>(null);
@@ -436,15 +467,9 @@ export default function MindMap() {
     setCurrentSearchIndex(0);
   }, []);
 
-  const performSearch = useCallback((term: string) => {
-    if (!term.trim()) {
-      setSearchResults([]);
-      setCurrentSearchIndex(0);
-      return;
-    }
-
-    const results: string[] = [];
-    const searchLower = term.toLowerCase();
+  // Memoized searchable text extraction for better performance
+  const searchableTextMap = useMemo(() => {
+    const map = new Map<string, string>();
 
     nodes.forEach(node => {
       let searchableText = "";
@@ -468,15 +493,32 @@ export default function MindMap() {
         searchableText = node.data?.label || "";
       }
 
-      // Check if the searchable text contains the search term
-      if (searchableText.toLowerCase().includes(searchLower)) {
-        results.push(node.id);
+      map.set(node.id, searchableText.toLowerCase());
+    });
+
+    return map;
+  }, [nodes]);
+
+  const performSearch = useCallback((term: string) => {
+    if (!term.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      return;
+    }
+
+    const searchLower = term.toLowerCase();
+    const results: string[] = [];
+
+    // Use pre-computed searchable text for faster searching
+    searchableTextMap.forEach((searchableText, nodeId) => {
+      if (searchableText.includes(searchLower)) {
+        results.push(nodeId);
       }
     });
 
     setSearchResults(results);
     setCurrentSearchIndex(0);
-  }, [nodes]);
+  }, [searchableTextMap]);
 
   const navigateToSearchResult = useCallback((index: number) => {
     if (searchResults.length === 0 || !reactFlowInstance || index < 0 || index >= searchResults.length) {
@@ -642,26 +684,41 @@ export default function MindMap() {
     });
   }, []);
 
-  // Node types for ReactFlow
-  const nodeTypes = useMemo(() => ({
-    default: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
-    "text-no-bg": (props: any) => <TextNoBgNode {...props} onContextMenu={handleNodeContextMenu} />,
-    input: (props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />,
-    spotify: (props: any) => <SpotifyNode {...props} onContextMenu={handleNodeContextMenu} />,
-    soundcloud: (props: any) => <SoundCloudNode {...props} onContextMenu={handleNodeContextMenu} />,
-    instagram: (props: any) => <SocialMediaNode {...props} type="instagram" onContextMenu={handleNodeContextMenu} />,
-    twitter: (props: any) => <SocialMediaNode {...props} type="twitter" onContextMenu={handleNodeContextMenu} />,
-    facebook: (props: any) => <SocialMediaNode {...props} type="facebook" onContextMenu={handleNodeContextMenu} />,
-    youtube: (props: any) => <SocialMediaNode {...props} type="youtube" onContextMenu={handleNodeContextMenu} />,
-    tiktok: (props: any) => <SocialMediaNode {...props} type="tiktok" onContextMenu={handleNodeContextMenu} />,
-    mindmeet: (props: any) => <SocialMediaNode {...props} type="mindmeet" onContextMenu={handleNodeContextMenu} />,
-    "youtube-video": (props: any) => <YouTubeNode {...props} onContextMenu={handleNodeContextMenu} />,
-    image: (props: any) => <ImageNode {...props} onContextMenu={handleNodeContextMenu} />,
-    link: (props: any) => <LinkNode {...props} onContextMenu={handleNodeContextMenu} />,
-    mindmap: (props: any) => <MindMapNode {...props} onContextMenu={handleNodeContextMenu} />,
-    audio: (props: any) => <AudioNode {...props} onContextMenu={handleNodeContextMenu} />,
-    playlist: (props: any) => <PlaylistNode {...props} onContextMenu={handleNodeContextMenu} />,
-  }), [handleNodeContextMenu]);
+  // Memoized node types for ReactFlow with stable references
+  const nodeTypes = useMemo(() => {
+    // Create stable component references to prevent unnecessary re-renders
+    const DefaultTextNodeMemo = React.memo((props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const TextNoBgNodeMemo = React.memo((props: any) => <TextNoBgNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const SpotifyNodeMemo = React.memo((props: any) => <SpotifyNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const SoundCloudNodeMemo = React.memo((props: any) => <SoundCloudNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const YouTubeNodeMemo = React.memo((props: any) => <YouTubeNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const ImageNodeMemo = React.memo((props: any) => <ImageNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const LinkNodeMemo = React.memo((props: any) => <LinkNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const MindMapNodeMemo = React.memo((props: any) => <MindMapNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const AudioNodeMemo = React.memo((props: any) => <AudioNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const PlaylistNodeMemo = React.memo((props: any) => <PlaylistNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const SocialMediaNodeMemo = React.memo((props: any) => <SocialMediaNode {...props} onContextMenu={handleNodeContextMenu} />);
+
+    return {
+      default: DefaultTextNodeMemo,
+      "text-no-bg": TextNoBgNodeMemo,
+      input: DefaultTextNodeMemo,
+      spotify: SpotifyNodeMemo,
+      soundcloud: SoundCloudNodeMemo,
+      instagram: (props: any) => <SocialMediaNodeMemo {...props} type="instagram" />,
+      twitter: (props: any) => <SocialMediaNodeMemo {...props} type="twitter" />,
+      facebook: (props: any) => <SocialMediaNodeMemo {...props} type="facebook" />,
+      youtube: (props: any) => <SocialMediaNodeMemo {...props} type="youtube" />,
+      tiktok: (props: any) => <SocialMediaNodeMemo {...props} type="tiktok" />,
+      mindmeet: (props: any) => <SocialMediaNodeMemo {...props} type="mindmeet" />,
+      "youtube-video": YouTubeNodeMemo,
+      image: ImageNodeMemo,
+      link: LinkNodeMemo,
+      mindmap: MindMapNodeMemo,
+      audio: AudioNodeMemo,
+      playlist: PlaylistNodeMemo,
+    };
+  }, [handleNodeContextMenu]);
 
   // Set up sensors for drag and drop functionality
   const sensors = useSensors(
@@ -1118,8 +1175,16 @@ export default function MindMap() {
     }
   }, [hasUnsavedChanges])
 
+  // Memoized node descendants calculation with caching
+  const nodeDescendantsCache = useMemo(() => new Map<string, string[]>(), [edges]);
+
   const getNodeDescendants = useCallback(
     (nodeId: string): string[] => {
+      // Check cache first
+      if (nodeDescendantsCache.has(nodeId)) {
+        return nodeDescendantsCache.get(nodeId)!;
+      }
+
       const descendants: string[] = []
       const visited = new Set<string>()
 
@@ -1135,9 +1200,13 @@ export default function MindMap() {
       }
 
       traverse(nodeId)
+
+      // Cache the result
+      nodeDescendantsCache.set(nodeId, descendants);
+
       return descendants
     },
-    [edges],
+    [edges, nodeDescendantsCache],
   )
 
   // Alt key handler for temporary snap to grid override
@@ -1462,8 +1531,7 @@ export default function MindMap() {
             });
           });
 
-          // Force edge re-rendering to ensure proper connection visualization
-          // This addresses ReactFlow edge rendering inconsistencies after node position changes
+          // Debounce edge re-rendering to reduce performance impact during rapid movements
           setTimeout(() => {
             setEdges(currentEdges => [...currentEdges]);
             // Force ReactFlow to recalculate internal state without changing viewport
@@ -1471,7 +1539,7 @@ export default function MindMap() {
               const currentViewport = reactFlowInstance.getViewport();
               reactFlowInstance.setViewport(currentViewport);
             }
-          }, 0);
+          }, 50); // Reduced frequency for better performance
 
           // Create history action for node movement
           const action = createHistoryAction(
@@ -1857,7 +1925,7 @@ export default function MindMap() {
       } else {
         setNodes((nds) => applyNodeChanges(changes, nds));
 
-        // Force edge re-rendering when moving with children to prevent connection line issues
+        // Debounce edge re-rendering when moving with children to prevent connection line issues
         if (effectiveMoveWithChildren && positionChanges.length > 0) {
           setTimeout(() => {
             setEdges(currentEdges => [...currentEdges]);
@@ -1865,7 +1933,7 @@ export default function MindMap() {
               const currentViewport = reactFlowInstance.getViewport();
               reactFlowInstance.setViewport(currentViewport);
             }
-          }, 0);
+          }, 50); // Reduced frequency for better performance
         }
       } setIsInitialLoad(false);
 
@@ -3217,32 +3285,48 @@ export default function MindMap() {
   // Calculates bounding box coordinates for multi-selected nodes
   // Used to position the selection toolbar and provide visual feedback
   // Handles edge cases like single node or empty selections
-  const updateSelectionBounds = useCallback((selectedNodes: Node[]) => {
-    if (selectedNodes.length <= 1) {
-      setSelectionBounds(null);
-      return;
-    }
+  // Throttled selection bounds update to prevent excessive recalculations
+  const updateSelectionBoundsThrottled = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout | null = null;
 
-    // Calculate the bounds of the selection
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
+      return (selectedNodes: Node[]) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
 
-    selectedNodes.forEach(node => {
-      minX = Math.min(minX, node.position.x);
-      minY = Math.min(minY, node.position.y);
-      maxX = Math.max(maxX, node.position.x + (node.width || 100));
-      maxY = Math.max(maxY, node.position.y + (node.height || 50));
-    });
+        timeoutId = setTimeout(() => {
+          if (selectedNodes.length <= 1) {
+            setSelectionBounds(null);
+            return;
+          }
 
-    setSelectionBounds({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY
-    });
-  }, []);
+          // Calculate the bounds of the selection
+          let minX = Infinity;
+          let minY = Infinity;
+          let maxX = -Infinity;
+          let maxY = -Infinity;
+
+          selectedNodes.forEach(node => {
+            minX = Math.min(minX, node.position.x);
+            minY = Math.min(minY, node.position.y);
+            maxX = Math.max(maxX, node.position.x + (node.width || 100));
+            maxY = Math.max(maxY, node.position.y + (node.height || 50));
+          });
+
+          setSelectionBounds({
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
+          });
+        }, 16); // ~60fps throttling
+      };
+    })(),
+    []
+  );
+
+  const updateSelectionBounds = updateSelectionBoundsThrottled;
   // Helper function to update nodes with proper history tracking
   const updateNodeData = useCallback(
     (
@@ -4475,7 +4559,7 @@ export default function MindMap() {
   // Handle text node label changes from TextNoBgNode
   const handleTextNodeLabelChanged = useCallback((event: CustomEvent) => {
     const { nodeId, newLabel } = event.detail;
-    
+
     // Update the node's data.label using the existing updateNodeLabel function
     updateNodeLabel(nodeId, newLabel);
   }, [updateNodeLabel]);
@@ -5564,178 +5648,191 @@ export default function MindMap() {
         ><ReactFlowProvider>
             <ReactFlow
               key={`reactflow-${currentMap?.id || 'default'}`}
-              nodes={useMemo(() => nodes.map((node) => {
-                // Check if this node has children
-                const hasChildren = edges.some((edge) => edge.source === node.id);
-                // Get descendants (not used directly but keeping for future use)
-                getNodeDescendants(node.id);
-                // Check if this node should be hidden (if its parent is collapsed)
-                const isHidden = (() => {
-                  const findAncestors = (nodeId: string, visited: Set<string> = new Set()): string[] => {
-                    // If we've already visited this node, return empty array to prevent infinite recursion
-                    if (visited.has(nodeId)) return [];
+              nodes={useMemo(() => {
+                // Pre-compute expensive lookups once for all nodes
+                const hasChildrenMap = new Map<string, boolean>();
+                const hiddenNodesMap = new Map<string, boolean>();
+                const sourceNodeMap = new Map<string, Node>();
 
-                    // Mark this node as visited
-                    visited.add(nodeId);
+                // Build lookup maps for O(1) access
+                nodes.forEach(node => sourceNodeMap.set(node.id, node));
+                edges.forEach(edge => {
+                  hasChildrenMap.set(edge.source, true);
+                });
 
-                    const parentEdges = edges.filter((edge) => edge.target === nodeId);
-                    if (parentEdges.length === 0) return [];
+                // Pre-compute hidden nodes using optimized ancestor lookup
+                const findAncestors = (nodeId: string, visited: Set<string> = new Set()): string[] => {
+                  if (visited.has(nodeId)) return [];
+                  visited.add(nodeId);
 
-                    const parents = parentEdges.map((edge) => edge.source);
+                  const parentEdges = edges.filter((edge) => edge.target === nodeId);
+                  if (parentEdges.length === 0) return [];
 
-                    // Pass the visited set to recursive calls to track all visited nodes
-                    const grandparents = parents.flatMap(parentId => findAncestors(parentId, visited));
+                  const parents = parentEdges.map((edge) => edge.source);
+                  const grandparents = parents.flatMap(parentId => findAncestors(parentId, visited));
+                  return [...parents, ...grandparents];
+                };
 
-                    return [...parents, ...grandparents];
-                  };
-
+                nodes.forEach(node => {
                   const ancestors = findAncestors(node.id, new Set<string>());
-                  return ancestors.some((ancestorId) => collapsedNodes.has(ancestorId));
-                })();
+                  hiddenNodesMap.set(node.id, ancestors.some((ancestorId) => collapsedNodes.has(ancestorId)));
+                });
 
-                // Ensure node has proper data structure with fallbacks
-                const nodeData = node.data || {};
-                const nodeLabel = nodeData.label || "";
+                return nodes.map((node) => {
+                  // Use pre-computed values
+                  const hasChildren = hasChildrenMap.get(node.id) || false;
+                  const isHidden = hiddenNodesMap.get(node.id) || false;
 
-                // Create the node label with chevron if it has children
-                // Skip display label processing for text-no-bg nodes - they handle their own rendering
-                const displayLabel = node.type === "text-no-bg" ? nodeLabel : (
-                  hasChildren ? (
-                    <div className="flex items-center justify-between w-full">
-                      <div
-                        className="break-words overflow-hidden"
-                        style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
-                      >
-                        {node.type === "default" && nodeLabel === "" ? (
-                          <span className="text-gray-400">Text...</span>
-                        ) : node.type === "default" ? (
-                          <MarkdownRenderer content={nodeLabel} />
-                        ) : (
-                          nodeLabel
-                        )}
+                  // Ensure node has proper data structure with fallbacks
+                  const nodeData = node.data || {};
+                  const nodeLabel = nodeData.label || "";
+
+                  // Create the node label with chevron if it has children
+                  // Skip display label processing for text-no-bg nodes - they handle their own rendering
+                  const displayLabel = node.type === "text-no-bg" ? nodeLabel : (
+                    hasChildren ? (
+                      <div className="flex items-center justify-between w-full">
+                        <div
+                          className="break-words overflow-hidden"
+                          style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
+                        >
+                          {node.type === "default" && nodeLabel === "" ? (
+                            <span className="text-gray-400">Text...</span>
+                          ) : node.type === "default" ? (
+                            <MarkdownRenderer content={nodeLabel} />
+                          ) : (
+                            nodeLabel
+                          )}
+                        </div>
+                        <button
+                          className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleNodeCollapse(node.id, e);
+                          }}
+                          title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
+                          key={node.id}
+                        >
+                          <ChevronDown
+                            className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
+                              }`}
+                          />
+                        </button>
                       </div>
-                      <button
-                        className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleNodeCollapse(node.id, e);
-                        }}
-                        title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
-                        key={node.id}
-                      >
-                        <ChevronDown
-                          className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                            }`}
-                        />
-                      </button>
-                    </div>
-                  ) : node.type === "default" && nodeLabel === "" ? (
-                    <span className="text-gray-400">Text...</span>
-                  ) : node.type === "default" ? (
-                    <MarkdownRenderer content={nodeLabel} />
-                  ) : (
-                    nodeLabel
-                  )
-                );
+                    ) : node.type === "default" && nodeLabel === "" ? (
+                      <span className="text-gray-400">Text...</span>
+                    ) : node.type === "default" ? (
+                      <MarkdownRenderer content={nodeLabel} />
+                    ) : (
+                      nodeLabel
+                    )
+                  );
 
-                // Merge default styles with node-specific styles
-                const nodeTypeStyle = defaultNodeStyles[node.type as keyof typeof defaultNodeStyles] || defaultNodeStyles.default;
-                // Dynamic text color based on actual underlying label/username (not the rendered element)
-                const underlyingLabel = SOCIAL_MEDIA_NODE_TYPES.includes(node.type || '')
-                  ? (nodeData.username || '')
-                  : (typeof nodeData.label === 'string' ? nodeData.label : '');
-                const computedTextColor = underlyingLabel.trim() === '' ? '#6B7280' : '#FFFFFF';
+                  // Use pre-computed style lookups for better performance
+                  const nodeTypeStyle = defaultNodeStyles[node.type as keyof typeof defaultNodeStyles] || defaultNodeStyles.default;
 
-                // Create a properly typed node object with all required properties
-                return {
-                  ...node,
-                  hidden: isHidden,
-                  // Keep ReactFlow's selection state separate from our visual selection
-                  selected: node.selected,
-                  className: node.type === "text-no-bg" ? "no-node-overlay text-no-bg-node" : undefined,
-                  data: {
-                    ...nodeData,
-                    label: displayLabel,
-                    originalLabel: nodeLabel, // Store the original string value for ALL nodes
-                  },
-                  style: {
-                    ...nodeTypeStyle,
-                    ...node.style, // Override defaults with existing style if present
-                    width: (node.type === "image" || node.type === "default") ?
-                      (typeof node.width === 'number' ? `${node.width}px` :
-                        typeof node.style?.width === 'number' ? `${node.style.width}px` :
-                          typeof node.style?.width === 'string' ? node.style.width :
-                            node.type === "image" ? "100px" : nodeTypeStyle.width) :
-                      node.type === "text-no-bg" ? "auto" : nodeTypeStyle.width, // Let TextNoBgNode handle its own width
-                    height: (node.type === "image" || node.type === "default") ?
-                      (typeof node.height === 'number' ? `${node.height}px` :
-                        typeof node.style?.height === 'number' ? `${node.style.height}px` :
-                          typeof node.style?.height === 'string' ? node.style.height :
-                            "auto") :
-                      node.type === "text-no-bg" ? "auto" : (nodeTypeStyle as any).height || 'auto', // Let TextNoBgNode handle its own height
-                    minHeight: node.type === "default" ?
-                      calculateTextNodeMinHeight(
-                        typeof nodeData.label === 'string' ? nodeData.label : '',
-                        getNodeCurrentWidth(node),
-                        hasChildren
-                      ) : "auto", // Remove minHeight calculation for text-no-bg
-                    minWidth: "auto",
-                    // Special border radius handling for image nodes with titles
-                    borderRadius: node.type === "image" && nodeData.label ?
-                      "14px 14px 0 0" : // Only round top corners when image has title
-                      nodeTypeStyle.borderRadius, // Use default for all other cases
-                    background:
+                  // Cache expensive text color calculations
+                  const underlyingLabel = SOCIAL_MEDIA_NODE_TYPES.includes(node.type || '')
+                    ? (nodeData.username || '')
+                    : (typeof nodeData.label === 'string' ? nodeData.label : '');
+                  const computedTextColor = underlyingLabel.trim() === '' ? '#6B7280' : '#FFFFFF';
 
-                      (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
-                        ? previewColor
-                        : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
+                  // Create a properly typed node object with all required properties
+                  return {
+                    ...node,
+                    hidden: isHidden,
+                    // Keep ReactFlow's selection state separate from our visual selection
+                    selected: node.selected,
+                    className: node.type === "text-no-bg" ? "no-node-overlay text-no-bg-node" : undefined,
+                    data: {
+                      ...nodeData,
+                      label: displayLabel,
+                      originalLabel: nodeLabel, // Store the original string value for ALL nodes
+                    },
+                    style: {
+                      ...nodeTypeStyle,
+                      ...node.style, // Override defaults with existing style if present
+                      width: (node.type === "image" || node.type === "default") ?
+                        (typeof node.width === 'number' ? `${node.width}px` :
+                          typeof node.style?.width === 'number' ? `${node.style.width}px` :
+                            typeof node.style?.width === 'string' ? node.style.width :
+                              node.type === "image" ? "100px" : nodeTypeStyle.width) :
+                        node.type === "text-no-bg" ? "auto" : nodeTypeStyle.width, // Let TextNoBgNode handle its own width
+                      height: (node.type === "image" || node.type === "default") ?
+                        (typeof node.height === 'number' ? `${node.height}px` :
+                          typeof node.style?.height === 'number' ? `${node.style.height}px` :
+                            typeof node.style?.height === 'string' ? node.style.height :
+                              "auto") :
+                        node.type === "text-no-bg" ? "auto" : (nodeTypeStyle as any).height || 'auto', // Let TextNoBgNode handle its own height
+                      minHeight: node.type === "default" ?
+                        calculateTextNodeMinHeight(
+                          typeof nodeData.label === 'string' ? nodeData.label : '',
+                          getNodeCurrentWidth(node),
+                          hasChildren
+                        ) : "auto", // Remove minHeight calculation for text-no-bg
+                      minWidth: "auto",
+                      // Special border radius handling for image nodes with titles
+                      borderRadius: node.type === "image" && nodeData.label ?
+                        "14px 14px 0 0" : // Only round top corners when image has title
+                        nodeTypeStyle.borderRadius, // Use default for all other cases
+                      background:
 
-                    borderColor: node.id === visuallySelectedNodeId
-                      ? "skyblue"
-                      : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                        (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
+                          ? previewColor
+                          : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
+
+                      borderColor: node.id === visuallySelectedNodeId
+                        ? "skyblue"
+                        : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                          (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                          (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                          (node.type === 'youtube-video' && nodeData.videoUrl)))
+                          ? "#4ade80" // Highlight audio, spotify, soundcloud and YouTube nodes with green border when in add to playlist mode
+                          : "#374151",
+                      borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
                         (node.type === 'spotify' && nodeData.spotifyUrl) ||
                         (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
                         (node.type === 'youtube-video' && nodeData.videoUrl)))
-                        ? "#4ade80" // Highlight audio, spotify, soundcloud and YouTube nodes with green border when in add to playlist mode
-                        : "#374151",
-                    borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
-                      (node.type === 'spotify' && nodeData.spotifyUrl) ||
-                      (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                      (node.type === 'youtube-video' && nodeData.videoUrl)))
-                      ? "3px" // Thicker border for audio, spotify, soundcloud and YouTube nodes when in add to playlist mode
-                      : "2px", // Always show a border for all nodes
+                        ? "3px" // Thicker border for audio, spotify, soundcloud and YouTube nodes when in add to playlist mode
+                        : "2px", // Always show a border for all nodes
 
-                    border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
-                      ? "solid" // Ensure audio, playlist, spotify, and youtube-video nodes always have a border
-                      : node.style?.border || nodeTypeStyle.border,
+                      border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
+                        ? "solid" // Ensure audio, playlist, spotify, and youtube-video nodes always have a border
+                        : node.style?.border || nodeTypeStyle.border,
 
-                    whiteSpace: "normal",
-                    wordWrap: "break-word",
-                    overflowWrap: "break-word",
+                      whiteSpace: "normal",
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
 
-                    // Make root node text bold
-                    fontWeight: node.id === "1" ? "bold" : "normal",
-                    color: computedTextColor,
-                  },
-                } as Node;
-              }), [nodes, edges, collapsedNodes, selectedNodeId, visuallySelectedNodeId, previewColor, autocolorSubnodes, getNodeDescendants, isAddingToPlaylist])}
-              edges={useMemo(() => edges.map(edge => {
-                // Find the source node to get its color
-                const sourceNode = nodes.find(node => node.id === edge.source);
-                const sourceNodeColor = sourceNode
-                  ? ((sourceNode as any).background || sourceNode.style?.background || "#374151")
-                  : "#374151";
+                      // Make root node text bold
+                      fontWeight: node.id === "1" ? "bold" : "normal",
+                      color: computedTextColor,
+                    },
+                  } as Node;
+                });
+              }, [nodes, edges, collapsedNodes, selectedNodeId, visuallySelectedNodeId, previewColor, autocolorSubnodes, getNodeDescendants, isAddingToPlaylist])}
+              edges={useMemo(() => {
+                // Pre-compute node color lookup for O(1) access
+                const nodeColorMap = new Map<string, string>();
+                nodes.forEach(node => {
+                  const color = ((node as any).background as string) || (node.style?.background as string) || "#374151";
+                  nodeColorMap.set(node.id, color);
+                });
 
-                return {
-                  ...edge,
-                  type: edgeType === 'default' ? 'default' : edgeType,
-                  style: {
-                    ...edge.style,
-                    strokeWidth: 2,
-                    stroke: sourceNodeColor,
-                  },
-                };
-              }), [edges, nodes, edgeType])}
+                return edges.map(edge => {
+                  const sourceNodeColor = nodeColorMap.get(edge.source) || "#374151";
+
+                  return {
+                    ...edge,
+                    type: edgeType === 'default' ? 'default' : edgeType,
+                    style: {
+                      ...edge.style,
+                      strokeWidth: 2,
+                      stroke: sourceNodeColor,
+                    },
+                  };
+                });
+              }, [edges, nodes, edgeType])}
               nodeTypes={nodeTypes}
               defaultEdgeOptions={{
                 type: edgeType === 'default' ? 'default' : edgeType,
@@ -5748,9 +5845,9 @@ export default function MindMap() {
               }}
               connectionRadius={50}
               isValidConnection={isValidConnection}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
+              onNodesChange={useMemo(() => onNodesChange, [onNodesChange])}
+              onEdgesChange={useMemo(() => onEdgesChange, [onEdgesChange])}
+              onConnect={useMemo(() => onConnect, [onConnect])}
               onInit={setReactFlowInstanceSafely}
               onDrop={onDrop}
               onDragOver={onDragOver}
