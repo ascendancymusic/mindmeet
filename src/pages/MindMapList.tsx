@@ -252,14 +252,14 @@ const EditGroupModal = ({
     if (group) {
       setGroupName(group.name)
       setSelectedMindmapIds(group.mindmapIds)
-  setSelectedIcon(group.icon || "Folder")
+      setSelectedIcon(group.icon || "Folder")
     }
   }, [group])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (groupName.trim() && group) {
-  await onSave(group.id, groupName.trim(), selectedMindmapIds, selectedIcon)
+      await onSave(group.id, groupName.trim(), selectedMindmapIds, selectedIcon)
       onClose()
     }
   }
@@ -621,6 +621,7 @@ export default function MindMapList() {
   } = useMindMapStore()
 
   const [groups, setGroups] = useState<Group[]>([])
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
@@ -686,11 +687,6 @@ export default function MindMapList() {
       setGroups((prev) => [...prev, newGroup])
 
       useToastStore.getState().showToast("Group created successfully!", "success")
-
-      // Refresh groups to get accurate membership data
-      setTimeout(() => {
-        fetchGroups()
-      }, 100)
     } catch (error) {
       console.error("Error creating group:", error)
       useToastStore.getState().showToast("Failed to create group. Please try again.", "error")
@@ -877,8 +873,9 @@ export default function MindMapList() {
   const fetchGroups = async () => {
     if (!isValidUserId) return
 
+    setIsLoadingGroups(true)
     try {
-      // Fetch groups with their memberships
+      // Fetch groups with their memberships and mindmap data in a single optimized query
       const { data: groupsData, error: groupsError } = await supabase
         .from('mindmap_groups')
         .select(`
@@ -887,7 +884,11 @@ export default function MindMapList() {
           icon,
           created_at,
           mindmap_group_memberships (
-            mindmap_key
+            mindmap_key,
+            mindmaps (
+              id,
+              key
+            )
           )
         `)
         .eq('user_id', userId)
@@ -902,15 +903,46 @@ export default function MindMapList() {
         icon: group.icon || 'Folder', // Default to Folder if no icon
         createdAt: new Date(group.created_at).getTime(),
         mindmapIds: group.mindmap_group_memberships.map((membership: any) => {
-          // Find the mindmap ID by matching the key
-          const mindmap = maps.find(m => m.key === membership.mindmap_key)
-          return mindmap?.id || membership.mindmap_key
-        })
+          // Use the mindmap ID from the joined data if available, otherwise use the key
+          return membership.mindmaps?.id || membership.mindmap_key
+        }).filter(Boolean) // Remove any null/undefined values
       }))
 
       setGroups(transformedGroups)
     } catch (error) {
       console.error("Error fetching groups:", error)
+      // Fallback to the original method if the optimized query fails
+      try {
+        const { data: fallbackGroupsData, error: fallbackError } = await supabase
+          .from('mindmap_groups')
+          .select(`
+            id,
+            name,
+            icon,
+            created_at,
+            mindmap_group_memberships (
+              mindmap_key
+            )
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+
+        if (fallbackError) throw fallbackError
+
+        const fallbackGroups: Group[] = fallbackGroupsData.map(group => ({
+          id: group.id,
+          name: group.name,
+          icon: group.icon || 'Folder',
+          createdAt: new Date(group.created_at).getTime(),
+          mindmapIds: group.mindmap_group_memberships.map((membership: any) => membership.mindmap_key)
+        }))
+
+        setGroups(fallbackGroups)
+      } catch (fallbackError) {
+        console.error("Error with fallback groups fetch:", fallbackError)
+      }
+    } finally {
+      setIsLoadingGroups(false)
     }
   }
 
@@ -927,7 +959,7 @@ export default function MindMapList() {
   }, [location.state])
 
   /**
-   * Fetch user's mindmaps from Supabase when component mounts
+   * Fetch user's mindmaps and groups from Supabase when component mounts
    * or when user authentication changes
    */
   useEffect(() => {
@@ -935,14 +967,19 @@ export default function MindMapList() {
       if (isValidUserId) {
         setIsLoading(true)
         try {
-          await Promise.all([fetchMaps(userId), fetchCollaborationMaps(userId)])
+          // Load maps and groups in parallel for better performance
+          await Promise.all([
+            fetchMaps(userId),
+            fetchCollaborationMaps(userId),
+            fetchGroups()
+          ])
         } catch (error) {
-          console.error("Error fetching maps:", error)
+          console.error("Error fetching data:", error)
         } finally {
           setIsLoading(false)
         }
       } else {
-        console.warn("User not authenticated or invalid userId. No maps to fetch.")
+        console.warn("User not authenticated or invalid userId. No data to fetch.")
         setIsLoading(false)
       }
     }
@@ -951,13 +988,31 @@ export default function MindMapList() {
   }, [isValidUserId, userId, fetchMaps, fetchCollaborationMaps])
 
   /**
-   * Fetch groups after maps are loaded
+   * Update group memberships when maps change
+   * This ensures group mindmapIds are correctly mapped after maps are loaded
    */
   useEffect(() => {
-    if (isValidUserId && maps.length > 0) {
-      fetchGroups()
+    if (isValidUserId && maps.length > 0 && groups.length > 0) {
+      // Re-map group memberships to ensure correct mindmap IDs
+      const updatedGroups = groups.map(group => ({
+        ...group,
+        mindmapIds: group.mindmapIds.map(idOrKey => {
+          // Try to find the mindmap by ID first, then by key
+          const mindmap = maps.find(m => m.id === idOrKey || m.key === idOrKey)
+          return mindmap?.id || idOrKey
+        })
+      }))
+
+      // Only update if there are actual changes
+      const hasChanges = updatedGroups.some((group, index) =>
+        JSON.stringify(group.mindmapIds) !== JSON.stringify(groups[index]?.mindmapIds)
+      )
+
+      if (hasChanges) {
+        setGroups(updatedGroups)
+      }
     }
-  }, [isValidUserId, userId, maps.length])
+  }, [maps.length, groups.length])
 
   const handleCreateMap = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1081,10 +1136,7 @@ export default function MindMapList() {
       deleteMap(mapToDelete, userId)
       setMapToDelete(null)
 
-      // Refresh groups to update counts
-      setTimeout(() => {
-        fetchGroups()
-      }, 500)
+      // Groups will be updated via the useEffect when maps change
     }
   }
 
@@ -1107,7 +1159,7 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-  await cloneMap(id, userId)
+      await cloneMap(id, userId)
       setShowCloneSuccessPopup(true)
       // Hide the popup after 3 seconds
       setTimeout(() => {
@@ -1267,8 +1319,8 @@ export default function MindMapList() {
               <button
                 onClick={() => setViewMode("owned")}
                 className={`${isSmallScreen ? "px-[1vh] py-[0.8vh]" : "px-[1.5vh] py-[0.8vh]"} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "owned"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
+                  ? "bg-gradient-to-r from-blue-600/90 to-purple-600/90 text-white shadow-lg shadow-blue-500/25 backdrop-blur-sm border border-blue-500/30"
+                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30 border border-transparent"
                   }`}
               >
                 {isSmallScreen ? (
@@ -1286,8 +1338,8 @@ export default function MindMapList() {
                   setSelectedGroupId(null) // Clear group selection when switching to collaboration view
                 }}
                 className={`${isSmallScreen ? "px-[1vh] py-[0.8vh]" : "px-[1.5vh] py-[0.8vh]"} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "collaboration"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
+                  ? "bg-gradient-to-r from-blue-600/90 to-purple-600/90 text-white shadow-lg shadow-blue-500/25 backdrop-blur-sm border border-blue-500/30"
+                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30 border border-transparent"
                   }`}
               >
                 {isSmallScreen ? (
@@ -1339,62 +1391,76 @@ export default function MindMapList() {
           <div className="flex flex-wrap gap-[0.8vh] pt-[1vh] border-t border-slate-700/30">
             <button
               onClick={() => setSelectedGroupId(null)}
-              className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${selectedGroupId === null
-                ? "bg-blue-500/20 text-blue-300 border border-blue-500/50"
-                : "bg-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300 border border-slate-600/30"
+              className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 focus:outline-none border-0 ${selectedGroupId === null
+                ? "bg-gradient-to-r from-blue-600/60 to-purple-600/60 text-white backdrop-blur-sm"
+                : "bg-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300"
                 }`}
+              style={{ border: 'none', outline: 'none' }}
             >
               <Folder className="w-[1.4vh] h-[1.4vh]" />
               <span>All Maps ({maps.length})</span>
             </button>
 
-            {groups.map((group) => (
-              <div key={group.id} className="relative group/group">
-                <button
-                  onClick={() => setSelectedGroupId(group.id)}
-                  className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${selectedGroupId === group.id
-                    ? "text-white border border-opacity-50"
-                    : "bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white border border-slate-600/30"
-                    }`}
-                  style={group.color ? {
-                    backgroundColor: selectedGroupId === group.id ? `${group.color}20` : undefined,
-                    borderColor: selectedGroupId === group.id ? `${group.color}80` : undefined,
-                  } : undefined}
-                >
-                  {(() => {
-                    const IconComponent = groupIcons.find(i => i.name === group.icon)?.component || FolderOpen
-                    return <IconComponent className="w-[1.4vh] h-[1.4vh]" />
-                  })()}
-                  <span>
-                    {group.name} ({group.mindmapIds.length})
-                  </span>
-                </button>
-
-                {/* Group Menu */}
-                <div className="absolute -top-[0.3vh] -right-[0.3vh] opacity-0 group-hover/group:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (openGroupMenuId === group.id) {
-                        setOpenGroupMenuId(null)
-                        setGroupMenuPosition(null)
-                      } else {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setGroupMenuPosition({
-                          x: rect.right - 192, // 192px = w-48 width
-                          y: rect.bottom + 8
-                        })
-                        setOpenGroupMenuId(group.id)
-                      }
-                    }}
-                    className="w-[1.8vh] h-[1.8vh] bg-slate-600 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-slate-500"
-                    title="Group options"
+            {isLoadingGroups ? (
+              // Loading skeleton for groups
+              <>
+                {[...Array(3)].map((_, index) => (
+                  <div
+                    key={`group-skeleton-${index}`}
+                    className="flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg bg-slate-700/30 border border-slate-600/30 animate-pulse"
+                    style={{ animationDelay: `${index * 100}ms` }}
                   >
-                    <MoreVertical className="w-[1.2vh] h-[1.2vh]" />
+                    <div className="w-[1.4vh] h-[1.4vh] bg-slate-600/50 rounded"></div>
+                    <div className="h-[1.3vh] bg-slate-600/50 rounded w-16"></div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              groups.map((group) => (
+                <div key={group.id} className="relative group/group">
+                  <button
+                    onClick={() => setSelectedGroupId(group.id)}
+                    className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 focus:outline-none border-0 ${selectedGroupId === group.id
+                      ? "bg-gradient-to-r from-blue-600/60 to-purple-600/60 text-white backdrop-blur-sm"
+                      : "bg-slate-700/30 text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                      }`}
+                    style={{ border: 'none', outline: 'none' }}
+                  >
+                    {(() => {
+                      const IconComponent = groupIcons.find(i => i.name === group.icon)?.component || FolderOpen
+                      return <IconComponent className="w-[1.4vh] h-[1.4vh]" />
+                    })()}
+                    <span>
+                      {group.name} ({group.mindmapIds.length})
+                    </span>
                   </button>
+
+                  {/* Group Menu */}
+                  <div className="absolute -top-[0.3vh] -right-[0.3vh] opacity-0 group-hover/group:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (openGroupMenuId === group.id) {
+                          setOpenGroupMenuId(null)
+                          setGroupMenuPosition(null)
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setGroupMenuPosition({
+                            x: rect.right - 192, // 192px = w-48 width
+                            y: rect.bottom + 8
+                          })
+                          setOpenGroupMenuId(group.id)
+                        }
+                      }}
+                      className="w-[1.8vh] h-[1.8vh] bg-slate-600 text-white rounded-full flex items-center justify-center text-[1vh] hover:bg-slate-500"
+                      title="Group options"
+                    >
+                      <MoreVertical className="w-[1.2vh] h-[1.2vh]" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
 
             {/* New Group Button - Integrated within group tabs */}
             <button
