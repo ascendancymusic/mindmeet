@@ -1729,7 +1729,10 @@ const Chat: React.FC = () => {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container
-      const isBottom = scrollHeight - scrollTop - clientHeight < 1
+  // Treat user as "at bottom" if within 20px of the bottom so the chevron only appears
+  // when they've meaningfully scrolled up. Previously this threshold was 1px which caused
+  // the chevron to flash when only slightly offset.
+  const isBottom = scrollHeight - scrollTop - clientHeight < 200
 
       // Only update state if it's changed to avoid unnecessary re-renders
       if (isBottom !== isAtBottom) {
