@@ -972,7 +972,9 @@ type MessageForPreview = {
 const ReplyPreview: React.FC<{
   message: MessageForPreview | null
   onCancel: () => void
-}> = ({ message, onCancel }) => {
+  mindmapTitleCache: Record<string, string>
+  ensureMindmapTitle: (key: string) => void | Promise<void>
+}> = ({ message, onCancel, mindmapTitleCache, ensureMindmapTitle }) => {
   if (!message) return null
 
   // Check if the message is a GIF
@@ -981,49 +983,31 @@ const ReplyPreview: React.FC<{
   // Check if it's a mindmap message (prefer key)
   const isMindmap = message.type === "mindmap" && (message.mindmapKey || message.mindmapPermalink);
 
-  // Resolve title via key first (do NOT mutate or inject). Add ephemeral fetch if missing.
-  const [fetchedTitle, setFetchedTitle] = useState<string | null>(null)
-  const [fetchingTitle, setFetchingTitle] = useState(false)
-  let mindmapTitle: string | null = null;
+  // Unified title resolution using shared Chat-level cache/fetcher
+  let mindmapTitle: string | null = null
   if (isMindmap) {
-    const mapsState = useMindMapStore.getState().maps;
-    const map = message.mindmapKey
-      ? mapsState.find(m => m.key === message.mindmapKey)
-      : message.mindmapPermalink
-        ? mapsState.find(m => m.permalink === message.mindmapPermalink)
-        : undefined;
-    if (map && map.title) {
-      mindmapTitle = map.title || 'Mindmap';
-    } else if (fetchedTitle) {
-      mindmapTitle = fetchedTitle;
+    const mapsState = useMindMapStore.getState().maps
+    const key = message.mindmapKey
+    if (key) {
+      const local = mapsState.find(m => m.key === key)
+      if (local?.title) {
+        mindmapTitle = local.title
+      } else if (mindmapTitleCache[key]) {
+        mindmapTitle = mindmapTitleCache[key]
+      } else {
+        ensureMindmapTitle(key)
+        mindmapTitle = key.length > 8 ? key.slice(0,8) + '…' : 'Mindmap'
+      }
+    } else if (message.mindmapPermalink) {
+      // Legacy fallback (permalink-only message): try local store
+      const localByPermalink = mapsState.find(m => m.permalink === message.mindmapPermalink)
+      if (localByPermalink?.title) {
+        mindmapTitle = localByPermalink.title
+      } else {
+        mindmapTitle = 'Mindmap'
+      }
     }
   }
-
-  useEffect(() => {
-    if (isMindmap && !mindmapTitle && message.mindmapKey && !fetchingTitle && !fetchedTitle) {
-      setFetchingTitle(true)
-      ;(async () => {
-        try {
-          const { data } = await supabase
-            .from('mindmaps')
-            .select('key, title')
-            .eq('key', message.mindmapKey)
-            .limit(1)
-            .maybeSingle()
-          if (data && data.key) {
-            setFetchedTitle(data.title?.trim() ? data.title : 'Untitled mindmap')
-          } else {
-            setFetchedTitle('Mindmap')
-          }
-        } catch {
-          setFetchedTitle('Mindmap')
-        } finally {
-          setFetchingTitle(false)
-        }
-      })()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMindmap, mindmapTitle, message?.mindmapKey])
 
   // If it's a GIF, show a special preview
   if (isGif) {
@@ -3105,7 +3089,12 @@ const Chat: React.FC = () => {
                 <div className="p-3 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm">
                   <form onSubmit={handleSendMessage} className="flex flex-col gap-2">
                     {replyingToMessage && (
-                      <ReplyPreview message={replyingToMessage} onCancel={() => setReplyingToMessage(null)} />
+                      <ReplyPreview
+                        message={replyingToMessage}
+                        onCancel={() => setReplyingToMessage(null)}
+                        mindmapTitleCache={mindmapTitleCache}
+                        ensureMindmapTitle={ensureMindmapTitle}
+                      />
                     )}
 
                     <div className="flex gap-2 items-end">
