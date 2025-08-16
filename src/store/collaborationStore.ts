@@ -35,11 +35,11 @@ interface CollaborationState {
   collaborationChannel: RealtimeChannel | null;
   presenceChannel: RealtimeChannel | null; // Separate channel just for presence tracking
   connectedUsers: string[];
-  currentMindMapId: string | null;
+  currentMindMapKey: string | null;
   currentUserId: string | null;
   
   // Actions
-  initializeCollaboration: (mindMapId: string, userId: string, userName: string, userAvatar?: string) => Promise<void>;
+  initializeCollaboration: (mindMapKey: string, userId: string, userName: string, userAvatar?: string) => Promise<void>;
   cleanupCollaboration: () => void;
   updateCursorPosition: (position: XYPosition) => void;
   broadcastCursorPosition: (position: XYPosition) => void;
@@ -59,9 +59,9 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
   collaborationChannel: null,
   presenceChannel: null,
   connectedUsers: [],
-  currentMindMapId: null,
+  currentMindMapKey: null,
   currentUserId: null,
-  initializeCollaboration: async (mindMapId: string, userId: string, userName: string, userAvatar?: string) => {
+  initializeCollaboration: async (mindMapKey: string, userId: string, userName: string, userAvatar?: string) => {
     const state = get();
     
     // Clean up existing channels if any
@@ -73,7 +73,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
     }
 
     // Create presence-only channel first to detect other users
-    const presenceChannelName = `mindmap_presence:${mindMapId}`;
+    const presenceChannelName = `mindmap_presence:${mindMapKey}`;
     const presenceChannel = supabase.channel(presenceChannelName, {
       config: {
         presence: { key: userId }
@@ -137,7 +137,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
 
     set({
       presenceChannel: presenceChannel,
-      currentMindMapId: mindMapId,
+      currentMindMapKey: mindMapKey,
       currentUserId: userId,
     });
   },  cleanupCollaboration: async () => {
@@ -158,7 +158,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
       isTrackingCursor: false,
       currentCursorPosition: null,
       connectedUsers: [],
-      currentMindMapId: null,
+      currentMindMapKey: null,
       currentUserId: null,
       pendingChanges: [],
       isReceivingChanges: false,
@@ -168,12 +168,12 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
   createFullCollaborationChannel: async () => {
     const state = get();
     
-    if (!state.currentMindMapId || !state.currentUserId || state.collaborationChannel) {
+    if (!state.currentMindMapKey || !state.currentUserId || state.collaborationChannel) {
       return; // Already have a channel or missing required info
     }
 
     // Create new channel for this mind map with full collaboration features
-    const channelName = `mindmap_collaboration:${state.currentMindMapId}`;
+    const channelName = `mindmap_collaboration:${state.currentMindMapKey}`;
     const channel = supabase.channel(channelName, {
       config: {
         broadcast: { self: false }, // Don't receive our own broadcasts

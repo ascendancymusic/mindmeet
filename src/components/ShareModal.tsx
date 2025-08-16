@@ -4,6 +4,7 @@ import React, { useState } from "react"
 import { Copy, X, Twitter, Facebook, Linkedin, MessageCircle } from "lucide-react"
 import UserSelectModal from "./UserSelectModal"
 import { useChatStore } from "../store/chatStore"
+// Simplified: no remote fetching or store injection here
 
 interface ShareModalProps {
   title: string
@@ -11,14 +12,15 @@ interface ShareModalProps {
   creator: string
   onClose: () => void
   isMainMap?: boolean
-  mindmapPermalink?: string // Add mindmapPermalink prop
+  mindmapKey: string // Internal key required for chat sharing
 }
 
-const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, isMainMap = false, mindmapPermalink }) => {
+const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, isMainMap = false, mindmapKey }) => {
   const [copySuccess, setCopySuccess] = useState(false)
   const [isUserSelectModalOpen, setIsUserSelectModalOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
   const [isLoadingUserModal, setIsLoadingUserModal] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
 
   // Generate the @username URL if it's a main map
   const shareUrl = isMainMap ? `${window.location.origin}/@${creator}` : url
@@ -78,61 +80,26 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
     })
   }
 
-  // Function to handle sharing to chat with multiple users
-  const handleShareToChat = (selectedUsers: { id: string, username: string }[], customMessage: string) => {
-    if (!mindmapPermalink) {
-      console.error("Cannot share to chat: Missing mindmap permalink")
-      return
-    }
-
-    if (selectedUsers.length === 0) {
-      return
-    }
-
+  const handleShareToChat = async (selectedUsers: { id: string, username: string }[], customMessage: string) => {
+    if (selectedUsers.length === 0 || !mindmapKey) return
     try {
-      // First fetch all conversations
-      useChatStore.getState().fetchConversations().then(async () => {
-        const conversations = useChatStore.getState().conversations
-
-        // Process each selected user
-        const sharePromises = selectedUsers.map(async (user) => {
-          const existingConversation = conversations.find(c =>
-            !c.isAI && c.userId === user.id
-          )
-
-          let conversationId: number
-
-          if (existingConversation) {
-            // If conversation exists, use it
-            conversationId = existingConversation.id
-          } else {
-            // Create a new conversation with this user
-            conversationId = await useChatStore.getState().createConversation(
-              user.id,
-              user.username,
-              false
-            )
-          }
-
-          // Set the active conversation to the current one
-          useChatStore.getState().setActiveConversation(conversationId)
-
-          // Send the mindmap to the chat
-          const message = customMessage
-          await useChatStore.getState().sendMessage(message, mindmapPermalink)
-
-          return conversationId
-        })
-
-        // Wait for all shares to complete
-        await Promise.all(sharePromises)
-
-        // Show success message
-        setShareSuccess(true)
-        setTimeout(() => setShareSuccess(false), 2000)
+      setIsSharing(true)
+      await useChatStore.getState().fetchConversations()
+      const conversations = useChatStore.getState().conversations
+      const sharePromises = selectedUsers.map(async (user) => {
+        const existingConversation = conversations.find(c => !c.isAI && c.userId === user.id)
+        const conversationId = existingConversation ? existingConversation.id : await useChatStore.getState().createConversation(user.id, user.username, false)
+        useChatStore.getState().setActiveConversation(conversationId)
+        await useChatStore.getState().sendMessage(customMessage, mindmapKey)
+        return conversationId
       })
-    } catch (error) {
-      console.error("Error sharing to chat:", error)
+      await Promise.all(sharePromises)
+      setShareSuccess(true)
+      setTimeout(() => setShareSuccess(false), 2000)
+    } catch (e) {
+      console.error('Error sharing to chat:', e)
+    } finally {
+      setIsSharing(false)
     }
   }
   return (
@@ -176,18 +143,18 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
             </div>
           )}
         </div>        {/* Share to Chat Section */}
-        {mindmapPermalink && (
+  {mindmapKey && (
           <div className="mb-6">
             <p className="text-sm font-medium text-slate-300 mb-3">Share to chat</p>
             <button
               onClick={handleOpenUserSelectModal}
-              disabled={isLoadingUserModal}
+        disabled={isLoadingUserModal || isSharing}
               className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/80 hover:to-purple-700/80 disabled:from-slate-700/50 disabled:to-slate-600/50 text-white rounded-xl transition-all duration-200 border border-blue-500/30 hover:border-blue-400/50 disabled:border-slate-600/30 shadow-lg disabled:shadow-none"
             >
-              {isLoadingUserModal ? (
+        {isLoadingUserModal || isSharing ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
-                  <span className="font-medium">Loading users...</span>
+          <span className="font-medium">{isSharing ? 'Sharing...' : 'Loading users...'}</span>
                 </>
               ) : (
                 <>
@@ -285,7 +252,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
         </div></div>
 
       {/* User Select Modal for Chat Sharing */}
-      {isUserSelectModalOpen && (
+  {isUserSelectModalOpen && (
         <UserSelectModal
           isOpen={isUserSelectModalOpen}
           onClose={() => setIsUserSelectModalOpen(false)}

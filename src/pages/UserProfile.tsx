@@ -160,7 +160,7 @@ const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
 }, (prevProps, nextProps) => {
   // Custom comparison function for React.memo
   return (
-    prevProps.map.id === nextProps.map.id &&
+    prevProps.map.permalink === nextProps.map.permalink &&
     prevProps.map.updated_at === nextProps.map.updated_at &&
     JSON.stringify(prevProps.map.json_data?.nodes) === JSON.stringify(nextProps.map.json_data?.nodes) &&
     JSON.stringify(prevProps.map.json_data?.edges) === JSON.stringify(nextProps.map.json_data?.edges) &&
@@ -271,10 +271,11 @@ const UserProfile: React.FC = () => {
   const [modalUserIds, setModalUserIds] = useState<string[]>([])
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareMapData, setShareMapData] = useState<{
-    id: string
+    permalink: string
     title: string
     is_main: boolean
     creatorUsername: string
+    key?: string
   } | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
@@ -282,14 +283,14 @@ const UserProfile: React.FC = () => {
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       setPublicMaps((prevMaps) =>
-        prevMaps.map((map) => (map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map)),
+        prevMaps.map((map) => (map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map)),
       )
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setPublicMaps((prevMaps) =>
-        prevMaps.map((map) => (map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map)),
+        prevMaps.map((map) => (map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map)),
       )
     },
     sendNotifications: true,
@@ -297,14 +298,14 @@ const UserProfile: React.FC = () => {
 
   // Add separate handlers for collaboration maps with notifications enabled
   const { handleLike: collabHandleLike, handleSave: collabHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       setCollaborationMaps((prevMaps) =>
-        prevMaps.map((map) => (map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map)),
+        prevMaps.map((map) => (map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map)),
       )
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setCollaborationMaps((prevMaps) =>
-        prevMaps.map((map) => (map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map)),
+        prevMaps.map((map) => (map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map)),
       )
     },
     sendNotifications: true,
@@ -312,14 +313,14 @@ const UserProfile: React.FC = () => {
 
   // Add handlers for saved maps with notifications enabled
   const { handleLike: savedHandleLike, handleSave: savedHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       setSavedMaps((prevMaps) =>
-        prevMaps.map((map) => (map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map)),
+        prevMaps.map((map) => (map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map)),
       )
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setSavedMaps((prevMaps) =>
-        prevMaps.map((map) => (map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map)),
+        prevMaps.map((map) => (map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map)),
       )
     },
     sendNotifications: true,
@@ -380,14 +381,13 @@ const UserProfile: React.FC = () => {
           // Then, get the user's main map
           const { data: mapData, error: mapError } = await supabase
             .from("mindmaps")
-            .select("id")
+            .select("permalink")
             .eq("creator", profileData[0].id)
             .eq("is_main", true)
             .eq("visibility", "public")
 
           if (!mapError && mapData && mapData.length > 0) {
-            // Redirect to the main map
-            window.location.href = `/${usernameWithoutAt}/${mapData[0].id}`
+            window.location.href = `/${usernameWithoutAt}/${mapData[0].permalink}`
             return
           }
         }
@@ -454,7 +454,7 @@ const UserProfile: React.FC = () => {
       const { data, error } = await supabase
         .from("mindmaps")
         .select(
-          "id, key, title, json_data, updated_at, likes, liked_by, comment_count, saves, saved_by, visibility, is_main, collaborators, creator, published_at",
+          "permalink, key, title, json_data, updated_at, likes, liked_by, comment_count, saves, saved_by, visibility, is_main, collaborators, creator, published_at",
         )
         .eq("creator", creatorId)
         .eq("visibility", "public")
@@ -463,10 +463,7 @@ const UserProfile: React.FC = () => {
         console.error("Error fetching public maps:", error)
         setPublicMaps([])
       } else {
-        console.log(
-          "Fetched public maps with keys:",
-          data?.map((map) => ({ id: map.id, key: map.key })),
-        )
+  console.log("Fetched public maps with keys:", data?.map((map) => ({ permalink: map.permalink, key: map.key })))
         const mapsWithCreator =
           data
             ?.map((map) => ({
@@ -490,7 +487,7 @@ const UserProfile: React.FC = () => {
         const { data: collabData, error: collabError } = await supabase
           .from("mindmaps")
           .select(
-            "id, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
+            "permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
           )
           .contains("collaborators", `["${creatorId}"]`)
           .eq("visibility", "public")
@@ -563,7 +560,7 @@ const UserProfile: React.FC = () => {
           const { data: savedMapsData, error: savedMapsError } = await supabase
             .from("mindmaps")
             .select(
-              "id, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
+              "permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
             )
             .in("key", userProfile.saves)
             .eq("visibility", "public")
@@ -702,8 +699,8 @@ const UserProfile: React.FC = () => {
     setModalUserIds([])
   }
 
-  const handleShare = (mapId: string, mapTitle: string, isMain: boolean, creatorUsername: string) => {
-    setShareMapData({ id: mapId, title: mapTitle, is_main: isMain, creatorUsername })
+  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string, mapKey?: string) => {
+    setShareMapData({ permalink: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername, key: mapKey })
     setIsShareModalOpen(true)
   }
 
@@ -712,8 +709,8 @@ const UserProfile: React.FC = () => {
     setShareMapData(null)
   }
 
-  const toggleMenu = (mapId: string) => {
-    setOpenMenuId(openMenuId === mapId ? null : mapId)
+  const toggleMenu = (mapPermalink: string) => {
+    setOpenMenuId(openMenuId === mapPermalink ? null : mapPermalink)
   }
   const handleOpenInfo = (map: any) => {
     let updatedAt = map.updated_at
@@ -727,7 +724,7 @@ const UserProfile: React.FC = () => {
       username: mapCreatorUsername,
       displayName: mapCreatorDisplayName,
       name: map.title,
-      id: map.id,
+  permalink: map.permalink,
       updatedAt: updatedAt,
       description: map.description || "No description provided.",
       avatar_url: mapCreatorAvatar,
@@ -982,7 +979,7 @@ const UserProfile: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh] compact-gap">
                 {publicMaps.map((map, index) => (
                   <div
-                    key={map.id}
+                    key={map.permalink}
                     className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                     style={{ animationDelay: `${index * 100}ms` }}
                   >
@@ -1019,13 +1016,13 @@ const UserProfile: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            toggleMenu(map.id)
+                            toggleMenu(map.permalink)
                           }}
                           className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
                           <MoreVertical className="w-5 h-5" />
                         </button>
-                        {openMenuId === map.id && (
+                        {openMenuId === map.permalink && (
                           <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                             <div className="py-2">
                               <button
@@ -1056,7 +1053,7 @@ const UserProfile: React.FC = () => {
                     </div>                      {/* Enhanced Mind Map Preview */}
                     {map.json_data?.nodes?.length > 0 && (
                       <a
-                        href={`/${username}/${map.id}`}
+                        href={`/${username}/${map.permalink}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
                         <UserProfileMindMapPreview map={map} />
@@ -1079,7 +1076,7 @@ const UserProfile: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          window.location.href = `/${username}/${map.id}#comments-section`
+                          window.location.href = `/${username}/${map.permalink}#comments-section`
                         }}
                         className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                       >
@@ -1101,7 +1098,7 @@ const UserProfile: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          handleShare(map.id, map.title, map.is_main || false, username || "")
+                          handleShare(map.permalink, map.title, map.is_main || false, username || "", map.key)
                         }}
                         className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                       >
@@ -1127,7 +1124,7 @@ const UserProfile: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {collaborationMaps.map((map, index) => (
                     <div
-                      key={map.id}
+                      key={map.permalink}
                       className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
@@ -1174,13 +1171,13 @@ const UserProfile: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              toggleMenu(map.id)
+                              toggleMenu(map.permalink)
                             }}
                             className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openMenuId === map.id && (
+                          {openMenuId === map.permalink && (
                             <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                               <div className="py-2">
                                 <button
@@ -1209,7 +1206,7 @@ const UserProfile: React.FC = () => {
                         </span>
                       </div>                      {map.json_data?.nodes?.length > 0 && (
                         <a
-                          href={`/${username}/${map.id}`}
+                          href={`/${username}/${map.permalink}`}
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <UserProfileMindMapPreview map={map} />
@@ -1232,7 +1229,7 @@ const UserProfile: React.FC = () => {
                             onClick={(e) => {
                               e.preventDefault()
                               e.stopPropagation()
-                              window.location.href = `/${map.creatorUsername}/${map.id}#comments-section`
+                              window.location.href = `/${map.creatorUsername}/${map.permalink}#comments-section`
                             }}
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
@@ -1254,7 +1251,7 @@ const UserProfile: React.FC = () => {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            handleShare(map.id, map.title, map.is_main || false, map.creatorUsername)
+                            handleShare(map.permalink, map.title, map.is_main || false, map.creatorUsername, map.key)
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -1280,7 +1277,7 @@ const UserProfile: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                 {savedMaps.map((map, index) => (
                   <div
-                    key={map.id}
+                    key={map.permalink}
                     className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                     style={{ animationDelay: `${index * 100}ms` }}
                   >
@@ -1327,13 +1324,13 @@ const UserProfile: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            toggleMenu(map.id)
+                            toggleMenu(map.permalink)
                           }}
                           className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
                           <MoreVertical className="w-5 h-5" />
                         </button>
-                        {openMenuId === map.id && (
+                        {openMenuId === map.permalink && (
                           <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                             <div className="py-2">
                               <button
@@ -1362,7 +1359,7 @@ const UserProfile: React.FC = () => {
                       </span>
                     </div>                      {map.json_data?.nodes?.length > 0 && (
                       <a
-                        href={`/${username}/${map.id}`}
+                        href={`/${username}/${map.permalink}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
                         <UserProfileMindMapPreview map={map} />
@@ -1386,7 +1383,7 @@ const UserProfile: React.FC = () => {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            window.location.href = `/${map.creatorUsername}/${map.id}#comments-section`
+                            window.location.href = `/${map.creatorUsername}/${map.permalink}#comments-section`
                           }}
                           className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                         >
@@ -1408,7 +1405,7 @@ const UserProfile: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          handleShare(map.id, map.title, map.is_main || false, map.creatorUsername)
+                          handleShare(map.permalink, map.title, map.is_main || false, map.creatorUsername, map.key)
                         }}
                         className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                       >
@@ -1441,11 +1438,11 @@ const UserProfile: React.FC = () => {
         {isShareModalOpen && shareMapData && (
           <ShareModal
             title={shareMapData.title}
-            url={`${window.location.origin}/${shareMapData.creatorUsername}/${shareMapData.id}`}
+            url={`${window.location.origin}/${shareMapData.creatorUsername}/${shareMapData.permalink}`}
             creator={shareMapData.creatorUsername}
             onClose={closeShareModal}
             isMainMap={shareMapData.is_main}
-            mindmapId={shareMapData.id}
+            mindmapKey={shareMapData.key as string}
           />
         )}
 

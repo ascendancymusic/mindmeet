@@ -69,7 +69,7 @@ if (typeof document !== "undefined") {
 interface Group {
   id: string
   name: string
-  mindmapIds: string[]
+  mindmapIds: string[] // stores mindmap permalinks (legacy name retained)
   createdAt: number
   icon: string
   color?: string // legacy optional color support for existing styling
@@ -447,18 +447,18 @@ const EditGroupModal = ({
             <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
               {sortedMindmaps.map((mindmap) => (
                 <div
-                  key={mindmap.id}
-                  onClick={() => toggleMindmapSelection(mindmap.id)}
-                  className={`flex items-center gap-3 p-4 rounded-xl transition-all duration-200 ${selectedMindmapIds.includes(mindmap.id)
+                  key={mindmap.permalink}
+                  onClick={() => toggleMindmapSelection(mindmap.permalink)}
+                  className={`flex items-center gap-3 p-4 rounded-xl transition-all duration-200 ${selectedMindmapIds.includes(mindmap.permalink)
                     ? "bg-blue-500/20 border border-blue-500/50 shadow-sm"
                     : "bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 hover:border-slate-500/50"
                     }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedMindmapIds.includes(mindmap.id) ? "bg-blue-500 border-blue-500" : "border-slate-500"
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedMindmapIds.includes(mindmap.permalink) ? "bg-blue-500 border-blue-500" : "border-slate-500"
                       }`}
                   >
-                    {selectedMindmapIds.includes(mindmap.id) && <Check className="w-3 h-3 text-white" />}
+                    {selectedMindmapIds.includes(mindmap.permalink) && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <div className="flex-1">
                     <h4 className="text-sm font-medium text-white">{mindmap.title}</h4>
@@ -619,18 +619,18 @@ const CreateGroupModal = ({
             <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
               {sortedMindmaps.map((mindmap) => (
                 <div
-                  key={mindmap.id}
-                  onClick={() => toggleMindmapSelection(mindmap.id)}
-                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${selectedMindmapIds.includes(mindmap.id)
+                  key={mindmap.permalink}
+                  onClick={() => toggleMindmapSelection(mindmap.permalink)}
+                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${selectedMindmapIds.includes(mindmap.permalink)
                     ? "bg-blue-500/20 border border-blue-500/50"
                     : "bg-slate-700/30 hover:bg-slate-700/50 border border-transparent"
                     }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedMindmapIds.includes(mindmap.id) ? "bg-blue-500 border-blue-500" : "border-slate-500"
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedMindmapIds.includes(mindmap.permalink) ? "bg-blue-500 border-blue-500" : "border-slate-500"
                       }`}
                   >
-                    {selectedMindmapIds.includes(mindmap.id) && <Check className="w-3 h-3 text-white" />}
+                    {selectedMindmapIds.includes(mindmap.permalink) && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <div className="flex-1">
                     <h4 className="text-sm font-medium text-white">{mindmap.title}</h4>
@@ -703,7 +703,7 @@ export default function MindMapList() {
     cloneMap,
     deleteMap,
     toggleMapPin,
-    updateMapId,
+  updateMapPermalink,
   } = useMindMapStore()
 
   const [groups, setGroups] = useState<Group[]>([])
@@ -752,7 +752,7 @@ export default function MindMapList() {
       if (mindmapIds.length > 0) {
         const memberships = mindmapIds.map(mindmapId => ({
           group_id: groupData.id,
-          mindmap_key: maps.find(m => m.id === mindmapId)?.key || mindmapId
+          mindmap_key: maps.find(m => m.permalink === mindmapId)?.key || mindmapId
         }))
 
         const { error: membershipError } = await supabase
@@ -816,7 +816,7 @@ export default function MindMapList() {
     if (!isValidUserId) return
 
     try {
-      const mindmapKey = maps.find(m => m.id === mapId)?.key || mapId
+  const mindmapKey = maps.find(m => m.permalink === mapId)?.key || mapId
 
       const { error } = await supabase
         .from('mindmap_group_memberships')
@@ -845,7 +845,7 @@ export default function MindMapList() {
     if (!isValidUserId) return
 
     try {
-      const mindmapKey = maps.find(m => m.id === mapId)?.key || mapId
+  const mindmapKey = maps.find(m => m.permalink === mapId)?.key || mapId
 
       const { error } = await supabase
         .from('mindmap_group_memberships')
@@ -889,15 +889,15 @@ export default function MindMapList() {
       const currentGroup = groups.find(g => g.id === groupId)
       if (!currentGroup) return
 
-      const currentMindmapIds = currentGroup.mindmapIds
-      const toAdd = selectedMindmapIds.filter(id => !currentMindmapIds.includes(id))
-      const toRemove = currentMindmapIds.filter(id => !selectedMindmapIds.includes(id))
+  const currentMindmapIds = currentGroup.mindmapIds
+  const toAdd = selectedMindmapIds.filter(id => !currentMindmapIds.includes(id))
+  const toRemove = currentMindmapIds.filter(id => !selectedMindmapIds.includes(id))
 
       // Add new memberships
       if (toAdd.length > 0) {
         const memberships = toAdd.map(mindmapId => ({
           group_id: groupId,
-          mindmap_key: maps.find(m => m.id === mindmapId)?.key || mindmapId
+          mindmap_key: maps.find(m => m.permalink === mindmapId)?.key || mindmapId
         }))
 
         const { error: addError } = await supabase
@@ -909,7 +909,7 @@ export default function MindMapList() {
 
       // Remove old memberships
       if (toRemove.length > 0) {
-        const keysToRemove = toRemove.map(mindmapId => maps.find(m => m.id === mindmapId)?.key || mindmapId)
+  const keysToRemove = toRemove.map(mindmapId => maps.find(m => m.permalink === mindmapId)?.key || mindmapId)
 
         const { error: removeError } = await supabase
           .from('mindmap_group_memberships')
@@ -958,9 +958,9 @@ export default function MindMapList() {
           mindmap_group_memberships (
             mindmap_key,
             mindmaps (
-              id,
-              key
-            )
+                permalink,
+                key
+              )
           )
         `)
         .eq('user_id', userId)
@@ -975,8 +975,8 @@ export default function MindMapList() {
         icon: group.icon || 'Folder', // Default to Folder if no icon
         createdAt: new Date(group.created_at).getTime(),
         mindmapIds: group.mindmap_group_memberships.map((membership: any) => {
-          // Use the mindmap ID from the joined data if available, otherwise use the key
-          return membership.mindmaps?.id || membership.mindmap_key
+          // Use the mindmap permalink from the joined data if available, otherwise use the key
+          return membership.mindmaps?.permalink || membership.mindmap_key
         }).filter(Boolean) // Remove any null/undefined values
       }))
 
@@ -1070,8 +1070,8 @@ export default function MindMapList() {
         ...group,
         mindmapIds: group.mindmapIds.map(idOrKey => {
           // Try to find the mindmap by ID first, then by key
-          const mindmap = maps.find(m => m.id === idOrKey || m.key === idOrKey)
-          return mindmap?.id || idOrKey
+          const mindmap = maps.find(m => m.permalink === idOrKey || m.key === idOrKey)
+          return mindmap?.permalink || idOrKey
         })
       }))
 
@@ -1096,11 +1096,11 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-      const id = await addMap(newMapTitle.trim().substring(0, 20), userId)
+  const newPermalink = await addMap(newMapTitle.trim().substring(0, 20), userId)
       setNewMapTitle("")
       setIsCreating(false)
       showToast("Mindmap created successfully!", "success")
-      navigate(`/${user.username}/${id}/edit`)
+  navigate(`/${user.username}/${newPermalink}/edit`)
     } catch (error) {
       console.error("Error creating mindmap:", error)
       showToast("Failed to create mindmap. Please try again.", "error")
@@ -1132,7 +1132,7 @@ export default function MindMapList() {
     if (viewMode === "owned" && selectedGroupId) {
       const selectedGroup = groups.find((group) => group.id === selectedGroupId)
       if (selectedGroup) {
-        filteredMaps = currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.id))
+  filteredMaps = currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.permalink))
       }
     }
 
@@ -1164,8 +1164,8 @@ export default function MindMapList() {
    *
    * @param {string} id - The ID of the map to toggle menu for
    */
-  const toggleMenu = (id: string) => {
-    setOpenMenuId(openMenuId === id ? null : id)
+  const toggleMenu = (permalink: string) => {
+    setOpenMenuId(openMenuId === permalink ? null : permalink)
   }
 
   useEffect(() => {
@@ -1197,15 +1197,15 @@ export default function MindMapList() {
    *
    * @param {string} id - The ID of the map to delete
    */
-  const handleDeleteMap = (id: string) => {
-    setMapToDelete(id)
+  const handleDeleteMap = (permalink: string) => {
+    setMapToDelete(permalink)
     setOpenMenuId(null)
   }
 
   const confirmDelete = async () => {
     if (mapToDelete && isValidUserId) {
       // Clean up group memberships when deleting a map
-      const mapToDeleteData = maps.find(m => m.id === mapToDelete)
+      const mapToDeleteData = maps.find(m => m.permalink === mapToDelete)
       if (mapToDeleteData?.key) {
         try {
           await supabase
@@ -1224,14 +1224,14 @@ export default function MindMapList() {
     }
   }
 
-  const handleTogglePin = async (id: string) => {
-    const currentMap = maps.find((map) => map.id === id)
+  const handleTogglePin = async (permalink: string) => {
+    const currentMap = maps.find((map) => map.permalink === permalink)
     if (currentMap) {
-      toggleMapPin(id)
+      toggleMapPin(permalink)
     }
   }
 
-  const handleCloneMap = async (id: string) => {
+  const handleCloneMap = async (permalink: string) => {
     if (!isValidUserId) {
       console.error("Invalid or undefined userId. Cannot clone map.")
       return
@@ -1243,7 +1243,7 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-      await cloneMap(id, userId)
+      await cloneMap(permalink, userId)
       setShowCloneSuccessPopup(true)
       // Hide the popup after 3 seconds
       setTimeout(() => {
@@ -1257,8 +1257,8 @@ export default function MindMapList() {
     }
   }
 
-  const handleEditDetails = (id: string) => {
-    setMapToEdit(id)
+  const handleEditDetails = (permalink: string) => {
+    setMapToEdit(permalink)
     setOpenMenuId(null)
   }
 
@@ -1285,17 +1285,17 @@ export default function MindMapList() {
     published_at?: string | null
   }) => {
     if (mapToEdit && isValidUserId) {
-      const currentMap = maps.find((map) => map.id === mapToEdit)
+      const currentMap = maps.find((map) => map.permalink === mapToEdit)
       if (currentMap) {
         // Check if the new permalink already exists for the current user
-        const conflictingMap = maps.find((map) => map.id === details.permalink && map.id !== currentMap.id)
+        const conflictingMap = maps.find((map) => map.permalink === details.permalink && map.permalink !== currentMap.permalink)
 
         if (conflictingMap) {
           throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`)
         }
 
         try {
-          const isPermalinkChanged = currentMap.id !== details.permalink
+          const isPermalinkChanged = currentMap.permalink !== details.permalink
           const updatedMapData = {
             title: details.title,
             visibility: details.visibility,
@@ -1315,7 +1315,7 @@ export default function MindMapList() {
             await useMindMapStore.getState().saveMapToSupabase(updatedMap, userId)
 
             // Then update the ID (this creates a new record and deletes the old one)
-            await updateMapId(currentMap.id, details.permalink)
+            await updateMapPermalink(currentMap.permalink, details.permalink)
           } else {
             const updatedMap = {
               ...currentMap,
@@ -1364,11 +1364,11 @@ export default function MindMapList() {
           const updatedMap = {
             ...currentMap,
             ...updatedMapData,
-            id: isPermalinkChanged ? details.permalink : currentMap.id,
+            permalink: isPermalinkChanged ? details.permalink : currentMap.permalink,
           }
 
           // Update the maps array in state
-          useMindMapStore.getState().setMaps(maps.map((map) => (map.id === currentMap.id ? updatedMap : map)))
+          useMindMapStore.getState().setMaps(maps.map((map) => (map.permalink === currentMap.permalink ? updatedMap : map)))
 
           // Show success popup if publishing/republishing
           if (wasJustPublished) {
@@ -1582,10 +1582,10 @@ export default function MindMapList() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh]">
           {sortedMaps.map((map, index) => (
             <div
-              key={map.id}
+              key={map.permalink}
               className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-[2vh] border border-slate-700/30 shadow-xl"
               style={{ animationDelay: `${index * 100}ms` }}
             >
@@ -1658,21 +1658,21 @@ export default function MindMapList() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          toggleMenu(map.id)
+              toggleMenu(map.permalink)
                         }}
                         className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                       >
                         <MoreVertical className="w-5 h-5" />
                       </button>
-                      {openMenuId === map.id && (
+            {openMenuId === map.permalink && (
                         <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                           <div className="py-2">
                             {viewMode === "owned" && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleEditDetails(map.id)
-                                  toggleMenu(map.id)
+                  handleEditDetails(map.permalink)
+                  toggleMenu(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
                               >
@@ -1684,8 +1684,8 @@ export default function MindMapList() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleTogglePin(map.id)
-                                  toggleMenu(map.id)
+                  handleTogglePin(map.permalink)
+                  toggleMenu(map.permalink)
                                 }}
                                 className={`w-full text-left px-4 py-3 text-xs hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200 ${map.isPinned ? "text-blue-400" : "text-slate-300"}`}
                               >
@@ -1697,7 +1697,7 @@ export default function MindMapList() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleCloneMap(map.id)
+                  handleCloneMap(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
                               >
@@ -1709,8 +1709,8 @@ export default function MindMapList() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  setAddToGroupMapId(map.id)
-                                  toggleMenu(map.id)
+                  setAddToGroupMapId(map.permalink)
+                  toggleMenu(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
                               >
@@ -1722,8 +1722,8 @@ export default function MindMapList() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  removeMapFromGroup(map.id, selectedGroupId)
-                                  toggleMenu(map.id)
+                  removeMapFromGroup(map.permalink, selectedGroupId)
+                  toggleMenu(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-orange-400 flex items-center gap-3 transition-all duration-200"
                               >
@@ -1735,8 +1735,8 @@ export default function MindMapList() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleDeleteMap(map.id)
-                                  toggleMenu(map.id)
+                  handleDeleteMap(map.permalink)
+                  toggleMenu(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-red-500 flex items-center gap-3 transition-all duration-200"
                               >
@@ -1772,12 +1772,12 @@ export default function MindMapList() {
                 </div>
 
                 {/* Enhanced Mind Map Preview */}
-                <a
+                  <a
                   href={(() => {
                     if (viewMode === "collaboration" && map?.creatorUsername) {
-                      return `/${map.creatorUsername}/${map.id}/edit`
+                      return `/${map.creatorUsername}/${map.permalink}/edit`
                     } else {
-                      return `/${user?.username}/${map.id}/edit`
+                      return `/${user?.username}/${map.permalink}/edit`
                     }
                   })()}
                   className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? "pointer-events-auto" : ""}`}
@@ -1960,7 +1960,7 @@ export default function MindMapList() {
 
             <div className="mb-4">
               <p className="text-slate-300 text-sm mb-3">
-                Select groups to add "{getAllMaps().find(m => m.id === addToGroupMapId)?.title}" to:
+                Select groups to add "{getAllMaps().find(m => m.permalink === addToGroupMapId)?.title}" to:
               </p>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {groups.map((group) => {
@@ -2030,7 +2030,7 @@ export default function MindMapList() {
               <h2 className="text-xl font-bold text-white">Delete Mindmap</h2>
             </div>
             <p className="text-slate-300 mb-2">
-              Are you sure you want to delete "{maps.find((map) => map.id === mapToDelete)?.title}"?
+              Are you sure you want to delete "{maps.find((map) => map.permalink === mapToDelete)?.title}"?
             </p>
             <p className="text-slate-400 text-sm mb-6">
               This action cannot be undone and all data will be permanently lost.
@@ -2059,13 +2059,13 @@ export default function MindMapList() {
           isOpen={!!mapToEdit}
           onClose={() => setMapToEdit(null)}
           mapData={{
-            id: maps.find((map) => map.id === mapToEdit)?.id || "",
-            title: maps.find((map) => map.id === mapToEdit)?.title || "",
-            description: maps.find((map) => map.id === mapToEdit)?.description || "",
-            visibility: maps.find((map) => map.id === mapToEdit)?.visibility as "public" | "private" | "linkOnly",
-            is_main: maps.find((map) => map.id === mapToEdit)?.is_main || false,
-            collaborators: maps.find((map) => map.id === mapToEdit)?.collaborators || [],
-            published_at: maps.find((map) => map.id === mapToEdit)?.published_at || null,
+            permalink: maps.find((map) => map.permalink === mapToEdit)?.permalink || "",
+            title: maps.find((map) => map.permalink === mapToEdit)?.title || "",
+            description: maps.find((map) => map.permalink === mapToEdit)?.description || "",
+            visibility: maps.find((map) => map.permalink === mapToEdit)?.visibility as "public" | "private" | "linkOnly",
+            is_main: maps.find((map) => map.permalink === mapToEdit)?.is_main || false,
+            collaborators: maps.find((map) => map.permalink === mapToEdit)?.collaborators || [],
+            published_at: maps.find((map) => map.permalink === mapToEdit)?.published_at || null,
           }}
           showMainMapOption={false}
           username={user?.username}

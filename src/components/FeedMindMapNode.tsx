@@ -59,7 +59,7 @@ interface FeedMindMapNodeProps {
     visibility?: 'public' | 'private';
     updated_at?: string;
   } | null;
-  onDelete?: (mindmapId: string) => void;
+  onDelete?: (mindmapKey: string) => void;
 }
 
 const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) => {
@@ -79,14 +79,14 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapKey, newLikes, newLikedBy) => {
       setLocalMindmap((prev: any) =>
-        prev && prev.permalink === mapId ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
+        prev && prev.permalink === mapKey ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
       );
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapKey, newSaves, newSavedBy) => {
       setLocalMindmap((prev: any) =>
-        prev && prev.permalink === mapId ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
+        prev && prev.permalink === mapKey ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
       );
     }
   });
@@ -756,13 +756,13 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
           </div>
         </div>
       </div>
-      {isShareModalOpen && (
+      {isShareModalOpen && localMindmap && (
         <ShareModal
           title={localMindmap.title}
           url={`${window.location.origin}/${username}/${localMindmap.permalink}`}
           creator={username || ''}
           onClose={() => setIsShareModalOpen(false)}
-          mindmapPermalink={localMindmap.permalink} // Use permalink instead of key for sharing
+          mindmapKey={localMindmap.key}
         />
       )}
       {isInfoModalOpen && (

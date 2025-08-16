@@ -25,8 +25,8 @@ import { useToastStore } from "../store/toastStore"
  * const [newMapTitle, setNewMapTitle] = useState("")
  * const [showSelector, setShowSelector] = useState(false)
  * 
- * const handleSelectMindMap = (mapId: string) => {
- *   console.log("Selected mindmap:", mapId)
+ * const handleSelectMindMap = (mapKey: string) => {
+ *   console.log("Selected mindmap:", mapKey)
  *   setShowSelector(false)
  * }
  * 
@@ -56,7 +56,7 @@ import { useToastStore } from "../store/toastStore"
  *         }}
  *         isAIConversation={true}
  *         onClose={() => setShowSelector(false)}
- *         excludeMapId="current-map-id-to-exclude"
+ *         excludemapKey="current-map-id-to-exclude"
  *       />
  *     )}
  *   </div>
@@ -86,14 +86,16 @@ interface MindMapSelectorProps {
   setShowCreateForm: (show: boolean) => void
   newMapTitle: string
   setNewMapTitle: (title: string) => void
-  onSelectMindMap: (mapId: string) => void
+  // onSelectMindMap now receives the mindmap 'key' (internal primary identifier)
+  onSelectMindMap: (mapKey: string) => void
   onCreateMindMap: () => void
   onCancelCreate: () => void
   isAIConversation?: boolean
   onClose: () => void
   title?: string
   mode?: 'overlay' | 'inline'
-  excludeMapId?: string // ID of the current map being edited to exclude from the list
+  // excludemapKey represents a mindmap key to exclude
+  excludemapKey?: string
 }
 
 const MindMapSelector: React.FC<MindMapSelectorProps> = ({
@@ -112,7 +114,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   onClose,
   title = "Choose a mindmap",
   mode = 'inline',
-  excludeMapId
+  excludemapKey
 }) => {
   const { maps } = useMindMapStore()
   const { user } = useAuthStore()
@@ -124,7 +126,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   const filteredMaps = useMemo(() => {
     let filtered = maps.filter(map => 
       map.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (excludeMapId ? map.id !== excludeMapId : true) // Only exclude if excludeMapId is provided
+      (excludemapKey ? map.key !== excludemapKey : true) // Only exclude if excludemapKey (key) is provided
     )
 
     return filtered.sort((a, b) => {
@@ -137,7 +139,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
         return bDate.getTime() - aDate.getTime()
       }
     })
-  }, [maps, searchTerm, excludeMapId, sortBy])
+  }, [maps, searchTerm, excludemapKey, sortBy])
 
   // Highlight search matches in text
   const highlightSearchTerm = (text: string, searchTerm: string) => {
@@ -161,17 +163,17 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
     }
     
     // Create the mindmap using the mindMapStore
-    const { addMap } = useMindMapStore.getState();
+  const { addMap } = useMindMapStore.getState(); // addMap should return the new mindmap key
     const { showToast } = useToastStore.getState();
     const userId = user?.id;
     
     if (userId) {
       try {
-        const newMapId = await addMap(newMapTitle.trim(), userId);
-        console.log("Created mindmap with ID:", newMapId, "and title:", newMapTitle.trim());
+  const newMapKey = await addMap(newMapTitle.trim(), userId);
+  console.log("Created mindmap with key:", newMapKey, "and title:", newMapTitle.trim());
         
         // Select the newly created mindmap
-        onSelectMindMap(newMapId);
+  onSelectMindMap(newMapKey);
         showToast("Mindmap created successfully!", "success");
       } catch (error) {
         console.error("Error creating mindmap:", error);
@@ -291,9 +293,10 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
           {filteredMaps.length > 0 ? (
             filteredMaps.map((map) => (
               <button
-                key={map.id}
+                key={map.key}
                 onClick={() => {
-                  onSelectMindMap(map.id)
+                  if (!map.key) return; // safety guard
+                  onSelectMindMap(map.key)
                   onClose()
                 }}
                 className="w-full flex items-center gap-3 p-3 text-sm text-slate-200 hover:text-slate-100 bg-slate-800/30 hover:bg-slate-700/50 rounded-xl transition-all duration-200 text-left border border-slate-700/30 hover:border-slate-600/50"

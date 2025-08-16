@@ -458,7 +458,7 @@ export default function Profile() {
 
   // Share modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [shareMapData, setShareMapData] = useState<{ id: string, title: string, is_main: boolean, creatorUsername: string } | null>(null);
+  const [shareMapData, setShareMapData] = useState<{ id: string, title: string, is_main: boolean, creatorUsername: string, key?: string } | null>(null);
 
   // Info modal state
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -480,8 +480,8 @@ export default function Profile() {
   };
 
   // Function to handle sharing a map
-  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string) => {
-    setShareMapData({ id: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername });
+  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string, mapKey?: string) => {
+    setShareMapData({ id: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername, key: mapKey });
     setIsShareModalOpen(true);
   };
 
@@ -1715,7 +1715,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.permalink, map.title, map.is_main || false, username || '');
+                            handleShare(map.permalink, map.title, map.is_main || false, username || '', map.key);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -1871,7 +1871,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername);
+                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername, map.key);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -2027,7 +2027,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername);
+                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername, map.key);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -2302,7 +2302,7 @@ export default function Profile() {
             creator={shareMapData.creatorUsername}
             onClose={closeShareModal}
             isMainMap={shareMapData.is_main}
-            mindmapPermalink={shareMapData.id}
+            mindmapKey={shareMapData.key as string}
           />
         )}
 

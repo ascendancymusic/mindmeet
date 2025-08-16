@@ -246,7 +246,7 @@ const SkeletonLoader = () => {
 }
 
 const ViewMindMap: React.FC = () => {
-  const { username, id } = useParams<{ username: string; id: string }>()
+  const { username, id: permalink } = useParams<{ username: string; id: string }>()
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const [userProfile, setUserProfile] = useState<{ avatar_url: string | null } | null>(null)
@@ -287,14 +287,18 @@ const ViewMindMap: React.FC = () => {
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       setCurrentMap((prev: any) =>
-        prev && prev.id === mapId ? { ...prev, likes: newLikes, liked_by: newLikedBy, likedBy: newLikedBy } : prev,
+        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink)
+          ? { ...prev, likes: newLikes, liked_by: newLikedBy, likedBy: newLikedBy }
+          : prev,
       )
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setCurrentMap((prev: any) =>
-        prev && prev.id === mapId ? { ...prev, saves: newSaves, saved_by: newSavedBy, savedBy: newSavedBy } : prev,
+        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink)
+          ? { ...prev, saves: newSaves, saved_by: newSavedBy, savedBy: newSavedBy }
+          : prev,
       )
     },
   })
@@ -315,11 +319,12 @@ const ViewMindMap: React.FC = () => {
         // Someone is following/unfollowing the creator - update followers count
         setCreatorProfile((prev) => {
           if (!prev) return prev;
+          const currentFollowers = prev.followers || 0;
           return {
             ...prev,
             followers: data.action === 'follow'
-              ? prev.followers + 1
-              : Math.max(prev.followers - 1, 0)
+              ? currentFollowers + 1
+              : Math.max(currentFollowers - 1, 0)
           };
         });
       }
@@ -356,9 +361,9 @@ const ViewMindMap: React.FC = () => {
       const { data: map, error: mapError } = await supabase
         .from("mindmaps")
         .select(
-          "key, id, title, json_data, likes, liked_by, saves, saved_by, updated_at, visibility, description, is_main, collaborators, published_at",
+          "key, permalink, title, json_data, likes, liked_by, saves, saved_by, updated_at, visibility, description, is_main, collaborators, published_at",
         )
-        .eq("id", id)
+        .eq("permalink", permalink)
         .eq("creator", profile.id)
         .single()
 
@@ -387,7 +392,7 @@ const ViewMindMap: React.FC = () => {
         setCurrentMap({
           ...map,
           nodes: processedNodes,
-          edges: processedEdges,
+            edges: processedEdges,
           edgeType: map.json_data?.edgeType || 'default',
           likedBy: map.liked_by || [],
           saves: map.saves || 0,
@@ -424,13 +429,13 @@ const ViewMindMap: React.FC = () => {
     } else {
       navigate("/login")
     }
-  }, [username, id, user, navigate])
+  }, [username, permalink, user, navigate])
 
   useEffect(() => {
     const fetchSimilarMindmaps = async () => {
       const { data: mindmaps, error } = await supabase
         .from("mindmaps")
-        .select("key, id, title, json_data, creator, updated_at, saves, saved_by, likes, liked_by")
+        .select("key, permalink, title, json_data, creator, updated_at, saves, saved_by, likes, liked_by")
         .eq("visibility", "public")
 
       if (error) {
@@ -1167,7 +1172,7 @@ const ViewMindMap: React.FC = () => {
           username: username || "",
           displayName: creatorProfile?.full_name || username || "Unknown User",
           name: currentMap.title,
-          id: currentMap.id,
+          permalink: currentMap.permalink,
           updatedAt: currentMap.updated_at,
           description: currentMap.description || "No description provided.",
           visibility: currentMap.visibility,
@@ -1192,7 +1197,8 @@ const ViewMindMap: React.FC = () => {
           creator={username || ""}
           onClose={() => setIsShareModalOpen(false)}
           isMainMap={currentMap.is_main || false}
-          mindmapId={currentMap.id} />)}
+          mindmapKey={currentMap.key}
+        />)}
       {isSpotifyModalOpen && (
         <SpotifyLoginModal
           isOpen={isSpotifyModalOpen}
@@ -1253,7 +1259,7 @@ const ViewMindMap: React.FC = () => {
             {/* Enhanced Action buttons */}
             <div className="flex items-center gap-3 flex-shrink-0">              {(isCreator || isCollaborator) && (
               <a
-                href={`/${username}/${id}/edit`}
+                href={`/${username}/${permalink}/edit`}
                 className="group inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
               >
                 <Edit2 className="w-4 h-4 transition-transform group-hover:scale-110" />
@@ -1290,7 +1296,7 @@ const ViewMindMap: React.FC = () => {
               <div ref={reactFlowWrapperRef} className="h-[70vh] lg:h-[75vh] relative">
                 <ReactFlowProvider>
                   <ReactFlow
-                    key={`reactflow-${currentMap.id}`}
+                    key={`reactflow-${currentMap.permalink || currentMap.key}`}
                     nodes={currentMap.nodes.map((node: any) => {
                       const hasChildren = currentMap.edges.some((edge: any) => edge.source === node.id)
                       const isHidden = (() => {
@@ -1455,7 +1461,7 @@ const ViewMindMap: React.FC = () => {
               <div className="p-4 space-y-4 overflow-y-auto h-[calc(75vh-72px)] flex-1">
                 {similarMindmaps.map((mindmap, index) => (
                   <div
-                    key={mindmap.id}
+                    key={mindmap.permalink}
                     className={`transition-all duration-200 ${index > 0 ? "pt-4 border-t border-slate-700/30" : ""}`}
                   >
                     <SimilarMindMapNode mindmap={mindmap} />
@@ -1578,7 +1584,7 @@ const ViewMindMap: React.FC = () => {
               <div className="p-4 max-h-[400px] overflow-y-auto space-y-4">
                 {similarMindmaps.map((mindmap, index) => (
                   <div
-                    key={mindmap.id}
+                    key={mindmap.permalink}
                     className={`transition-all duration-200 ${index > 0 ? "pt-4 border-t border-slate-700/30" : ""}`}
                   >
                     <SimilarMindMapNode mindmap={mindmap} />

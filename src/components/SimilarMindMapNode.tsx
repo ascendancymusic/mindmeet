@@ -373,8 +373,8 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
                   : "#374151";
 
                 // Get edgeType from mindmap data, default to 'default' if not valid
-                const edgeType = ['default', 'straight', 'smoothstep'].includes(mindmap.json_data.edgeType)
-                  ? mindmap.json_data.edgeType
+                const edgeType = ['default', 'straight', 'smoothstep'].includes((mindmap as any).json_data?.edgeType)
+                  ? (mindmap as any).json_data?.edgeType
                   : 'default';
 
                 return {
@@ -487,7 +487,8 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
           url={`${window.location.origin}/${username}/${mindmap.permalink}`}
           creator={username || ''}
           onClose={() => setIsShareModalOpen(false)}
-          mindmapPermalink={mindmap.permalink} // Use permalink instead of key for sharing
+          mindmapPermalink={mindmap.permalink}
+          mindmapKey={mindmap.key}
         />
       )}
 

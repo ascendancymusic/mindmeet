@@ -50,7 +50,10 @@ export interface Message {
   senderId: string
   text: string
   timestamp: Date
-  mindMapId?: string
+  // Human-readable public identifier of shared mindmap
+  mindmapPermalink?: string
+  // Internal storage key (DB mindmaps.key) if resolved
+  mindmapKey?: string
   type?: "text" | "mindmap" | "accepted-mindmap" | "rejected-mindmap" | string
   edited?: boolean
   editedAt?: Date
@@ -95,7 +98,7 @@ interface ChatStore {
   getMessagesForActiveConversation: () => Message[]
   getActiveConversation: () => Conversation | undefined
   getTotalUnreadCount: () => number
-  sendMessage: (text: string, mindMapId?: string) => void
+  sendMessage: (text: string, mindmapKeyOrPermalink?: string) => void
   createConversation: (userId: string, userName: string, isOnline: boolean) => Promise<number>
   createAIConversation: (botName: string) => Promise<number>
   markConversationAsRead: (conversationId: number) => void
@@ -370,7 +373,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           lastMessageSentBy: newRecord.last_message_sent_by || updatedConversations[conversationIndex].lastMessageSentBy,
           lastMessageType: newRecord.last_message_type || "text",
           // If this is a mindmap message, also update the mindmap_id
-          ...(newRecord.last_message_type === 'mindmap' && newRecord.mindmap_id ? { mindmapId: newRecord.mindmap_id } : {})
+          ...(newRecord.last_message_type === 'mindmap' && newRecord.mindmap_id ? { mindmapKey: newRecord.mindmap_id } : {})
         }
 
         // Check if this is a mindmap message and fetch the title if needed
@@ -497,7 +500,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           lastMessageStatus: newRecord.sender_id === currentUser.id ? (newRecord.status || "delivered") : undefined,
           lastMessageType: newRecord.type || 'text',
           // If this is a mindmap message, also update the mindmap_id
-          ...(newRecord.type === 'mindmap' && newRecord.mindmap_id ? { mindmapId: newRecord.mindmap_id } : {})
+          ...(newRecord.type === 'mindmap' && newRecord.mindmap_id ? { mindmapKey: newRecord.mindmap_id } : {})
         }
 
         // If this is a mindmap message, fetch the title
@@ -582,7 +585,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           text: newRecord.text,
           timestamp: new Date(newRecord.timestamp),
           type: newRecord.type || 'text',
-          mindMapId: newRecord.mindmap_id,
+          mindmapKey: newRecord.mindmap_id,
           edited: newRecord.edited_at !== null,
           editedAt: newRecord.edited_at ? new Date(newRecord.edited_at) : undefined,
           deleted: newRecord.deleted || false,
@@ -771,8 +774,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ replyingToMessage: message })
   },
 
-  // Update the sendMessage function to handle replies
-  sendMessage: async (text: string, mindMapId?: string) => {
+  // Update the sendMessage function to handle replies; second arg can be mindmap key (preferred) or permalink (legacy)
+  sendMessage: async (text: string, mindmapKeyOrPermalink?: string) => {
     const { activeConversationId, messages, conversations, replyingToMessage, pendingConversation } = get()
     if (!activeConversationId) return
 
@@ -789,32 +792,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return
     }
 
-    // Log mindmap details if sharing a mindmap
-    if (mindMapId) {
-      const { maps } = useMindMapStore.getState()
-      const selectedMap = maps.find((m) => m.id === mindMapId)
-      if (selectedMap) {
-        console.log("Shared MindMap Details:", {
-          id: selectedMap.id,
-          title: selectedMap.title,
-          nodes: selectedMap.nodes.map((node) => ({
-            id: node.id,
-            type: node.type,
-            position: node.position,
-            data: node.data,
-            style: node.style,
-          })),
-          edges: selectedMap.edges.map((edge) => ({
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            type: edge.type,
-          })),
-          createdAt: selectedMap.createdAt,
-          updatedAt: selectedMap.updatedAt,
-          isPublic: selectedMap.visibility === 'public',
-        })
-        set({ isAITyping: true }) // Set isAITyping to true immediately after sharing a mindmap
+    // Treat provided argument strictly as a mindmap key (no permalink fallback, no store injection here)
+    let resolvedMindmapKey: string | null = null
+    let resolvedMindmapTitle: string | undefined
+    if (mindmapKeyOrPermalink) {
+      // Simple heuristic: accept anything that looks like a UUID (or any non-empty string) as key
+      const keyCandidate = mindmapKeyOrPermalink.trim()
+      if (keyCandidate.length > 0) {
+        resolvedMindmapKey = keyCandidate
+        // We do NOT attempt to fetch or inject here; rendering layer should lazy-fetch if needed
+        console.log('[chatStore.sendMessage] Using provided mindmap key (no local lookup):', keyCandidate)
+        set({ isAITyping: true })
       }
     }
 
@@ -828,8 +816,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       senderId: "me",
       text,
       timestamp: new Date(),
-      type: mindMapId ? "mindmap" : "text",
-      mindMapId,
+      type: resolvedMindmapKey ? 'mindmap' : 'text',
+      mindmapKey: resolvedMindmapKey || undefined,
       replyToId: replyingToMessage ? replyingToMessage.id : undefined, // Add the replyToId if replying
       status: "delivered" // Initial status is 'delivered'
     }
@@ -842,12 +830,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // This is a pending conversation - add it to the conversations list now
       // Get mindmap title if this is a mindmap message
       let mindmapTitle = undefined;
-      if (mindMapId) {
-        const { maps } = useMindMapStore.getState();
-        const selectedMap = maps.find((m) => m.id === mindMapId);
-        if (selectedMap) {
-          mindmapTitle = selectedMap.title;
-        }
+      if (resolvedMindmapKey) {
+        mindmapTitle = resolvedMindmapTitle
       }
 
       const conversationToAdd = {
@@ -856,8 +840,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         timestamp: new Date(),
         lastMessageSentBy: useAuthStore.getState().user?.username,
         lastMessageStatus: "sent" as const,
-        lastMessageType: mindMapId ? "mindmap" : "text",
-        mindmapTitle: mindMapId ? mindmapTitle : undefined
+            lastMessageType: resolvedMindmapKey ? 'mindmap' : 'text',
+            mindmapTitle: resolvedMindmapKey ? mindmapTitle : undefined
       };
 
       updatedConversations = [conversationToAdd, ...conversations]
@@ -868,12 +852,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         if (conversation.id === activeConversationId) {
           // Get mindmap title if this is a mindmap message
           let mindmapTitle = undefined;
-          if (mindMapId) {
-            const { maps } = useMindMapStore.getState();
-            const selectedMap = maps.find((m) => m.id === mindMapId);
-            if (selectedMap) {
-              mindmapTitle = selectedMap.title;
-            }
+          if (resolvedMindmapKey) {
+            mindmapTitle = resolvedMindmapTitle
           }
 
           return {
@@ -882,8 +862,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             timestamp: new Date(),
             lastMessageSentBy: useAuthStore.getState().user?.username,
             lastMessageStatus: "sent" as const,
-            lastMessageType: mindMapId ? "mindmap" : "text",
-            mindmapTitle: mindMapId ? mindmapTitle : undefined
+            lastMessageType: resolvedMindmapKey ? 'mindmap' : 'text',
+            mindmapTitle: resolvedMindmapKey ? mindmapTitle : undefined
           };
         }
         return conversation;
@@ -972,22 +952,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           }
         }
 
-        // If we have a mindMapId, get the mindmap's key from Supabase
-        let mindmapKey = null
-        if (mindMapId) {
-          // First try to get the key from the local store
-          const { data: mindmapData, error: mindmapError } = await supabase
-            .from("mindmaps")
-            .select("key")
-            .eq("id", mindMapId)
-            .single()
-
-          if (mindmapError) {
-            console.error("Error fetching mindmap key:", mindmapError)
-          } else if (mindmapData && mindmapData.key) {
-            mindmapKey = mindmapData.key
-          }
-        }
+  const mindmapKey = resolvedMindmapKey
 
         // Save the message to Supabase
         const { error } = await supabase
@@ -997,8 +962,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             sender_id: currentUser.id,
             recipient_id: activeConversation.isAI ? null : activeConversation.userId,
             text,
-            mindmap_id: mindmapKey, // Use the mindmap key instead of ID
-            type: mindMapId ? "mindmap" : "text",
+            mindmap_id: mindmapKey, // store key directly
+            type: mindmapKey ? 'mindmap' : 'text',
             reply_to_id: replyToSupabaseId,
             status: "delivered" // Initial status is 'delivered'
           })
@@ -1013,8 +978,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           last_message: text,
           timestamp: new Date().toISOString(),
           last_message_sent_by: currentUser.username, // Make sure we use the current user's username
-          last_message_type: mindMapId ? "mindmap" : "text",
-          mindmap_id: mindmapKey // Use the mindmap key
+          last_message_type: mindmapKey ? 'mindmap' : 'text',
+          mindmap_id: mindmapKey
         }
 
         try {
@@ -1040,10 +1005,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       aiService.setCurrentBot(activeConversation.botId)
 
       // Get mindmap data if it exists
-      const mindMapData = mindMapId
+  const mindMapData = resolvedMindmapKey
         ? (() => {
             const { maps } = useMindMapStore.getState()
-            const selectedMap = maps.find((m) => m.id === mindMapId)
+            const selectedMap = maps.find((m) => m.key === resolvedMindmapKey)
             return selectedMap || undefined
           })()
         : undefined
@@ -2261,10 +2226,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       // Get mindmap data if the user message had a mindmap
-      const mindMapData = userMessage.mindMapId
+  const mindMapData = userMessage.mindmapPermalink
         ? (() => {
             const { maps } = useMindMapStore.getState()
-            const selectedMap = maps.find((m) => m.id === userMessage.mindMapId)
+            const selectedMap = maps.find((m) => m.permalink === userMessage.mindmapPermalink)
             return selectedMap || undefined
           })()
         : undefined
@@ -2497,13 +2462,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       if (mindmapConversations.length > 0) {
         try {
-          const mindmapIds = mindmapConversations.map(conv => conv.mindmap_id).filter(Boolean);
+          const mindmapKeys = mindmapConversations.map(conv => conv.mindmap_id).filter(Boolean);
 
-          if (mindmapIds.length > 0) {
+          if (mindmapKeys.length > 0) {
             const { data: mindmapsData, error: mindmapsError } = await supabase
               .from("mindmaps")
               .select("key, title")
-              .in("key", mindmapIds);
+              .in("key", mindmapKeys);
 
             if (!mindmapsError && mindmapsData) {
               mindmapsData.forEach(map => {
@@ -2800,12 +2765,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           senderId = "ai"
         }
 
-        // If this is a mindmap message, get the mindmap ID from the key using our map
-        let mindMapId = msg.mindmap_id;
-
-        if (mindMapId && msg.type === "mindmap" && mindmapKeyToIdMap[mindMapId]) {
-          mindMapId = mindmapKeyToIdMap[mindMapId];
-        }
+  // Store mindmap key directly; resolution to permalink handled elsewhere if needed
+  const mindmapKey = msg.type === 'mindmap' ? msg.mindmap_id : undefined
 
         // Determine the correct message type based on ai_map_status if available
         let messageType = msg.type || "text";
@@ -2829,7 +2790,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           senderId,
           text: messageText,
           timestamp: new Date(msg.timestamp),
-          mindMapId: mindMapId, // This will be the ID, not the key
+          mindmapKey,
           type: messageType,
           edited: msg.edited_at !== null,
           editedAt: msg.edited_at ? new Date(msg.edited_at) : undefined,

@@ -11,7 +11,7 @@ interface CollaboratorProfile {
 }
 
 interface CollaboratorsListProps {
-  mindmapId: string;
+  mindMapKey: string;
   collaboratorIds: string[];
   creatorId: string;
   className?: string;
@@ -20,7 +20,7 @@ interface CollaboratorsListProps {
 }
 
 export const CollaboratorsList: React.FC<CollaboratorsListProps> = ({
-  mindmapId: _mindmapId,
+  mindMapKey: _mindMapKey,
   collaboratorIds,
   creatorId,
   className = "",
