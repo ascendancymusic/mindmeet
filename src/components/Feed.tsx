@@ -6,7 +6,7 @@ import { useInView } from "react-intersection-observer";
 import { useAuthStore } from "../store/authStore";
 
 interface MindMap {
-  id: string;
+  permalink: string;
   key: string;
   title: string;
   json_data: {
@@ -45,13 +45,13 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
 
   // Handle mindmap deletion
   const handleMindmapDelete = useCallback((mindmapId: string) => {
-    setMindmaps(prev => prev.filter(mindmap => mindmap.id !== mindmapId));
+    setMindmaps(prev => prev.filter(mindmap => mindmap.permalink !== mindmapId));
   }, []);
 
   // Fetch user's following list
   const fetchFollowingIds = async () => {
     if (!user?.id) return [];
-    
+
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -85,7 +85,7 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
 
       let query = supabase
         .from("mindmaps")
-        .select("id, key, title, json_data, likes, liked_by, comment_count, saves, saved_by, creator, created_at, description, visibility, is_main, collaborators, published_at")
+        .select("permalink, key, title, json_data, likes, liked_by, comment_count, saves, saved_by, creator, created_at, description, visibility, is_main, collaborators, published_at")
         .eq("visibility", "public")
         .not("published_at", "is", null)
         .order("published_at", { ascending: false });
@@ -135,7 +135,7 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
       // Reset pagination when filter changes
       setPage(1);
       setHasMore(true);
-      
+
       if (filter === 'following') {
         const following = await fetchFollowingIds();
         setFollowingIds(following);
@@ -194,10 +194,10 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
   }
 
   if (mindmaps.length === 0) {
-    const emptyMessage = filter === 'following' 
+    const emptyMessage = filter === 'following'
       ? "No mindmaps from users you follow yet. Start following users to see their content here!"
       : "Your feed is empty. Start creating mind maps or follow other users to see their mind maps here!";
-    
+
     return (
       <div className="w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-700/50 shadow-xl p-8 text-center">
         <p className="text-lg font-medium text-slate-200 mb-6 leading-relaxed">
@@ -214,12 +214,12 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
     <div className="w-full">
       <div className="space-y-4">
         {mindmaps.map((mindmap) => (
-          <FeedMindMapNode key={mindmap.id} mindmap={mindmap} onDelete={handleMindmapDelete} />
+          <FeedMindMapNode key={mindmap.permalink} mindmap={mindmap} onDelete={handleMindmapDelete} />
         ))}
       </div>
 
       {/* Intersection Observer Trigger */}
-      <div ref={ref} className="h-10" /> 
+      <div ref={ref} className="h-10" />
 
       {/* Loading indicator at the bottom */}
       {loadingMore && (

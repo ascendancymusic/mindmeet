@@ -11,10 +11,10 @@ interface ShareModalProps {
   creator: string
   onClose: () => void
   isMainMap?: boolean
-  mindmapId?: string // Add mindmapId prop
+  mindmapPermalink?: string // Add mindmapPermalink prop
 }
 
-const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, isMainMap = false, mindmapId }) => {
+const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, isMainMap = false, mindmapPermalink }) => {
   const [copySuccess, setCopySuccess] = useState(false)
   const [isUserSelectModalOpen, setIsUserSelectModalOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
@@ -80,8 +80,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
 
   // Function to handle sharing to chat with multiple users
   const handleShareToChat = (selectedUsers: { id: string, username: string }[], customMessage: string) => {
-    if (!mindmapId) {
-      console.error("Cannot share to chat: Missing mindmap ID")
+    if (!mindmapPermalink) {
+      console.error("Cannot share to chat: Missing mindmap permalink")
       return
     }
 
@@ -119,7 +119,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
 
           // Send the mindmap to the chat
           const message = customMessage
-          await useChatStore.getState().sendMessage(message, mindmapId)
+          await useChatStore.getState().sendMessage(message, mindmapPermalink)
 
           return conversationId
         })
@@ -147,8 +147,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
               by <span className="text-slate-300 font-medium">@{creator}</span>
             </p>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="flex-shrink-0 p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-lg transition-all duration-200"
           >
             <X className="w-5 h-5" />
@@ -162,8 +162,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
               readOnly
               className="flex-1 bg-slate-800/50 px-4 py-3 text-sm text-slate-200 focus:outline-none"
             />
-            <button 
-              onClick={copyToClipboard} 
+            <button
+              onClick={copyToClipboard}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 transition-all duration-200 flex items-center justify-center"
             >
               <Copy className="w-5 h-5" />
@@ -176,7 +176,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
             </div>
           )}
         </div>        {/* Share to Chat Section */}
-        {mindmapId && (
+        {mindmapPermalink && (
           <div className="mb-6">
             <p className="text-sm font-medium text-slate-300 mb-3">Share to chat</p>
             <button
@@ -283,7 +283,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
             </button>
           </div>
         </div></div>
-      
+
       {/* User Select Modal for Chat Sharing */}
       {isUserSelectModalOpen && (
         <UserSelectModal

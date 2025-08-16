@@ -4,8 +4,8 @@ import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 
 interface MindMapActionsProps {
-  onLikeUpdate?: (mapId: string, newLikes: number, newLikedBy: string[]) => void;
-  onSaveUpdate?: (mapId: string, newSaves: number, newSavedBy: string[]) => void;
+  onLikeUpdate?: (mapPermalink: string, newLikes: number, newLikedBy: string[]) => void;
+  onSaveUpdate?: (mapPermalink: string, newSaves: number, newSavedBy: string[]) => void;
   onError?: (error: string, action: 'like' | 'save') => void;
   sendNotifications?: boolean; // Whether to send notifications for like actions
 }
@@ -21,7 +21,7 @@ export const useMindMapActions = ({
   const handleLike = useCallback(async (
     e: React.MouseEvent,
     mindmap: {
-      id: string;
+      permalink: string;
       key?: string;
       title: string;
       likes: number;
@@ -44,22 +44,22 @@ export const useMindMapActions = ({
       : [...currentLikedBy, user.id];
 
     // Optimistically update UI
-    onLikeUpdate?.(mindmap.id, updatedLikes, updatedLikedBy);    try {
+    onLikeUpdate?.(mindmap.permalink, updatedLikes, updatedLikedBy); try {
       // Update likes in the database
       const { error } = await supabase
         .from('mindmaps')
         .update({ likes: updatedLikes, liked_by: updatedLikedBy })
-        .eq('id', mindmap.id);
+        .eq('permalink', mindmap.permalink);
 
       if (error) throw error;      // Send notification for like/unlike action (only if not own mindmap)
       if (sendNotifications && mindmap.creator && mindmap.creator !== user.id && user.username) {
         try {
-          console.log('Sending like notification:', { 
-            creator: mindmap.creator, 
-            user: user.id, 
-            key: mindmap.key, 
+          console.log('Sending like notification:', {
+            creator: mindmap.creator,
+            user: user.id,
+            key: mindmap.key,
             title: mindmap.title,
-            isLiked 
+            isLiked
           });
           await useNotificationStore.getState().addNotification({
             user_id: mindmap.creator,
@@ -87,14 +87,14 @@ export const useMindMapActions = ({
       console.error('Error updating likes:', error);
       onError?.('Failed to update like', 'like');
       // Revert UI changes
-      onLikeUpdate?.(mindmap.id, mindmap.likes, currentLikedBy);
+      onLikeUpdate?.(mindmap.permalink, mindmap.likes, currentLikedBy);
     }
   }, [user?.id, onLikeUpdate, onError, sendNotifications]);
 
   const handleSave = useCallback(async (
     e: React.MouseEvent,
     mindmap: {
-      id: string;
+      permalink: string;
       key: string;
       title: string;
       saves: number;
@@ -117,14 +117,14 @@ export const useMindMapActions = ({
       : [...currentSavedBy, user.id];
 
     // Optimistically update UI
-    onSaveUpdate?.(mindmap.id, updatedSaves, updatedSavedBy);
+    onSaveUpdate?.(mindmap.permalink, updatedSaves, updatedSavedBy);
 
     try {
       // Update saves in the mindmaps table
       const { error: mindmapError } = await supabase
         .from('mindmaps')
         .update({ saves: updatedSaves, saved_by: updatedSavedBy })
-        .eq('id', mindmap.id);
+        .eq('permalink', mindmap.permalink);
 
       if (mindmapError) throw mindmapError;
 
@@ -156,7 +156,7 @@ export const useMindMapActions = ({
       console.error('Error updating saves:', error);
       onError?.('Failed to update save', 'save');
       // Revert UI changes
-      onSaveUpdate?.(mindmap.id, mindmap.saves, currentSavedBy);
+      onSaveUpdate?.(mindmap.permalink, mindmap.saves, currentSavedBy);
     }
   }, [user?.id, onSaveUpdate, onError]);
 

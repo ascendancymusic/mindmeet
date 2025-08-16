@@ -54,13 +54,13 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
         setIsLoading(true);
         const { data: mapData, error } = await supabase
           .from('mindmaps')
-          .select('id, title, json_data, visibility, creator, key')
-          .eq('id', data.mapId)
+          .select('permalink, title, json_data, visibility, creator, key')
+          .eq('permalink', data.mapId)
           .single();
 
         if (!error && mapData) {
           const processedMap = {
-            id: mapData.id,
+            permalink: mapData.permalink,
             title: mapData.title,
             nodes: mapData.json_data.nodes || [],
             edges: mapData.json_data.edges || [],
@@ -70,7 +70,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
           };
 
           setSelectedMap(processedMap);
-          console.log('Mindmap refreshed successfully:', mapData.id);
+          console.log('Mindmap refreshed successfully:', mapData.permalink);
         }
       } catch (err) {
         console.error('Error refreshing mindmap:', err);
@@ -121,7 +121,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
         return;
       }
 
-      const localMap = maps.find(m => m.id === data.mapId);
+      const localMap = maps.find(m => m.permalink === data.mapId);
       if (localMap) {
         setSelectedMap(localMap);
 
@@ -129,7 +129,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
           const { data: mapData, error: mapError } = await supabase
             .from('mindmaps')
             .select('creator')
-            .eq('id', data.mapId)
+            .eq('permalink', data.mapId)
             .single();
 
           if (!mapError && mapData?.creator) {
@@ -157,7 +157,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
       try {
         const { data: mapDataByKey, error: keyError } = await supabase
           .from('mindmaps')
-          .select('id, title, json_data, visibility, creator, key')
+          .select('permalink, title, json_data, visibility, creator, key')
           .eq('key', data.mapId)
           .single();
 
@@ -168,7 +168,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
 
           if (isAccessible) {
             const processedMap = {
-              id: mapDataByKey.id,
+              permalink: mapDataByKey.permalink,
               title: mapDataByKey.title,
               nodes: mapDataByKey.json_data.nodes || [],
               edges: mapDataByKey.json_data.edges || [],
@@ -194,7 +194,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
             }
           } else {
             setSelectedMap({
-              id: mapDataByKey.id,
+              permalink: mapDataByKey.permalink,
               title: mapDataByKey.title,
               nodes: [],
               edges: [],
@@ -211,8 +211,8 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
 
         const { data: mapData, error } = await supabase
           .from('mindmaps')
-          .select('id, title, json_data, visibility, creator')
-          .eq('id', data.mapId)
+          .select('permalink, title, json_data, visibility, creator')
+          .eq('permalink', data.mapId)
           .single();
 
         if (error) {
@@ -229,7 +229,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
 
           if (isAccessible) {
             const processedMap = {
-              id: mapData.id,
+              permalink: mapData.permalink,
               title: mapData.title,
               nodes: mapData.json_data.nodes || [],
               edges: mapData.json_data.edges || [],
@@ -242,7 +242,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
             setMapCreator(mapData.creator);
           } else {
             setSelectedMap({
-              id: mapData.id,
+              permalink: mapData.permalink,
               title: mapData.title,
               nodes: [],
               edges: [],
@@ -329,9 +329,9 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
     e.stopPropagation();
     if (selectedMap) {
       if (user?.id === mapCreator && user?.username) {
-        navigate(`/${user.username}/${selectedMap.id}/edit`);
+        navigate(`/${user.username}/${selectedMap.permalink}/edit`);
       } else if (creatorUsername) {
-        navigate(`/${creatorUsername}/${selectedMap.id}`);
+        navigate(`/${creatorUsername}/${selectedMap.permalink}`);
       } else if (mapCreator) {
         const fetchCreatorUsername = async () => {
           try {
@@ -344,7 +344,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
             if (!error && profileData?.username) {
               setCreatorUsername(profileData.username);
               setCreatorAvatarUrl(profileData.avatar_url);
-              navigate(`/${profileData.username}/${selectedMap.id}`);
+              navigate(`/${profileData.username}/${selectedMap.permalink}`);
             } else {
               console.error('Could not find username for creator:', mapCreator);
             }

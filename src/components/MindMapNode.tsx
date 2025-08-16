@@ -93,7 +93,7 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
     // Find the map in the local store
     const localMap = useKey
       ? maps.find(m => m.key === data.mapKey)
-      : maps.find(m => m.id === data.mapId);
+      : maps.find(m => m.permalink === data.mapId);
 
     if (localMap) {
       setSelectedMap(localMap);
@@ -162,10 +162,10 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
     if (selectedMap) {
       if (user?.id === mapCreator && user?.username) {
         // If current user is the creator, navigate to edit page
-        navigate(`/${user.username}/${selectedMap.id}/edit`);
+        navigate(`/${user.username}/${selectedMap.permalink}/edit`);
       } else if (creatorUsername) {
         // If we already have the creator's username, navigate directly
-        navigate(`/${creatorUsername}/${selectedMap.id}`);
+        navigate(`/${creatorUsername}/${selectedMap.permalink}`);
       } else if (mapCreator) {
         // Otherwise, fetch the creator's username and navigate to view page
         const fetchCreatorUsername = async () => {
@@ -179,7 +179,7 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
             if (!error && profileData?.username) {
               setCreatorUsername(profileData.username);
               setCreatorAvatarUrl(profileData.avatar_url);
-              navigate(`/${profileData.username}/${selectedMap.id}`);
+              navigate(`/${profileData.username}/${selectedMap.permalink}`);
             } else {
               console.error('Could not find username for creator:', mapCreator);
             }

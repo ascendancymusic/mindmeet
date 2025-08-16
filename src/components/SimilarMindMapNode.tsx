@@ -124,7 +124,7 @@ export const SimilarMindMapNodeSkeleton: React.FC = () => {
 interface SimilarMindMapNodeProps {
   mindmap: {
     key: string; // The actual key used for saving
-    id: string;
+    permalink: string;
     title: string;
     json_data: {
       nodes: any[];
@@ -146,29 +146,29 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [localMindmap, setLocalMindmap] = useState<any>(mindmap);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);  const [commentsCount, setCommentsCount] = useState<number>(0);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false); const [commentsCount, setCommentsCount] = useState<number>(0);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080);
-  
+
   const { user } = useAuthStore();
 
   // Add mindmap actions hook with enhanced handling
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
-      setLocalMindmap((prev: any) => 
-        prev && (prev.id === mapId || prev.key === mapId) ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
+      setLocalMindmap((prev: any) =>
+        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink) ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
       );
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
-      setLocalMindmap((prev: any) => 
-        prev && (prev.id === mapId || prev.key === mapId) ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
+      setLocalMindmap((prev: any) =>
+        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink) ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
       );
     },
     sendNotifications: true
   });
 
   // Memoize nodeTypes to prevent recreation on each render
-  const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []);  useEffect(() => {
+  const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []); useEffect(() => {
     const fetchProfile = async () => {
       const { data: profile, error } = await supabase
         .from("profiles")
@@ -221,7 +221,7 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
   useEffect(() => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [handleResize]);  const onInit = useCallback((instance: ReactFlowInstance) => {
+  }, [handleResize]); const onInit = useCallback((instance: ReactFlowInstance) => {
     setReactFlowInstance(instance);
   }, []);
 
@@ -253,246 +253,241 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
 
   function handleShare(e: React.MouseEvent) {
     e.preventDefault();
-    e.stopPropagation();    setIsShareModalOpen(true);
+    e.stopPropagation(); setIsShareModalOpen(true);
   }
 
   return (
     <ReactFlowProvider>      <div className="relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl overflow-hidden border border-slate-700/30 shadow-2xl transition-all duration-300 hover:shadow-3xl hover:border-slate-600/50">
-        {/* Header with creator info */}
-        <div className="px-4 py-3 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
-          <div className="flex items-center justify-between">
-            <a 
-              href={`/${username}`} 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.location.href = `/${username}`;
-              }}
-              className="flex items-center space-x-2.5 hover:bg-slate-700/30 rounded-xl p-2 -m-2 transition-all duration-200 group/creator"
-            >
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex-shrink-0 overflow-hidden ring-2 ring-slate-600/50 group-hover/creator:ring-blue-400/50 transition-all duration-300">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={username}
-                      className="w-full h-full object-cover"
-                    />                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-200 font-semibold text-base">
-                      {username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="min-w-0">
-                {fullName && (
-                  <p className="text-base font-bold text-slate-100 group-hover/creator:text-blue-200 transition-colors truncate">
-                    {fullName}
-                  </p>
-                )}                <div className="flex items-center gap-2">
-                  <p className="text-xs text-slate-400 group-hover/creator:text-blue-300 transition-colors">
-                    @{username}
-                  </p>
-                </div>
-              </div>
-            </a>
-              <div className="flex items-center gap-3">
-              {/* Three dot menu */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setOpenMenuId(openMenuId === localMindmap?.key ? null : localMindmap?.key);
-                  }}
-                  className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors opacity-60 hover:opacity-100"
-                >
-                  <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                </button>                {openMenuId === localMindmap?.key && (
-                  <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50 min-w-[120px]">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setIsInfoModalOpen(true);
-                        setOpenMenuId(null);
-                      }}
-                      className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 rounded-lg flex items-center gap-2"
-                    >
-                      <Info className="w-4 h-4" />
-                      View Info
-                    </button>
+      {/* Header with creator info */}
+      <div className="px-4 py-3 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
+        <div className="flex items-center justify-between">
+          <a
+            href={`/${username}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.location.href = `/${username}`;
+            }}
+            className="flex items-center space-x-2.5 hover:bg-slate-700/30 rounded-xl p-2 -m-2 transition-all duration-200 group/creator"
+          >
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex-shrink-0 overflow-hidden ring-2 ring-slate-600/50 group-hover/creator:ring-blue-400/50 transition-all duration-300">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={username}
+                    className="w-full h-full object-cover"
+                  />) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-200 font-semibold text-base">
+                    {username.charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-          {/* Title section */}
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-xl font-bold text-slate-100 transition-colors duration-200 line-clamp-2 leading-tight flex-1 min-w-0">
-              {mindmap.title}
-            </h3>
-            {mindmap.updated_at && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <svg className="w-3 h-3 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-                <span className="text-xs text-slate-500 whitespace-nowrap">
-                  {formatDateWithPreference(new Date(mindmap.updated_at))}
-                </span>
+            <div className="min-w-0">
+              {fullName && (
+                <p className="text-base font-bold text-slate-100 group-hover/creator:text-blue-200 transition-colors truncate">
+                  {fullName}
+                </p>
+              )}                <div className="flex items-center gap-2">
+                <p className="text-xs text-slate-400 group-hover/creator:text-blue-300 transition-colors">
+                  @{username}
+                </p>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Mind map preview */}
-        <div className="relative mx-6 mb-6">
-          <a href={`/${username}/${mindmap.id}`} className="block group/preview">
-            <div 
-              className={`h-[280px] border border-slate-700/50 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm group-hover/preview:border-blue-400/30 group-hover/preview:shadow-lg group-hover/preview:shadow-blue-500/10 transition-all duration-300 relative ${
-                isSmallScreen ? "pointer-events-none" : ""
-              }`}
-            >
-              {/* Subtle grid background */}
-              <div className="absolute inset-0 opacity-20" style={{
-                backgroundImage: `
-                  linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
-                `,
-                backgroundSize: '20px 20px'
-              }}></div>
-              
-              <ReactFlow
-                nodes={processNodesForTextRendering(prepareNodesForRendering(mindmap.json_data.nodes))}
-                edges={mindmap.json_data.edges.map((edge: any) => {
-                  // Find the source node to get its color
-                  const sourceNode = mindmap.json_data.nodes.find((node: any) => node.id === edge.source);
-                  const sourceNodeColor = sourceNode
-                    ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                    : "#374151";
-
-                  // Get edgeType from mindmap data, default to 'default' if not valid
-                  const edgeType = ['default', 'straight', 'smoothstep'].includes(mindmap.json_data.edgeType)
-                    ? mindmap.json_data.edgeType
-                    : 'default';
-
-                  return {
-                    ...edge,
-                    type: edgeType === 'default' ? 'default' : edgeType,
-                    style: {
-                      ...edge.style,
-                      strokeWidth: 2,
-                      stroke: sourceNodeColor,
-                    },
-                  };
-                })}
-                nodeTypes={memoizedNodeTypes}
-                fitView
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={false}
-                zoomOnScroll={!isSmallScreen}
-                panOnScroll={false}
-                zoomOnDoubleClick={false}
-                preventScrolling={isSmallScreen}
-                minZoom={0.1}
-                maxZoom={2}
-                onInit={onInit}
-                proOptions={{ hideAttribution: true }}
-                className="react-flow-instance"
-              >
-                <CustomBackground />
-              </ReactFlow>
-
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
             </div>
           </a>
-        </div>
-
-        {/* Action buttons */}
-        <div className="px-6 pb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              {/* Like button */}
-              <button
-                onClick={handleLike}
-                className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
-              >
-                <Heart 
-                  className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${
-                    localMindmap.liked_by?.includes(user?.id || '') 
-                      ? 'text-blue-400 fill-blue-400' 
-                      : 'text-slate-400 group-hover/btn:text-blue-400'
-                  }`} 
-                />
-                <span className={`text-sm font-medium transition-colors duration-200 ${
-                  localMindmap.liked_by?.includes(user?.id || '') 
-                    ? 'text-blue-400' 
-                    : 'text-slate-400 group-hover/btn:text-blue-400'
-                }`}>
-                  {localMindmap.likes || 0}
-                </span>
-              </button>
-
-              {/* Comment button */}
+          <div className="flex items-center gap-3">
+            {/* Three dot menu */}
+            <div className="relative">
               <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  window.location.href = `/${username}/${mindmap.id}`;
+                  setOpenMenuId(openMenuId === localMindmap?.key ? null : localMindmap?.key);
                 }}
-                className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
+                className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors opacity-60 hover:opacity-100"
               >
-                <MessageCircle className="w-5 h-5 text-slate-400 group-hover/btn:text-blue-400 transition-colors duration-200" />
-                <span className="text-sm font-medium text-slate-400 group-hover/btn:text-blue-400 transition-colors duration-200">
-                  {commentsCount}
-                </span>
-              </button>
-
-              {/* Save button */}
-              <button
-                onClick={handleSave}
-                className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
-              >
-                <Bookmark 
-                  className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${
-                    localMindmap.saved_by?.includes(user?.id || '') 
-                      ? 'text-blue-400 fill-blue-400' 
-                      : 'text-slate-400 group-hover/btn:text-blue-400'
-                  }`} 
-                />
-                <span className={`text-sm font-medium transition-colors duration-200 ${
-                  localMindmap.saved_by?.includes(user?.id || '') 
-                    ? 'text-blue-400' 
-                    : 'text-slate-400 group-hover/btn:text-blue-400'
-                }`}>
-                  {localMindmap.saves || 0}
-                </span>
-              </button>
-            </div>            <div className="flex items-center gap-2">
-              {/* Share button */}
-              <button
-                onClick={handleShare}
-                className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
-              >
-                <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-blue-400 transition-colors duration-200" />
-              </button>
+                <MoreHorizontal className="w-4 h-4 text-slate-400" />
+              </button>                {openMenuId === localMindmap?.key && (
+                <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50 min-w-[120px]">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsInfoModalOpen(true);
+                      setOpenMenuId(null);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 rounded-lg flex items-center gap-2"
+                  >
+                    <Info className="w-4 h-4" />
+                    View Info
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+      {/* Title section */}
+      <div className="px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xl font-bold text-slate-100 transition-colors duration-200 line-clamp-2 leading-tight flex-1 min-w-0">
+            {mindmap.title}
+          </h3>
+          {mindmap.updated_at && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <svg className="w-3 h-3 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs text-slate-500 whitespace-nowrap">
+                {formatDateWithPreference(new Date(mindmap.updated_at))}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mind map preview */}
+      <div className="relative mx-6 mb-6">
+        <a href={`/${username}/${mindmap.permalink}`} className="block group/preview">
+          <div
+            className={`h-[280px] border border-slate-700/50 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm group-hover/preview:border-blue-400/30 group-hover/preview:shadow-lg group-hover/preview:shadow-blue-500/10 transition-all duration-300 relative ${isSmallScreen ? "pointer-events-none" : ""
+              }`}
+          >
+            {/* Subtle grid background */}
+            <div className="absolute inset-0 opacity-20" style={{
+              backgroundImage: `
+                  linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+                `,
+              backgroundSize: '20px 20px'
+            }}></div>
+
+            <ReactFlow
+              nodes={processNodesForTextRendering(prepareNodesForRendering(mindmap.json_data.nodes))}
+              edges={mindmap.json_data.edges.map((edge: any) => {
+                // Find the source node to get its color
+                const sourceNode = mindmap.json_data.nodes.find((node: any) => node.id === edge.source);
+                const sourceNodeColor = sourceNode
+                  ? (sourceNode.background || sourceNode.style?.background || "#374151")
+                  : "#374151";
+
+                // Get edgeType from mindmap data, default to 'default' if not valid
+                const edgeType = ['default', 'straight', 'smoothstep'].includes(mindmap.json_data.edgeType)
+                  ? mindmap.json_data.edgeType
+                  : 'default';
+
+                return {
+                  ...edge,
+                  type: edgeType === 'default' ? 'default' : edgeType,
+                  style: {
+                    ...edge.style,
+                    strokeWidth: 2,
+                    stroke: sourceNodeColor,
+                  },
+                };
+              })}
+              nodeTypes={memoizedNodeTypes}
+              fitView
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable={false}
+              zoomOnScroll={!isSmallScreen}
+              panOnScroll={false}
+              zoomOnDoubleClick={false}
+              preventScrolling={isSmallScreen}
+              minZoom={0.1}
+              maxZoom={2}
+              onInit={onInit}
+              proOptions={{ hideAttribution: true }}
+              className="react-flow-instance"
+            >
+              <CustomBackground />
+            </ReactFlow>
+
+            {/* Hover overlay */}
+            <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+          </div>
+        </a>
+      </div>
+
+      {/* Action buttons */}
+      <div className="px-6 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {/* Like button */}
+            <button
+              onClick={handleLike}
+              className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            >
+              <Heart
+                className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${localMindmap.liked_by?.includes(user?.id || '')
+                  ? 'text-blue-400 fill-blue-400'
+                  : 'text-slate-400 group-hover/btn:text-blue-400'
+                  }`}
+              />
+              <span className={`text-sm font-medium transition-colors duration-200 ${localMindmap.liked_by?.includes(user?.id || '')
+                ? 'text-blue-400'
+                : 'text-slate-400 group-hover/btn:text-blue-400'
+                }`}>
+                {localMindmap.likes || 0}
+              </span>
+            </button>
+
+            {/* Comment button */}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = `/${username}/${mindmap.permalink}`;
+              }}
+              className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            >
+              <MessageCircle className="w-5 h-5 text-slate-400 group-hover/btn:text-blue-400 transition-colors duration-200" />
+              <span className="text-sm font-medium text-slate-400 group-hover/btn:text-blue-400 transition-colors duration-200">
+                {commentsCount}
+              </span>
+            </button>
+
+            {/* Save button */}
+            <button
+              onClick={handleSave}
+              className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            >
+              <Bookmark
+                className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${localMindmap.saved_by?.includes(user?.id || '')
+                  ? 'text-blue-400 fill-blue-400'
+                  : 'text-slate-400 group-hover/btn:text-blue-400'
+                  }`}
+              />
+              <span className={`text-sm font-medium transition-colors duration-200 ${localMindmap.saved_by?.includes(user?.id || '')
+                ? 'text-blue-400'
+                : 'text-slate-400 group-hover/btn:text-blue-400'
+                }`}>
+                {localMindmap.saves || 0}
+              </span>
+            </button>
+          </div>            <div className="flex items-center gap-2">
+            {/* Share button */}
+            <button
+              onClick={handleShare}
+              className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            >
+              <Share2 className="w-5 h-5 text-slate-400 group-hover/btn:text-blue-400 transition-colors duration-200" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
       {/* Share Modal */}
       {isShareModalOpen && (
         <ShareModal
           title={mindmap.title}
-          url={`${window.location.origin}/${username}/${mindmap.id}`}
+          url={`${window.location.origin}/${username}/${mindmap.permalink}`}
           creator={username || ''}
           onClose={() => setIsShareModalOpen(false)}
-          mindmapId={mindmap.id} // Use id instead of key for sharing
+          mindmapPermalink={mindmap.permalink} // Use permalink instead of key for sharing
         />
       )}
 
@@ -503,7 +498,7 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
             username: username,
             displayName: fullName || username,
             name: mindmap.title,
-            id: mindmap.id,
+            permalink: mindmap.permalink,
             updatedAt: mindmap.updated_at || new Date().toISOString(),
             description: '', // Similar mindmaps don't have description in the interface
             visibility: 'public', // Assuming similar mindmaps are public

@@ -41,7 +41,7 @@ const CustomBackground = () => {
 
 interface FeedMindMapNodeProps {
   mindmap: {
-    id: string;
+    permalink: string;
     key: string;
     title: string;
     json_data?: {
@@ -80,13 +80,13 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
     onLikeUpdate: (mapId, newLikes, newLikedBy) => {
-      setLocalMindmap((prev: any) => 
-        prev && prev.id === mapId ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
+      setLocalMindmap((prev: any) =>
+        prev && prev.permalink === mapId ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
       );
     },
     onSaveUpdate: (mapId, newSaves, newSavedBy) => {
-      setLocalMindmap((prev: any) => 
-        prev && prev.id === mapId ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
+      setLocalMindmap((prev: any) =>
+        prev && prev.permalink === mapId ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
       );
     }
   });
@@ -124,34 +124,34 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             <div className="w-9 h-9 bg-slate-700/50 rounded-lg"></div>
           </div>
         </div>
-        
+
         {/* Timestamp skeleton */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-4 h-4 bg-slate-700/50 rounded"></div>
           <div className="h-4 bg-slate-700/50 rounded w-32"></div>
         </div>
-        
+
         {/* Stats skeleton */}
         <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
-        
+
         {/* Preview skeleton */}
         <div className="h-56 bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
           {/* Animated shimmer effect */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-          
+
           {/* Fake nodes */}
           <div className="absolute top-4 left-4 w-16 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute top-12 right-8 w-20 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute bottom-8 left-8 w-18 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute bottom-4 right-4 w-14 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-10 bg-slate-700/60 rounded"></div>
-          
+
           {/* Fake connections */}
           <div className="absolute top-8 left-20 w-16 h-0.5 bg-slate-600/50 transform rotate-12"></div>
           <div className="absolute top-16 right-24 w-20 h-0.5 bg-slate-600/50 transform -rotate-45"></div>
           <div className="absolute bottom-12 left-24 w-12 h-0.5 bg-slate-600/50 transform rotate-45"></div>
         </div>
-        
+
         {/* Action buttons skeleton */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-700/30 mt-4">
           <div className="flex items-center space-x-4">
@@ -189,7 +189,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         }
         const { data, error } = await supabase
           .from("mindmaps")
-          .select("id, key, title, json_data, creator, created_at, likes, liked_by, comment_count, saves, saved_by, description, visibility, updated_at, collaborators, published_at")
+          .select("permalink, key, title, json_data, creator, created_at, likes, liked_by, comment_count, saves, saved_by, description, visibility, updated_at, collaborators, published_at")
           .eq("key", mindmap.key)
           .single();
 
@@ -292,7 +292,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
   }
 
   function handleDeleteMap() {
-    setMapToDelete(localMindmap?.id || null);
+    setMapToDelete(localMindmap?.permalink || null);
     setOpenMenuId(null);
   }
 
@@ -326,7 +326,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         .from('mindmaps')
         .update({
           title: details.title,
-          id: details.permalink,
+          permalink: details.permalink,
           visibility: details.visibility,
           description: details.description,
           is_main: details.is_main,
@@ -334,7 +334,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
           published_at: details.published_at,
           updated_at: new Date().toISOString()
         })
-        .eq('id', localMindmap.id)
+        .eq('permalink', localMindmap.permalink)
         .eq('creator', user.id);
 
       if (error) throw error;
@@ -343,7 +343,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       setLocalMindmap(prev => prev ? {
         ...prev,
         title: details.title,
-        id: details.permalink,
+        permalink: details.permalink,
         visibility: details.visibility,
         description: details.description,
         is_main: details.is_main,
@@ -386,34 +386,34 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             <div className="w-9 h-9 bg-slate-700/50 rounded-lg"></div>
           </div>
         </div>
-        
+
         {/* Timestamp skeleton */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-4 h-4 bg-slate-700/50 rounded"></div>
           <div className="h-4 bg-slate-700/50 rounded w-32"></div>
         </div>
-        
+
         {/* Stats skeleton */}
         <div className="h-4 bg-slate-700/30 rounded w-24 mb-4"></div>
-        
+
         {/* Preview skeleton */}
         <div className="h-56 bg-slate-800/50 rounded-xl border border-slate-700/50 relative overflow-hidden">
           {/* Animated shimmer effect */}
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent animate-shimmer"></div>
-          
+
           {/* Fake nodes */}
           <div className="absolute top-4 left-4 w-16 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute top-12 right-8 w-20 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute bottom-8 left-8 w-18 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute bottom-4 right-4 w-14 h-8 bg-slate-700/60 rounded"></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-10 bg-slate-700/60 rounded"></div>
-          
+
           {/* Fake connections */}
           <div className="absolute top-8 left-20 w-16 h-0.5 bg-slate-600/50 transform rotate-12"></div>
           <div className="absolute top-16 right-24 w-20 h-0.5 bg-slate-600/50 transform -rotate-45"></div>
           <div className="absolute bottom-12 left-24 w-12 h-0.5 bg-slate-600/50 transform rotate-45"></div>
         </div>
-        
+
         {/* Action buttons skeleton */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-700/30 mt-4">
           <div className="flex items-center space-x-4">
@@ -446,8 +446,8 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         {/* Header with creator info */}
         <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
           <div className="flex items-center justify-between">
-            <a 
-              href={`/${username}`} 
+            <a
+              href={`/${username}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -475,7 +475,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 </p>
               </div>
             </a>
-            
+
             <div className="flex items-center gap-3">
               <p className="text-xs text-slate-400">
                 {formatDateWithPreference(localMindmap?.published_at)}
@@ -483,7 +483,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             </div>
           </div>
         </div>
-        
+
         {/* Title section */}
         <div className="px-6 py-4">
           <h3 className="text-xl font-bold text-slate-100 line-clamp-2 leading-tight">
@@ -533,8 +533,8 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         {/* Header with creator info */}
         <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
           <div className="flex items-center justify-between">
-            <a 
-              href={`/${username}`} 
+            <a
+              href={`/${username}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -562,7 +562,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 </p>
               </div>
             </a>
-            
+
             <div className="flex items-center gap-3">
               <p className="text-xs text-slate-400">
                 {formatDateRelative(localMindmap?.published_at)}
@@ -625,7 +625,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             </div>
           </div>
         </div>
-        
+
         {/* Title section */}
         <div className="px-6 py-4">
           <h3 className="text-xl font-bold text-slate-100 transition-colors duration-200 line-clamp-2 leading-tight">
@@ -635,7 +635,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
 
         {/* Mind map preview */}
         <div className="relative mx-6 mb-6">
-          <a href={`/${username}/${localMindmap.id}`} className="block group/preview">
+          <a href={`/${username}/${localMindmap.permalink}`} className="block group/preview">
             <div className="h-[280px] border border-slate-700/50 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm group-hover/preview:border-blue-400/30 group-hover/preview:shadow-lg group-hover/preview:shadow-blue-500/10 transition-all duration-300 relative">
               {/* Subtle grid background */}
               <div className="absolute inset-0 opacity-20" style={{
@@ -645,7 +645,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 `,
                 backgroundSize: '20px 20px'
               }}></div>
-              
+
               <ReactFlow
                 nodes={processNodesForTextRendering(prepareNodesForRendering(localMindmap.json_data.nodes))}
                 edges={localMindmap.json_data.edges.map((edge: any) => {
@@ -685,7 +685,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
               >
                 <CustomBackground />
               </ReactFlow>
-              
+
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
             </div>
@@ -702,11 +702,10 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 disabled={!user}
               >
                 <Heart
-                  className={`w-5 h-5 transition-colors duration-200 ${
-                    user?.id && localMindmap.liked_by?.includes(user.id)
+                  className={`w-5 h-5 transition-colors duration-200 ${user?.id && localMindmap.liked_by?.includes(user.id)
                       ? 'fill-current text-blue-400'
                       : 'text-slate-400 group-hover/btn:text-blue-400'
-                  }`}
+                    }`}
                 />
                 <span className="text-sm font-medium text-slate-300 group-hover/btn:text-blue-400 transition-colors">
                   {localMindmap.likes > 0 ? localMindmap.likes : 'Like'}
@@ -717,7 +716,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  window.location.href = `/${username}/${localMindmap.id}#comments-section`;
+                  window.location.href = `/${username}/${localMindmap.permalink}#comments-section`;
                 }}
                 className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
               >
@@ -732,11 +731,10 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
               >
                 <Bookmark
-                  className={`w-5 h-5 transition-colors duration-200 ${
-                    user?.id && localMindmap.saved_by?.includes(user.id)
+                  className={`w-5 h-5 transition-colors duration-200 ${user?.id && localMindmap.saved_by?.includes(user.id)
                       ? 'fill-current text-blue-400'
                       : 'text-slate-400 group-hover/btn:text-blue-400'
-                  }`}
+                    }`}
                 />
                 <span className="text-sm font-medium text-slate-300 group-hover/btn:text-blue-400 transition-colors">
                   {localMindmap.saves > 0 ? localMindmap.saves : 'Save'}
@@ -761,10 +759,10 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       {isShareModalOpen && (
         <ShareModal
           title={localMindmap.title}
-          url={`${window.location.origin}/${username}/${localMindmap.id}`}
+          url={`${window.location.origin}/${username}/${localMindmap.permalink}`}
           creator={username || ''}
           onClose={() => setIsShareModalOpen(false)}
-          mindmapId={localMindmap.id} // Use id instead of key for sharing
+          mindmapPermalink={localMindmap.permalink} // Use permalink instead of key for sharing
         />
       )}
       {isInfoModalOpen && (
@@ -773,7 +771,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             username: username,
             displayName: fullName,
             name: localMindmap.title,
-            id: localMindmap.id,
+            permalink: localMindmap.permalink,
             updatedAt: localMindmap.updated_at || new Date().toISOString(),
             description: localMindmap.description || 'No description provided.',
             avatar_url: avatarUrl,
@@ -796,7 +794,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           mapData={{
-            id: localMindmap.id,
+            permalink: localMindmap.permalink,
             title: localMindmap.title,
             description: localMindmap.description || '',
             visibility: localMindmap.visibility as "public" | "private" | "linkOnly",

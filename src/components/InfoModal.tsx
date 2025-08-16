@@ -48,7 +48,7 @@ interface InfoModalProps {
     username: string;
     displayName: string;
     name: string;
-    id: string;
+    permalink: string;
     updatedAt: string;
     description: string;
     visibility?: 'public' | 'private' | 'linkOnly';
@@ -124,7 +124,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
 
   // Update online status when connected users change
   useEffect(() => {
-    setCollaboratorProfiles(prev => 
+    setCollaboratorProfiles(prev =>
       prev.map(collab => ({ ...collab, isOnline: connectedUsers.includes(collab.id) }))
     );
   }, [connectedUsers]);
@@ -225,8 +225,8 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
         <div className="p-6 border-b border-slate-700/50 compact-modal-header">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent compact-modal-title">{mindmap.name}</h2>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-xl transition-all duration-200"
             >
               <X className="w-5 h-5" />
@@ -249,7 +249,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
                 }
               })()}</span>
             </div>
-            
+
             {mindmap.published_at && (
               <div className="flex items-center gap-2 text-slate-300 text-sm bg-slate-800/30 rounded-lg px-3 py-2">
                 <Calendar className="w-4 h-4 text-purple-400" />
@@ -278,7 +278,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
                 <span>Created by</span>
               </div>
             </h3>
-            <div 
+            <div
               className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/30 transition-all duration-200 cursor-pointer border border-slate-700/30 hover:border-slate-600/50 compact-creator-card"
               onClick={() => window.open(`/${mindmap.username}`, '_blank')}
             >
@@ -316,8 +316,8 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
               ) : collaboratorProfiles.length > 0 ? (
                 <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/30 space-y-2 compact-description">
                   {collaboratorProfiles.map((collaborator) => (
-                    <div 
-                      key={collaborator.id} 
+                    <div
+                      key={collaborator.id}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/30 transition-all duration-200 cursor-pointer compact-collaborator"
                       onClick={() => window.open(`/${collaborator.username}`, '_blank')}
                     >

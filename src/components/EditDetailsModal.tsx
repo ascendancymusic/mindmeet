@@ -7,7 +7,7 @@ interface EditDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   mapData: {
-    id: string;
+    permalink: string;
     title: string;
     description?: string;
     visibility?: "public" | "private" | "linkOnly";
@@ -38,7 +38,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
 }) => {
   const [editDetails, setEditDetails] = useState({
     title: mapData.title || "",
-    permalink: mapData.id || "",
+    permalink: mapData.permalink || "",
     visibility: (mapData.visibility || "private") as "public" | "private" | "linkOnly",
     description: mapData.description || "",
     is_main: mapData.is_main || false,
@@ -47,14 +47,14 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [isUserSelectModalOpen, setIsUserSelectModalOpen] = useState(false);
-  const [collaboratorProfiles, setCollaboratorProfiles] = useState<Array<{id: string, username: string, full_name?: string, avatar_url?: string}>>([]);
+  const [collaboratorProfiles, setCollaboratorProfiles] = useState<Array<{ id: string, username: string, full_name?: string, avatar_url?: string }>>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveAction, setSaveAction] = useState<"publish" | "save">("publish");
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
-  
+
   // Ref for the dropdown container to handle click outside
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   // Helper function to determine button text based on publish status
   const getButtonText = () => {
     if (isSaving) {
@@ -72,28 +72,28 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
   // Helper function to check if republishing is allowed (14 days cooldown)
   const canRepublish = () => {
     if (!mapData.published_at) return true; // First time publishing is always allowed
-    
+
     const publishedDate = new Date(mapData.published_at);
     const now = new Date();
     const daysSincePublished = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     return daysSincePublished >= 14;
   };
 
   // Helper function to get remaining days until republish is allowed
   const getDaysUntilRepublish = () => {
     if (!mapData.published_at) return 0;
-    
+
     const publishedDate = new Date(mapData.published_at);
     const now = new Date();
     const daysSincePublished = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     return Math.max(0, 14 - daysSincePublished);
   };
-  
+
   // Store the original permalink to check for changes
-  const originalPermalink = useMemo(() => mapData.id || "", [mapData.id]);
-  
+  const originalPermalink = useMemo(() => mapData.permalink || "", [mapData.permalink]);
+
   // Get base URL for permalink display (without trailing slash)
   const baseUrl = useMemo(() => {
     const url = window.location.origin;
@@ -107,14 +107,14 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
     try {
       // Determine if we should set published_at timestamp
       const shouldPublish = saveAction === "publish" && editDetails.visibility === "public";
-      
+
       if (shouldPublish) {
         const action = mapData.published_at ? "Republishing" : "Publishing";
         console.log(`${action} mindmap with timestamp:`, new Date().toISOString());
       } else {
         console.log("Saving mindmap without publishing");
       }
-      
+
       await onSave({
         title: editDetails.title,
         permalink: editDetails.permalink,
@@ -124,7 +124,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
         collaborators: editDetails.collaborators,
         published_at: shouldPublish ? new Date().toISOString() : mapData.published_at,
       });
-      
+
       onClose();
     } catch (error) {
       console.error("Error saving map details:", error);
@@ -145,7 +145,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
       is_main: !prev.is_main
     }));
   };
-  
+
   // Check for permalink conflicts in real-time
   useEffect(() => {
     const checkPermalinkConflict = async () => {
@@ -158,20 +158,20 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
             console.error("No authenticated user found");
             return;
           }
-          
+
           // Get all maps for the current user
           const { data: userMaps, error } = await supabase
             .from("mindmaps")
-            .select("id, title")
+            .select("permalink, title")
             .eq("creator", userData.user.id);
-            
+
           if (error) throw error;
-          
+
           // Check for conflicts
           const conflictingMap = userMaps?.find(
-            map => map.id === editDetails.permalink && map.id !== originalPermalink
+            map => map.permalink === editDetails.permalink && map.permalink !== originalPermalink
           );
-          
+
           if (conflictingMap) {
             setEditError(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
           } else {
@@ -185,10 +185,10 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
         setEditError(null);
       }
     };
-    
+
     // Debounce the check to avoid too many database calls
     const timeoutId = setTimeout(checkPermalinkConflict, 500);
-    
+
     return () => clearTimeout(timeoutId);
   }, [editDetails.permalink, originalPermalink]);
 
@@ -290,12 +290,12 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
   // Handle adding/updating collaborators
   const handleAddCollaborators = (selectedUsers: { id: string, username: string }[]) => {
     const newCollaboratorIds = selectedUsers.map(user => user.id);
-    
+
     setEditDetails(prev => ({
       ...prev,
       collaborators: newCollaboratorIds
     }));
-    
+
     setIsUserSelectModalOpen(false);
   };
 
@@ -353,9 +353,8 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                   const sanitizedValue = e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '');
                   setEditDetails({ ...editDetails, permalink: sanitizedValue });
                 }}
-                className={`w-0 flex-grow min-w-[80px] px-3 py-3 bg-slate-800/50 ${
-                  editError ? "border-l border-red-500/50" : "border-l border-slate-700/30"
-                } text-slate-100 focus:outline-none text-sm md:text-xs sm:text-xs`}
+                className={`w-0 flex-grow min-w-[80px] px-3 py-3 bg-slate-800/50 ${editError ? "border-l border-red-500/50" : "border-l border-slate-700/30"
+                  } text-slate-100 focus:outline-none text-sm md:text-xs sm:text-xs`}
                 required
               />
             </div>
@@ -439,7 +438,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
           {/* Collaborators Section */}
           <div className="space-y-3">
             <label className="block text-sm font-medium text-slate-300">Collaborators</label>
-            
+
             {/* Add Collaborators Button */}
             <button
               type="button"
@@ -494,7 +493,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                 </div>
               </div>
             )}
-            
+
             <p className="text-xs text-slate-500 leading-relaxed">
               Collaborators can edit this mindmap but cannot change its title, description, or settings.
             </p>
@@ -508,7 +507,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
           >
             Cancel
           </button>
-          
+
           {editDetails.visibility === "public" ? (
             <div className="flex items-center space-x-3">
               {/* Help icon */}
@@ -521,13 +520,13 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                 >
                   <HelpCircle className="w-4 h-4" />
                 </button>
-                
+
                 {/* Help tooltip/modal */}
                 {showHelpTooltip && (
                   <div className="absolute bottom-full mb-3 right-0 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-0 z-30 w-80">
                     {/* Tooltip arrow */}
                     <div className="absolute -bottom-2 right-2 w-4 h-4 bg-slate-900 border-r border-b border-slate-700/50 transform rotate-45"></div>
-                    
+
                     <div className="relative">
                       {/* Header with close button */}
                       <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
@@ -540,7 +539,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      
+
                       {/* Content */}
                       <div className="p-4 space-y-3">
                         <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/5 border border-blue-500/30 rounded-xl p-3">
@@ -555,7 +554,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="bg-gradient-to-r from-green-500/10 to-green-600/5 border border-green-500/30 rounded-xl p-3">
                           <div className="flex items-start space-x-3">
                             <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -573,7 +572,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                   </div>
                 )}
               </div>
-              
+
               <div className="relative" ref={dropdownRef}>
                 <div className="flex">
                   {/* Main button - shows current selected action */}
@@ -581,13 +580,12 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                     type="button"
                     onClick={() => handleSave()}
                     disabled={!editDetails.title.trim() || !editDetails.permalink.trim() || isSaving || !!editError}
-                    className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-l-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg ${
-                      isSaving ? "animate-pulse" : ""
-                    }`}
+                    className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-l-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg ${isSaving ? "animate-pulse" : ""
+                      }`}
                   >
                     {getButtonText()}
                   </button>
-                  
+
                   {/* Dropdown arrow button */}
                   <button
                     type="button"
@@ -598,7 +596,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                     <ChevronDown className={`w-4 h-4 text-white transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                
+
                 {/* Dropdown menu */}
                 {isDropdownOpen && (
                   <div className="absolute bottom-full mb-2 right-0 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-10 min-w-full overflow-hidden">
@@ -642,9 +640,8 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               type="button"
               onClick={() => handleSave()}
               disabled={!editDetails.title.trim() || !editDetails.permalink.trim() || isSaving || !!editError}
-              className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg ${
-                isSaving ? "animate-pulse" : ""
-              }`}
+              className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg ${isSaving ? "animate-pulse" : ""
+                }`}
             >
               {isSaving ? "Saving..." : "Save changes"}
             </button>

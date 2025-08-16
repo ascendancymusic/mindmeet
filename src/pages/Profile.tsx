@@ -167,7 +167,7 @@ const ProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
 }, (prevProps, nextProps) => {
   // Custom comparison function for React.memo
   return (
-    prevProps.map.id === nextProps.map.id &&
+    prevProps.map.permalink === nextProps.map.permalink &&
     prevProps.map.updatedAt === nextProps.map.updatedAt &&
     JSON.stringify(prevProps.map.nodes) === JSON.stringify(nextProps.map.nodes) &&
     JSON.stringify(prevProps.map.edges) === JSON.stringify(nextProps.map.edges) &&
@@ -289,20 +289,20 @@ export default function Profile() {
 
   // Add mindmap actions hook with enhanced save handling for saves tab
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       const updatedMaps = userMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setUserMaps(updatedMaps);
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       const updatedMaps = userMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       setUserMaps(updatedMaps);
 
       // Also update savedMaps when saving/unsaving from mindmaps tab
-      const mapToUpdate = userMaps.find(map => map.key === mapId || map.id === mapId);
+      const mapToUpdate = userMaps.find(map => map.key === mapPermalink || map.permalink === mapPermalink);
       if (mapToUpdate && user?.id) {
         if (newSavedBy.includes(user.id)) {
           // Map was saved - add it to savedMaps if not already there
@@ -341,20 +341,20 @@ export default function Profile() {
 
   // Add separate handlers for collaboration maps with notifications enabled
   const { handleLike: collabHandleLike, handleSave: collabHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       const updatedCollabMaps = collaborationMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setCollaborationMaps(updatedCollabMaps);
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       const updatedCollabMaps = collaborationMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       setCollaborationMaps(updatedCollabMaps);
 
       // Also update savedMaps when saving/unsaving from collaborations tab
-      const mapToUpdate = collaborationMaps.find(map => map.key === mapId || map.id === mapId);
+      const mapToUpdate = collaborationMaps.find(map => map.key === mapPermalink || map.permalink === mapPermalink);
       if (mapToUpdate && user?.id) {
         if (newSavedBy.includes(user.id)) {
           // Map was saved - add it to savedMaps if not already there
@@ -381,29 +381,29 @@ export default function Profile() {
 
   // Add handlers for saved maps with notifications enabled
   const { handleLike: savedHandleLike, handleSave: savedHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapId, newLikes, newLikedBy) => {
+    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       const updatedSavedMaps = savedMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setSavedMaps(updatedSavedMaps);
     },
-    onSaveUpdate: (mapId, newSaves, newSavedBy) => {
+    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       // Update savedMaps state
       setSavedMaps((prevMaps) => {
         if (user?.id && !newSavedBy.includes(user.id)) {
           // Map was unsaved - remove it from savedMaps
-          return prevMaps.filter(map => map.key !== mapId && map.id !== mapId);
+          return prevMaps.filter(map => map.key !== mapPermalink && map.permalink !== mapPermalink);
         } else {
           // Map was saved or liked count changed - update it
           return prevMaps.map((map) =>
-            map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+            map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
           );
         }
       });
 
       // Also update userMaps if this map belongs to the user
       const updatedUserMaps = userMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       if (updatedUserMaps !== userMaps) {
         setUserMaps(updatedUserMaps);
@@ -411,7 +411,7 @@ export default function Profile() {
 
       // Also update collaborationMaps if this map is in collaborations
       const updatedCollabMaps = collaborationMaps.map((map) =>
-        map.key === mapId || map.id === mapId ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       if (updatedCollabMaps !== collaborationMaps) {
         setCollaborationMaps(updatedCollabMaps);
@@ -480,8 +480,8 @@ export default function Profile() {
   };
 
   // Function to handle sharing a map
-  const handleShare = (mapId: string, mapTitle: string, isMain: boolean, creatorUsername: string) => {
-    setShareMapData({ id: mapId, title: mapTitle, is_main: isMain, creatorUsername });
+  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string) => {
+    setShareMapData({ id: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername });
     setIsShareModalOpen(true);
   };
 
@@ -618,7 +618,7 @@ export default function Profile() {
       try {
         const { data: mapsData, error: mapsError } = await supabase
           .from("mindmaps")
-          .select("id, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, published_at")
+          .select("permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, published_at")
           .eq("creator", user.id)
 
         if (mapsError) {
@@ -651,7 +651,7 @@ export default function Profile() {
       try {
         const { data: collabData, error: collabError } = await supabase
           .from("mindmaps")
-          .select("id, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator, published_at")
+          .select("permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator, published_at")
           .contains("collaborators", `["${user.id}"]`)
           .eq("visibility", "public")
 
@@ -716,7 +716,7 @@ export default function Profile() {
         } else if (userProfile?.saves && userProfile.saves.length > 0) {
           const { data: savedMapsData, error: savedMapsError } = await supabase
             .from("mindmaps")
-            .select("id, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator")
+            .select("permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator")
             .in("key", userProfile.saves)
             .eq("visibility", "public")
 
@@ -1097,8 +1097,8 @@ export default function Profile() {
 
 
 
-  const handleDeleteMap = (id: string) => {
-    setMapToDelete(id)
+  const handleDeleteMap = (permalink: string) => {
+    setMapToDelete(permalink)
     setOpenMenuId(null)
   }
 
@@ -1109,13 +1109,13 @@ export default function Profile() {
         const { error } = await supabase
           .from('mindmaps')
           .delete()
-          .eq('id', mapToDelete)
+          .eq('permalink', mapToDelete)
           .eq('creator', user.id);
 
         if (error) throw error;
 
         // Remove from local state
-        const updatedMaps = userMaps.filter(map => map.id !== mapToDelete);
+        const updatedMaps = userMaps.filter(map => map.permalink !== mapToDelete);
         setUserMaps(updatedMaps);
         setMapToDelete(null);
       } catch (error) {
@@ -1126,8 +1126,8 @@ export default function Profile() {
   }
 
 
-  const handleEditDetails = (id: string) => {
-    setMapToEdit(id)
+  const handleEditDetails = (permalink: string) => {
+    setMapToEdit(permalink)
     setOpenMenuId(null) // Close the menu
   }
 
@@ -1141,10 +1141,10 @@ export default function Profile() {
     published_at?: string | null;
   }) => {
     if (mapToEdit && user?.id) {
-      const currentMap = userMaps.find((map) => map.id === mapToEdit)
+      const currentMap = userMaps.find((map) => map.permalink === mapToEdit)
       if (currentMap) {
         const conflictingMap = userMaps.find(
-          (map) => map.id === details.permalink && map.id !== currentMap.id
+          (map) => map.permalink === details.permalink && map.permalink !== currentMap.permalink
         )
 
         if (conflictingMap) {
@@ -1152,7 +1152,7 @@ export default function Profile() {
         }
 
         try {
-          const isPermalinkChanged = currentMap.id !== details.permalink
+          const isPermalinkChanged = currentMap.permalink !== details.permalink
 
           // Prepare the update data
           const updatedMapData = {
@@ -1179,8 +1179,8 @@ export default function Profile() {
             // Save the map with updated details
             await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
 
-            // Then update the ID
-            await useMindMapStore.getState().updateMapId(currentMap.id, details.permalink);
+            // Then update the permalink
+            await useMindMapStore.getState().updateMapPermalink(currentMap.permalink, details.permalink);
           } else {
             // Just update the map data
             const updatedMap = {
@@ -1196,13 +1196,13 @@ export default function Profile() {
           const updatedMap = {
             ...currentMap,
             ...updatedMapData,
-            id: isPermalinkChanged ? details.permalink : currentMap.id,
+            permalink: isPermalinkChanged ? details.permalink : currentMap.permalink,
           };
 
           // Update the maps array in state, ensuring only one map is set as main
           const updatedMapsArray = userMaps.map((map) => {
             // If this is the map we're updating, return the updated map
-            if (map.id === currentMap.id) {
+            if (map.permalink === currentMap.permalink) {
               return updatedMap;
             }
             // If we're setting a new main map, unset any other main maps
@@ -1573,7 +1573,7 @@ export default function Profile() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh] compact-gap">
                   {publicMaps.map((map, index) => (
                     <div
-                      key={map.id}
+                      key={map.permalink}
                       className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
@@ -1609,20 +1609,20 @@ export default function Profile() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              toggleMenu(map.id)
+                              toggleMenu(map.permalink || map.key)
                             }}
                             className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openMenuId === map.id && (
+                          {openMenuId === (map.permalink || map.key) && (
                             <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                               <div className="py-2">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleEditDetails(map.id)
-                                    toggleMenu(map.id)
+                                    handleEditDetails(map.permalink || map.key)
+                                    toggleMenu(map.permalink || map.key)
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center transition-colors"
                                 >
@@ -1643,7 +1643,7 @@ export default function Profile() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleDeleteMap(map.id)
+                                    handleDeleteMap(map.permalink || map.key)
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-red-500 flex items-center transition-colors"
                                 >
@@ -1669,7 +1669,7 @@ export default function Profile() {
 
                       {/* Enhanced Mind Map Preview */}
                       <a
-                        href={`/${map.creatorUsername}/${map.id}`}
+                        href={`/${map.creatorUsername}/${map.permalink || map.key}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
                         <ProfileMindMapPreview map={map} />
@@ -1693,7 +1693,7 @@ export default function Profile() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              window.location.href = `/${username}/${map.id}#comments-section`;
+                              window.location.href = `/${username}/${map.permalink}#comments-section`;
                             }}
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
@@ -1715,7 +1715,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.id, map.title, map.is_main || false, username || '');
+                            handleShare(map.permalink, map.title, map.is_main || false, username || '');
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -1742,7 +1742,7 @@ export default function Profile() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {collaborationMaps.map((map, index) => (
                     <div
-                      key={map.id}
+                      key={map.permalink}
                       className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
@@ -1787,13 +1787,13 @@ export default function Profile() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              toggleMenu(map.id)
+                              toggleMenu(map.permalink || map.key)
                             }}
                             className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openMenuId === map.id && (
+                          {openMenuId === (map.permalink || map.key) && (
                             <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                               <div className="py-2">
                                 <button
@@ -1825,7 +1825,7 @@ export default function Profile() {
 
                       {map.nodes?.length > 0 && (
                         <a
-                          href={`/${map.creatorUsername}/${map.id}`}
+                          href={`/${map.creatorUsername}/${map.permalink || map.key}`}
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ProfileMindMapPreview map={map} />
@@ -1849,7 +1849,7 @@ export default function Profile() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              window.location.href = `/${map.creatorUsername}/${map.id}#comments-section`;
+                              window.location.href = `/${map.creatorUsername}/${map.permalink || map.key}#comments-section`;
                             }}
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
@@ -1871,7 +1871,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.id, map.title, map.is_main || false, map.creatorUsername);
+                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -1898,7 +1898,7 @@ export default function Profile() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {savedMaps.map((map, index) => (
                     <div
-                      key={map.id}
+                      key={map.permalink}
                       className="group relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-5 compact-card border border-slate-700/30 shadow-xl"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
@@ -1943,13 +1943,13 @@ export default function Profile() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              toggleMenu(map.id)
+                              toggleMenu(map.permalink || map.key)
                             }}
                             className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openMenuId === map.id && (
+                          {openMenuId === (map.permalink || map.key) && (
                             <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                               <div className="py-2">
                                 <button
@@ -1981,7 +1981,7 @@ export default function Profile() {
 
                       {map.nodes?.length > 0 && (
                         <a
-                          href={`/${map.creatorUsername}/${map.id}`}
+                          href={`/${map.creatorUsername}/${map.permalink || map.key}`}
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
                           <ProfileMindMapPreview map={map} />
@@ -2005,7 +2005,7 @@ export default function Profile() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              window.location.href = `/${map.creatorUsername}/${map.id}#comments-section`;
+                              window.location.href = `/${map.creatorUsername}/${map.permalink || map.key}#comments-section`;
                             }}
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
@@ -2027,7 +2027,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.id, map.title, map.is_main || false, map.creatorUsername);
+                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -2238,7 +2238,7 @@ export default function Profile() {
                 </h2>
               </div>
               <p className="text-slate-300 mb-2">
-                Are you sure you want to delete "{userMaps.find(map => map.id === mapToDelete)?.title}"?
+                Are you sure you want to delete "{userMaps.find(map => map.permalink === mapToDelete)?.title}"?
               </p>
               <p className="text-slate-400 text-sm mb-6">
                 This action cannot be undone and all data will be permanently lost.
@@ -2271,13 +2271,13 @@ export default function Profile() {
               setMapToEdit(null)
             }}
             mapData={{
-              id: userMaps.find(map => map.id === mapToEdit)?.id || '',
-              title: userMaps.find(map => map.id === mapToEdit)?.title || '',
-              description: userMaps.find(map => map.id === mapToEdit)?.description || '',
-              visibility: userMaps.find(map => map.id === mapToEdit)?.visibility as "public" | "private" | "linkOnly",
-              is_main: userMaps.find(map => map.id === mapToEdit)?.is_main || false,
-              collaborators: userMaps.find(map => map.id === mapToEdit)?.collaborators || [],
-              published_at: userMaps.find(map => map.id === mapToEdit)?.published_at || null
+              permalink: userMaps.find(map => map.permalink === mapToEdit)?.permalink || '',
+              title: userMaps.find(map => map.permalink === mapToEdit)?.title || '',
+              description: userMaps.find(map => map.permalink === mapToEdit)?.description || '',
+              visibility: userMaps.find(map => map.permalink === mapToEdit)?.visibility as "public" | "private" | "linkOnly",
+              is_main: userMaps.find(map => map.permalink === mapToEdit)?.is_main || false,
+              collaborators: userMaps.find(map => map.permalink === mapToEdit)?.collaborators || [],
+              published_at: userMaps.find(map => map.permalink === mapToEdit)?.published_at || null
             }}
             username={profile?.username}
             onSave={saveMapDetails}
@@ -2302,7 +2302,7 @@ export default function Profile() {
             creator={shareMapData.creatorUsername}
             onClose={closeShareModal}
             isMainMap={shareMapData.is_main}
-            mindmapId={shareMapData.id}
+            mindmapPermalink={shareMapData.id}
           />
         )}
 
@@ -2313,7 +2313,7 @@ export default function Profile() {
               username: infoMapData.creatorUsername || profile?.username || '',
               displayName: infoMapData.creatorFull_name || infoMapData.creatorUsername || '',
               name: infoMapData.title,
-              id: infoMapData.id,
+              permalink: infoMapData.permalink,
               updatedAt: infoMapData.updated_at || infoMapData.updatedAt,
               description: infoMapData.description || '',
               avatar_url: infoMapData.creatorAvatar || profile?.avatar_url,
