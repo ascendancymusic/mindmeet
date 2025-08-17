@@ -149,7 +149,7 @@ export interface YouTubeVideo {
 
 export default function MindMap() {
   // Treat route param 'id' as the internal mindmap id now (previously legacy id/permalink)
-  const { username, id: mapKey } = useParams() // 'mapKey' corresponds to Supabase mindmaps.id
+  const { username, id: MapId } = useParams() // 'MapId' corresponds to Supabase mindmaps.id
   const navigate = useNavigate()
   const { maps, collaborationMaps, updateMap, acceptAIChanges, updateMapPermalink, fetchMaps, fetchCollaborationMaps } = useMindMapStore()
 
@@ -160,10 +160,10 @@ export default function MindMap() {
 
   // Find map by id first; fallback to permalink for backward compatibility during transition
   const currentMap =
-    maps.find((m: any) => m.id === mapKey) ||
-    collaborationMaps.find((m: any) => m.id === mapKey) ||
-    maps.find((m: any) => m.permalink === mapKey) ||
-    collaborationMaps.find((m: any) => m.permalink === mapKey)
+    maps.find((m: any) => m.id === MapId) ||
+    collaborationMaps.find((m: any) => m.id === MapId) ||
+    maps.find((m: any) => m.permalink === MapId) ||
+    collaborationMaps.find((m: any) => m.permalink === MapId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const audioFileInputRef = useRef<HTMLInputElement>(null)
   const reactFlowWrapperRef = useRef<HTMLDivElement>(null)
@@ -788,11 +788,11 @@ export default function MindMap() {
   // Retrieves the complete mindmap structure including nodes, edges, and metadata
   // Handles authentication, error states, and data processing
   const fetchMindMapFromSupabase = useCallback(async () => {
-    if (!username || !mapKey || !isLoggedIn) return;
+    if (!username || !MapId || !isLoggedIn) return;
     // If we already have it in memory with matching id, skip fetch
-    const cached = maps.find((m: any) => m.id === mapKey) || collaborationMaps.find((m: any) => m.id === mapKey);
+    const cached = maps.find((m: any) => m.id === MapId) || collaborationMaps.find((m: any) => m.id === MapId);
     if (cached) {
-      console.log('[MindMap] Skip fetch – using cached map for id', mapKey);
+      console.log('[MindMap] Skip fetch – using cached map for id', MapId);
       return;
     }
 
@@ -814,7 +814,7 @@ export default function MindMap() {
   } const { data: map, error: mapError } = await supabase
         .from("mindmaps")
         .select("id, permalink, title, json_data, drawing_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
-        .eq("id", mapKey)
+        .eq("id", MapId)
         .single();
 
       if (mapError || !map) {
@@ -973,7 +973,7 @@ export default function MindMap() {
     } finally {
       setIsLoading(false);
     }
-  }, [username, mapKey, isLoggedIn, maps, collaborationMaps]);
+  }, [username, MapId, isLoggedIn, maps, collaborationMaps]);
 
   // Initializes mindmap data when component mounts or URL parameters change
   // Uses cached data from store when available or fetches from database
@@ -984,7 +984,7 @@ export default function MindMap() {
 
   useEffect(() => {
     // Prevent multiple initializations for the same map
-  const initKey = `${mapKey}-${(currentMap as any)?.id || currentMap?.permalink || 'no-cache'}`;
+  const initKey = `${MapId}-${(currentMap as any)?.id || currentMap?.permalink || 'no-cache'}`;
   if (initializationKeyRef.current === initKey) {
       return;
     }
@@ -1040,10 +1040,10 @@ export default function MindMap() {
     } else if (!hasInitializedRef.current) {
       console.log('💾 [MindMap] No cached data, fetching from database');
       fetchMindMapFromSupabase();
-  initializationKeyRef.current = mapKey || '';
+  initializationKeyRef.current = MapId || '';
       hasInitializedRef.current = true;
     }
-  }, [currentMap?.id, mapKey, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
+  }, [currentMap?.id, MapId, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
 
   // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
@@ -1077,13 +1077,13 @@ export default function MindMap() {
   const lastCollaborationInitRef = useRef<string>('');
 
   useEffect(() => {
-  const collaborationKey = `${mapKey}-${user?.id}-${user?.username}`;
+  const collaborationKey = `${MapId}-${user?.id}-${user?.username}`;
 
-  if (mapKey && user?.id && user.username && isLoggedIn &&
+  if (MapId && user?.id && user.username && isLoggedIn &&
       lastCollaborationInitRef.current !== collaborationKey) {
 
       console.log('🤝 [MindMap] Initializing collaboration for:', collaborationKey);
-  initializeCollaboration(mapKey, user.id, user.username, user.avatar_url);
+  initializeCollaboration(MapId, user.id, user.username, user.avatar_url);
       lastCollaborationInitRef.current = collaborationKey;
     }
 
@@ -1094,7 +1094,7 @@ export default function MindMap() {
         lastCollaborationInitRef.current = '';
       }
     };
-  }, [mapKey, user?.id, user?.username, user?.avatar_url, isLoggedIn, initializeCollaboration, cleanupCollaboration]);
+  }, [MapId, user?.id, user?.username, user?.avatar_url, isLoggedIn, initializeCollaboration, cleanupCollaboration]);
 
   // Cleanup refs on unmount
   useEffect(() => {
@@ -1108,7 +1108,7 @@ export default function MindMap() {
 
   // Handle receiving live changes from other collaborators
   useEffect(() => {
-    if (!currentMindMapKey) return; const handleLiveChange = (event: CustomEvent) => {
+    if (!currentMindMapId) return; const handleLiveChange = (event: CustomEvent) => {
       const { id: changeId, type, action, data, user_id } = event.detail;
 
       // Don't apply changes if we're the one who made them
@@ -1164,7 +1164,7 @@ export default function MindMap() {
     return () => {
       window.removeEventListener('collaboration-live-change', handleLiveChange as EventListener);
     };
-  }, [currentMindMapKey, user?.id]);
+  }, [currentMindMapId, user?.id]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -1608,7 +1608,7 @@ export default function MindMap() {
         addToHistory(action);
 
         // --- LIVE BROADCAST ---
-        if (currentMindMapKey && broadcastLiveChange) {
+        if (currentMindMapId && broadcastLiveChange) {
           // Remove old edge
           broadcastLiveChange({
             id: oldEdge.id,
@@ -1636,7 +1636,7 @@ export default function MindMap() {
       if (!isInitialLoad) setHasUnsavedChanges(true);
       setIsInitialLoad(false);
     },
-    [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapKey, broadcastLiveChange, isInitialLoad]
+    [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
   );
 
   const onReconnectEnd = useCallback(
@@ -1655,7 +1655,7 @@ export default function MindMap() {
           addToHistory(action);
 
           // --- LIVE BROADCAST ---
-          if (currentMindMapKey && broadcastLiveChange) {
+          if (currentMindMapId && broadcastLiveChange) {
             broadcastLiveChange({
               id: edge.id,
               type: 'edge',
@@ -1672,7 +1672,7 @@ export default function MindMap() {
       }
       edgeReconnectSuccessful.current = true;
     },
-    [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapKey, broadcastLiveChange, isInitialLoad]
+    [setEdges, nodes, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange, isInitialLoad]
   );
 
   // Auto layout handler with proper history and collaboration support
@@ -1692,7 +1692,7 @@ export default function MindMap() {
     });
 
     // Broadcast live changes to collaborators for each affected node
-    if (currentMindMapKey && broadcastLiveChange) {
+    if (currentMindMapId && broadcastLiveChange) {
       updatedNodes.forEach(updatedNode => {
         const originalNode = originalNodes.find(n => n.id === updatedNode.id);
         if (originalNode &&
@@ -1723,7 +1723,7 @@ export default function MindMap() {
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
     }
-  }, [currentMindMapKey, broadcastLiveChange, addToHistory, createHistoryAction, isInitialLoad]);
+  }, [currentMindMapId, broadcastLiveChange, addToHistory, createHistoryAction, isInitialLoad]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -1957,7 +1957,7 @@ export default function MindMap() {
       } setIsInitialLoad(false);
 
       // Broadcast changes to collaborators if we're in a collaborative session
-      if (currentMindMapKey && changes.length > 0) {
+      if (currentMindMapId && changes.length > 0) {
         changes.forEach(change => {
           if (change.type === 'position') {
             const positionChange = change as any;
@@ -1999,7 +1999,7 @@ export default function MindMap() {
         });
       }
     },
-    [nodes, effectiveMoveWithChildren, isInitialLoad, getNodeDescendants, isMultiDragging, multiDragStartPosition, edges, addToHistory, isDragging, currentMindMapKey, broadcastLiveChange, reactFlowInstance],
+    [nodes, effectiveMoveWithChildren, isInitialLoad, getNodeDescendants, isMultiDragging, multiDragStartPosition, edges, addToHistory, isDragging, currentMindMapId, broadcastLiveChange, reactFlowInstance],
   )
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
@@ -2018,7 +2018,7 @@ export default function MindMap() {
       setIsInitialLoad(false)
 
       // Broadcast edge changes to collaborators
-      if (currentMindMapKey && significantChanges.length > 0) {
+      if (currentMindMapId && significantChanges.length > 0) {
         significantChanges.forEach(change => {
           if (change.type === 'remove') {
             broadcastLiveChange({
@@ -2031,7 +2031,7 @@ export default function MindMap() {
         });
       }
     },
-    [isInitialLoad, currentMindMapKey, broadcastLiveChange],
+    [isInitialLoad, currentMindMapId, broadcastLiveChange],
   )
   // Enhanced connection validation for easy connect functionality
   const isValidConnection = useCallback((connection: Connection) => {
@@ -2142,7 +2142,7 @@ export default function MindMap() {
                 };
 
                 // Broadcast live color change to collaborators
-                if (currentMindMapKey && broadcastLiveChange) {
+                if (currentMindMapId && broadcastLiveChange) {
                   broadcastLiveChange({
                     id: node.id,
                     type: 'node',
@@ -2169,7 +2169,7 @@ export default function MindMap() {
         const newEdges = addEdge(edgeWithId, eds)
 
         // Broadcast new edge creation to collaborators
-        if (currentMindMapKey) {
+        if (currentMindMapId) {
           const newEdge = newEdges.find(edge =>
             edge.source === params.source && edge.target === params.target
           );
@@ -2200,7 +2200,7 @@ export default function MindMap() {
 
       setIsInitialLoad(false)
     },
-    [nodes, isInitialLoad, addToHistory, currentMindMapKey, broadcastLiveChange, isValidConnection, autocolorSubnodes],
+    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange, isValidConnection, autocolorSubnodes],
   )
 
   const onDragStart = () => {
@@ -2336,7 +2336,7 @@ export default function MindMap() {
         setShowErrorModal(false)
 
         // Broadcast live node creation to collaborators
-        if (currentMindMapKey && broadcastLiveChange) {
+        if (currentMindMapId && broadcastLiveChange) {
           broadcastLiveChange({
             id: newNode.id,
             type: 'node',
@@ -2368,7 +2368,7 @@ export default function MindMap() {
       }
       setIsInitialLoad(false)
     },
-    [reactFlowInstance, isInitialLoad, edges, addToHistory, currentMindMapKey, broadcastLiveChange],
+    [reactFlowInstance, isInitialLoad, edges, addToHistory, currentMindMapId, broadcastLiveChange],
   )
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2446,7 +2446,7 @@ export default function MindMap() {
       const allNodesToDelete = [nodeId, ...descendantIds]
 
       // Broadcast live node deletions to collaborators
-      if (currentMindMapKey && broadcastLiveChange) {
+      if (currentMindMapId && broadcastLiveChange) {
         allNodesToDelete.forEach(deletedNodeId => {
           broadcastLiveChange({
             id: deletedNodeId,
@@ -2481,7 +2481,7 @@ export default function MindMap() {
         setVisuallySelectedNodeId(null)
       }
     },
-    [nodes, edges, selectedNodeId, visuallySelectedNodeId, isInitialLoad, addToHistory, getNodeDescendants, currentMindMapKey, broadcastLiveChange],
+    [nodes, edges, selectedNodeId, visuallySelectedNodeId, isInitialLoad, addToHistory, getNodeDescendants, currentMindMapId, broadcastLiveChange],
   )// Helper function to format time in MM:SS format
   const formatTime = (timeInSeconds: number): string => {
     if (isNaN(timeInSeconds) || !isFinite(timeInSeconds) || timeInSeconds < 0) return '00:00';
@@ -2612,7 +2612,7 @@ export default function MindMap() {
 
         // For root node, send entire mindmap for full regeneration
         mindMapData = {
-          id: mapKey || '',
+          id: MapId || '',
           title: editedTitle,
           nodes,
           edges,
@@ -2653,7 +2653,7 @@ export default function MindMap() {
         updateProgress('analyzing', `Analyzing "${selectedNode?.data?.label}" branch...`, 12, 8000, 0, estimatedNewNodes);
 
         mindMapData = {
-          id: mapKey || '',
+          id: MapId || '',
           title: editedTitle,
           nodes: nodes, // Send COMPLETE mindmap nodes
           edges: edges, // Send COMPLETE mindmap edges
@@ -3185,7 +3185,7 @@ export default function MindMap() {
     ));
 
     // Broadcast live node deletions to collaborators (non-cascading)
-    if (currentMindMapKey && broadcastLiveChange) {
+    if (currentMindMapId && broadcastLiveChange) {
       selectedNodeIds.forEach(deletedNodeId => {
         broadcastLiveChange({
           id: deletedNodeId,
@@ -3206,7 +3206,7 @@ export default function MindMap() {
 
     // Clear selection bounds
     setSelectionBounds(null);
-  }, [nodes, edges, isInitialLoad, addToHistory, createHistoryAction, selectedNodeId, currentMindMapKey, broadcastLiveChange]);
+  }, [nodes, edges, isInitialLoad, addToHistory, createHistoryAction, selectedNodeId, currentMindMapId, broadcastLiveChange]);
 
   // Permanently removes selected nodes from the mindmap
   // Records deletion in history for undo functionality
@@ -3363,7 +3363,7 @@ export default function MindMap() {
       );
 
       // Broadcast live changes to collaborators if we're in a collaborative session
-      if (currentMindMapKey && broadcastLiveChange) {
+      if (currentMindMapId && broadcastLiveChange) {
         broadcastLiveChange({
           id: nodeId,
           type: 'node',
@@ -3386,7 +3386,7 @@ export default function MindMap() {
 
       setIsInitialLoad(false);
     },
-    [nodes, isInitialLoad, addToHistory, createHistoryAction, currentMindMapKey, broadcastLiveChange]
+    [nodes, isInitialLoad, addToHistory, createHistoryAction, currentMindMapId, broadcastLiveChange]
   );
 
   const updateNodeLabel = (nodeId: string, newLabel: string) => {
@@ -3483,9 +3483,9 @@ export default function MindMap() {
       { displayText: newDisplayText }
     );
   }
-  const updateNodeMapKey = (nodeId: string, MapKey: string) => {
+  const updateNodeMapId = (nodeId: string, MapId: string) => {
     // Retrieve the unique mapId from the selected map for cross-user compatibility
-  const selectedMap = maps.find(map => (map as any).id === MapKey || map.permalink === MapKey);
+  const selectedMap = maps.find(map => (map as any).id === MapId || map.permalink === MapId);
     const mapId = selectedMap?.id;
 
     updateNodeData(
@@ -3493,17 +3493,17 @@ export default function MindMap() {
       (node) => ({
         data: {
           ...node.data,
-          mapId: MapKey === "" ? "" : mapId, // Use mapId instead of mapKey
+          mapId: MapId === "" ? "" : mapId, // Use mapId instead of MapId
         },
       }),
-      { label: MapKey }
+      { label: MapId }
     );
   }
 
   // MindMap selector helper functions
-  const handleSelectMindMap = (MapKey: string) => {
+  const handleSelectMindMap = (MapId: string) => {
     if (selectedNodeId) {
-      updateNodeMapKey(selectedNodeId, MapKey);
+      updateNodeMapId(selectedNodeId, MapId);
     }
     setShowMindMapSelector(false);
   }
@@ -3601,10 +3601,10 @@ export default function MindMap() {
       return;
     }
 
-  if (mapKey && editedTitle.trim() !== "") {
+  if (MapId && editedTitle.trim() !== "") {
       setIsSaving(true);
       try {
-  await updateMap(currentMap?.permalink || mapKey, nodes, edges, editedTitle, user?.id || '', {
+  await updateMap(currentMap?.permalink || MapId, nodes, edges, editedTitle, user?.id || '', {
           edgeType,
           backgroundColor: backgroundColor || undefined,
           dotColor: dotColor || undefined,
@@ -3636,13 +3636,13 @@ export default function MindMap() {
       } finally {
         setIsSaving(false);
       }
-  } else if (mapKey) {
+  } else if (MapId) {
       setEditedTitle(originalTitle)
       setHasUnsavedChanges(false)
     }
     setCanUndo(false)
     setCanRedo(false)
-  }, [mapKey, currentMap?.permalink, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor, drawingData]);
+  }, [MapId, currentMap?.permalink, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor, drawingData]);
 
   // Autosave function - uses the same save logic as manual save
   const scheduleAutosave = useCallback(() => {
@@ -3884,7 +3884,7 @@ export default function MindMap() {
                     spotifyUrl: previousNode.data?.spotifyUrl,
                     soundCloudUrl: previousNode.data?.soundCloudUrl,
                     url: previousNode.data?.url,
-                    mapId: previousNode.data?.mapId || previousNode.data?.mapKey, // Support both mapId and legacy mapKey
+                    mapId: previousNode.data?.mapId || previousNode.data?.MapId, // Support both mapId and legacy MapId
                   },
                 }
               }
@@ -4109,7 +4109,7 @@ export default function MindMap() {
           setNodes(updatedNodesForResize);
 
           // Broadcast live changes to collaborators if we're in a collaborative session
-          if (currentMindMapKey && broadcastLiveChange && nextAction.data.nodeId) {
+          if (currentMindMapId && broadcastLiveChange && nextAction.data.nodeId) {
             const updatedNode = updatedNodesForResize.find(node => node.id === nextAction.data.nodeId);
             if (updatedNode) {
               broadcastLiveChange({
@@ -4196,7 +4196,7 @@ export default function MindMap() {
                       } else if (node.type === "mindmap") {
                         // Find the map to get its id
                         const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
-                        updatedData.mapId = selectedMap?.id; // Use mapId instead of mapKey
+                        updatedData.mapId = selectedMap?.id; // Use mapId instead of MapId
                       }
                     }
                   }
@@ -4234,7 +4234,7 @@ export default function MindMap() {
                     } else if (node.type === "mindmap") {
                       // Find the map to get its id
                       const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
-                      updatedData.mapId = selectedMap?.id; // Use mapId instead of mapKey
+                      updatedData.mapId = selectedMap?.id; // Use mapId instead of MapId
                     }
                   }
 
@@ -4385,7 +4385,7 @@ export default function MindMap() {
         }
       }
     }
-  }, [history, currentHistoryIndex, getNodeDescendants, selectedNodeId, canRedo, lastSavedHistoryIndex, broadcastLiveChange, nodes, edges, currentMindMapKey])
+  }, [history, currentHistoryIndex, getNodeDescendants, selectedNodeId, canRedo, lastSavedHistoryIndex, broadcastLiveChange, nodes, edges, currentMindMapId])
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -4556,7 +4556,7 @@ export default function MindMap() {
     setNodes(updatedNodes);
 
     // Broadcast live changes to collaborators if we're in a collaborative session
-    if (currentMindMapKey && broadcastLiveChange) {
+    if (currentMindMapId && broadcastLiveChange) {
       const updatedNode = updatedNodes.find(node => node.id === nodeId);
       if (updatedNode) {
         broadcastLiveChange({
@@ -4573,7 +4573,7 @@ export default function MindMap() {
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [nodes, edges, addToHistory, isInitialLoad, currentMindMapKey, broadcastLiveChange]);
+  }, [nodes, edges, addToHistory, isInitialLoad, currentMindMapId, broadcastLiveChange]);
 
   // Handle text node label changes from TextNoBgNode
   const handleTextNodeLabelChanged = useCallback((event: CustomEvent) => {
@@ -4845,10 +4845,10 @@ export default function MindMap() {
 
   const handleViewNavigation = () => {
     if (hasUnsavedChanges) {
-  setPendingNavigation(`/${username}/${mapKey}`)
+  setPendingNavigation(`/${username}/${MapId}`)
       setShowUnsavedChangesModal(true)
     } else {
-  navigate(`/${username}/${mapKey}`)
+  navigate(`/${username}/${MapId}`)
     }
   }
   const handleColorChange = (nodeId: string, color: string) => {
@@ -4870,7 +4870,7 @@ export default function MindMap() {
           };
 
           // Broadcast live color changes to collaborators for each affected node
-          if (currentMindMapKey && broadcastLiveChange) {
+          if (currentMindMapId && broadcastLiveChange) {
             broadcastLiveChange({
               id: node.id,
               type: 'node',
@@ -4895,7 +4895,7 @@ export default function MindMap() {
     setPreviewColor(color);
 
     // Broadcast live color preview changes to collaborators
-    if (currentMindMapKey && broadcastLiveChange) {
+    if (currentMindMapId && broadcastLiveChange) {
       const selectedNode = nodes.find(node => node.id === nodeId);
       if (selectedNode) {
         const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : [];
@@ -5094,7 +5094,7 @@ export default function MindMap() {
 
       // (Removed) legacy paste toolbox follow
       // Track cursor position for collaboration if we're in a collaborative session
-      if (currentMindMapKey && reactFlowInstance && reactFlowWrapperRef.current?.contains(e.target as Element)) {
+      if (currentMindMapId && reactFlowInstance && reactFlowWrapperRef.current?.contains(e.target as Element)) {
         const rect = reactFlowWrapperRef.current.getBoundingClientRect();
         const clientX = e.clientX - rect.left;
         const clientY = e.clientY - rect.top;
@@ -5226,7 +5226,7 @@ export default function MindMap() {
                     setShowErrorModal(false);
 
                     // Broadcast live node creation to collaborators
-                    if (currentMindMapKey && broadcastLiveChange) {
+                    if (currentMindMapId && broadcastLiveChange) {
                       broadcastLiveChange({
                         id: newNode.id,
                         type: 'node',
@@ -5276,7 +5276,7 @@ export default function MindMap() {
               const updatedNodes = [...nds, ...newNodes];
 
               // Broadcast live node creation to collaborators for pasted nodes
-              if (currentMindMapKey && broadcastLiveChange) {
+              if (currentMindMapId && broadcastLiveChange) {
                 newNodes.forEach(newNode => {
                   broadcastLiveChange({
                     id: newNode.id,
@@ -5302,7 +5302,7 @@ export default function MindMap() {
               const updatedEdges = [...eds, ...validateAndFixEdgeIds(newEdges)];
 
               // Broadcast live edge creation to collaborators for pasted edges
-              if (currentMindMapKey && broadcastLiveChange) {
+              if (currentMindMapId && broadcastLiveChange) {
                 newEdges.forEach(newEdge => {
                   broadcastLiveChange({
                     id: newEdge.id,
@@ -6063,17 +6063,17 @@ export default function MindMap() {
                         collaboratorIds={currentMap.collaborators || []}
                         creatorId={currentMap.creator}
                         className="max-w-xs"
-                        onChatToggle={currentMindMapKey ? () => setIsChatOpen(prev => !prev) : undefined}
+                        onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
                         isChatOpen={isChatOpen}
                       />
 
                       {/* Collaboration Chat - positioned under the collaborators menu */}
-                      {currentMindMapKey && user && (
+                      {currentMindMapId && user && (
                         <CollaborationChat
                           isOpen={isChatOpen}
                           onClose={() => setIsChatOpen(false)}
                           currentUserName={user.username || user.email || 'Anonymous'}
-                          mindMapId={currentMindMapKey}
+                          mindMapId={currentMindMapId}
                         />
                       )}
                     </div>
@@ -6684,8 +6684,8 @@ export default function MindMap() {
                       onClick={() => setShowMindMapSelector(true)}
                       className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
                     >
-                      {selectedNode.data.mapId || selectedNode.data.mapKey // Support both mapId and legacy mapKey
-                        ? (maps.find(m => m.id === (selectedNode.data.mapId || selectedNode.data.mapKey)) || collaborationMaps.find(m => m.id === (selectedNode.data.mapId || selectedNode.data.mapKey)))?.title || "Select a map"
+                      {selectedNode.data.mapId || selectedNode.data.MapId // Support both mapId and legacy MapId
+                        ? (maps.find(m => m.id === (selectedNode.data.mapId || selectedNode.data.MapId)) || collaborationMaps.find(m => m.id === (selectedNode.data.mapId || selectedNode.data.MapId)))?.title || "Select a map"
                         : "Select a map"
                       }
                     </button>) : (<MindMapSelector
@@ -7378,7 +7378,7 @@ export default function MindMap() {
             );
             setNodes(nds => {
               const updatedNodes = [...nds, ...newNodes];
-              if (currentMindMapKey && broadcastLiveChange) {
+              if (currentMindMapId && broadcastLiveChange) {
                 newNodes.forEach(newNode => {
                   broadcastLiveChange({ id: newNode.id, type: 'node', action: 'create', data: newNode });
                 });
@@ -7390,7 +7390,7 @@ export default function MindMap() {
             setEdges(eds => {
               const newFixedEdges = validateAndFixEdgeIds(newEdges);
               const updatedEdges = [...eds, ...newFixedEdges];
-              if (currentMindMapKey && broadcastLiveChange) {
+              if (currentMindMapId && broadcastLiveChange) {
                 newFixedEdges.forEach(newEdge => {
                   broadcastLiveChange({ id: newEdge.id, type: 'edge', action: 'create', data: newEdge });
                 });
