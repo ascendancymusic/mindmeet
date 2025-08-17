@@ -148,8 +148,8 @@ export interface YouTubeVideo {
 }
 
 export default function MindMap() {
-  // Treat route param 'id' as the internal mindmap key now (previously legacy id/permalink)
-  const { username, id: mapKey } = useParams() // 'mapKey' corresponds to Supabase mindmaps.key
+  // Treat route param 'id' as the internal mindmap id now (previously legacy id/permalink)
+  const { username, id: mapKey } = useParams() // 'mapKey' corresponds to Supabase mindmaps.id
   const navigate = useNavigate()
   const { maps, collaborationMaps, updateMap, acceptAIChanges, updateMapPermalink, fetchMaps, fetchCollaborationMaps } = useMindMapStore()
 
@@ -158,10 +158,10 @@ export default function MindMap() {
 
 
 
-  // Find map by key first; fallback to permalink/id for backward compatibility during transition
+  // Find map by id first; fallback to permalink for backward compatibility during transition
   const currentMap =
-    maps.find((m: any) => m.key === mapKey) ||
-    collaborationMaps.find((m: any) => m.key === mapKey) ||
+    maps.find((m: any) => m.id === mapKey) ||
+    collaborationMaps.find((m: any) => m.id === mapKey) ||
     maps.find((m: any) => m.permalink === mapKey) ||
     collaborationMaps.find((m: any) => m.permalink === mapKey)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -265,7 +265,7 @@ export default function MindMap() {
     updateCursorPosition,
     broadcastCursorPosition,
     broadcastLiveChange,
-    currentMindMapKey,
+    currentMindMapId,
   } = useCollaborationStore();
 
   // Throttled broadcast for position changes to reduce network traffic
@@ -789,10 +789,10 @@ export default function MindMap() {
   // Handles authentication, error states, and data processing
   const fetchMindMapFromSupabase = useCallback(async () => {
     if (!username || !mapKey || !isLoggedIn) return;
-    // If we already have it in memory with matching key, skip fetch
-    const cached = maps.find((m: any) => m.key === mapKey) || collaborationMaps.find((m: any) => m.key === mapKey);
+    // If we already have it in memory with matching id, skip fetch
+    const cached = maps.find((m: any) => m.id === mapKey) || collaborationMaps.find((m: any) => m.id === mapKey);
     if (cached) {
-      console.log('[MindMap] Skip fetch – using cached map for key', mapKey);
+      console.log('[MindMap] Skip fetch – using cached map for id', mapKey);
       return;
     }
 
@@ -813,8 +813,8 @@ export default function MindMap() {
         return;
   } const { data: map, error: mapError } = await supabase
         .from("mindmaps")
-        .select("key, permalink, title, json_data, drawing_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
-        .eq("key", mapKey)
+        .select("id, permalink, title, json_data, drawing_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
+        .eq("id", mapKey)
         .single();
 
       if (mapError || !map) {
@@ -833,7 +833,7 @@ export default function MindMap() {
   navigate(`/${username}/${map.permalink}`);
         return;
       } const processedMap = {
-        key: map.key,
+        id: map.id,
         permalink: map.permalink,
         title: map.title,
         nodes: map.json_data?.nodes.map((node: { type: keyof typeof defaultNodeStyles;[key: string]: any }) => {
@@ -984,7 +984,7 @@ export default function MindMap() {
 
   useEffect(() => {
     // Prevent multiple initializations for the same map
-  const initKey = `${mapKey}-${(currentMap as any)?.key || currentMap?.permalink || 'no-cache'}`;
+  const initKey = `${mapKey}-${(currentMap as any)?.id || currentMap?.permalink || 'no-cache'}`;
   if (initializationKeyRef.current === initKey) {
       return;
     }
@@ -1043,7 +1043,7 @@ export default function MindMap() {
   initializationKeyRef.current = mapKey || '';
       hasInitializedRef.current = true;
     }
-  }, [currentMap?.key, mapKey, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
+  }, [currentMap?.id, mapKey, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
 
   // Fetch all user's maps for MindMapSelector (only once when user logs in)
   const hasFetchedMapsRef = useRef(false);
@@ -3484,16 +3484,16 @@ export default function MindMap() {
     );
   }
   const updateNodeMapKey = (nodeId: string, MapKey: string) => {
-    // Retrieve the unique mapKey from the selected map for cross-user compatibility
-  const selectedMap = maps.find(map => (map as any).key === MapKey || map.permalink === MapKey);
-    const mapKey = selectedMap?.key;
+    // Retrieve the unique mapId from the selected map for cross-user compatibility
+  const selectedMap = maps.find(map => (map as any).id === MapKey || map.permalink === MapKey);
+    const mapId = selectedMap?.id;
 
     updateNodeData(
       nodeId,
       (node) => ({
         data: {
           ...node.data,
-          mapKey: MapKey === "" ? "" : mapKey, // Only save mapKey, not MapKey
+          mapId: MapKey === "" ? "" : mapId, // Use mapId instead of mapKey
         },
       }),
       { label: MapKey }
@@ -3884,7 +3884,7 @@ export default function MindMap() {
                     spotifyUrl: previousNode.data?.spotifyUrl,
                     soundCloudUrl: previousNode.data?.soundCloudUrl,
                     url: previousNode.data?.url,
-                    mapKey: previousNode.data?.mapKey,
+                    mapId: previousNode.data?.mapId || previousNode.data?.mapKey, // Support both mapId and legacy mapKey
                   },
                 }
               }
@@ -4194,9 +4194,9 @@ export default function MindMap() {
                       } else if (node.type === "link") {
                         updatedData.url = nextAction.data.label;
                       } else if (node.type === "mindmap") {
-                        // Find the map to get its key
-                        const selectedMap = maps.find(map => (map as any).key === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).key === nextAction.data.label || map.permalink === nextAction.data.label);
-                        updatedData.mapKey = selectedMap?.key; // Only use mapKey
+                        // Find the map to get its id
+                        const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
+                        updatedData.mapId = selectedMap?.id; // Use mapId instead of mapKey
                       }
                     }
                   }
@@ -4232,9 +4232,9 @@ export default function MindMap() {
                     } else if (node.type === "link") {
                       updatedData.url = nextAction.data.label;
                     } else if (node.type === "mindmap") {
-                      // Find the map to get its key
-                      const selectedMap = maps.find(map => (map as any).key === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).key === nextAction.data.label || map.permalink === nextAction.data.label);
-                      updatedData.mapKey = selectedMap?.key; // Only use mapKey
+                      // Find the map to get its id
+                      const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
+                      updatedData.mapId = selectedMap?.id; // Use mapId instead of mapKey
                     }
                   }
 
@@ -5665,7 +5665,7 @@ export default function MindMap() {
           }}
         ><ReactFlowProvider>
             <ReactFlow
-              key={`reactflow-${(currentMap as any)?.key || currentMap?.permalink || 'default'}`}
+              key={`reactflow-${(currentMap as any)?.id || currentMap?.permalink || 'default'}`}
               nodes={useMemo(() => {
                 // Pre-compute expensive lookups once for all nodes
                 const hasChildrenMap = new Map<string, boolean>();
@@ -6059,7 +6059,7 @@ export default function MindMap() {
                   {currentMap && currentMap.creator && (
                     <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
                       <CollaboratorsList
-                        mindMapKey={(currentMap as any).key || currentMap.permalink}
+                        mindMapId={(currentMap as any).id || currentMap.permalink}
                         collaboratorIds={currentMap.collaborators || []}
                         creatorId={currentMap.creator}
                         className="max-w-xs"
@@ -6073,7 +6073,7 @@ export default function MindMap() {
                           isOpen={isChatOpen}
                           onClose={() => setIsChatOpen(false)}
                           currentUserName={user.username || user.email || 'Anonymous'}
-                          mindMapKey={currentMindMapKey}
+                          mindMapId={currentMindMapKey}
                         />
                       )}
                     </div>
@@ -6684,8 +6684,8 @@ export default function MindMap() {
                       onClick={() => setShowMindMapSelector(true)}
                       className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl text-left transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
                     >
-                      {selectedNode.data.mapKey
-                        ? (maps.find(m => m.key === selectedNode.data.mapKey) || collaborationMaps.find(m => m.key === selectedNode.data.mapKey))?.title || "Select a map"
+                      {selectedNode.data.mapId || selectedNode.data.mapKey // Support both mapId and legacy mapKey
+                        ? (maps.find(m => m.id === (selectedNode.data.mapId || selectedNode.data.mapKey)) || collaborationMaps.find(m => m.id === (selectedNode.data.mapId || selectedNode.data.mapKey)))?.title || "Select a map"
                         : "Select a map"
                       }
                     </button>) : (<MindMapSelector
@@ -6703,7 +6703,7 @@ export default function MindMap() {
                       onClose={() => setShowMindMapSelector(false)}
                       title="Choose a mindmap"
                       mode="inline"
-                      // excludeMapKey removed; component now filters internally using current map key
+                      excludeMapId={currentMap?.id} // Exclude current map from selection
                     />
                   )}
                 </div>
@@ -7256,7 +7256,7 @@ export default function MindMap() {
 
                 // Check if the new permalink already exists for the current user
                 const conflictingMap = maps.find(
-                  (map) => ((map as any).key === details.permalink || map.permalink === details.permalink) && map.permalink !== currentMap.permalink
+                  (map) => ((map as any).id === details.permalink || map.permalink === details.permalink) && map.permalink !== currentMap.permalink
                 );
 
                 if (conflictingMap) {

@@ -42,7 +42,7 @@ const CustomBackground = () => {
 interface FeedMindMapNodeProps {
   mindmap: {
     permalink: string;
-    key: string;
+    id: string;
     title: string;
     json_data?: {
       nodes: any[];
@@ -182,20 +182,20 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
     const fetchMindmapData = async () => {
       try {
         setIsLoading(true);
-        if (!mindmap || !mindmap.key) {
-          console.error("Missing mindmap key for:", mindmap?.title);
+        if (!mindmap || !mindmap.id) {
+          console.error("Missing mindmap id for:", mindmap?.title);
           setIsLoading(false);
           return;
         }
         const { data, error } = await supabase
           .from("mindmaps")
-          .select("permalink, key, title, json_data, creator, created_at, likes, liked_by, comment_count, saves, saved_by, description, visibility, updated_at, collaborators, published_at")
-          .eq("key", mindmap.key)
+          .select("permalink, id, title, json_data, creator, created_at, likes, liked_by, comment_count, saves, saved_by, description, visibility, updated_at, collaborators, published_at")
+          .eq("id", mindmap.id)
           .single();
 
         if (error) throw error;
         if (!data) {
-          console.error("No mindmap found for key:", mindmap.key);
+          console.error("No mindmap found for id:", mindmap.id);
           setIsLoading(false);
           return;
         }
@@ -215,12 +215,12 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       }
     };
 
-    if (mindmap && mindmap.key) {
+    if (mindmap && mindmap.id) {
       fetchMindmapData();
     } else {
       setIsLoading(false);
     }
-  }, [mindmap?.key, mindmap?.title]);
+  }, [mindmap?.id, mindmap?.title]);
 
   // Fetch user profile
   useEffect(() => {
@@ -274,11 +274,11 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
   }
 
   function toggleMenu() {
-    setOpenMenuId(openMenuId === localMindmap?.key ? null : localMindmap?.key);
+    setOpenMenuId(openMenuId === localMindmap?.id ? null : localMindmap?.id);
   }
 
   function handleOpenInfo() {
-    if (localMindmap?.key && localMindmap?.title) {
+    if (localMindmap?.id && localMindmap?.title) {
       setIsInfoModalOpen(true);
       setOpenMenuId(null);
     } else {
@@ -340,7 +340,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       if (error) throw error;
 
       // Update local state
-      setLocalMindmap(prev => prev ? {
+      setLocalMindmap((prev: any) => prev ? {
         ...prev,
         title: details.title,
         permalink: details.permalink,
@@ -579,7 +579,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 >
                   <MoreVertical className="w-5 h-5 text-slate-400" />
                 </button>
-                {openMenuId === localMindmap.key && (
+                {openMenuId === localMindmap.id && (
                   <div className="absolute right-0 top-full mt-2 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-50 min-w-[140px] overflow-hidden">
                     {/* Show edit and info options, with delete at the end if user owns the mindmap */}
                     {user?.id === localMindmap.creator && (
@@ -762,7 +762,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
           url={`${window.location.origin}/${username}/${localMindmap.permalink}`}
           creator={username || ''}
           onClose={() => setIsShareModalOpen(false)}
-          mindmapKey={localMindmap.key}
+          mindmapId={localMindmap.id}
         />
       )}
       {isInfoModalOpen && (

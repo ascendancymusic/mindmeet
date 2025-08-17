@@ -25,8 +25,8 @@ import { useToastStore } from "../store/toastStore"
  * const [newMapTitle, setNewMapTitle] = useState("")
  * const [showSelector, setShowSelector] = useState(false)
  * 
- * const handleSelectMindMap = (mapKey: string) => {
- *   console.log("Selected mindmap:", mapKey)
+ * const handleSelectMindMap = (mapId: string) => {
+ *   console.log("Selected mindmap:", mapId)
  *   setShowSelector(false)
  * }
  * 
@@ -56,15 +56,11 @@ import { useToastStore } from "../store/toastStore"
  *         }}
  *         isAIConversation={true}
  *         onClose={() => setShowSelector(false)}
- *         excludemapKey="current-map-id-to-exclude"
+ *         excludeMapId="current-map-id-to-exclude"
  *       />
  *     )}
  *   </div>
  * )
- *           setNewMapTitle("")
- *         }}
- *         onCancelCreate={() => {
- *           setShowCreateForm(false)
  *           setNewMapTitle("")
  *         }}
  *         isAIConversation={true}
@@ -86,16 +82,16 @@ interface MindMapSelectorProps {
   setShowCreateForm: (show: boolean) => void
   newMapTitle: string
   setNewMapTitle: (title: string) => void
-  // onSelectMindMap now receives the mindmap 'key' (internal primary identifier)
-  onSelectMindMap: (mapKey: string) => void
+  // onSelectMindMap now receives the mindmap 'id' (internal primary identifier)
+  onSelectMindMap: (mapId: string) => void
   onCreateMindMap: () => void
   onCancelCreate: () => void
   isAIConversation?: boolean
   onClose: () => void
   title?: string
   mode?: 'overlay' | 'inline'
-  // excludemapKey represents a mindmap key to exclude
-  excludemapKey?: string
+  // excludeMapId represents a mindmap id to exclude
+  excludeMapId?: string
 }
 
 const MindMapSelector: React.FC<MindMapSelectorProps> = ({
@@ -114,7 +110,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   onClose,
   title = "Choose a mindmap",
   mode = 'inline',
-  excludemapKey
+  excludeMapId
 }) => {
   const { maps } = useMindMapStore()
   const { user } = useAuthStore()
@@ -126,7 +122,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
   const filteredMaps = useMemo(() => {
     let filtered = maps.filter(map => 
       map.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (excludemapKey ? map.key !== excludemapKey : true) // Only exclude if excludemapKey (key) is provided
+      (excludeMapId ? map.id !== excludeMapId : true) // Only exclude if excludeMapId (id) is provided
     )
 
     return filtered.sort((a, b) => {
@@ -139,7 +135,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
         return bDate.getTime() - aDate.getTime()
       }
     })
-  }, [maps, searchTerm, excludemapKey, sortBy])
+  }, [maps, searchTerm, excludeMapId, sortBy])
 
   // Highlight search matches in text
   const highlightSearchTerm = (text: string, searchTerm: string) => {
@@ -169,11 +165,11 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
     
     if (userId) {
       try {
-  const newMapKey = await addMap(newMapTitle.trim(), userId);
-  console.log("Created mindmap with key:", newMapKey, "and title:", newMapTitle.trim());
+  const newMapId = await addMap(newMapTitle.trim(), userId);
+  console.log("Created mindmap with id:", newMapId, "and title:", newMapTitle.trim());
         
         // Select the newly created mindmap
-  onSelectMindMap(newMapKey);
+  onSelectMindMap(newMapId);
         showToast("Mindmap created successfully!", "success");
       } catch (error) {
         console.error("Error creating mindmap:", error);
@@ -293,10 +289,10 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
           {filteredMaps.length > 0 ? (
             filteredMaps.map((map) => (
               <button
-                key={map.key}
+                key={map.id}
                 onClick={() => {
-                  if (!map.key) return; // safety guard
-                  onSelectMindMap(map.key)
+                  if (!map.id) return; // safety guard
+                  onSelectMindMap(map.id)
                   onClose()
                 }}
                 className="w-full flex items-center gap-3 p-3 text-sm text-slate-200 hover:text-slate-100 bg-slate-800/30 hover:bg-slate-700/50 rounded-xl transition-all duration-200 text-left border border-slate-700/30 hover:border-slate-600/50"

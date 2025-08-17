@@ -52,8 +52,8 @@ export interface Message {
   timestamp: Date
   // Human-readable public identifier of shared mindmap
   mindmapPermalink?: string
-  // Internal storage key (DB mindmaps.key) if resolved
-  mindmapKey?: string
+  // Internal storage id (DB mindmaps.id) if resolved
+  mindmapId?: string
   type?: "text" | "mindmap" | "accepted-mindmap" | "rejected-mindmap" | string
   edited?: boolean
   editedAt?: Date
@@ -73,8 +73,8 @@ export interface User {
   full_name?: string
   avatar_url?: string
   online?: boolean
-  followed_by?: string[]
-  following?: string[]
+  following?: boolean
+  followed_by?: boolean
   lastSeen?: string | null
 }
 
@@ -98,7 +98,7 @@ interface ChatStore {
   getMessagesForActiveConversation: () => Message[]
   getActiveConversation: () => Conversation | undefined
   getTotalUnreadCount: () => number
-  sendMessage: (text: string, mindmapKeyOrPermalink?: string) => void
+  sendMessage: (text: string, mindmapIdOrPermalink?: string) => void
   createConversation: (userId: string, userName: string, isOnline: boolean) => Promise<number>
   createAIConversation: (botName: string) => Promise<number>
   markConversationAsRead: (conversationId: number) => void
@@ -373,7 +373,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           lastMessageSentBy: newRecord.last_message_sent_by || updatedConversations[conversationIndex].lastMessageSentBy,
           lastMessageType: newRecord.last_message_type || "text",
           // If this is a mindmap message, also update the mindmap_id
-          ...(newRecord.last_message_type === 'mindmap' && newRecord.mindmap_id ? { mindmapKey: newRecord.mindmap_id } : {})
+          ...(newRecord.last_message_type === 'mindmap' && newRecord.mindmap_id ? { mindmapId: newRecord.mindmap_id } : {})
         }
 
         // Check if this is a mindmap message and fetch the title if needed
@@ -382,7 +382,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           supabase
             .from("mindmaps")
             .select("title")
-            .eq("key", newRecord.mindmap_id)
+            .eq("id", newRecord.mindmap_id)
             .single()
             .then(({ data, error }) => {
               if (!error && data) {
@@ -500,7 +500,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           lastMessageStatus: newRecord.sender_id === currentUser.id ? (newRecord.status || "delivered") : undefined,
           lastMessageType: newRecord.type || 'text',
           // If this is a mindmap message, also update the mindmap_id
-          ...(newRecord.type === 'mindmap' && newRecord.mindmap_id ? { mindmapKey: newRecord.mindmap_id } : {})
+          ...(newRecord.type === 'mindmap' && newRecord.mindmap_id ? { mindmapId: newRecord.mindmap_id } : {})
         }
 
         // If this is a mindmap message, fetch the title
@@ -508,7 +508,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           supabase
             .from("mindmaps")
             .select("title")
-            .eq("key", newRecord.mindmap_id)
+            .eq("id", newRecord.mindmap_id)
             .single()
             .then(({ data, error }) => {
               if (!error && data) {
@@ -585,7 +585,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           text: newRecord.text,
           timestamp: new Date(newRecord.timestamp),
           type: newRecord.type || 'text',
-          mindmapKey: newRecord.mindmap_id,
+          mindmapId: newRecord.mindmap_id,
           edited: newRecord.edited_at !== null,
           editedAt: newRecord.edited_at ? new Date(newRecord.edited_at) : undefined,
           deleted: newRecord.deleted || false,
@@ -774,8 +774,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ replyingToMessage: message })
   },
 
-  // Update the sendMessage function to handle replies; second arg can be mindmap key (preferred) or permalink (legacy)
-  sendMessage: async (text: string, mindmapKeyOrPermalink?: string) => {
+  // Update the sendMessage function to handle replies; second arg can be mindmap id (preferred) or permalink (legacy)
+  sendMessage: async (text: string, mindmapIdOrPermalink?: string) => {
     const { activeConversationId, messages, conversations, replyingToMessage, pendingConversation } = get()
     if (!activeConversationId) return
 
@@ -792,16 +792,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return
     }
 
-    // Treat provided argument strictly as a mindmap key (no permalink fallback, no store injection here)
-    let resolvedMindmapKey: string | null = null
+    // Treat provided argument strictly as a mindmap id (no permalink fallback, no store injection here)
+    let resolvedMindmapId: string | null = null
     let resolvedMindmapTitle: string | undefined
-    if (mindmapKeyOrPermalink) {
-      // Simple heuristic: accept anything that looks like a UUID (or any non-empty string) as key
-      const keyCandidate = mindmapKeyOrPermalink.trim()
-      if (keyCandidate.length > 0) {
-        resolvedMindmapKey = keyCandidate
+    if (mindmapIdOrPermalink) {
+      // Simple heuristic: accept anything that looks like a UUID (or any non-empty string) as id
+      const idCandidate = mindmapIdOrPermalink.trim()
+      if (idCandidate.length > 0) {
+        resolvedMindmapId = idCandidate
         // We do NOT attempt to fetch or inject here; rendering layer should lazy-fetch if needed
-        console.log('[chatStore.sendMessage] Using provided mindmap key (no local lookup):', keyCandidate)
+        console.log('[chatStore.sendMessage] Using provided mindmap id (no local lookup):', idCandidate)
         set({ isAITyping: true })
       }
     }
@@ -816,8 +816,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       senderId: "me",
       text,
       timestamp: new Date(),
-      type: resolvedMindmapKey ? 'mindmap' : 'text',
-      mindmapKey: resolvedMindmapKey || undefined,
+      type: resolvedMindmapId ? 'mindmap' : 'text',
+      mindmapId: resolvedMindmapId || undefined,
       replyToId: replyingToMessage ? replyingToMessage.id : undefined, // Add the replyToId if replying
       status: "delivered" // Initial status is 'delivered'
     }
@@ -830,7 +830,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // This is a pending conversation - add it to the conversations list now
       // Get mindmap title if this is a mindmap message
       let mindmapTitle = undefined;
-      if (resolvedMindmapKey) {
+      if (resolvedMindmapId) {
         mindmapTitle = resolvedMindmapTitle
       }
 
@@ -840,8 +840,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         timestamp: new Date(),
         lastMessageSentBy: useAuthStore.getState().user?.username,
         lastMessageStatus: "sent" as const,
-            lastMessageType: resolvedMindmapKey ? 'mindmap' : 'text',
-            mindmapTitle: resolvedMindmapKey ? mindmapTitle : undefined
+            lastMessageType: resolvedMindmapId ? 'mindmap' : 'text',
+            mindmapTitle: resolvedMindmapId ? mindmapTitle : undefined
       };
 
       updatedConversations = [conversationToAdd, ...conversations]
@@ -852,7 +852,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         if (conversation.id === activeConversationId) {
           // Get mindmap title if this is a mindmap message
           let mindmapTitle = undefined;
-          if (resolvedMindmapKey) {
+          if (resolvedMindmapId) {
             mindmapTitle = resolvedMindmapTitle
           }
 
@@ -862,8 +862,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             timestamp: new Date(),
             lastMessageSentBy: useAuthStore.getState().user?.username,
             lastMessageStatus: "sent" as const,
-            lastMessageType: resolvedMindmapKey ? 'mindmap' : 'text',
-            mindmapTitle: resolvedMindmapKey ? mindmapTitle : undefined
+            lastMessageType: resolvedMindmapId ? 'mindmap' : 'text',
+            mindmapTitle: resolvedMindmapId ? mindmapTitle : undefined
           };
         }
         return conversation;
@@ -952,7 +952,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           }
         }
 
-  const mindmapKey = resolvedMindmapKey
+  const mindmapId = resolvedMindmapId
 
         // Save the message to Supabase
         const { error } = await supabase
@@ -962,10 +962,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             sender_id: currentUser.id,
             recipient_id: activeConversation.isAI ? null : activeConversation.userId,
             text,
-            mindmap_id: mindmapKey, // store key directly
-            type: mindmapKey ? 'mindmap' : 'text',
+            mindmap_id: mindmapId,
+            type: mindmapId ? 'mindmap' : 'text',
             reply_to_id: replyToSupabaseId,
-            status: "delivered" // Initial status is 'delivered'
+            status: "delivered"
           })
 
         if (error) {
@@ -977,9 +977,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const updateData: any = {
           last_message: text,
           timestamp: new Date().toISOString(),
-          last_message_sent_by: currentUser.username, // Make sure we use the current user's username
-          last_message_type: mindmapKey ? 'mindmap' : 'text',
-          mindmap_id: mindmapKey
+          last_message_sent_by: currentUser.username,
+          last_message_type: mindmapId ? 'mindmap' : 'text',
+          mindmap_id: mindmapId
         }
 
         try {
@@ -1005,10 +1005,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       aiService.setCurrentBot(activeConversation.botId)
 
       // Get mindmap data if it exists
-  const mindMapData = resolvedMindmapKey
+  const mindMapData = resolvedMindmapId
         ? (() => {
             const { maps } = useMindMapStore.getState()
-            const selectedMap = maps.find((m) => m.key === resolvedMindmapKey)
+            const selectedMap = maps.find((m) => m.id === resolvedMindmapId)
             return selectedMap || undefined
           })()
         : undefined
@@ -2468,7 +2468,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             const { data: mindmapsData, error: mindmapsError } = await supabase
               .from("mindmaps")
               .select("key, title")
-              .in("key", mindmapKeys);
+              .in("id", mindmapKeys);
 
             if (!mindmapsError && mindmapsData) {
               mindmapsData.forEach(map => {
@@ -2728,32 +2728,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return
       }
 
-      // First, we need to map mindmap keys to IDs for any mindmap messages
-      const mindmapKeys = data
-        .filter(msg => msg.mindmap_id && msg.type === "mindmap")
-        .map(msg => msg.mindmap_id);
-
-      // Create a map of mindmap keys to IDs
-      const mindmapKeyToIdMap: Record<string, string> = {};
-
-      if (mindmapKeys.length > 0) {
-        try {
-          const { data: mindmapsData, error: mindmapsError } = await supabase
-            .from("mindmaps")
-            .select("id, key")
-            .in("key", mindmapKeys);
-
-          if (!mindmapsError && mindmapsData) {
-            mindmapsData.forEach(map => {
-              if (map.key) {
-                mindmapKeyToIdMap[map.key] = map.id;
-              }
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching mindmap IDs from keys:", error);
-        }
-      }
+      // Since mindmap_id now contains the actual ID (not a key), no mapping is needed
 
       // Convert from Supabase format to our app format
       const formattedMessages = data.map((msg, index) => {
@@ -2765,8 +2740,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           senderId = "ai"
         }
 
-  // Store mindmap key directly; resolution to permalink handled elsewhere if needed
-  const mindmapKey = msg.type === 'mindmap' ? msg.mindmap_id : undefined
+  // Store mindmap id directly; resolution to permalink handled elsewhere if needed
+  const mindmapId = msg.type === 'mindmap' ? msg.mindmap_id : undefined
 
         // Determine the correct message type based on ai_map_status if available
         let messageType = msg.type || "text";
@@ -2790,7 +2765,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           senderId,
           text: messageText,
           timestamp: new Date(msg.timestamp),
-          mindmapKey,
+          mindmapId,
           type: messageType,
           edited: msg.edited_at !== null,
           editedAt: msg.edited_at ? new Date(msg.edited_at) : undefined,
@@ -2821,21 +2796,28 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ isLoading: true })
 
     try {
-      // Fetch the current user's profile to get following/followers
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("following, followed_by")
-        .eq("id", currentUser.id)
-        .single()
+      // Fetch users that the current user follows (following)
+      const { data: followingData, error: followingError } = await supabase
+        .from("user_follows")
+        .select("followed_id")
+        .eq("follower_id", currentUser.id)
 
-      if (profileError) {
-        console.error("Error fetching user profile:", profileError)
-        set({ isLoading: false })
-        return
+      if (followingError) {
+        console.error("Error fetching following users:", followingError)
       }
 
-      const following = profileData.following || []
-      const followers = profileData.followed_by || []
+      // Fetch users that follow the current user (followers)
+      const { data: followersData, error: followersError } = await supabase
+        .from("user_follows")
+        .select("follower_id")
+        .eq("followed_id", currentUser.id)
+
+      if (followersError) {
+        console.error("Error fetching followers:", followersError)
+      }
+
+      const following = followingData?.map(f => f.followed_id) || []
+      const followers = followersData?.map(f => f.follower_id) || []
 
       // Get the union of followers and following
       const userIds = [...new Set([...following, ...followers])]

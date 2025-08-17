@@ -29,8 +29,8 @@ interface MindMapNodeProps {
   id: string;
   data: {
     label: string;
-    mapKey?: string; // Use mapKey as the primary identifier
-    mapId?: string;  // Keep for backward compatibility (will be removed in future)
+    mapId?: string; // Use mapId as the primary identifier
+    mapKey?: string;  // Keep for backward compatibility (will be removed in future)
   };
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
@@ -82,8 +82,8 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
 
   useEffect(() => {
     // Simply find the map in the store without any fetching
-    const useKey = !!data.mapKey;
-    const mapIdentifier = data.mapKey || data.mapId;
+    const useId = !!data.mapId;
+    const mapIdentifier = data.mapId || data.mapKey;
 
     if (!mapIdentifier) {
       setSelectedMap(null);
@@ -91,9 +91,9 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
     }
 
     // Find the map in the local store
-    const localMap = useKey
-      ? maps.find(m => m.key === data.mapKey)
-      : maps.find(m => m.permalink === data.mapId);
+    const localMap = useId
+      ? maps.find(m => m.id === data.mapId)
+      : maps.find(m => m.id === data.mapKey); // Changed from permalink to id
 
     if (localMap) {
       setSelectedMap(localMap);
@@ -102,7 +102,7 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
     } else {
       setSelectedMap(null);
     }
-  }, [data.mapKey, data.mapId, maps]);
+  }, [data.mapId, data.mapKey, maps]);
 
   // Fetch creator profile info when we have a selected map with creator
   useEffect(() => {

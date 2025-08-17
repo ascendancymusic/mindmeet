@@ -123,7 +123,7 @@ export const SimilarMindMapNodeSkeleton: React.FC = () => {
 
 interface SimilarMindMapNodeProps {
   mindmap: {
-    key: string; // The actual key used for saving
+    id: string; // The actual id used for saving
     permalink: string;
     title: string;
     json_data: {
@@ -190,13 +190,13 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
   // Fetch comments count for this mindmap
   useEffect(() => {
     const fetchCommentsCount = async () => {
-      if (!mindmap.key) return;
+      if (!mindmap.id) return;
 
       try {
         const { count, error } = await supabase
           .from("comments")
           .select("*", { count: 'exact', head: true })
-          .eq("mindmap_id", mindmap.key);
+          .eq("mindmap_id", mindmap.id);
 
         if (error) {
           console.error("Error fetching comments count:", error);
@@ -209,7 +209,7 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
     };
 
     fetchCommentsCount();
-  }, [mindmap.key]);
+  }, [mindmap.id]);
 
   const handleResize = useCallback(() => {
     if (reactFlowInstance) {
@@ -303,12 +303,12 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setOpenMenuId(openMenuId === localMindmap?.key ? null : localMindmap?.key);
+                  setOpenMenuId(openMenuId === localMindmap?.id ? null : localMindmap?.id);
                 }}
                 className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors opacity-60 hover:opacity-100"
               >
                 <MoreHorizontal className="w-4 h-4 text-slate-400" />
-              </button>                {openMenuId === localMindmap?.key && (
+              </button>                {openMenuId === localMindmap?.id && (
                 <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50 min-w-[120px]">
                   <button
                     onClick={(e) => {
@@ -487,8 +487,7 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
           url={`${window.location.origin}/${username}/${mindmap.permalink}`}
           creator={username || ''}
           onClose={() => setIsShareModalOpen(false)}
-          mindmapPermalink={mindmap.permalink}
-          mindmapKey={mindmap.key}
+          mindmapId={mindmap.id}
         />
       )}
 

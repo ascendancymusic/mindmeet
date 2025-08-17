@@ -54,7 +54,7 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
         setIsLoading(true);
         const { data: mapData, error } = await supabase
           .from('mindmaps')
-          .select('permalink, title, json_data, visibility, creator, key')
+          .select('permalink, title, json_data, visibility, creator, id')
           .eq('permalink', data.mapId)
           .single();
 
@@ -157,8 +157,8 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
       try {
         const { data: mapDataByKey, error: keyError } = await supabase
           .from('mindmaps')
-          .select('permalink, title, json_data, visibility, creator, key')
-          .eq('key', data.mapId)
+          .select('permalink, title, json_data, visibility, creator, id')
+          .eq('id', data.mapId)
           .single();
 
         if (!keyError && mapDataByKey) {

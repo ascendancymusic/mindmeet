@@ -7,7 +7,7 @@ import { useAuthStore } from "../store/authStore";
 
 interface MindMap {
   permalink: string;
-  key: string;
+  id: string;
   title: string;
   json_data: {
     nodes: any[];
@@ -54,17 +54,16 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
 
     try {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("following")
-        .eq("id", user.id)
-        .single();
+        .from("user_follows")
+        .select("followed_id")
+        .eq("follower_id", user.id);
 
       if (error) {
         console.error("Error fetching following:", error);
         return [];
       }
 
-      return data?.following || [];
+      return data?.map(follow => follow.followed_id) || [];
     } catch (err) {
       console.error("Error fetching following:", err);
       return [];
@@ -85,7 +84,7 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
 
       let query = supabase
         .from("mindmaps")
-        .select("permalink, key, title, json_data, likes, liked_by, comment_count, saves, saved_by, creator, created_at, description, visibility, is_main, collaborators, published_at")
+        .select("permalink, id, title, json_data, likes, liked_by, comment_count, saves, saved_by, creator, created_at, description, visibility, is_main, collaborators, published_at")
         .eq("visibility", "public")
         .not("published_at", "is", null)
         .order("published_at", { ascending: false });

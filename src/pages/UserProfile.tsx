@@ -275,7 +275,7 @@ const UserProfile: React.FC = () => {
     title: string
     is_main: boolean
     creatorUsername: string
-    key?: string
+    id?: string
   } | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
@@ -454,7 +454,7 @@ const UserProfile: React.FC = () => {
       const { data, error } = await supabase
         .from("mindmaps")
         .select(
-          "permalink, key, title, json_data, updated_at, likes, liked_by, comment_count, saves, saved_by, visibility, is_main, collaborators, creator, published_at",
+          "permalink, id, title, json_data, updated_at, likes, liked_by, comment_count, saves, saved_by, visibility, is_main, collaborators, creator, published_at",
         )
         .eq("creator", creatorId)
         .eq("visibility", "public")
@@ -463,7 +463,7 @@ const UserProfile: React.FC = () => {
         console.error("Error fetching public maps:", error)
         setPublicMaps([])
       } else {
-  console.log("Fetched public maps with keys:", data?.map((map) => ({ permalink: map.permalink, key: map.key })))
+        console.log("Fetched public maps with ids:", data?.map((map) => ({ permalink: map.permalink, id: map.id })))
         const mapsWithCreator =
           data
             ?.map((map) => ({
@@ -487,7 +487,7 @@ const UserProfile: React.FC = () => {
         const { data: collabData, error: collabError } = await supabase
           .from("mindmaps")
           .select(
-            "permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
+            "permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
           )
           .contains("collaborators", `["${creatorId}"]`)
           .eq("visibility", "public")
@@ -560,9 +560,9 @@ const UserProfile: React.FC = () => {
           const { data: savedMapsData, error: savedMapsError } = await supabase
             .from("mindmaps")
             .select(
-              "permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
+              "permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator",
             )
-            .in("key", userProfile.saves)
+            .in("id", userProfile.saves)
             .eq("visibility", "public")
 
           console.log("Saved maps data:", savedMapsData)
@@ -699,8 +699,8 @@ const UserProfile: React.FC = () => {
     setModalUserIds([])
   }
 
-  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string, mapKey?: string) => {
-    setShareMapData({ permalink: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername, key: mapKey })
+  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string, mapId?: string) => {
+    setShareMapData({ permalink: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername, id: mapId })
     setIsShareModalOpen(true)
   }
 
@@ -1098,7 +1098,7 @@ const UserProfile: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          handleShare(map.permalink, map.title, map.is_main || false, username || "", map.key)
+                          handleShare(map.permalink, map.title, map.is_main || false, username || "", map.id)
                         }}
                         className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                       >
@@ -1251,7 +1251,7 @@ const UserProfile: React.FC = () => {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            handleShare(map.permalink, map.title, map.is_main || false, map.creatorUsername, map.key)
+                            handleShare(map.permalink, map.title, map.is_main || false, map.creatorUsername, map.id)
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -1405,7 +1405,7 @@ const UserProfile: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          handleShare(map.permalink, map.title, map.is_main || false, map.creatorUsername, map.key)
+                          handleShare(map.permalink, map.title, map.is_main || false, map.creatorUsername, map.id)
                         }}
                         className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                       >
@@ -1442,7 +1442,7 @@ const UserProfile: React.FC = () => {
             creator={shareMapData.creatorUsername}
             onClose={closeShareModal}
             isMainMap={shareMapData.is_main}
-            mindmapKey={shareMapData.key as string}
+            mindmapId={shareMapData.id as string}
           />
         )}
 

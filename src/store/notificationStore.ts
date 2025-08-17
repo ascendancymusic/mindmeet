@@ -10,7 +10,7 @@ export interface Notification {
   read: boolean;
   type: 'follow' | 'like' | 'comment' | 'publish';
   related_user?: string;
-  mindmap_key?: string;
+  mindmap_id?: string;
   comment_id?: string;
 }
 
@@ -49,7 +49,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
   },
   addNotification: async (notification) => {
     try {
-      // For follow notifications, use the simple RPC method since they don't need mindmap_key
+      // For follow notifications, use the simple RPC method since they don't need mindmap_id
       if (notification.type === 'follow') {
         const { data, error } = await supabase.rpc('create_notification', {
           p_message: notification.message,
@@ -74,13 +74,13 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
       // For like notifications, use the specific server-side function
       if (notification.type === 'like') {
-        const { data, error } = await supabase.rpc('create_like_notification_with_mindmap_key', {
+        const { data, error } = await supabase.rpc('create_like_notification_with_mindmap_id', {
           p_user_id: notification.user_id,
           p_type: notification.type,
           p_title: notification.title,
           p_message: notification.message,
           p_related_user: notification.related_user,
-          p_mindmap_key: notification.mindmap_key,
+          p_mindmap_id: notification.mindmap_id,
           p_comment_id: notification.comment_id
         });
 
@@ -98,13 +98,13 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
       }
 
       // For other notification types (comment), use the server-side function
-      const { data, error } = await supabase.rpc('create_notification_with_mindmap_key', {
+      const { data, error } = await supabase.rpc('create_notification_with_mindmap_id', {
         p_user_id: notification.user_id,
         p_type: notification.type,
         p_title: notification.title,
         p_message: notification.message,
         p_related_user: notification.related_user,
-        p_mindmap_key: notification.mindmap_key,
+        p_mindmap_id: notification.mindmap_id,
         p_comment_id: notification.comment_id
       });
 

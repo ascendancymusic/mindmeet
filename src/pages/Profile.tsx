@@ -291,23 +291,23 @@ export default function Profile() {
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
     onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       const updatedMaps = userMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setUserMaps(updatedMaps);
     },
     onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       const updatedMaps = userMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       setUserMaps(updatedMaps);
 
       // Also update savedMaps when saving/unsaving from mindmaps tab
-      const mapToUpdate = userMaps.find(map => map.key === mapPermalink || map.permalink === mapPermalink);
+      const mapToUpdate = userMaps.find(map => map.id === mapPermalink || map.permalink === mapPermalink);
       if (mapToUpdate && user?.id) {
         if (newSavedBy.includes(user.id)) {
           // Map was saved - add it to savedMaps if not already there
           setSavedMaps((prevSavedMaps) => {
-            const exists = prevSavedMaps.find(savedMap => savedMap.key === mapToUpdate.key);
+            const exists = prevSavedMaps.find(savedMap => savedMap.id === mapToUpdate.id);
             let updatedSavedMaps;
             if (!exists) {
               // Add creator info since userMaps don't have it (they're user's own maps)
@@ -322,7 +322,7 @@ export default function Profile() {
               updatedSavedMaps = [...prevSavedMaps, mapWithCreatorInfo];
             } else {
               updatedSavedMaps = prevSavedMaps.map(savedMap =>
-                savedMap.key === mapToUpdate.key ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
+                savedMap.id === mapToUpdate.id ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
               );
             }
             return updatedSavedMaps;
@@ -330,7 +330,7 @@ export default function Profile() {
         } else {
           // Map was unsaved - remove it from savedMaps
           setSavedMaps((prevSavedMaps) => {
-            const updatedSavedMaps = prevSavedMaps.filter(savedMap => savedMap.key !== mapToUpdate.key);
+            const updatedSavedMaps = prevSavedMaps.filter(savedMap => savedMap.id !== mapToUpdate.id);
             return updatedSavedMaps;
           });
         }
@@ -343,35 +343,35 @@ export default function Profile() {
   const { handleLike: collabHandleLike, handleSave: collabHandleSave } = useMindMapActions({
     onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       const updatedCollabMaps = collaborationMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setCollaborationMaps(updatedCollabMaps);
     },
     onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       const updatedCollabMaps = collaborationMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       setCollaborationMaps(updatedCollabMaps);
 
       // Also update savedMaps when saving/unsaving from collaborations tab
-      const mapToUpdate = collaborationMaps.find(map => map.key === mapPermalink || map.permalink === mapPermalink);
+      const mapToUpdate = collaborationMaps.find(map => map.id === mapPermalink || map.permalink === mapPermalink);
       if (mapToUpdate && user?.id) {
         if (newSavedBy.includes(user.id)) {
           // Map was saved - add it to savedMaps if not already there
           setSavedMaps((prevSavedMaps) => {
-            const exists = prevSavedMaps.find(savedMap => savedMap.key === mapToUpdate.key);
+            const exists = prevSavedMaps.find(savedMap => savedMap.id === mapToUpdate.id);
             if (!exists) {
               return [...prevSavedMaps, { ...mapToUpdate, saves: newSaves, saved_by: newSavedBy }];
             } else {
               return prevSavedMaps.map(savedMap =>
-                savedMap.key === mapToUpdate.key ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
+                savedMap.id === mapToUpdate.id ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
               );
             }
           });
         } else {
           // Map was unsaved - remove it from savedMaps
           setSavedMaps((prevSavedMaps) => {
-            return prevSavedMaps.filter(savedMap => savedMap.key !== mapToUpdate.key);
+            return prevSavedMaps.filter(savedMap => savedMap.id !== mapToUpdate.id);
           });
         }
       }
@@ -383,7 +383,7 @@ export default function Profile() {
   const { handleLike: savedHandleLike, handleSave: savedHandleSave } = useMindMapActions({
     onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       const updatedSavedMaps = savedMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, likes: newLikes, liked_by: newLikedBy } : map
       );
       setSavedMaps(updatedSavedMaps);
     },
@@ -392,18 +392,18 @@ export default function Profile() {
       setSavedMaps((prevMaps) => {
         if (user?.id && !newSavedBy.includes(user.id)) {
           // Map was unsaved - remove it from savedMaps
-          return prevMaps.filter(map => map.key !== mapPermalink && map.permalink !== mapPermalink);
+          return prevMaps.filter(map => map.id !== mapPermalink && map.permalink !== mapPermalink);
         } else {
           // Map was saved or liked count changed - update it
           return prevMaps.map((map) =>
-            map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+            map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
           );
         }
       });
 
       // Also update userMaps if this map belongs to the user
       const updatedUserMaps = userMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       if (updatedUserMaps !== userMaps) {
         setUserMaps(updatedUserMaps);
@@ -411,7 +411,7 @@ export default function Profile() {
 
       // Also update collaborationMaps if this map is in collaborations
       const updatedCollabMaps = collaborationMaps.map((map) =>
-        map.key === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
+        map.id === mapPermalink || map.permalink === mapPermalink ? { ...map, saves: newSaves, saved_by: newSavedBy } : map
       );
       if (updatedCollabMaps !== collaborationMaps) {
         setCollaborationMaps(updatedCollabMaps);
@@ -458,7 +458,7 @@ export default function Profile() {
 
   // Share modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [shareMapData, setShareMapData] = useState<{ id: string, title: string, is_main: boolean, creatorUsername: string, key?: string } | null>(null);
+  const [shareMapData, setShareMapData] = useState<{ id: string, title: string, is_main: boolean, creatorUsername: string, mindmapId?: string } | null>(null);
 
   // Info modal state
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -480,8 +480,8 @@ export default function Profile() {
   };
 
   // Function to handle sharing a map
-  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string, mapKey?: string) => {
-    setShareMapData({ id: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername, key: mapKey });
+  const handleShare = (mapPermalink: string, mapTitle: string, isMain: boolean, creatorUsername: string, mapId?: string) => {
+    setShareMapData({ id: mapPermalink, title: mapTitle, is_main: isMain, creatorUsername, mindmapId: mapId });
     setIsShareModalOpen(true);
   };
 
@@ -618,7 +618,7 @@ export default function Profile() {
       try {
         const { data: mapsData, error: mapsError } = await supabase
           .from("mindmaps")
-          .select("permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, published_at")
+          .select("permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, published_at")
           .eq("creator", user.id)
 
         if (mapsError) {
@@ -651,7 +651,7 @@ export default function Profile() {
       try {
         const { data: collabData, error: collabError } = await supabase
           .from("mindmaps")
-          .select("permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator, published_at")
+          .select("permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator, published_at")
           .contains("collaborators", `["${user.id}"]`)
           .eq("visibility", "public")
 
@@ -716,8 +716,8 @@ export default function Profile() {
         } else if (userProfile?.saves && userProfile.saves.length > 0) {
           const { data: savedMapsData, error: savedMapsError } = await supabase
             .from("mindmaps")
-            .select("permalink, key, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator")
-            .in("key", userProfile.saves)
+            .select("permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator")
+            .in("id", userProfile.saves)
             .eq("visibility", "public")
 
           if (savedMapsError) {
@@ -1220,18 +1220,18 @@ export default function Profile() {
           const wasJustPublished = details.published_at &&
             details.visibility === "public" &&
             details.published_at !== currentMap.published_at;
-          if (wasJustPublished && currentMap.key && user?.username) {
+          if (wasJustPublished && currentMap.id && user?.username) {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
                 creator_id: user.id,
-                mindmap_key: currentMap.key,
+                mindmap_key: currentMap.id,
                 mindmap_title: details.title,
                 creator_username: user.username
               });
 
               const { data: notificationData, error: notificationError } = await supabase.rpc('notify_followers_on_publish', {
                 p_creator_id: user.id,
-                p_mindmap_key: currentMap.key,
+                p_mindmap_key: currentMap.id,
                 p_mindmap_title: details.title,
                 p_creator_username: user.username
               });
@@ -1609,20 +1609,20 @@ export default function Profile() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              toggleMenu(map.permalink || map.key)
+                              toggleMenu(map.permalink || map.id)
                             }}
                             className="p-2 text-slate-500 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openMenuId === (map.permalink || map.key) && (
+                          {openMenuId === (map.permalink || map.id) && (
                             <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl z-10 border border-slate-700/50 overflow-hidden">
                               <div className="py-2">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleEditDetails(map.permalink || map.key)
-                                    toggleMenu(map.permalink || map.key)
+                                    handleEditDetails(map.permalink || map.id)
+                                    toggleMenu(map.permalink || map.id)
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white flex items-center transition-colors"
                                 >
@@ -1643,7 +1643,7 @@ export default function Profile() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleDeleteMap(map.permalink || map.key)
+                                    handleDeleteMap(map.permalink || map.id)
                                   }}
                                   className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-red-500 flex items-center transition-colors"
                                 >
@@ -1669,7 +1669,7 @@ export default function Profile() {
 
                       {/* Enhanced Mind Map Preview */}
                       <a
-                        href={`/${map.creatorUsername}/${map.permalink || map.key}`}
+                        href={`/${map.creatorUsername}/${map.permalink || map.id}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
                         <ProfileMindMapPreview map={map} />
@@ -1715,7 +1715,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.permalink, map.title, map.is_main || false, username || '', map.key);
+                            handleShare(map.permalink, map.title, map.is_main || false, username || '', map.id);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -1871,7 +1871,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername, map.key);
+                            handleShare(map.permalink || map.id, map.title, map.is_main || false, map.creatorUsername, map.id);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -2005,7 +2005,7 @@ export default function Profile() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              window.location.href = `/${map.creatorUsername}/${map.permalink || map.key}#comments-section`;
+                              window.location.href = `/${map.creatorUsername}/${map.permalink || map.id}#comments-section`;
                             }}
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
@@ -2027,7 +2027,7 @@ export default function Profile() {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleShare(map.permalink || map.key, map.title, map.is_main || false, map.creatorUsername, map.key);
+                            handleShare(map.permalink || map.id, map.title, map.is_main || false, map.creatorUsername, map.id);
                           }}
                           className="group/action p-2 text-slate-400 hover:text-slate-300 transition-all duration-200 rounded-lg hover:bg-slate-700/50"
                         >
@@ -2302,7 +2302,7 @@ export default function Profile() {
             creator={shareMapData.creatorUsername}
             onClose={closeShareModal}
             isMainMap={shareMapData.is_main}
-            mindmapKey={shareMapData.key as string}
+            mindmapId={shareMapData.mindmapId as string}
           />
         )}
 

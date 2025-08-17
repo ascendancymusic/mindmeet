@@ -76,15 +76,15 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
       case 'like':
       case 'comment':
         // Handle mindmap like and comment notifications
-        if (notification.mindmap_key) {
-          console.log(`Navigating to mindmap with key (${notification.type}):`, notification.mindmap_key);
+        if (notification.mindmap_id) {
+          console.log(`Navigating to mindmap with key (${notification.type}):`, notification.mindmap_id);
 
           try {
-            // First, get the mindmap details using the mindmap_key
+            // First, get the mindmap details using the mindmap_id
             const { data: mindmapData, error: mindmapError } = await supabase
               .from('mindmaps')
-              .select('id, creator')
-              .eq('key', notification.mindmap_key)
+              .select('permalink, creator')
+              .eq('id', notification.mindmap_id)
               .single();
 
             if (mindmapError) {
@@ -93,7 +93,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
             }
 
             if (!mindmapData) {
-              console.error('Mindmap not found with key:', notification.mindmap_key);
+              console.error('Mindmap not found with key:', notification.mindmap_id);
               return;
             }
 
@@ -116,7 +116,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
 
             // Navigate to the mindmap
             onClose();
-            const url = `/${creatorData.username}/${mindmapData.id}`;
+            const url = `/${creatorData.username}/${mindmapData.permalink}`;
 
             // For comment notifications, add a hash to scroll to comments section and the comment ID
             let finalUrl = url;
@@ -137,21 +137,21 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           } catch (error) {
             console.error(`Error navigating to mindmap (${notification.type}):`, error);
           }        } else {
-          console.error(`Missing mindmap_key in ${notification.type} notification:`, notification);
+          console.error(`Missing mindmap_id in ${notification.type} notification:`, notification);
         }
         break;
 
       case 'publish':
         // Handle mindmap publish notifications
-        if (notification.mindmap_key) {
-          console.log(`Navigating to published mindmap with key:`, notification.mindmap_key);
+        if (notification.mindmap_id) {
+          console.log(`Navigating to published mindmap with key:`, notification.mindmap_id);
 
           try {
-            // First, get the mindmap details using the mindmap_key
+            // First, get the mindmap details using the mindmap_id
             const { data: mindmapData, error: mindmapError } = await supabase
               .from('mindmaps')
-              .select('id, creator')
-              .eq('key', notification.mindmap_key)
+              .select('permalink, creator')
+              .eq('id', notification.mindmap_id)
               .single();
 
             if (mindmapError) {
@@ -160,7 +160,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
             }
 
             if (!mindmapData) {
-              console.error('Mindmap not found with key:', notification.mindmap_key);
+              console.error('Mindmap not found with key:', notification.mindmap_id);
               return;
             }
 
@@ -183,14 +183,14 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
 
             // Navigate to the mindmap
             onClose();
-            const url = `/${creatorData.username}/${mindmapData.id}`;
+            const url = `/${creatorData.username}/${mindmapData.permalink}`;
             navigate(url);
             console.log(`Navigated to published mindmap: ${url}`);
           } catch (error) {
             console.error(`Error navigating to published mindmap:`, error);
           }
         } else {
-          console.error(`Missing mindmap_key in publish notification:`, notification);
+          console.error(`Missing mindmap_id in publish notification:`, notification);
         }
         break;
     }

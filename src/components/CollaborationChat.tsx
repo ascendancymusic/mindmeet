@@ -19,14 +19,14 @@ interface CollaborationChatProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserName: string;
-  mindMapKey: string; // Add mindMapKey for unique channel
+  mindMapId: string; // Add mindMapId for unique channel
 }
 
 export const CollaborationChat: React.FC<CollaborationChatProps> = ({
   isOpen,
   onClose,
   currentUserName,
-  mindMapKey
+  mindMapId
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -102,9 +102,9 @@ export const CollaborationChat: React.FC<CollaborationChatProps> = ({
 
   // Set up real-time messaging
   useEffect(() => {
-    if (!isOpen || !mindMapKey) return;
+    if (!isOpen || !mindMapId) return;
 
-    const channel = supabase.channel(`chat:${mindMapKey}`, {
+    const channel = supabase.channel(`chat:${mindMapId}`, {
       config: {
         broadcast: { self: false }
       }
@@ -132,7 +132,7 @@ export const CollaborationChat: React.FC<CollaborationChatProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isOpen, mindMapKey, currentUserName]);
+  }, [isOpen, mindMapId, currentUserName]);
 
   const handleSendMessage = async () => {
     if (newMessage.trim()) {
@@ -152,7 +152,7 @@ export const CollaborationChat: React.FC<CollaborationChatProps> = ({
       setNewMessage('');
 
       // Broadcast message to other users
-      const channel = supabase.channel(`chat:${mindMapKey}`);
+      const channel = supabase.channel(`chat:${mindMapId}`);
       await channel.send({
         type: 'broadcast',
         event: 'chat_message',

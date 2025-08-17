@@ -752,7 +752,7 @@ export default function MindMapList() {
       if (mindmapIds.length > 0) {
         const memberships = mindmapIds.map(mindmapId => ({
           group_id: groupData.id,
-          mindmap_key: maps.find(m => m.permalink === mindmapId)?.key || mindmapId
+          mindmap_id: maps.find(m => m.permalink === mindmapId)?.id || mindmapId
         }))
 
         const { error: membershipError } = await supabase
@@ -816,13 +816,13 @@ export default function MindMapList() {
     if (!isValidUserId) return
 
     try {
-  const mindmapKey = maps.find(m => m.permalink === mapId)?.key || mapId
+      const mindmapId = maps.find(m => m.permalink === mapId)?.id || mapId
 
       const { error } = await supabase
         .from('mindmap_group_memberships')
         .insert({
           group_id: groupId,
-          mindmap_key: mindmapKey
+          mindmap_id: mindmapId
         })
 
       if (error) throw error
@@ -845,13 +845,13 @@ export default function MindMapList() {
     if (!isValidUserId) return
 
     try {
-  const mindmapKey = maps.find(m => m.permalink === mapId)?.key || mapId
+      const mindmapId = maps.find(m => m.permalink === mapId)?.id || mapId
 
       const { error } = await supabase
         .from('mindmap_group_memberships')
         .delete()
         .eq('group_id', groupId)
-        .eq('mindmap_key', mindmapKey)
+        .eq('mindmap_id', mindmapId)
 
       if (error) throw error
 
@@ -897,7 +897,7 @@ export default function MindMapList() {
       if (toAdd.length > 0) {
         const memberships = toAdd.map(mindmapId => ({
           group_id: groupId,
-          mindmap_key: maps.find(m => m.permalink === mindmapId)?.key || mindmapId
+          mindmap_id: maps.find(m => m.permalink === mindmapId)?.id || mindmapId
         }))
 
         const { error: addError } = await supabase
@@ -909,13 +909,13 @@ export default function MindMapList() {
 
       // Remove old memberships
       if (toRemove.length > 0) {
-  const keysToRemove = toRemove.map(mindmapId => maps.find(m => m.permalink === mindmapId)?.key || mindmapId)
+        const idsToRemove = toRemove.map(mindmapId => maps.find(m => m.permalink === mindmapId)?.id || mindmapId)
 
         const { error: removeError } = await supabase
           .from('mindmap_group_memberships')
           .delete()
           .eq('group_id', groupId)
-          .in('mindmap_key', keysToRemove)
+          .in('mindmap_id', idsToRemove)
 
         if (removeError) throw removeError
       }
@@ -956,10 +956,10 @@ export default function MindMapList() {
           icon,
           created_at,
           mindmap_group_memberships (
-            mindmap_key,
+            mindmap_id,
             mindmaps (
                 permalink,
-                key
+                id
               )
           )
         `)
@@ -975,8 +975,8 @@ export default function MindMapList() {
         icon: group.icon || 'Folder', // Default to Folder if no icon
         createdAt: new Date(group.created_at).getTime(),
         mindmapIds: group.mindmap_group_memberships.map((membership: any) => {
-          // Use the mindmap permalink from the joined data if available, otherwise use the key
-          return membership.mindmaps?.permalink || membership.mindmap_key
+          // Use the mindmap permalink from the joined data if available, otherwise use the id
+          return membership.mindmaps?.permalink || membership.mindmap_id
         }).filter(Boolean) // Remove any null/undefined values
       }))
 
@@ -993,7 +993,7 @@ export default function MindMapList() {
             icon,
             created_at,
             mindmap_group_memberships (
-              mindmap_key
+              mindmap_id
             )
           `)
           .eq('user_id', userId)
@@ -1006,7 +1006,7 @@ export default function MindMapList() {
           name: group.name,
           icon: group.icon || 'Folder',
           createdAt: new Date(group.created_at).getTime(),
-          mindmapIds: group.mindmap_group_memberships.map((membership: any) => membership.mindmap_key)
+          mindmapIds: group.mindmap_group_memberships.map((membership: any) => membership.mindmap_id)
         }))
 
         setGroups(fallbackGroups)
@@ -1069,8 +1069,8 @@ export default function MindMapList() {
       const updatedGroups = groups.map(group => ({
         ...group,
         mindmapIds: group.mindmapIds.map(idOrKey => {
-          // Try to find the mindmap by ID first, then by key
-          const mindmap = maps.find(m => m.permalink === idOrKey || m.key === idOrKey)
+          // Try to find the mindmap by permalink first, then by id
+          const mindmap = maps.find(m => m.permalink === idOrKey || m.id === idOrKey)
           return mindmap?.permalink || idOrKey
         })
       }))
@@ -1206,12 +1206,12 @@ export default function MindMapList() {
     if (mapToDelete && isValidUserId) {
       // Clean up group memberships when deleting a map
       const mapToDeleteData = maps.find(m => m.permalink === mapToDelete)
-      if (mapToDeleteData?.key) {
+      if (mapToDeleteData?.id) {
         try {
           await supabase
             .from('mindmap_group_memberships')
             .delete()
-            .eq('mindmap_key', mapToDeleteData.key)
+            .eq('mindmap_id', mapToDeleteData.id)
         } catch (error) {
           console.error("Error cleaning up group memberships:", error)
         }
@@ -1330,11 +1330,11 @@ export default function MindMapList() {
           // Only send notifications if published_at was just set (not if it already existed)
           const wasJustPublished =
             details.published_at && details.visibility === "public" && details.published_at !== currentMap.published_at
-          if (wasJustPublished && currentMap.key && user?.username) {
+          if (wasJustPublished && currentMap.id && user?.username) {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
                 creator_id: userId,
-                mindmap_key: currentMap.key,
+                mindmap_key: currentMap.id,
                 mindmap_title: details.title,
                 creator_username: user.username,
               })
@@ -1343,7 +1343,7 @@ export default function MindMapList() {
                 "notify_followers_on_publish",
                 {
                   p_creator_id: userId,
-                  p_mindmap_key: currentMap.key,
+                  p_mindmap_key: currentMap.id,
                   p_mindmap_title: details.title,
                   p_creator_username: user.username,
                 },

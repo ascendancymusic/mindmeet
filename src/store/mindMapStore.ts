@@ -15,7 +15,7 @@ export interface Node extends ReactFlowNode {
 
 export interface MindMap {
   permalink: string;
-  key?: string;
+  id?: string;
   title: string;
   nodes: Node[];
   edges: Edge[];
@@ -86,7 +86,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     console.log('[mindMapStore] Fetching mindmaps from Supabase for userId:', userId);
     const { data, error } = await supabase
       .from("mindmaps")
-      .select("permalink, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, key, collaborators, published_at")
+      .select("permalink, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, id, collaborators, published_at")
       .eq("creator", userId);
 
     if (error) {
@@ -110,7 +110,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     const maps = data?.map((map) => ({
       permalink: map.permalink,
-      key: map.key,
+      id: map.id,
       title: map.title,
       nodes: map.json_data.nodes,
       edges: map.json_data.edges,
@@ -148,7 +148,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     // Use the @> operator for JSONB containment
     const { data, error } = await supabase
       .from("mindmaps")
-      .select("permalink, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, username, key, collaborators, published_at")
+      .select("permalink, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, username, id, collaborators, published_at")
       .filter("collaborators", "cs", JSON.stringify([userId]));
 
     if (error) {
@@ -178,7 +178,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
       const collaborationMaps = data.map((map) => ({
         permalink: map.permalink,
-        key: map.key,
+        id: map.id,
         title: map.title,
         nodes: map.json_data.nodes,
         edges: map.json_data.edges,
@@ -338,20 +338,20 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
             error = updateError;
           } else {
-            // Insert new map and get the generated key
+            // Insert new map and get the generated id
             const { data: insertedMap, error: insertError } = await supabase
               .from("mindmaps")
               .insert(mapData)
-              .select("key")
+              .select("id")
               .single();
 
             error = insertError;
 
-            // Update the local store with the generated key
-            if (!error && insertedMap?.key) {
+            // Update the local store with the generated id
+            if (!error && insertedMap?.id) {
               set((state) => ({
                 maps: state.maps.map((map) =>
-                  map.permalink === permalink ? { ...map, key: insertedMap.key } : map
+                  map.permalink === permalink ? { ...map, id: insertedMap.id } : map
                 ),
               }));
             }
@@ -398,16 +398,16 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
   },
   deleteMapFromSupabase: async (permalink, userId) => {
     try {
-      // First, fetch the mindmap to get its key
+      // First, fetch the mindmap to get its id
       const { data: mindmap, error: fetchError } = await supabase
         .from("mindmaps")
-        .select("key")
+        .select("id")
         .eq("permalink", permalink)
         .eq("creator", userId)
         .single();
 
       if (fetchError) {
-        console.error("Error fetching mindmap key before deletion:", fetchError);
+        console.error("Error fetching mindmap id before deletion:", fetchError);
         if (fetchError?.code === 'PGRST116') {
           console.error('Multiple mindmaps found with the same permalink. This may happen if different users have maps with the same permalink.');
         } else {
@@ -416,22 +416,22 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         return;
       }
 
-      const mapKey = mindmap?.key;
+      const mapId = mindmap?.id;
 
-      if (mapKey) {
+      if (mapId) {
         // Delete all files in the storage bucket folders for this mindmap
-        console.log(`Deleting storage files for mindmap with key: ${mapKey}`);
+        console.log(`Deleting storage files for mindmap with id: ${mapId}`);
 
         // List and delete files from mindmap-images bucket
         const { data: imageFileList, error: imageListError } = await supabase.storage
           .from('mindmap-images')
-          .list(mapKey);
+          .list(mapId);
 
         if (imageListError) {
-          console.error(`Error listing files in mindmap-images/${mapKey}:`, imageListError);
+          console.error(`Error listing files in mindmap-images/${mapId}:`, imageListError);
         } else if (imageFileList && imageFileList.length > 0) {
           // Create an array of file paths to delete
-          const imageFilePaths = imageFileList.map(file => `${mapKey}/${file.name}`);
+          const imageFilePaths = imageFileList.map(file => `${mapId}/${file.name}`);
 
           // Delete all files in the folder
           const { error: deleteImageFilesError } = await supabase.storage
@@ -439,24 +439,24 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
             .remove(imageFilePaths);
 
           if (deleteImageFilesError) {
-            console.error(`Error deleting files from mindmap-images/${mapKey}:`, deleteImageFilesError);
+            console.error(`Error deleting files from mindmap-images/${mapId}:`, deleteImageFilesError);
           } else {
-            console.log(`Successfully deleted ${imageFilePaths.length} files from mindmap-images/${mapKey}`);
+            console.log(`Successfully deleted ${imageFilePaths.length} files from mindmap-images/${mapId}`);
           }
         } else {
-          console.log(`No files found in mindmap-images/${mapKey}`);
+          console.log(`No files found in mindmap-images/${mapId}`);
         }
 
         // List and delete files from mindmap-audio bucket
         const { data: audioFileList, error: audioListError } = await supabase.storage
           .from('mindmap-audio')
-          .list(mapKey);
+          .list(mapId);
 
         if (audioListError) {
-          console.error(`Error listing files in mindmap-audio/${mapKey}:`, audioListError);
+          console.error(`Error listing files in mindmap-audio/${mapId}:`, audioListError);
         } else if (audioFileList && audioFileList.length > 0) {
           // Create an array of file paths to delete
-          const audioFilePaths = audioFileList.map(file => `${mapKey}/${file.name}`);
+          const audioFilePaths = audioFileList.map(file => `${mapId}/${file.name}`);
 
           // Delete all files in the folder
           const { error: deleteAudioFilesError } = await supabase.storage
@@ -464,12 +464,12 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
             .remove(audioFilePaths);
 
           if (deleteAudioFilesError) {
-            console.error(`Error deleting files from mindmap-audio/${mapKey}:`, deleteAudioFilesError);
+            console.error(`Error deleting files from mindmap-audio/${mapId}:`, deleteAudioFilesError);
           } else {
-            console.log(`Successfully deleted ${audioFilePaths.length} files from mindmap-audio/${mapKey}`);
+            console.log(`Successfully deleted ${audioFilePaths.length} files from mindmap-audio/${mapId}`);
           }
         } else {
-          console.log(`No files found in mindmap-audio/${mapKey}`);
+          console.log(`No files found in mindmap-audio/${mapId}`);
         }
       }
 
@@ -644,14 +644,14 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     // Extract customization data with defaults
     const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', drawingData } = customization;
 
-    // Fetch the mindmap to get the 'key', allowing access for creator or collaborators
+    // Fetch the mindmap to get the 'id', allowing access for creator or collaborators
     const { data: mindmaps, error: fetchError } = await supabase
       .from('mindmaps')
-      .select('key, creator, collaborators')
+      .select('id, creator, collaborators')
       .eq('permalink', permalink);
 
     if (fetchError || !mindmaps || mindmaps.length === 0) {
-      console.error('Error fetching mindmap key:', fetchError);
+      console.error('Error fetching mindmap id:', fetchError);
       console.error('No mindmap found with permalink:', permalink, 'for user:', userId);
       return;
     }
@@ -662,7 +662,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       (Array.isArray(map.collaborators) && map.collaborators.includes(userId))
     );
 
-    if (!mindmap?.key) {
+    if (!mindmap?.id) {
       console.error('User does not have permission to edit any mindmap with permalink:', permalink, 'User:', userId);
       return;
     }
@@ -676,7 +676,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       return;
     }
 
-    const mapKey = mindmap.key;
+    const mapId = mindmap.id;
     const updatedNodes = [...nodes];
     const currentMap = get().maps.find((map) => map.permalink === permalink) || get().collaborationMaps.find((map) => map.permalink === permalink);
 
@@ -693,7 +693,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       // Delete files for removed media nodes
       for (const node of deletedMediaNodes) {
         console.log(`Deleting ${node.type} for removed node:`, node.id);
-        await deleteMediaFromStorage(mapKey, node.id, node.type || 'unknown');
+        await deleteMediaFromStorage(mapId, node.id, node.type || 'unknown');
       }
     }
 
@@ -704,7 +704,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     // Get all image nodes that were previously saved but are now missing
     const { data: existingImageNodes, error: imageListError } = await supabase.storage
       .from('mindmap-images')
-      .list(mapKey);
+      .list(mapId);
 
     if (!imageListError && existingImageNodes) {
       // Extract node IDs from filenames (removing the extension)
@@ -719,7 +719,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       // Delete files for these missing nodes
       for (const nodeId of missingImageNodeIds) {
         console.log('Deleting image for node not in current update:', nodeId);
-        await deleteMediaFromStorage(mapKey, nodeId, 'image');
+        await deleteMediaFromStorage(mapId, nodeId, 'image');
       }
     } else if (imageListError) {
       console.error('Error listing files in image storage bucket:', imageListError);
@@ -728,7 +728,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     // Get all audio nodes that were previously saved but are now missing
     const { data: existingAudioNodes, error: audioListError } = await supabase.storage
       .from('mindmap-audio')
-      .list(mapKey);
+      .list(mapId);
 
     if (!audioListError && existingAudioNodes) {
       // Extract node IDs from filenames (removing the extension)
@@ -743,7 +743,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       // Delete files for these missing nodes
       for (const nodeId of missingAudioNodeIds) {
         console.log('Deleting audio for node not in current update:', nodeId);
-        await deleteMediaFromStorage(mapKey, nodeId, 'audio');
+        await deleteMediaFromStorage(mapId, nodeId, 'audio');
       }
     } else if (audioListError) {
       console.error('Error listing files in audio storage bucket:', audioListError);
@@ -757,7 +757,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         console.log('Compressing image for node:', node.id);
         const { compressedFile } = await compressImage(file);
         const extension = compressedFile.type === 'image/png' ? 'png' : 'jpg';
-        const path = `${mapKey}/${node.id}.${extension}`;
+        const path = `${mapId}/${node.id}.${extension}`;
         const contentType = compressedFile.type;
 
         // Check if we're replacing an existing image (stored in originalImageUrl)
@@ -810,7 +810,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
           const extension = compressedFile.type.includes('opus') ? 'opus' :
             compressedFile.type.includes('webm') ? 'webm' : 'ogg';
-          const path = `${mapKey}/${node.id}.${extension}`;
+          const path = `${mapId}/${node.id}.${extension}`;
           const contentType = compressedFile.type;
 
           // Check if we're replacing an existing audio (stored in originalAudioUrl)
@@ -1278,16 +1278,16 @@ function sanitizeTitle(title: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-const deleteMediaFromStorage = async (mapKey: string, nodeId: string, nodeType: string) => {
+const deleteMediaFromStorage = async (mapId: string, nodeId: string, nodeType: string) => {
   try {
     let paths: string[] = [];
     let bucketName = '';
 
     if (nodeType === 'image') {
-      paths = [`${mapKey}/${nodeId}.jpg`, `${mapKey}/${nodeId}.png`];
+      paths = [`${mapId}/${nodeId}.jpg`, `${mapId}/${nodeId}.png`];
       bucketName = 'mindmap-images';
     } else if (nodeType === 'audio') {
-      paths = [`${mapKey}/${nodeId}.opus`, `${mapKey}/${nodeId}.webm`, `${mapKey}/${nodeId}.mp3`, `${mapKey}/${nodeId}.ogg`];
+      paths = [`${mapId}/${nodeId}.opus`, `${mapId}/${nodeId}.webm`, `${mapId}/${nodeId}.mp3`, `${mapId}/${nodeId}.ogg`];
       bucketName = 'mindmap-audio';
     } else {
       console.warn(`Unknown node type for deletion: ${nodeType}`);

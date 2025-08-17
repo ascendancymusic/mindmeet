@@ -289,14 +289,14 @@ const ViewMindMap: React.FC = () => {
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
     onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       setCurrentMap((prev: any) =>
-        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink)
+        prev && (prev.permalink === mapPermalink || prev.id === mapPermalink)
           ? { ...prev, likes: newLikes, liked_by: newLikedBy, likedBy: newLikedBy }
           : prev,
       )
     },
     onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setCurrentMap((prev: any) =>
-        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink)
+        prev && (prev.permalink === mapPermalink || prev.id === mapPermalink)
           ? { ...prev, saves: newSaves, saved_by: newSavedBy, savedBy: newSavedBy }
           : prev,
       )
@@ -361,7 +361,7 @@ const ViewMindMap: React.FC = () => {
       const { data: map, error: mapError } = await supabase
         .from("mindmaps")
         .select(
-          "key, permalink, title, json_data, likes, liked_by, saves, saved_by, updated_at, visibility, description, is_main, collaborators, published_at",
+          "id, permalink, title, json_data, likes, liked_by, saves, saved_by, updated_at, visibility, description, is_main, collaborators, published_at",
         )
         .eq("permalink", permalink)
         .eq("creator", profile.id)
@@ -435,7 +435,7 @@ const ViewMindMap: React.FC = () => {
     const fetchSimilarMindmaps = async () => {
       const { data: mindmaps, error } = await supabase
         .from("mindmaps")
-        .select("key, permalink, title, json_data, creator, updated_at, saves, saved_by, likes, liked_by")
+        .select("id, permalink, title, json_data, creator, updated_at, saves, saved_by, likes, liked_by")
         .eq("visibility", "public")
 
       if (error) {
@@ -514,7 +514,7 @@ const ViewMindMap: React.FC = () => {
 
   useEffect(() => {
     const fetchComments = async () => {
-      if (!currentMap?.key) return
+      if (!currentMap?.id) return
 
       try {
         const { data, error } = await supabase
@@ -522,7 +522,7 @@ const ViewMindMap: React.FC = () => {
           .select(
             "id, content, created_at, edited_at, user_id, parent_id, likes, liked_by, is_pinned, profiles(username, avatar_url, id)",
           )
-          .eq("mindmap_id", currentMap.key)
+          .eq("mindmap_id", currentMap.id)
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -560,7 +560,7 @@ const ViewMindMap: React.FC = () => {
     }
 
     fetchComments()
-  }, [currentMap?.key])
+  }, [currentMap?.id])
 
   useEffect(() => {
     if (loading || comments.length === 0) return
@@ -817,12 +817,12 @@ const ViewMindMap: React.FC = () => {
   }
 
   const handlePostComment = async () => {
-    if (!user?.id || !newComment.trim() || !currentMap?.key) {
+    if (!user?.id || !newComment.trim() || !currentMap?.id) {
       return
     }
 
     const comment = {
-      mindmap_id: currentMap.key,
+      mindmap_id: currentMap.id,
       user_id: user.id,
       content: newComment.trim(),
     }
@@ -848,7 +848,7 @@ const ViewMindMap: React.FC = () => {
               title: "New Comment",
               message: `@${user.username} commented on your mindmap: ${currentMap.title}`,
               related_user: user.id,
-              mindmap_key: currentMap.key,
+              mindmap_id: currentMap.id,
               comment_id: data.id,
             })
             console.log("Comment notification sent successfully")
@@ -863,10 +863,10 @@ const ViewMindMap: React.FC = () => {
   }
 
   const handlePostReply = async (parentId: string, replyContent: string) => {
-    if (!user?.id || !replyContent.trim() || !currentMap?.key) return
+    if (!user?.id || !replyContent.trim() || !currentMap?.id) return
 
     const reply = {
-      mindmap_id: currentMap.key,
+      mindmap_id: currentMap.id,
       user_id: user.id,
       content: replyContent.trim(),
       parent_id: parentId,
@@ -904,7 +904,7 @@ const ViewMindMap: React.FC = () => {
               title: "New Reply",
               message: `@${user.username} replied to a comment on your mindmap: ${currentMap.title}`,
               related_user: user.id,
-              mindmap_key: currentMap.key,
+              mindmap_id: currentMap.id,
               comment_id: data.id,
             })
             console.log("Reply notification sent to mindmap creator successfully")
@@ -921,7 +921,7 @@ const ViewMindMap: React.FC = () => {
               title: "New Reply",
               message: `@${user.username} replied to your comment on mindmap: ${currentMap.title}`,
               related_user: user.id,
-              mindmap_key: currentMap.key,
+              mindmap_id: currentMap.id,
               comment_id: data.id,
             })
             console.log("Reply notification sent to comment creator successfully")
@@ -1041,7 +1041,7 @@ const ViewMindMap: React.FC = () => {
   }
 
   const handlePinComment = async (commentId: string) => {
-    if (!user?.id || !isCreator || !currentMap?.key) return
+    if (!user?.id || !isCreator || !currentMap?.id) return
 
     try {
       // Find the current comment to check if it's already pinned
@@ -1072,7 +1072,7 @@ const ViewMindMap: React.FC = () => {
         const { error: unpinError } = await supabase
           .from("comments")
           .update({ is_pinned: false })
-          .eq("mindmap_id", currentMap.key)
+          .eq("mindmap_id", currentMap.id)
           .eq("is_pinned", true)
 
         if (unpinError) {
@@ -1197,7 +1197,7 @@ const ViewMindMap: React.FC = () => {
           creator={username || ""}
           onClose={() => setIsShareModalOpen(false)}
           isMainMap={currentMap.is_main || false}
-          mindmapKey={currentMap.key}
+          mindmapId={currentMap.id}
         />)}
       {isSpotifyModalOpen && (
         <SpotifyLoginModal
@@ -1296,7 +1296,7 @@ const ViewMindMap: React.FC = () => {
               <div ref={reactFlowWrapperRef} className="h-[70vh] lg:h-[75vh] relative">
                 <ReactFlowProvider>
                   <ReactFlow
-                    key={`reactflow-${currentMap.permalink || currentMap.key}`}
+                    key={`reactflow-${currentMap.permalink || currentMap.id}`}
                     nodes={currentMap.nodes.map((node: any) => {
                       const hasChildren = currentMap.edges.some((edge: any) => edge.source === node.id)
                       const isHidden = (() => {

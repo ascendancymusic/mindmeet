@@ -12,10 +12,10 @@ interface ShareModalProps {
   creator: string
   onClose: () => void
   isMainMap?: boolean
-  mindmapKey: string // Internal key required for chat sharing
+  mindmapId: string // Internal id required for chat sharing
 }
 
-const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, isMainMap = false, mindmapKey }) => {
+const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, isMainMap = false, mindmapId }) => {
   const [copySuccess, setCopySuccess] = useState(false)
   const [isUserSelectModalOpen, setIsUserSelectModalOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
@@ -81,7 +81,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
   }
 
   const handleShareToChat = async (selectedUsers: { id: string, username: string }[], customMessage: string) => {
-    if (selectedUsers.length === 0 || !mindmapKey) return
+    if (selectedUsers.length === 0 || !mindmapId) return
     try {
       setIsSharing(true)
       await useChatStore.getState().fetchConversations()
@@ -90,7 +90,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
         const existingConversation = conversations.find(c => !c.isAI && c.userId === user.id)
         const conversationId = existingConversation ? existingConversation.id : await useChatStore.getState().createConversation(user.id, user.username, false)
         useChatStore.getState().setActiveConversation(conversationId)
-        await useChatStore.getState().sendMessage(customMessage, mindmapKey)
+        await useChatStore.getState().sendMessage(customMessage, mindmapId)
         return conversationId
       })
       await Promise.all(sharePromises)
@@ -143,7 +143,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ title, url, creator, onClose, i
             </div>
           )}
         </div>        {/* Share to Chat Section */}
-  {mindmapKey && (
+  {mindmapId && (
           <div className="mb-6">
             <p className="text-sm font-medium text-slate-300 mb-3">Share to chat</p>
             <button

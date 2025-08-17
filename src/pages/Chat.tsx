@@ -958,8 +958,8 @@ type MessageForPreview = {
   senderId: string | number;
   conversationId: number;
   replyToId?: number;
-  // Internal mindmap primary key (canonical identifier for mindmap messages)
-  mindmapKey?: string;
+  // Internal mindmap primary id (canonical identifier for mindmap messages)
+  mindmapId?: string;
   // Optional public permalink slug (legacy / only for navigation when present)
   mindmapPermalink?: string;
   type?: string;
@@ -973,30 +973,30 @@ const ReplyPreview: React.FC<{
   message: MessageForPreview | null
   onCancel: () => void
   mindmapTitleCache: Record<string, string>
-  ensureMindmapTitle: (key: string) => void | Promise<void>
+  ensureMindmapTitle: (id: string) => void | Promise<void>
 }> = ({ message, onCancel, mindmapTitleCache, ensureMindmapTitle }) => {
   if (!message) return null
 
   // Check if the message is a GIF
   const isGif = message.text.match(/!\[GIF\]\((https?:\/\/[^\s)]+)\)/);
 
-  // Check if it's a mindmap message (prefer key)
-  const isMindmap = message.type === "mindmap" && (message.mindmapKey || message.mindmapPermalink);
+  // Check if it's a mindmap message (prefer id)
+  const isMindmap = message.type === "mindmap" && (message.mindmapId || message.mindmapPermalink);
 
   // Unified title resolution using shared Chat-level cache/fetcher
   let mindmapTitle: string | null = null
   if (isMindmap) {
     const mapsState = useMindMapStore.getState().maps
-    const key = message.mindmapKey
-    if (key) {
-      const local = mapsState.find(m => m.key === key)
+    const id = message.mindmapId
+    if (id) {
+      const local = mapsState.find(m => m.id === id)
       if (local?.title) {
         mindmapTitle = local.title
-      } else if (mindmapTitleCache[key]) {
-        mindmapTitle = mindmapTitleCache[key]
+      } else if (mindmapTitleCache[id]) {
+        mindmapTitle = mindmapTitleCache[id]
       } else {
-        ensureMindmapTitle(key)
-        mindmapTitle = key.length > 8 ? key.slice(0,8) + '…' : 'Mindmap'
+        ensureMindmapTitle(id)
+        mindmapTitle = id.length > 8 ? id.slice(0,8) + '…' : 'Mindmap'
       }
     } else if (message.mindmapPermalink) {
       // Legacy fallback (permalink-only message): try local store
@@ -1045,7 +1045,7 @@ const ReplyPreview: React.FC<{
           </div>
           <div className="flex items-center gap-1.5">
             <Network className="h-4 w-4 text-sky-400" />
-            <span className="text-sky-400">{mindmapTitle || (message.mindmapKey ? (message.mindmapKey.length > 8 ? message.mindmapKey.slice(0,8)+'…' : 'Mindmap') : 'Mindmap')}</span>
+            <span className="text-sky-400">{mindmapTitle || (message.mindmapId ? (message.mindmapId.length > 8 ? message.mindmapId.slice(0,8)+'…' : 'Mindmap') : 'Mindmap')}</span>
           </div>
         </div>
         <button
@@ -1224,31 +1224,31 @@ const Chat: React.FC = () => {
   const { fetchMaps } = useMindMapStore() // Import fetchMaps from mindMapStore
   const userId = user?.id // Extract user ID
 
-  // Ephemeral cache for mindmap titles fetched by key (no global store injection)
+  // Ephemeral cache for mindmap titles fetched by id (no global store injection)
   const [mindmapTitleCache, setMindmapTitleCache] = useState<Record<string, string>>({})
   const pendingMindmapTitleFetch = useRef<Set<string>>(new Set())
 
-  const ensureMindmapTitle = useCallback(async (key: string) => {
-    if (!key || mindmapTitleCache[key] || pendingMindmapTitleFetch.current.has(key)) return
-    pendingMindmapTitleFetch.current.add(key)
+  const ensureMindmapTitle = useCallback(async (id: string) => {
+    if (!id || mindmapTitleCache[id] || pendingMindmapTitleFetch.current.has(id)) return
+    pendingMindmapTitleFetch.current.add(id)
     try {
       const { data, error } = await supabase
         .from('mindmaps')
-        .select('key, title, visibility')
-        .eq('key', key)
+        .select('id, title, visibility')
+        .eq('id', id)
         .limit(1)
         .maybeSingle()
-      if (!error && data && data.key) {
+      if (!error && data && data.id) {
         const title = data.title?.trim() ? data.title : 'Untitled mindmap'
-        setMindmapTitleCache(prev => ({ ...prev, [data.key]: title }))
+        setMindmapTitleCache(prev => ({ ...prev, [data.id]: title }))
       } else {
-        setMindmapTitleCache(prev => ({ ...prev, [key]: 'Private mindmap' }))
+        setMindmapTitleCache(prev => ({ ...prev, [id]: 'Private mindmap' }))
       }
     } catch (e) {
       console.warn('[Chat] failed to fetch mindmap title', e)
-      setMindmapTitleCache(prev => ({ ...prev, [key]: 'Mindmap' }))
+      setMindmapTitleCache(prev => ({ ...prev, [id]: 'Mindmap' }))
     } finally {
-      pendingMindmapTitleFetch.current.delete(key)
+      pendingMindmapTitleFetch.current.delete(id)
     }
   }, [mindmapTitleCache])
 
@@ -2038,10 +2038,10 @@ const Chat: React.FC = () => {
         setShowThinkingIndicator(true)
         setIsAITyping(true)
       }
-      const mindmapKeyForSend = selectedMindMap?.key
+      const mindmapIdForSend = selectedMindMap?.id
       const textToSend = message.trim()
-      console.log('[Chat] Sending message', { textToSend, mindmapKeyForSend })
-      useChatStore.getState().sendMessage(textToSend, mindmapKeyForSend)
+      console.log('[Chat] Sending message', { textToSend, mindmapIdForSend })
+      useChatStore.getState().sendMessage(textToSend, mindmapIdForSend)
 
       if (activeConversation?.isAI) {
         const currentConvId = activeConversationId
@@ -2112,18 +2112,18 @@ const Chat: React.FC = () => {
     }
   }
 
-  const handleSelectMindMap = (mapKey: string) => {
-    console.log('[Chat] handleSelectMindMap key:', mapKey)
-    const selectedMap = maps.find((m) => m.key === mapKey)
+  const handleSelectMindMap = (mapId: string) => {
+    console.log('[Chat] handleSelectMindMap id:', mapId)
+    const selectedMap = maps.find((m) => m.id === mapId)
     if (selectedMap) {
       setSelectedMindMap({
-        key: mapKey,
+        id: mapId,
         title: selectedMap.title,
         visibility: selectedMap.visibility || 'private'
       })
-      console.log('[Chat] Selected mindmap set:', { key: mapKey, title: selectedMap.title })
+      console.log('[Chat] Selected mindmap set:', { id: mapId, title: selectedMap.title })
     } else {
-      console.warn('[Chat] Mindmap key not found:', mapKey, 'Available keys:', maps.map(m=>m.key))
+      console.warn('[Chat] Mindmap id not found:', mapId, 'Available ids:', maps.map(m=>m.id))
     }
     setShowMindMapSelector(false)
   }
@@ -2455,21 +2455,21 @@ const Chat: React.FC = () => {
     // Check if the message is a GIF
     const isGif = replyToMessage.text.match(/!\[GIF\]\((https?:\/\/[^\s)]+)\)/);
 
-    // Check if it's a mindmap (key preferred, permalink fallback)
-    const isMindmap = replyToMessage.type === "mindmap" && ((replyToMessage as any).mindmapKey || replyToMessage.mindmapPermalink);
+    // Check if it's a mindmap (id preferred, permalink fallback)
+    const isMindmap = replyToMessage.type === "mindmap" && ((replyToMessage as any).mindmapId || replyToMessage.mindmapPermalink);
 
-    // Resolve title via key; if not cached locally, trigger a background fetch (no global injection)
+    // Resolve title via id; if not cached locally, trigger a background fetch (no global injection)
     const mindmapTitle = isMindmap ? (() => {
-      const key = (replyToMessage as any).mindmapKey as string | undefined
-      if (!key) return 'Mindmap'
+      const id = (replyToMessage as any).mindmapId as string | undefined
+      if (!id) return 'Mindmap'
       const mapsState = useMindMapStore.getState().maps
-      const found = mapsState.find(m => m.key === key)
+      const found = mapsState.find(m => m.id === id)
       if (found && found.title) return found.title
-      const cached = mindmapTitleCache[key]
+      const cached = mindmapTitleCache[id]
       if (cached) return cached
       // Kick off background fetch
-  ensureMindmapTitle(key)
-  return key.length > 8 ? key.slice(0,8) + '…' : 'Mindmap'
+  ensureMindmapTitle(id)
+  return id.length > 8 ? id.slice(0,8) + '…' : 'Mindmap'
     })() : null;
 
     return (
@@ -3139,7 +3139,7 @@ const Chat: React.FC = () => {
                         <div className="w-full min-h-[36px] p-[1vh] pr-20 rounded-xl bg-gradient-to-br from-slate-700/60 to-slate-800/60 backdrop-blur-sm border border-slate-600/30 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/25 text-slate-200 transition-all duration-200 shadow-lg text-[1.6vh]">
                           {selectedMindMap && (
                             <MindMapChip
-                              mapId={selectedMindMap.key}
+                              mapId={selectedMindMap.id}
                               mapTitle={selectedMindMap.title}
                               visibility={selectedMindMap.visibility}
                               onRemove={handleRemoveMindMap}
@@ -3470,13 +3470,13 @@ const MessageBubble: React.FC<{
                       {activeConversation?.isAI &&
                         index > 0 &&
                         messages[index - 1].senderId === "me" &&
-                        (messages[index - 1] as any).mindmapKey &&
-                        previewMaps[(messages[index - 1] as any).mindmapKey || ''] &&
-                        previewMaps[(messages[index - 1] as any).mindmapKey || '']?.actionTaken === null &&
+                        (messages[index - 1] as any).mindmapId &&
+                        previewMaps[(messages[index - 1] as any).mindmapId || ''] &&
+                        previewMaps[(messages[index - 1] as any).mindmapId || '']?.actionTaken === null &&
                         msg.type !== "accepted-mindmap" &&
                         msg.type !== "rejected-mindmap" && (
                           <PreviewMindMapNode
-                            mapId={(messages[index - 1] as any).mindmapKey || ''}
+                            mapId={(messages[index - 1] as any).mindmapId || ''}
                             conversationId={msg.conversationId}
                             messageId={msg.id}
                           />
@@ -3492,12 +3492,12 @@ const MessageBubble: React.FC<{
                           <X className="h-5 w-5 text-red-400" />
                           <span className="font-medium">{msg.text}</span>
                         </div>
-          ) : msg.type === "mindmap" && (msg as any).mindmapKey ? (
+          ) : msg.type === "mindmap" && (msg as any).mindmapId ? (
                         <div>
                           <div className="mb-3">
                             <ChatMindMapNode
-            id={(msg as any).mindmapKey}
-            data={{ label: msg.text, mapId: (msg as any).mindmapKey }}
+            id={(msg as any).mindmapId}
+            data={{ label: msg.text, mapId: (msg as any).mindmapId }}
                               isConnectable={false}
                             />
                           </div>
@@ -3639,12 +3639,12 @@ const MessageBubble: React.FC<{
                 ) : (
                   <>
                     {msg.replyToId && renderReplyContext(msg.replyToId)}
-        {msg.type === "mindmap" && (msg as any).mindmapKey ? (
+        {msg.type === "mindmap" && (msg as any).mindmapId ? (
                       <div>
                         <div className="mb-2">
                           <ChatMindMapNode
-          id={(msg as any).mindmapKey}
-          data={{ label: msg.text, mapId: (msg as any).mindmapKey }}
+          id={(msg as any).mindmapId}
+          data={{ label: msg.text, mapId: (msg as any).mindmapId }}
                             isConnectable={false}
                           />
                         </div>
