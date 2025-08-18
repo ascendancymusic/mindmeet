@@ -3610,7 +3610,7 @@ export default function MindMap() {
   if (MapId && editedTitle.trim() !== "") {
       setIsSaving(true);
       try {
-  await updateMap(currentMap?.permalink || MapId, nodes, edges, editedTitle, user?.id || '', {
+  await updateMap(currentMap?.id || MapId, nodes, edges, editedTitle, user?.id || '', {
           edgeType,
           backgroundColor: backgroundColor || undefined,
           dotColor: dotColor || undefined,
@@ -3648,7 +3648,7 @@ export default function MindMap() {
     }
     setCanUndo(false)
     setCanRedo(false)
-  }, [MapId, currentMap?.permalink, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor, drawingData]);
+  }, [MapId, currentMap?.id, currentMap?.permalink, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor, drawingData]);
 
   // Autosave function - uses the same save logic as manual save
   const scheduleAutosave = useCallback(() => {

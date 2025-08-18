@@ -49,7 +49,8 @@ interface MindMapState {
   mapBackup: MindMap | null;
   addMap: (title: string, userId: string) => Promise<string>;
   cloneMap: (mapPermalink: string, userId: string) => Promise<string>;
-  updateMap: (permalink: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData }) => Promise<void>;
+  // First arg can be a UUID mindmap id (preferred) or legacy permalink
+  updateMap: (idOrPermalink: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData }) => Promise<void>;
   deleteMap: (permalink: string, userId: string) => void;
   setCurrentMap: (id: string | null) => void;
   updateMapTitle: (permalink: string, title: string) => void;
@@ -68,6 +69,8 @@ interface MindMapState {
   setMaps: (maps: MindMap[]) => void;
   setCollaborationMaps: (maps: MindMap[]) => void;
 }
+
+const isUUID = (val: string | undefined | null) => !!val && /^[0-9a-fA-F-]{36}$/.test(val);
 
 export const useMindMapStore = create<MindMapState>()((set, get) => ({
   aiProposedChanges: null,
@@ -225,7 +228,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData } = map;
+    const { id, permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -247,42 +250,57 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       if (isCollaboratorEdit) {
         // For collaborator edits, only update json_data and updated_at
         console.log("Saving as collaborator - only updating json_data");
-
-        // First, find the correct mindmap record
-        const { data: mindmaps, error: fetchError } = await supabase
-          .from('mindmaps')
-          .select('creator, collaborators')
-          .eq('permalink', permalink);
-
-        if (fetchError || !mindmaps || mindmaps.length === 0) {
-          console.error('Error finding mindmap for collaborator edit:', fetchError);
-          return;
-        }
-
-        // Find the mindmap where user is a collaborator
-        const targetMindmap = mindmaps.find(map =>
-          Array.isArray(map.collaborators) && map.collaborators.includes(effectiveUserId)
-        );
-
-        if (!targetMindmap) {
-          console.error('User is not a collaborator on any mindmap with this ID');
-          return;
-        }
-
-        // Update only json_data, drawing_data and updated_at
+        let targetCreator: string | null = null;
+        let mindmapId: string | null = null;
+        if (isUUID(id)) {
+          const { data: record, error: fetchErr } = await supabase
+            .from('mindmaps')
+            .select('id, creator')
+            .eq('id', id)
+            .single();
+          if (fetchErr || !record) { console.error('Error fetching mindmap by id for collaborator edit:', fetchErr); return; }
+          const { data: collab, error: collabErr } = await supabase
+            .from('mindmap_collaborations')
+            .select('mindmap_id')
+            .eq('mindmap_id', id)
+            .eq('collaborator_id', effectiveUserId)
+            .eq('status', 'accepted')
+            .maybeSingle();
+          if (collabErr || !collab) { console.error('Not an accepted collaborator for this id'); return; }
+          mindmapId = record.id; targetCreator = record.creator;
+        } else if (permalink) {
+          const { data: candidates, error: fetchErr } = await supabase
+            .from('mindmaps')
+            .select('id, creator')
+            .eq('permalink', permalink);
+          if (fetchErr || !candidates || candidates.length === 0) { console.error('Error finding mindmap(s) via permalink:', fetchErr); return; }
+            const ids = candidates.map(m=>m.id);
+            const { data: collabs, error: collabErr } = await supabase
+              .from('mindmap_collaborations')
+              .select('mindmap_id')
+              .in('mindmap_id', ids)
+              .eq('collaborator_id', effectiveUserId)
+              .eq('status','accepted');
+            if (collabErr) { console.error('Error checking collaborator permissions:', collabErr); return; }
+            const authId = collabs?.[0]?.mindmap_id;
+            if (!authId) { console.error('User not collaborator on this permalink'); return; }
+            const target = candidates.find(m=>m.id===authId);
+            if (!target) { console.error('Authorized mindmap not found in candidates'); return; }
+            mindmapId = target.id; targetCreator = target.creator;
+        } else { console.error('No identifier provided for collaborator edit'); return; }
         const { error: updateError } = await supabase
-          .from("mindmaps")
+          .from('mindmaps')
           .update({
             json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
             drawing_data: compressDrawingData(drawingData),
             updated_at: new Date().toISOString()
           })
-          .eq("permalink", permalink)
-          .eq("creator", targetMindmap.creator);
-
+          .eq('id', mindmapId!)
+          .eq('creator', targetCreator!);
         error = updateError;
       } else {
         // Original logic for creators
+  console.log('[saveMapToSupabase] Creator save start', { id, permalink, title, is_main, visibility });
         const validCreatedAt = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
         const validUpdatedAt = updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString();
 
@@ -302,14 +320,50 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           published_at: published_at,
         };
 
-        if (is_main) {
+        // Fast path: if no id and no existing record by permalink, insert immediately
+        let existingId: string | null = null;
+        if (isUUID(id)) {
+          const { data: existingById, error: checkIdErr } = await supabase
+            .from('mindmaps')
+            .select('id')
+            .eq('id', id)
+            .eq('creator', effectiveUserId)
+            .maybeSingle();
+          if (checkIdErr) console.warn('[saveMapToSupabase] check existing by id error', checkIdErr);
+          if (existingById) existingId = existingById.id;
+        } else if (permalink) {
+          const { data: existingByPermalink, error: checkPermErr } = await supabase
+            .from('mindmaps')
+            .select('id')
+            .eq('permalink', permalink)
+            .eq('creator', effectiveUserId)
+            .maybeSingle();
+          if (checkPermErr) console.warn('[saveMapToSupabase] check existing by permalink error', checkPermErr);
+          if (existingByPermalink) existingId = existingByPermalink.id;
+        }
+
+        if (!existingId) {
+          console.log('[saveMapToSupabase] No existing record found – performing INSERT');
+          const { data: insertedMap, error: insertError } = await supabase
+            .from('mindmaps')
+            .insert(mapData)
+            .select('id')
+            .single();
+          error = insertError;
+          if (!error && insertedMap?.id) {
+            console.log('[saveMapToSupabase] Insert successful, new id:', insertedMap.id);
+            set((state) => ({
+              maps: state.maps.map((m) => (m.permalink === permalink && !m.id) ? { ...m, id: insertedMap.id } : m),
+            }));
+          }
+        } else if (is_main) {
           // For main mindmaps, first unset any existing main maps for this user
           const { error: resetError } = await supabase
             .from("mindmaps")
             .update({ is_main: false })
             .eq("creator", effectiveUserId)
             .eq("is_main", true)
-            .neq("permalink", permalink);
+      .neq(isUUID(id) ? 'id' : 'permalink', isUUID(id) ? id : permalink);
 
           if (resetError) {
             console.error("Error resetting main maps:", resetError.message);
@@ -317,48 +371,35 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
           // Then update the current map with a regular update instead of upsert
           const { error: updateError } = await supabase
-            .from("mindmaps")
+            .from('mindmaps')
             .update(mapData)
-            .eq("permalink", permalink)
-            .eq("creator", effectiveUserId);
+            .eq(isUUID(id) ? 'id' : 'permalink', isUUID(id) ? id : permalink)
+            .eq('creator', effectiveUserId);
 
           error = updateError;
         } else {
-          // For non-main mindmaps, check if the record exists first
-          const { data: existingMap } = await supabase
-            .from("mindmaps")
-            .select("permalink")
-            .eq("permalink", permalink)
-            .eq("creator", effectiveUserId)
-            .single();
-
-          if (existingMap) {
-            // Update existing map
-            const { error: updateError } = await supabase
-              .from("mindmaps")
-              .update(mapData)
-              .eq("permalink", permalink)
-              .eq("creator", effectiveUserId);
-
-            error = updateError;
-          } else {
-            // Insert new map and get the generated id
-            const { data: insertedMap, error: insertError } = await supabase
-              .from("mindmaps")
-              .insert(mapData)
-              .select("id")
-              .single();
-
-            error = insertError;
-
-            // Update the local store with the generated id
-            if (!error && insertedMap?.id) {
-              set((state) => ({
-                maps: state.maps.map((map) =>
-                  map.permalink === permalink ? { ...map, id: insertedMap.id } : map
-                ),
-              }));
+          // Non-main and record existed: perform update
+          console.log('[saveMapToSupabase] Existing record found – performing UPDATE', { id, permalink });
+          const { error: updateError } = await supabase
+            .from('mindmaps')
+            .update(mapData)
+            .eq(isUUID(id) ? 'id' : 'permalink', isUUID(id) ? id : permalink)
+            .eq('creator', effectiveUserId);
+          if (updateError) {
+            console.warn('[saveMapToSupabase] Update failed, attempting fallback UPDATE by permalink (legacy).', updateError);
+            if (permalink) {
+              const { error: fallbackError } = await supabase
+                .from('mindmaps')
+                .update(mapData)
+                .eq('permalink', permalink)
+                .eq('creator', effectiveUserId);
+              if (fallbackError) console.error('[saveMapToSupabase] Fallback update also failed', fallbackError);
+              error = fallbackError;
+            } else {
+              error = updateError;
             }
+          } else {
+            error = updateError;
           }
         }
       }
@@ -639,50 +680,67 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     return permalink;
   },
-  updateMap: async (permalink, nodes, edges, title, userId, customization = { edgeType: 'default' }) => {
+  updateMap: async (idOrPermalink, nodes, edges, title, userId, customization = { edgeType: 'default' }) => {
     if (!Array.isArray(nodes) || !Array.isArray(edges)) {
       console.error('Invalid data: nodes and edges must be arrays');
       return;
     }
 
     // Extract customization data with defaults
-    const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', drawingData } = customization;
+  const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', drawingData } = customization;
+  const identifier = idOrPermalink;
+  const identifierIsId = isUUID(identifier);
 
-    // Fetch the mindmap to get the 'id', allowing access for creator or collaborators
-    const { data: mindmaps, error: fetchError } = await supabase
-      .from('mindmaps')
-      .select('id, creator, collaborators')
-      .eq('permalink', permalink);
-
-    if (fetchError || !mindmaps || mindmaps.length === 0) {
-      console.error('Error fetching mindmap id:', fetchError);
-      console.error('No mindmap found with permalink:', permalink, 'for user:', userId);
-      return;
+    // Fetch candidate mindmaps (no collaborators column anymore)
+    let mapId: string | null = null;
+    let isCreator = false;
+    let isCollaborator = false;
+    if (identifierIsId) {
+      const { data: record, error: fetchErr } = await supabase
+        .from('mindmaps')
+        .select('id, creator')
+        .eq('id', identifier)
+        .maybeSingle();
+      if (fetchErr || !record) { console.error('Mindmap not found by id:', fetchErr); return; }
+      mapId = record.id;
+      isCreator = record.creator === userId;
+      if (!isCreator) {
+        const { data: collab, error: collabErr } = await supabase
+          .from('mindmap_collaborations')
+          .select('mindmap_id')
+          .eq('mindmap_id', record.id)
+          .eq('collaborator_id', userId)
+          .eq('status', 'accepted')
+          .maybeSingle();
+        if (collabErr) { console.error('Error checking collaboration:', collabErr); return; }
+        isCollaborator = !!collab;
+      }
+    } else {
+      const { data: candidates, error: fetchErr } = await supabase
+        .from('mindmaps')
+        .select('id, creator')
+        .eq('permalink', identifier);
+      if (fetchErr || !candidates || candidates.length === 0) { console.error('No mindmap found with permalink:', identifier); return; }
+      const owned = candidates.find(m => m.creator === userId);
+      if (owned) { mapId = owned.id; isCreator = true; }
+      else {
+        const candidateIds = candidates.map(m=>m.id);
+        const { data: collabMatches, error: collabErr } = await supabase
+          .from('mindmap_collaborations')
+          .select('mindmap_id')
+          .in('mindmap_id', candidateIds)
+          .eq('collaborator_id', userId)
+          .eq('status', 'accepted');
+        if (collabErr) { console.error('Error checking collaborations:', collabErr); return; }
+        if (collabMatches && collabMatches.length>0) { mapId = collabMatches[0].mindmap_id; isCollaborator = true; }
+      }
     }
-
-    // Find the mindmap where user is either creator or collaborator
-    const mindmap = mindmaps.find(map =>
-      map.creator === userId ||
-      (Array.isArray(map.collaborators) && map.collaborators.includes(userId))
-    );
-
-    if (!mindmap?.id) {
-      console.error('User does not have permission to edit any mindmap with permalink:', permalink, 'User:', userId);
-      return;
-    }
-
-    // Check if user has permission to edit (is creator or collaborator)
-    const isCreator = mindmap.creator === userId;
-    const isCollaborator = Array.isArray(mindmap.collaborators) && mindmap.collaborators.includes(userId);
-
-    if (!isCreator && !isCollaborator) {
-      console.error('User does not have permission to edit this mindmap:', permalink, 'User:', userId);
-      return;
-    }
-
-    const mapId = mindmap.id;
+    if (!mapId) { console.error('User does not have permission to edit this mindmap:', identifier); return; }
+    if (!isCreator && !isCollaborator) { console.error('User lacks edit permission (post-migration):', identifier); return; }
     const updatedNodes = [...nodes];
-    const currentMap = get().maps.find((map) => map.permalink === permalink) || get().collaborationMaps.find((map) => map.permalink === permalink);
+    const currentMap = identifierIsId
+      ? (get().maps.find(m=>m.id===identifier) || get().collaborationMaps.find(m=>m.id===identifier))
+      : (get().maps.find(m=>m.permalink===identifier) || get().collaborationMaps.find(m=>m.permalink===identifier));
 
     // Find deleted image and audio nodes to clean up their files
     // First check if we have a current map to compare against
@@ -950,7 +1008,9 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     });
 
     // Save the updated map - check both maps and collaborationMaps
-    const updatedMap = get().maps.find((map) => map.permalink === permalink) || get().collaborationMaps.find((map) => map.permalink === permalink);
+    const updatedMap = identifierIsId
+      ? (get().maps.find(m=>m.id===identifier) || get().collaborationMaps.find(m=>m.id===identifier))
+      : (get().maps.find(m=>m.permalink===identifier) || get().collaborationMaps.find(m=>m.permalink===identifier));
 
     if (updatedMap) {
       const updatedMapData = {
@@ -966,9 +1026,9 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       };
 
       // Determine if this is a collaborator edit
-      const isCollaboratorEdit = !isCreator && isCollaborator;
+  const isCollaboratorEdit = !isCreator && isCollaborator;
 
-      await get().saveMapToSupabase(updatedMapData, userId, isCollaboratorEdit);
+  await get().saveMapToSupabase(updatedMapData, userId, isCollaboratorEdit);
     }
   },
   deleteMap: (permalink, userId) => {
