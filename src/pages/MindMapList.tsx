@@ -724,12 +724,150 @@ export default function MindMapList() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [mapToDelete, setMapToDelete] = useState<string | null>(null)
   const [mapToEdit, setMapToEdit] = useState<string | null>(null)
+  const [collaborationToLeave, setCollaborationToLeave] = useState<string | null>(null)
   const [newMapTitle, setNewMapTitle] = useState("")
   const [viewMode, setViewMode] = useState<"owned" | "collaboration">("owned")
+  // Sub-tab state for collaboration view (accepted vs pending invites)
+  const [collaborationSubtab, setCollaborationSubtab] = useState<'all' | 'pending'>('all')
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [showCloneSuccessPopup, setShowCloneSuccessPopup] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const reactFlowRef = useRef<ReactFlowInstance>(null)
+
+  // Pending collaboration invitations state
+  interface PendingInvite {
+    inviteId: string
+    mindmapId: string
+    inviterId: string
+    inviterUsername?: string
+    inviterAvatar?: string | null
+    mindmapTitle?: string
+    mindmapPermalink?: string
+    createdAt?: string
+  visibility?: string
+  nodes?: any[]
+  edges?: any[]
+  edgeType?: string
+  backgroundColor?: string
+  updatedAt?: number
+  }
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+  const [isLoadingPendingInvites, setIsLoadingPendingInvites] = useState(false)
+
+  const fetchPendingInvites = useCallback(async () => {
+    if (!isValidUserId) return
+    setIsLoadingPendingInvites(true)
+    try {
+      const { data: inviteRows, error: inviteError } = await supabase
+        .from('mindmap_collaborations')
+        .select('id,mindmap_id,inviter_id,created_at')
+        .eq('collaborator_id', userId)
+        .eq('status', 'pending')
+
+      if (inviteError) throw inviteError
+      if (!inviteRows || inviteRows.length === 0) {
+        setPendingInvites([])
+        return
+      }
+
+      const mindmapIds = [...new Set(inviteRows.map(r => r.mindmap_id).filter(Boolean))]
+      const inviterIds = [...new Set(inviteRows.map(r => r.inviter_id).filter(Boolean))]
+
+      let mindmapsById: Record<string, any> = {}
+      if (mindmapIds.length > 0) {
+        const { data: mindmapsData, error: mindmapsError } = await supabase
+          .from('mindmaps')
+          .select('id,permalink,title,visibility,json_data,updated_at')
+          .in('id', mindmapIds)
+        if (mindmapsError) throw mindmapsError
+        mindmapsData?.forEach(m => { mindmapsById[m.id] = m })
+      }
+
+      let profilesById: Record<string, any> = {}
+      if (inviterIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id,username,avatar_url')
+          .in('id', inviterIds)
+        if (profilesError) throw profilesError
+        profilesData?.forEach(p => { profilesById[p.id] = p })
+      }
+
+      const combined: PendingInvite[] = inviteRows.map(r => {
+        const mm = mindmapsById[r.mindmap_id]
+        let nodes: any[] = []
+        let edges: any[] = []
+        let edgeType: string | undefined
+        let backgroundColor: string | undefined
+        if (mm?.json_data) {
+          try {
+            const data = typeof mm.json_data === 'string' ? JSON.parse(mm.json_data) : mm.json_data
+            nodes = data?.nodes || []
+            edges = data?.edges || []
+            edgeType = data?.edgeType
+            backgroundColor = data?.backgroundColor
+          } catch (err) {
+            console.warn('Failed to parse json_data for pending invite mindmap', err)
+          }
+        }
+        return {
+          inviteId: r.id,
+          mindmapId: r.mindmap_id,
+          inviterId: r.inviter_id,
+          inviterUsername: profilesById[r.inviter_id]?.username,
+          inviterAvatar: profilesById[r.inviter_id]?.avatar_url,
+          mindmapTitle: mm?.title,
+          mindmapPermalink: mm?.permalink,
+          visibility: mm?.visibility,
+            nodes,
+            edges,
+            edgeType,
+            backgroundColor,
+            updatedAt: mm?.updated_at ? new Date(mm.updated_at).getTime() : undefined,
+          createdAt: r.created_at,
+        }
+      })
+      setPendingInvites(combined)
+    } catch (e) {
+      console.error('Error fetching pending invites:', e)
+    } finally {
+      setIsLoadingPendingInvites(false)
+    }
+  }, [isValidUserId, userId])
+
+  const handleAcceptInvite = useCallback(async (invite: PendingInvite) => {
+    const { showToast } = useToastStore.getState()
+    try {
+      const { error } = await supabase
+        .from('mindmap_collaborations')
+  // Update only existing columns: status and updated_at
+  .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('id', invite.inviteId)
+      if (error) throw error
+      await fetchCollaborationMaps(userId!)
+      setPendingInvites(prev => prev.filter(p => p.inviteId !== invite.inviteId))
+      showToast('Invitation accepted', 'success')
+    } catch (e) {
+      console.error('Error accepting invite:', e)
+      showToast('Failed to accept invitation', 'error')
+    }
+  }, [fetchCollaborationMaps, userId])
+
+  const handleRejectInvite = useCallback(async (invite: PendingInvite) => {
+    const { showToast } = useToastStore.getState()
+    try {
+      const { error } = await supabase
+        .from('mindmap_collaborations')
+        .delete()
+        .eq('id', invite.inviteId)
+      if (error) throw error
+      setPendingInvites(prev => prev.filter(p => p.inviteId !== invite.inviteId))
+      showToast('Invitation rejected', 'info')
+    } catch (e) {
+      console.error('Error rejecting invite:', e)
+      showToast('Failed to reject invitation', 'error')
+    }
+  }, [])
 
   const createGroup = async (name: string, mindmapIds: string[], icon: string) => {
     if (!isValidUserId) return
@@ -1039,11 +1177,11 @@ export default function MindMapList() {
       if (isValidUserId) {
         setIsLoading(true)
         try {
-          // Load maps and groups in parallel for better performance
           await Promise.all([
             fetchMaps(userId),
             fetchCollaborationMaps(userId),
-            fetchGroups()
+            fetchGroups(),
+            fetchPendingInvites(),
           ])
         } catch (error) {
           console.error("Error fetching data:", error)
@@ -1055,9 +1193,8 @@ export default function MindMapList() {
         setIsLoading(false)
       }
     }
-
     fetchData()
-  }, [isValidUserId, userId, fetchMaps, fetchCollaborationMaps])
+  }, [isValidUserId, userId, fetchMaps, fetchCollaborationMaps, fetchPendingInvites])
 
   /**
    * Update group memberships when maps change
@@ -1388,6 +1525,34 @@ export default function MindMapList() {
     }
   }
 
+  // Leave collaboration (remove self as collaborator on a map)
+  const handleLeaveCollaboration = useCallback(async () => {
+    if (!collaborationToLeave || !isValidUserId) return
+    const { showToast } = useToastStore.getState()
+    try {
+      // Find collaboration record for this user and mindmap id by joining via permalink -> id
+      // First get mindmap id from permalink
+      const target = collaborationMaps.find(m => m.permalink === collaborationToLeave)
+      if (!target?.id) {
+        showToast('Could not resolve mindmap', 'error')
+        return
+      }
+      const { error: delError } = await supabase
+        .from('mindmap_collaborations')
+        .delete()
+        .eq('mindmap_id', target.id)
+        .eq('collaborator_id', userId)
+        .eq('status', 'accepted')
+      if (delError) throw delError
+      await fetchCollaborationMaps(userId!)
+      setCollaborationToLeave(null)
+      showToast('Left collaboration', 'success')
+    } catch (e) {
+      console.error('Error leaving collaboration:', e)
+      showToast('Failed to leave collaboration', 'error')
+    }
+  }, [collaborationToLeave, isValidUserId, userId, collaborationMaps, fetchCollaborationMaps])
+
   return (
     <div className="max-w-4xl xl:max-w-[50vw] mx-auto p-4 xl:p-[2vh]">
       {/* Enhanced Header with Integrated Groups */}
@@ -1420,6 +1585,7 @@ export default function MindMapList() {
                 onClick={() => {
                   setViewMode("collaboration")
                   setSelectedGroupId(null) // Clear group selection when switching to collaboration view
+                  setCollaborationSubtab('all') // reset to default
                 }}
                 className={`${isSmallScreen ? "px-[1vh] py-[0.8vh]" : "px-[1.5vh] py-[0.8vh]"} rounded-lg text-[1.4vh] font-medium transition-all duration-200 ${viewMode === "collaboration"
                   ? "bg-gradient-to-r from-blue-600/90 to-purple-600/90 text-white shadow-lg shadow-blue-500/25 backdrop-blur-sm border border-blue-500/30"
@@ -1430,9 +1596,18 @@ export default function MindMapList() {
                   <div className="flex items-center space-x-[0.5vh]">
                     <Users className="w-[1.5vh] h-[1.5vh]" />
                     <span>({collaborationMaps.length})</span>
+                    {pendingInvites.length > 0 && (
+                      <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.6vh] h-[1.6vh] px-[0.4vh] text-[1vh] font-semibold rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow leading-none">
+                        {pendingInvites.length}
+                      </span>
+                    )}
                   </div>
                 ) : (
-                  `Collaborations (${collaborationMaps.length})`
+                  <span className="flex items-center gap-2">Collaborations ({collaborationMaps.length}) {pendingInvites.length > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[2vh] h-[2vh] px-[0.6vh] text-[1.1vh] font-semibold rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow leading-none">
+                      {pendingInvites.length}
+                    </span>
+                  )}</span>
                 )}
               </button>
             </div>
@@ -1549,7 +1724,7 @@ export default function MindMapList() {
             {/* New Group Button - Integrated within group tabs */}
             <button
               onClick={() => setIsCreatingGroup(true)}
-              className="flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] bg-slate-700/20 text-slate-400 hover:bg-emerald-600/20 hover:text-emerald-300 border border-slate-600/30 hover:border-emerald-500/50 rounded-lg text-[1.3vh] font-medium transition-all duration-200 group"
+              className="flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] bg-slate-700/20 text-slate-400 hover:bg-blue-600/20 hover:text-blue-300 border border-slate-600/30 hover:border-blue-500/50 rounded-lg text-[1.3vh] font-medium transition-all duration-200 group"
               title="Create new group"
             >
               <FolderPlus className="w-[1.4vh] h-[1.4vh] transition-transform group-hover:scale-110" />
@@ -1557,6 +1732,30 @@ export default function MindMapList() {
             </button>
 
 
+          </div>
+        )}
+        {viewMode === "collaboration" && (
+          <div className="flex flex-wrap gap-[0.8vh] pt-[1vh] border-t border-slate-700/30">
+            <button
+              onClick={() => setCollaborationSubtab('all')}
+              className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${collaborationSubtab === 'all'
+                ? 'bg-gradient-to-r from-blue-600/60 to-purple-600/60 text-white backdrop-blur-sm'
+                : 'bg-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300'
+                }`}
+            >
+              <Folder className="w-[1.4vh] h-[1.4vh]" />
+              <span>All ({collaborationMaps.length})</span>
+            </button>
+            <button
+              onClick={() => setCollaborationSubtab('pending')}
+              className={`flex items-center space-x-[0.8vh] px-[1.2vh] py-[0.6vh] rounded-lg text-[1.3vh] font-medium transition-all duration-200 ${collaborationSubtab === 'pending'
+                ? 'bg-gradient-to-r from-blue-600/60 to-purple-600/60 text-white backdrop-blur-sm'
+                : 'bg-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300'
+                }`}
+            >
+              <Users className="w-[1.4vh] h-[1.4vh]" />
+              <span>Pending ({pendingInvites.length})</span>
+            </button>
           </div>
         )}
       </div>
@@ -1570,6 +1769,72 @@ export default function MindMapList() {
         </div>
       ) : isLoading ? (
         <SkeletonLoader />
+      ) : viewMode === 'collaboration' && collaborationSubtab === 'pending' ? (
+        <>
+          {isLoadingPendingInvites && pendingInvites.length === 0 && (
+            <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
+              <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
+              <p className="text-slate-400 text-[1.6vh]">Loading invitations...</p>
+            </div>
+          )}
+          {!isLoadingPendingInvites && pendingInvites.length === 0 && (
+            <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
+              <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
+              <p className="text-slate-400 text-[1.6vh]">No pending collaboration invitations.</p>
+            </div>
+          )}
+          {pendingInvites.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh]">
+              {pendingInvites.map(invite => (
+                <div key={invite.inviteId} className="relative bg-gradient-to-br from-slate-800/70 via-slate-900/90 to-slate-800/70 backdrop-blur-xl rounded-2xl p-[2vh] border border-blue-600/40 shadow-xl">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      {invite.inviterAvatar ? (
+                        <img src={invite.inviterAvatar} alt={invite.inviterUsername || 'Inviter'} className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/40" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center ring-2 ring-blue-500/40">
+                          <span className="text-xs font-bold text-white">{invite.inviterUsername?.charAt(0)?.toUpperCase() || '?'}</span>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="text-base font-bold text-white">{invite.mindmapTitle || 'Mindmap'}</h4>
+                        {invite.inviterUsername && (
+                          <p className="text-xs text-blue-300 mt-1 font-medium">Invited by @{invite.inviterUsername}</p>
+                        )}
+                      </div>
+                    </div>
+                    {invite.visibility && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full border border-blue-500/30 text-[0.7rem] text-blue-200 capitalize">
+                        {invite.visibility === 'public' ? <Eye className="w-3 h-3" /> : invite.visibility === 'linkOnly' ? <Link className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                        {invite.visibility === 'linkOnly' ? 'Link' : invite.visibility}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mb-4 h-40 border border-slate-700/50 rounded-lg overflow-hidden relative">
+                    {invite.nodes && invite.nodes.length > 0 ? (
+                      <MindMapPreview map={invite as any} isSmallScreen={isSmallScreen} onInit={onInit} />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-slate-500 text-xs">
+                        Empty mindmap
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mb-4">Accept to start collaborating on this mindmap.</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleAcceptInvite(invite)}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 text-sm font-medium transition-all duration-200"
+                    >Accept</button>
+                    <button
+                      onClick={() => handleRejectInvite(invite)}
+                      className="flex-1 px-4 py-2 bg-slate-700/60 text-slate-200 rounded-lg hover:bg-slate-700/80 text-sm font-medium transition-all duration-200"
+                    >Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       ) : sortedMaps.length === 0 ? (
         <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-[4vh] border border-slate-700/30 text-center">
           <Network className="w-[6vh] h-[6vh] mx-auto text-slate-500 mb-[1.5vh]" />
@@ -1578,10 +1843,13 @@ export default function MindMapList() {
               ? `No mindmaps in "${groups.find((g) => g.id === selectedGroupId)?.name}" group yet.`
               : viewMode === "owned"
                 ? "No mindmaps yet. Create your first one!"
-                : "No collaboration maps yet. You'll see mindmaps here when someone adds you as a collaborator."}
+                : pendingInvites.length > 0
+                  ? "No accepted collaboration maps yet. Check the Pending tab to respond to invitations."
+                  : "No collaboration maps yet. You'll see mindmaps here when someone adds you as a collaborator."}
           </p>
         </div>
       ) : (
+        <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-[2vh]">
           {sortedMaps.map((map, index) => (
             <div
@@ -1745,10 +2013,23 @@ export default function MindMapList() {
                               </button>
                             )}
                             {viewMode === "collaboration" && (
-                              <div className="px-4 py-3 text-xs text-slate-500 flex items-center gap-3">
-                                <Users className="w-4 h-4" />
-                                Collaboration Map
-                              </div>
+                              <>
+                                <div className="px-4 py-3 text-xs text-slate-500 flex items-center gap-3">
+                                  <Users className="w-4 h-4" />
+                                  Collaboration Map
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCollaborationToLeave(map.permalink)
+                                    toggleMenu(map.permalink)
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center gap-3 transition-all duration-200"
+                                >
+                                  <X className="w-4 h-4" />
+                                  Leave Collaboration
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -1815,7 +2096,8 @@ export default function MindMapList() {
               </div>
             </div>
           ))}
-        </div>
+  </div>
+  </>
       )}
 
       {isCreating && (
@@ -2059,6 +2341,7 @@ export default function MindMapList() {
           isOpen={!!mapToEdit}
           onClose={() => setMapToEdit(null)}
           mapData={{
+            id: maps.find((map) => map.permalink === mapToEdit)?.id, // Add mindmap ID for collaboration functionality
             permalink: maps.find((map) => map.permalink === mapToEdit)?.permalink || "",
             title: maps.find((map) => map.permalink === mapToEdit)?.title || "",
             description: maps.find((map) => map.permalink === mapToEdit)?.description || "",
@@ -2075,6 +2358,24 @@ export default function MindMapList() {
 
       {/* Publish Success Modal */}
       <PublishSuccessModal isVisible={showSuccessPopup} />
+
+      {/* Leave Collaboration Confirmation */}
+      {collaborationToLeave && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={(e) => { if (e.target === e.currentTarget) setCollaborationToLeave(null) }}>
+          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <h2 className="text-xl font-bold text-white">Leave Collaboration</h2>
+            </div>
+            <p className="text-slate-300 mb-2">Are you sure you want to leave this collaboration?</p>
+            <p className="text-slate-400 text-sm mb-6">You will lose editing access unless re-invited.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setCollaborationToLeave(null)} className="px-6 py-2.5 text-slate-400 hover:text-slate-100 transition-colors font-medium">Cancel</button>
+              <button onClick={handleLeaveCollaboration} className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium">Leave</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clone Success Modal */}
       <CloneSuccessModal isVisible={showCloneSuccessPopup} />

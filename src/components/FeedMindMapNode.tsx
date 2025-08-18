@@ -189,7 +189,11 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         }
         const { data, error } = await supabase
           .from("mindmaps")
-          .select("permalink, id, title, json_data, creator, created_at, likes, liked_by, comment_count, saves, saved_by, description, visibility, updated_at, collaborators, published_at")
+          .select(`
+            permalink, id, title, json_data, creator, created_at, description, visibility, updated_at, published_at,
+            mindmap_like_counts (like_count),
+            mindmap_save_counts (save_count)
+          `)
           .eq("id", mindmap.id)
           .single();
 
@@ -200,13 +204,41 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
           return;
         }
 
+        // Process the data to normalize structure
+        const likes = data.mindmap_like_counts?.[0]?.like_count || 0;
+        const saves = data.mindmap_save_counts?.[0]?.save_count || 0;
+        
+        let liked_by: string[] = [];
+        let saved_by: string[] = [];
+        
+        // Fetch user interaction status if logged in
+        if (user?.id) {
+          const [{ data: likeData }, { data: saveData }] = await Promise.all([
+            supabase
+              .from("mindmap_likes")
+              .select("id")
+              .eq("mindmap_id", data.id)
+              .eq("user_id", user.id)
+              .single(),
+            supabase
+              .from("mindmap_saves")
+              .select("id")
+              .eq("mindmap_id", data.id)
+              .eq("user_id", user.id)
+              .single()
+          ]);
+          
+          liked_by = likeData ? [user.id] : [];
+          saved_by = saveData ? [user.id] : [];
+        }
+
         setLocalMindmap({
           ...data,
-          likes: data.likes ?? 0,
-          liked_by: data.liked_by ?? [],
-          comment_count: data.comment_count ?? 0,
-          saves: data.saves ?? 0,
-          saved_by: data.saved_by ?? [],
+          likes,
+          liked_by,
+          comment_count: 0, // TODO: Add comment count from comments table
+          saves,
+          saved_by,
         });
       } catch (error) {
         console.error("Error fetching mindmap data:", error);
@@ -220,7 +252,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
     } else {
       setIsLoading(false);
     }
-  }, [mindmap?.id, mindmap?.title]);
+  }, [mindmap?.id, mindmap?.title, user?.id]);
 
   // Fetch user profile
   useEffect(() => {
@@ -768,6 +800,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       {isInfoModalOpen && (
         <InfoModal
           mindmap={{
+            id: localMindmap.id,
             username: username,
             displayName: fullName,
             name: localMindmap.title,
@@ -794,6 +827,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           mapData={{
+            id: localMindmap.id, // Add mindmap ID for collaboration functionality
             permalink: localMindmap.permalink,
             title: localMindmap.title,
             description: localMindmap.description || '',

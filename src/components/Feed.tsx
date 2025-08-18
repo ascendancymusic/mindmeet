@@ -84,7 +84,11 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
 
       let query = supabase
         .from("mindmaps")
-        .select("permalink, id, title, json_data, likes, liked_by, comment_count, saves, saved_by, creator, created_at, description, visibility, is_main, collaborators, published_at")
+        .select(`
+          permalink, id, title, json_data, creator, created_at, description, visibility, is_main, published_at,
+          mindmap_like_counts (like_count),
+          mindmap_save_counts (save_count)
+        `)
         .eq("visibility", "public")
         .not("published_at", "is", null)
         .order("published_at", { ascending: false });
@@ -111,13 +115,23 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
         throw error;
       }
 
+      // Process mindmaps to normalize the data structure
+      const processedMindmaps = data?.map(mindmap => ({
+        ...mindmap,
+        likes: mindmap.mindmap_like_counts?.[0]?.like_count || 0,
+        saves: mindmap.mindmap_save_counts?.[0]?.save_count || 0,
+        liked_by: [],
+        saved_by: [],
+        comment_count: 0
+      })) || [];
+
       // Check if we have more data to load
-      setHasMore(data.length === pageSize);
+      setHasMore(data?.length === pageSize);
 
       if (isLoadingMore) {
-        setMindmaps(prev => [...prev, ...data]);
+        setMindmaps(prev => [...prev, ...processedMindmaps]);
       } else {
-        setMindmaps(data || []);
+        setMindmaps(processedMindmaps);
       }
     } catch (err: any) {
       console.error("Error fetching public mindmaps:", err);

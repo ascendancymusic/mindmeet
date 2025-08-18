@@ -133,9 +133,9 @@ interface SimilarMindMapNodeProps {
     creator: string; // Use creator ID to fetch the username and avatar
     updated_at?: string; // Add updated_at field
     saves?: number;
-    saved_by?: string[];
     likes?: number;
-    liked_by?: string[];
+    liked_by?: string[]; // Keep for backward compatibility during transition
+    saved_by?: string[]; // Keep for backward compatibility during transition
   };
 }
 
@@ -146,9 +146,14 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [localMindmap, setLocalMindmap] = useState<any>(mindmap);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false); const [commentsCount, setCommentsCount] = useState<number>(0);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false); 
+  const [commentsCount, setCommentsCount] = useState<number>(0);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080);
+  
+  // Track user interactions for UI state
+  const [userHasLiked, setUserHasLiked] = useState(false);
+  const [userHasSaved, setUserHasSaved] = useState(false);
 
   const { user } = useAuthStore();
 
@@ -156,19 +161,33 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
     onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
       setLocalMindmap((prev: any) =>
-        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink) ? { ...prev, likes: newLikes, liked_by: newLikedBy } : prev
+        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink) 
+          ? { ...prev, likes: newLikes, liked_by: newLikedBy || [] } 
+          : prev
       );
+      // Update user interaction state based on new data
+      setUserHasLiked(newLikedBy?.includes(user?.id || '') || false);
     },
     onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setLocalMindmap((prev: any) =>
-        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink) ? { ...prev, saves: newSaves, saved_by: newSavedBy } : prev
+        prev && (prev.permalink === mapPermalink || prev.key === mapPermalink) 
+          ? { ...prev, saves: newSaves, saved_by: newSavedBy || [] } 
+          : prev
       );
+      // Update user interaction state based on new data
+      setUserHasSaved(newSavedBy?.includes(user?.id || '') || false);
     },
     sendNotifications: true
   });
 
   // Memoize nodeTypes to prevent recreation on each render
-  const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []); useEffect(() => {
+  const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []); 
+
+  // Initialize user interaction states
+  useEffect(() => {
+    setUserHasLiked(localMindmap?.liked_by?.includes(user?.id || '') || false);
+    setUserHasSaved(localMindmap?.saved_by?.includes(user?.id || '') || false);
+  }, [localMindmap, user?.id]); useEffect(() => {
     const fetchProfile = async () => {
       const { data: profile, error } = await supabase
         .from("profiles")
@@ -421,12 +440,12 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
               className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
             >
               <Heart
-                className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${localMindmap.liked_by?.includes(user?.id || '')
+                className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${userHasLiked
                   ? 'text-blue-400 fill-blue-400'
                   : 'text-slate-400 group-hover/btn:text-blue-400'
                   }`}
               />
-              <span className={`text-sm font-medium transition-colors duration-200 ${localMindmap.liked_by?.includes(user?.id || '')
+              <span className={`text-sm font-medium transition-colors duration-200 ${userHasLiked
                 ? 'text-blue-400'
                 : 'text-slate-400 group-hover/btn:text-blue-400'
                 }`}>
@@ -455,12 +474,12 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
               className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
             >
               <Bookmark
-                className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${localMindmap.saved_by?.includes(user?.id || '')
+                className={`w-5 h-5 transition-all duration-200 group-hover/btn:scale-110 ${userHasSaved
                   ? 'text-blue-400 fill-blue-400'
                   : 'text-slate-400 group-hover/btn:text-blue-400'
                   }`}
               />
-              <span className={`text-sm font-medium transition-colors duration-200 ${localMindmap.saved_by?.includes(user?.id || '')
+              <span className={`text-sm font-medium transition-colors duration-200 ${userHasSaved
                 ? 'text-blue-400'
                 : 'text-slate-400 group-hover/btn:text-blue-400'
                 }`}>

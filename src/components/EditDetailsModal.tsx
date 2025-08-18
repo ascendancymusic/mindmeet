@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Eye, EyeOff, Link, Star, X, UserPlus, ChevronDown, HelpCircle } from "lucide-react";
 import UserSelectModal from "./UserSelectModal";
 import { supabase } from "../supabaseClient";
+import { useToastStore } from "../store/toastStore";
 
 interface EditDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   mapData: {
+    id?: string; // Add mindmap ID for collaboration queries
     permalink: string;
     title: string;
     description?: string;
@@ -47,7 +49,18 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [isUserSelectModalOpen, setIsUserSelectModalOpen] = useState(false);
-  const [collaboratorProfiles, setCollaboratorProfiles] = useState<Array<{ id: string, username: string, full_name?: string, avatar_url?: string }>>([]);
+  const [collaboratorProfiles, setCollaboratorProfiles] = useState<Array<{ 
+    id: string, 
+    username: string, 
+    full_name?: string, 
+    avatar_url?: string,
+    status: 'pending' | 'accepted'
+  }>>([]);
+  // Local state to track collaboration changes before saving
+  const [pendingCollaboratorChanges, setPendingCollaboratorChanges] = useState<{
+    toAdd: Array<{ id: string, username: string, full_name?: string, avatar_url?: string }>;
+    toRemove: Array<string>;
+  }>({ toAdd: [], toRemove: [] });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [saveAction, setSaveAction] = useState<"publish" | "save">("publish");
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
@@ -105,6 +118,11 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
 
     setIsSaving(true);
     try {
+      // Apply collaboration changes first if there are any
+      if (mapData.id && (pendingCollaboratorChanges.toAdd.length > 0 || pendingCollaboratorChanges.toRemove.length > 0)) {
+        await applyCollaborationChanges();
+      }
+
       // Determine if we should set published_at timestamp
       const shouldPublish = saveAction === "publish" && editDetails.visibility === "public";
 
@@ -121,7 +139,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
         visibility: editDetails.visibility,
         description: editDetails.description,
         is_main: editDetails.is_main,
-        collaborators: editDetails.collaborators,
+        collaborators: [], // Empty array since collaborations are now handled via mindmap_collaborations table
         published_at: shouldPublish ? new Date().toISOString() : mapData.published_at,
       });
 
@@ -192,33 +210,64 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
     return () => clearTimeout(timeoutId);
   }, [editDetails.permalink, originalPermalink]);
 
-  // Fetch collaborator profiles when modal opens or collaborators change
-  useEffect(() => {
-    const fetchCollaboratorProfiles = async () => {
-      if (!isOpen || editDetails.collaborators.length === 0) {
+  // Fetch collaborator profiles function
+  const fetchCollaboratorProfiles = async () => {
+    if (!isOpen || !mapData.id) {
+      setCollaboratorProfiles([]);
+      return;
+    }
+
+    try {
+      // Fetch collaborations from the new mindmap_collaborations table
+      const { data: collaborations, error: collaborationsError } = await supabase
+        .from('mindmap_collaborations')
+        .select('collaborator_id, status')
+        .eq('mindmap_id', mapData.id);
+
+      if (collaborationsError) {
+        console.error('Error fetching collaborations:', collaborationsError);
+        return;
+      }
+
+      if (!collaborations || collaborations.length === 0) {
         setCollaboratorProfiles([]);
         return;
       }
 
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, avatar_url')
-          .in('id', editDetails.collaborators);
+      // Fetch profiles for the collaborators
+      const collaboratorIds = collaborations.map(c => c.collaborator_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .in('id', collaboratorIds);
 
-        if (error) {
-          console.error('Error fetching collaborator profiles:', error);
-          return;
-        }
-
-        setCollaboratorProfiles(data || []);
-      } catch (error) {
-        console.error('Error fetching collaborator profiles:', error);
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        return;
       }
-    };
 
+      // Combine collaboration data with profile data
+      const collaboratorProfilesWithStatus = collaborations.map(collaboration => {
+        const profile = profiles?.find(p => p.id === collaboration.collaborator_id);
+        return {
+          id: profile?.id || collaboration.collaborator_id,
+          username: profile?.username || 'Unknown',
+          full_name: profile?.full_name,
+          avatar_url: profile?.avatar_url,
+          status: collaboration.status as 'pending' | 'accepted'
+        };
+      }).filter(c => c.username !== 'Unknown'); // Filter out any that couldn't find profile
+
+      setCollaboratorProfiles(collaboratorProfilesWithStatus);
+    } catch (error) {
+      console.error('Error fetching collaborator profiles:', error);
+    }
+  };
+
+  // Fetch collaborator profiles when modal opens or collaborators change
+  useEffect(() => {
     fetchCollaboratorProfiles();
-  }, [isOpen, editDetails.collaborators]);
+  }, [isOpen, mapData.id]);
 
   // Close dropdown when clicking outside or modal state changes
   useEffect(() => {
@@ -288,23 +337,121 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
   }, [showHelpTooltip]);
 
   // Handle adding/updating collaborators
-  const handleAddCollaborators = (selectedUsers: { id: string, username: string }[]) => {
-    const newCollaboratorIds = selectedUsers.map(user => user.id);
+  const handleAddCollaborators = async (selectedUsers: { id: string, username: string, full_name?: string, avatar_url?: string }[]) => {
+    // The selectedUsers now represents the final desired state of collaborators
+    // We need to figure out who to add and who to remove
+    
+    const currentCollaboratorIds = new Set(collaboratorProfiles.map(c => c.id));
+    const selectedUserIds = new Set(selectedUsers.map(u => u.id));
+    
+    // Users to add: selected but not currently collaborators
+    const usersToAdd = selectedUsers.filter(user => !currentCollaboratorIds.has(user.id));
+    
+    // Users to remove: currently collaborators but not selected
+    const usersToRemove = collaboratorProfiles
+      .filter(collaborator => !selectedUserIds.has(collaborator.id))
+      .map(collaborator => collaborator.id);
 
-    setEditDetails(prev => ({
-      ...prev,
-      collaborators: newCollaboratorIds
-    }));
+    // Update pending changes
+    setPendingCollaboratorChanges({
+      toAdd: usersToAdd,
+      toRemove: usersToRemove
+    });
 
+    console.log(`Staged ${usersToAdd.length} additions and ${usersToRemove.length} removals`);
     setIsUserSelectModalOpen(false);
   };
 
   // Handle removing a collaborator
   const handleRemoveCollaborator = (collaboratorId: string) => {
-    setEditDetails(prev => ({
-      ...prev,
-      collaborators: prev.collaborators.filter(id => id !== collaboratorId)
-    }));
+    // Check if this user is in pending to add list
+    const isInPendingAdd = pendingCollaboratorChanges.toAdd.some(u => u.id === collaboratorId);
+    
+    if (isInPendingAdd) {
+      // If they're pending to be added, just remove from the pending add list
+      setPendingCollaboratorChanges(prev => ({
+        ...prev,
+        toAdd: prev.toAdd.filter(u => u.id !== collaboratorId)
+      }));
+    } else {
+      // If they're an existing collaborator, add to pending removal list
+      setPendingCollaboratorChanges(prev => ({
+        ...prev,
+        toRemove: [...prev.toRemove.filter(id => id !== collaboratorId), collaboratorId]
+      }));
+    }
+
+    console.log(`Staged removal of collaborator: ${collaboratorId}`);
+  };
+
+  // Function to invite a user to a mindmap
+  const inviteUserToMindmap = async (mindmapId: string, userId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No authenticated user found');
+
+    const { error } = await supabase
+      .from('mindmap_collaborations')
+      .insert({
+        mindmap_id: mindmapId,
+        collaborator_id: userId,
+        inviter_id: user.id,
+        status: 'pending'
+      });
+
+    if (error) throw error;
+  };
+
+  // Apply pending collaboration changes to the database
+  const applyCollaborationChanges = async () => {
+    if (!mapData.id) throw new Error("No mindmap ID available");
+    const toast = useToastStore.getState();
+
+    try {
+      // Add new collaborators
+      for (const user of pendingCollaboratorChanges.toAdd) {
+        await inviteUserToMindmap(mapData.id, user.id);
+        console.log(`Sent invitation to ${user.username}`);
+      }
+
+      // Remove collaborators
+      for (const userId of pendingCollaboratorChanges.toRemove) {
+        const { error } = await supabase
+          .from("mindmap_collaborations")
+          .delete()
+          .eq("mindmap_id", mapData.id)
+          .eq("collaborator_id", userId);
+
+        if (error) throw error;
+        console.log(`Removed collaboration for user ${userId}`);
+      }
+
+      // Show success messages
+      if (pendingCollaboratorChanges.toAdd.length > 0) {
+        const usernames = pendingCollaboratorChanges.toAdd.map(u => u.username).join(", ");
+        if (pendingCollaboratorChanges.toAdd.length === 1) {
+          toast.showToast(`Invitation sent to ${usernames}`, 'success');
+        } else {
+          toast.showToast(`Invitations sent to ${usernames}`, 'success');
+        }
+      }
+
+      if (pendingCollaboratorChanges.toRemove.length > 0) {
+        const count = pendingCollaboratorChanges.toRemove.length;
+        if (count === 1) {
+          toast.showToast('Collaborator removed successfully', 'success');
+        } else {
+          toast.showToast(`${count} collaborators removed successfully`, 'success');
+        }
+      }
+
+      // Reset pending changes and refresh collaborators list
+      setPendingCollaboratorChanges({ toAdd: [], toRemove: [] });
+      fetchCollaboratorProfiles();
+    } catch (error) {
+      console.error("Failed to apply collaboration changes:", error);
+      useToastStore.getState().showToast("Failed to update collaborators", 'error');
+      throw error;
+    }
   };
 
   // ...existing code...
@@ -446,47 +593,192 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               className="flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 w-full bg-slate-800/50 text-slate-300 border border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"
             >
               <UserPlus className="w-4 h-4 mr-2 text-slate-400" />
-              <span className="font-medium">Add collaborators</span>
+              <span className="font-medium">Invite collaborators</span>
             </button>
 
-            {/* Display Current Collaborators */}
-            {collaboratorProfiles.length > 0 && (
+            {/* Display Current Collaborators and Pending Changes */}
+            {(collaboratorProfiles.length > 0 || pendingCollaboratorChanges.toAdd.length > 0) && (
               <div className="space-y-3">
-                <p className="text-xs text-slate-500 font-medium">Current collaborators:</p>
+                <p className="text-xs text-slate-500 font-medium">Collaborators & invitations:</p>
                 <div className="space-y-2">
-                  {collaboratorProfiles.map((collaborator) => (
+                  {/* Existing collaborators (show as pending removal if marked for deletion) */}
+                  {collaboratorProfiles
+                    .filter(collaborator => !pendingCollaboratorChanges.toRemove.includes(collaborator.id))
+                    .map((collaborator) => (
                     <div
                       key={collaborator.id}
-                      className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:bg-slate-700/30 transition-all duration-200"
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-200 ${
+                        collaborator.status === 'pending' 
+                          ? 'bg-orange-500/5 border-orange-500/30 hover:bg-orange-500/10' 
+                          : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/30'
+                      }`}
                     >
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-slate-600/50 flex-shrink-0 overflow-hidden mr-3 ring-2 ring-slate-700/30">
+                        <div className={`w-8 h-8 rounded-full flex-shrink-0 overflow-hidden mr-3 ring-2 ${
+                          collaborator.status === 'pending' 
+                            ? 'ring-orange-400/50 bg-orange-600/20' 
+                            : 'ring-slate-700/30 bg-slate-600/50'
+                        }`}>
                           {collaborator.avatar_url ? (
                             <img
                               src={collaborator.avatar_url}
                               alt={collaborator.username}
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover ${
+                                collaborator.status === 'pending' ? 'opacity-70' : ''
+                              }`}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300 font-medium text-sm bg-gradient-to-br from-slate-600 to-slate-700">
+                            <div className={`w-full h-full flex items-center justify-center font-medium text-sm ${
+                              collaborator.status === 'pending' 
+                                ? 'text-orange-300 bg-gradient-to-br from-orange-600/30 to-orange-700/30' 
+                                : 'text-slate-300 bg-gradient-to-br from-slate-600 to-slate-700'
+                            }`}>
                               {collaborator.username?.charAt(0).toUpperCase()}
                             </div>
                           )}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-200">@{collaborator.username}</p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-sm font-medium ${
+                              collaborator.status === 'pending' ? 'text-orange-200' : 'text-slate-200'
+                            }`}>
+                              @{collaborator.username}
+                            </p>
+                            {collaborator.status === 'pending' && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-orange-500/20 text-orange-300 rounded-full border border-orange-500/30">
+                                Pending
+                              </span>
+                            )}
+                          </div>
                           {collaborator.full_name && (
-                            <p className="text-xs text-slate-400">{collaborator.full_name}</p>
+                            <p className={`text-xs ${
+                              collaborator.status === 'pending' ? 'text-orange-400/70' : 'text-slate-400'
+                            }`}>
+                              {collaborator.full_name}
+                            </p>
+                          )}
+                          {collaborator.status === 'pending' && (
+                            <p className="text-xs text-orange-400/80 mt-0.5">
+                              Invitation sent - waiting for acceptance
+                            </p>
                           )}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveCollaborator(collaborator.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200"
-                        title="Remove collaborator"
+                        className="p-1.5 rounded-lg transition-all duration-200 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                        title={collaborator.status === 'pending' ? 'Cancel invitation' : 'Remove collaborator'}
                       >
                         <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Pending additions (will be added on save) */}
+                  {pendingCollaboratorChanges.toAdd.map((user) => (
+                    <div
+                      key={`pending-${user.id}`}
+                      className="flex items-center justify-between p-3 rounded-xl border transition-all duration-200 bg-blue-500/5 border-blue-500/30 hover:bg-blue-500/10"
+                    >
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden mr-3 ring-2 ring-blue-400/50 bg-blue-600/20">
+                          {user.avatar_url ? (
+                            <img
+                              src={user.avatar_url}
+                              alt={user.username}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center font-medium text-sm text-blue-300 bg-gradient-to-br from-blue-600/30 to-blue-700/30">
+                              {user.username?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-blue-200">
+                              @{user.username}
+                            </p>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30">
+                              Will be invited
+                            </span>
+                          </div>
+                          {user.full_name && (
+                            <p className="text-xs text-blue-400/70">
+                              {user.full_name}
+                            </p>
+                          )}
+                          <p className="text-xs text-blue-400/80 mt-0.5">
+                            Will receive invitation when you save changes
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCollaborator(user.id)}
+                        className="p-1.5 rounded-lg transition-all duration-200 text-blue-400 hover:text-red-400 hover:bg-red-500/10"
+                        title="Remove from pending invitations"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Collaborators marked for removal (shown with strikethrough) */}
+                  {collaboratorProfiles
+                    .filter(collaborator => pendingCollaboratorChanges.toRemove.includes(collaborator.id))
+                    .map((collaborator) => (
+                    <div
+                      key={`removing-${collaborator.id}`}
+                      className="flex items-center justify-between p-3 rounded-xl border transition-all duration-200 bg-red-500/5 border-red-500/30 hover:bg-red-500/10 opacity-75"
+                    >
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden mr-3 ring-2 ring-red-400/50 bg-red-600/20">
+                          {collaborator.avatar_url ? (
+                            <img
+                              src={collaborator.avatar_url}
+                              alt={collaborator.username}
+                              className="w-full h-full object-cover opacity-50"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center font-medium text-sm text-red-300 bg-gradient-to-br from-red-600/30 to-red-700/30">
+                              {collaborator.username?.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-red-200 line-through">
+                              @{collaborator.username}
+                            </p>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-300 rounded-full border border-red-500/30">
+                              Will be removed
+                            </span>
+                          </div>
+                          {collaborator.full_name && (
+                            <p className="text-xs text-red-400/70 line-through">
+                              {collaborator.full_name}
+                            </p>
+                          )}
+                          <p className="text-xs text-red-400/80 mt-0.5">
+                            Will be removed when you save changes
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Remove from pending removal list (undo the removal)
+                          setPendingCollaboratorChanges(prev => ({
+                            ...prev,
+                            toRemove: prev.toRemove.filter(id => id !== collaborator.id)
+                          }));
+                        }}
+                        className="p-1.5 rounded-lg transition-all duration-200 text-red-400 hover:text-green-400 hover:bg-green-500/10"
+                        title="Undo removal"
+                      >
+                        <X className="w-4 h-4 rotate-45" />
                       </button>
                     </div>
                   ))}
@@ -495,7 +787,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
             )}
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              Collaborators can edit this mindmap but cannot change its title, description, or settings.
+              Send collaboration invitations to other users. They'll receive a notification and can accept to gain edit access to this mindmap. Collaborators can edit content but cannot change title, description, or settings.
             </p>
           </div>
         </div>
@@ -657,7 +949,8 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
           onSelectUsers={handleAddCollaborators}
           initialMessage=""
           mode="collaborate"
-          existingCollaborators={editDetails.collaborators}
+          existingCollaborators={collaboratorProfiles.map(c => c.id)}
+          maxCollaborators={3}
         />
       )}
     </div>

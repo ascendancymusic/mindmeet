@@ -1,3 +1,20 @@
+/**
+ * Profile.tsx - User Profile Page
+ * 
+ * IMPORTANT: This component has been migrated to use optimized database tables instead of 
+ * array/JSONB columns for better performance and scalability.
+ * 
+ * Database Migration Details:
+ * - LIKES: Uses mindmap_likes + mindmap_like_counts tables instead of mindmaps.liked_by array
+ * - SAVES: Uses mindmap_saves + mindmap_save_counts tables instead of mindmaps.saved_by array and profiles.saves
+ * - COLLABORATIONS: Uses mindmap_collaborations table instead of mindmaps.collaborators array
+ * 
+ * Client-side arrays (liked_by, saved_by) are now simplified for UI state management:
+ * - Contains user ID only when user has liked/saved (for icon highlighting)
+ * - Actual counts come from dedicated count tables
+ * - Database operations handled by useMindMapActions hook
+ */
+
 import React, { useState, useEffect, useRef, useMemo } from "react"
 import { supabase } from "../supabaseClient"
 import { useAuthStore } from "../store/authStore"
@@ -70,6 +87,8 @@ import EditDetailsModal from '../components/EditDetailsModal'
 import ShareModal from '../components/ShareModal'
 import InfoModal from '../components/InfoModal'
 import PublishSuccessModal from '../components/PublishSuccessModal'
+import { Toast } from '../components/Toast'
+import { useToastStore } from '../store/toastStore'
 
 const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
   const bgColor = backgroundColor || '#11192C';
@@ -280,6 +299,7 @@ type UsernameStatus = "checking" | "available" | "taken" | "invalid" | "unavaila
 
 export default function Profile() {
   const { user } = useAuthStore()
+  const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
 
   // Add local state for maps instead of using mindMapStore
   const [userMaps, setUserMaps] = useState<any[]>([])
@@ -304,7 +324,7 @@ export default function Profile() {
       // Also update savedMaps when saving/unsaving from mindmaps tab
       const mapToUpdate = userMaps.find(map => map.id === mapPermalink || map.permalink === mapPermalink);
       if (mapToUpdate && user?.id) {
-        if (newSavedBy.includes(user.id)) {
+        if (newSavedBy.length > 0) {
           // Map was saved - add it to savedMaps if not already there
           setSavedMaps((prevSavedMaps) => {
             const exists = prevSavedMaps.find(savedMap => savedMap.id === mapToUpdate.id);
@@ -356,7 +376,7 @@ export default function Profile() {
       // Also update savedMaps when saving/unsaving from collaborations tab
       const mapToUpdate = collaborationMaps.find(map => map.id === mapPermalink || map.permalink === mapPermalink);
       if (mapToUpdate && user?.id) {
-        if (newSavedBy.includes(user.id)) {
+        if (newSavedBy.length > 0) {
           // Map was saved - add it to savedMaps if not already there
           setSavedMaps((prevSavedMaps) => {
             const exists = prevSavedMaps.find(savedMap => savedMap.id === mapToUpdate.id);
@@ -390,7 +410,7 @@ export default function Profile() {
     onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       // Update savedMaps state
       setSavedMaps((prevMaps) => {
-        if (user?.id && !newSavedBy.includes(user.id)) {
+        if (user?.id && newSavedBy.length === 0) {
           // Map was unsaved - remove it from savedMaps
           return prevMaps.filter(map => map.id !== mapPermalink && map.permalink !== mapPermalink);
         } else {
@@ -614,18 +634,73 @@ export default function Profile() {
         console.error("Error in profile fetch:", error)
       }
 
-      // Fetch user's own mindmaps
+      // Fetch user's own mindmaps with optimized database queries
       try {
         const { data: mapsData, error: mapsError } = await supabase
           .from("mindmaps")
-          .select("permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, published_at")
+          .select("permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, published_at")
           .eq("creator", user.id)
 
         if (mapsError) {
           console.error("Error fetching mind maps:", mapsError)
           setUserMaps([])
-        } else {
-          const processedMaps = mapsData?.map((map) => ({
+        } else if (mapsData) {
+          // Get map IDs for efficient batch queries
+          const mapIds = mapsData.map(map => map.id);
+
+          // Fetch likes data for all maps using optimized batch queries
+          const [likesResult, savesResult, collaborationsResult] = await Promise.all([
+            // Get like counts from aggregated table (more efficient than counting rows)
+            supabase
+              .from("mindmap_like_counts")
+              .select("mindmap_id, like_count")
+              .in("mindmap_id", mapIds),
+            // Get save counts from aggregated table
+            supabase
+              .from("mindmap_save_counts")
+              .select("mindmap_id, save_count")
+              .in("mindmap_id", mapIds),
+            // Get collaborations from dedicated table
+            supabase
+              .from("mindmap_collaborations")
+              .select("mindmap_id, collaborator_id, status")
+              .in("mindmap_id", mapIds)
+              .eq("status", "accepted")
+          ]);
+
+          // Get user's specific likes and saves
+          const [userLikesResult, userSavesResult] = await Promise.all([
+            supabase
+              .from("mindmap_likes")
+              .select("mindmap_id")
+              .in("mindmap_id", mapIds)
+              .eq("user_id", user.id),
+            supabase
+              .from("mindmap_saves")
+              .select("mindmap_id")
+              .in("mindmap_id", mapIds)
+              .eq("user_id", user.id)
+          ]);
+
+          // Create lookup maps for efficient data access
+          const likeCountsMap = new Map(
+            likesResult.data?.map(item => [item.mindmap_id, item.like_count]) || []
+          );
+          const saveCountsMap = new Map(
+            savesResult.data?.map(item => [item.mindmap_id, item.save_count]) || []
+          );
+          const collaborationsMap = new Map<string, string[]>();
+          collaborationsResult.data?.forEach(collab => {
+            const existing = collaborationsMap.get(collab.mindmap_id) || [];
+            existing.push(collab.collaborator_id);
+            collaborationsMap.set(collab.mindmap_id, existing);
+          });
+
+          // Create sets for quick user status lookup
+          const userLikedSet = new Set(userLikesResult.data?.map(item => item.mindmap_id) || []);
+          const userSavedSet = new Set(userSavesResult.data?.map(item => item.mindmap_id) || []);
+
+          const processedMaps = mapsData.map((map) => ({
             ...map,
             nodes: map.json_data?.nodes || [],
             edges: map.json_data?.edges || [],
@@ -635,113 +710,247 @@ export default function Profile() {
             comment_count: map.comment_count || 0,
             createdAt: Date.now(),
             is_main: map.is_main || false,
-            collaborators: map.collaborators || [],
+            // Use new optimized data structure - counts from dedicated tables
+            likes: likeCountsMap.get(map.id) || 0,
+            saves: saveCountsMap.get(map.id) || 0,
+            liked_by: userLikedSet.has(map.id) ? [user.id] : [], // Simplified for client-side UI state
+            saved_by: userSavedSet.has(map.id) ? [user.id] : [], // Simplified for client-side UI state
+            collaborators: collaborationsMap.get(map.id) || [],
             creatorUsername: profileData?.username || user?.username || 'Unknown',
             creatorFull_name: profileData?.full_name || user?.full_name || 'Unknown',
             creatorAvatar: profileData?.avatar_url || user?.avatar_url || null,
-          })).sort((a, b) => b.updatedAt - a.updatedAt) || []
-          setUserMaps(processedMaps)
+          })).sort((a, b) => b.updatedAt - a.updatedAt);
+          
+          setUserMaps(processedMaps);
         }
       } catch (error) {
         console.error("Error in mind maps fetch:", error)
         setUserMaps([])
       }
 
-      // Fetch collaboration maps
+      // Fetch collaboration maps using new mindmap_collaborations table
       try {
-        const { data: collabData, error: collabError } = await supabase
-          .from("mindmaps")
-          .select("permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator, published_at")
-          .contains("collaborators", `["${user.id}"]`)
-          .eq("visibility", "public")
+        // First get collaboration records for the current user
+        const { data: userCollaborations, error: collaborationsError } = await supabase
+          .from("mindmap_collaborations")
+          .select("mindmap_id")
+          .eq("collaborator_id", user.id)
+          .eq("status", "accepted");
 
-        if (collabError) {
-          console.error("Error fetching collaboration maps:", collabError)
-          setCollaborationMaps([])
-        } else if (collabData) {
-          const creatorIds = [...new Set(collabData.map((map) => map.creator))]
-          const { data: profilesData, error: profilesError } = await supabase
-            .from("profiles")
-            .select("id, avatar_url, username, full_name")
-            .in("id", creatorIds)
+        if (collaborationsError) {
+          console.error("Error fetching collaborations:", collaborationsError);
+          setCollaborationMaps([]);
+        } else if (userCollaborations && userCollaborations.length > 0) {
+          const collaborationMapIds = userCollaborations.map(collab => collab.mindmap_id);
 
-          if (profilesError) {
-            console.error("Error fetching creator profiles:", profilesError)
+          // Fetch the actual mindmap data for collaborated maps
+          const { data: collabData, error: collabError } = await supabase
+            .from("mindmaps")
+            .select("permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, creator, published_at")
+            .in("id", collaborationMapIds)
+            .eq("visibility", "public");
+
+          if (collabError) {
+            console.error("Error fetching collaboration maps data:", collabError);
+            setCollaborationMaps([]);
+          } else if (collabData && collabData.length > 0) {
+            // Get additional data for collaboration maps
+            const mapIds = collabData.map(map => map.id);
+            const creatorIds = [...new Set(collabData.map((map) => map.creator))];
+
+            const [likesResult, savesResult, collaborationsResult, profilesResult] = await Promise.all([
+              // Get like counts
+              supabase
+                .from("mindmap_like_counts")
+                .select("mindmap_id, like_count")
+                .in("mindmap_id", mapIds),
+              // Get save counts
+              supabase
+                .from("mindmap_save_counts")
+                .select("mindmap_id, save_count")
+                .in("mindmap_id", mapIds),
+              // Get all collaborations for these maps
+              supabase
+                .from("mindmap_collaborations")
+                .select("mindmap_id, collaborator_id, status")
+                .in("mindmap_id", mapIds)
+                .eq("status", "accepted"),
+              // Get creator profiles
+              supabase
+                .from("profiles")
+                .select("id, avatar_url, username, full_name")
+                .in("id", creatorIds)
+            ]);
+
+            // Get user's specific likes and saves
+            const [userLikesResult, userSavesResult] = await Promise.all([
+              supabase
+                .from("mindmap_likes")
+                .select("mindmap_id")
+                .in("mindmap_id", mapIds)
+                .eq("user_id", user.id),
+              supabase
+                .from("mindmap_saves")
+                .select("mindmap_id")
+                .in("mindmap_id", mapIds)
+                .eq("user_id", user.id)
+            ]);
+
+            // Create lookup maps
+            const likeCountsMap = new Map(
+              likesResult.data?.map(item => [item.mindmap_id, item.like_count]) || []
+            );
+            const saveCountsMap = new Map(
+              savesResult.data?.map(item => [item.mindmap_id, item.save_count]) || []
+            );
+            const collaborationsMap = new Map<string, string[]>();
+            collaborationsResult.data?.forEach(collab => {
+              const existing = collaborationsMap.get(collab.mindmap_id) || [];
+              existing.push(collab.collaborator_id);
+              collaborationsMap.set(collab.mindmap_id, existing);
+            });
+
+            const creatorAvatars = new Map();
+            const creatorUsernames = new Map();
+            const creatorFullNames = new Map();
+            profilesResult.data?.forEach((profile) => {
+              creatorAvatars.set(profile.id, profile.avatar_url);
+              creatorUsernames.set(profile.id, profile.username);
+              creatorFullNames.set(profile.id, profile.full_name);
+            });
+
+            // Create sets for quick user status lookup
+            const userLikedSet = new Set(userLikesResult.data?.map(item => item.mindmap_id) || []);
+            const userSavedSet = new Set(userSavesResult.data?.map(item => item.mindmap_id) || []);
+
+            const processedCollabMaps = collabData
+              .map((map) => ({
+                ...map,
+                nodes: map.json_data?.nodes || [],
+                edges: map.json_data?.edges || [],
+                edgeType: map.json_data?.edgeType || 'default',
+                updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
+                description: map.description || "",
+                comment_count: map.comment_count || 0,
+                createdAt: Date.now(),
+                is_main: map.is_main || false,
+                // Use new optimized data structure
+                likes: likeCountsMap.get(map.id) || 0,
+                saves: saveCountsMap.get(map.id) || 0,
+                liked_by: userLikedSet.has(map.id) ? [user.id] : [],
+                saved_by: userSavedSet.has(map.id) ? [user.id] : [],
+                collaborators: collaborationsMap.get(map.id) || [],
+                creatorUsername: creatorUsernames.get(map.creator) || "Unknown",
+                creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
+                creatorAvatar: creatorAvatars.get(map.creator) || null,
+              }))
+              .sort((a, b) => b.updatedAt - a.updatedAt);
+            
+            setCollaborationMaps(processedCollabMaps);
+          } else {
+            setCollaborationMaps([]);
           }
-
-          const creatorAvatars = new Map()
-          const creatorUsernames = new Map()
-          const creatorFullNames = new Map()
-          profilesData?.forEach((profile) => {
-            creatorAvatars.set(profile.id, profile.avatar_url)
-            creatorUsernames.set(profile.id, profile.username)
-            creatorFullNames.set(profile.id, profile.full_name)
-          })
-
-          const processedCollabMaps = collabData
-            .map((map) => ({
-              ...map,
-              nodes: map.json_data?.nodes || [],
-              edges: map.json_data?.edges || [],
-              edgeType: map.json_data?.edgeType || 'default',
-              updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
-              description: map.description || "",
-              comment_count: map.comment_count || 0,
-              createdAt: Date.now(),
-              is_main: map.is_main || false,
-              collaborators: map.collaborators || [],
-              creatorUsername: creatorUsernames.get(map.creator) || "Unknown",
-              creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
-              creatorAvatar: creatorAvatars.get(map.creator) || null,
-            }))
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-          setCollaborationMaps(processedCollabMaps)
+        } else {
+          setCollaborationMaps([]);
         }
       } catch (error) {
-        console.error("Error in collaboration maps fetch:", error)
-        setCollaborationMaps([])
+        console.error("Error in collaboration maps fetch:", error);
+        setCollaborationMaps([]);
       }
 
-      // Fetch saved maps
+      // Fetch saved maps using new mindmap_saves table
       try {
-        const { data: userProfile, error: profileError } = await supabase
-          .from("profiles")
-          .select("saves")
-          .eq("id", user.id)
-          .single()
+        // Get maps saved by the current user
+        const { data: userSaves, error: savesError } = await supabase
+          .from("mindmap_saves")
+          .select("mindmap_id")
+          .eq("user_id", user.id);
 
-        if (profileError) {
-          console.error("Error fetching user saves:", profileError)
-          setSavedMaps([])
-        } else if (userProfile?.saves && userProfile.saves.length > 0) {
+        if (savesError) {
+          console.error("Error fetching user saves:", savesError);
+          setSavedMaps([]);
+        } else if (userSaves && userSaves.length > 0) {
+          const savedMapIds = userSaves.map(save => save.mindmap_id);
+
+          // Fetch the actual mindmap data for saved maps
           const { data: savedMapsData, error: savedMapsError } = await supabase
             .from("mindmaps")
-            .select("permalink, id, title, json_data, updated_at, visibility, likes, comment_count, saves, saved_by, liked_by, description, is_main, collaborators, creator")
-            .in("id", userProfile.saves)
-            .eq("visibility", "public")
+            .select("permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, creator")
+            .in("id", savedMapIds)
+            .eq("visibility", "public");
 
           if (savedMapsError) {
-            console.error("Error fetching saved maps:", savedMapsError)
-            setSavedMaps([])
+            console.error("Error fetching saved maps:", savedMapsError);
+            setSavedMaps([]);
           } else if (savedMapsData && savedMapsData.length > 0) {
-            const creatorIds = [...new Set(savedMapsData.map((map) => map.creator))]
-            const { data: savedProfilesData, error: savedProfilesError } = await supabase
-              .from("profiles")
-              .select("id, avatar_url, username, full_name")
-              .in("id", creatorIds)
+            // Get additional data for saved maps
+            const mapIds = savedMapsData.map(map => map.id);
+            const creatorIds = [...new Set(savedMapsData.map((map) => map.creator))];
 
-            if (savedProfilesError) {
-              console.error("Error fetching saved map creator profiles:", savedProfilesError)
-            }
+            const [likesResult, savesResult, collaborationsResult, profilesResult] = await Promise.all([
+              // Get like counts
+              supabase
+                .from("mindmap_like_counts")
+                .select("mindmap_id, like_count")
+                .in("mindmap_id", mapIds),
+              // Get save counts
+              supabase
+                .from("mindmap_save_counts")
+                .select("mindmap_id, save_count")
+                .in("mindmap_id", mapIds),
+              // Get collaborations
+              supabase
+                .from("mindmap_collaborations")
+                .select("mindmap_id, collaborator_id, status")
+                .in("mindmap_id", mapIds)
+                .eq("status", "accepted"),
+              // Get creator profiles
+              supabase
+                .from("profiles")
+                .select("id, avatar_url, username, full_name")
+                .in("id", creatorIds)
+            ]);
 
-            const creatorAvatars = new Map()
-            const creatorUsernames = new Map()
-            const creatorFullNames = new Map()
-            savedProfilesData?.forEach((profile) => {
-              creatorAvatars.set(profile.id, profile.avatar_url)
-              creatorUsernames.set(profile.id, profile.username)
-              creatorFullNames.set(profile.id, profile.full_name)
-            })
+            // Get user's specific likes and saves
+            const [userLikesResult, userSavesResult] = await Promise.all([
+              supabase
+                .from("mindmap_likes")
+                .select("mindmap_id")
+                .in("mindmap_id", mapIds)
+                .eq("user_id", user.id),
+              supabase
+                .from("mindmap_saves")
+                .select("mindmap_id")
+                .in("mindmap_id", mapIds)
+                .eq("user_id", user.id)
+            ]);
+
+            // Create lookup maps
+            const likeCountsMap = new Map(
+              likesResult.data?.map(item => [item.mindmap_id, item.like_count]) || []
+            );
+            const saveCountsMap = new Map(
+              savesResult.data?.map(item => [item.mindmap_id, item.save_count]) || []
+            );
+            const collaborationsMap = new Map<string, string[]>();
+            collaborationsResult.data?.forEach(collab => {
+              const existing = collaborationsMap.get(collab.mindmap_id) || [];
+              existing.push(collab.collaborator_id);
+              collaborationsMap.set(collab.mindmap_id, existing);
+            });
+
+            const creatorAvatars = new Map();
+            const creatorUsernames = new Map();
+            const creatorFullNames = new Map();
+            profilesResult.data?.forEach((profile) => {
+              creatorAvatars.set(profile.id, profile.avatar_url);
+              creatorUsernames.set(profile.id, profile.username);
+              creatorFullNames.set(profile.id, profile.full_name);
+            });
+
+            // Create sets for quick user status lookup
+            const userLikedSet = new Set(userLikesResult.data?.map(item => item.mindmap_id) || []);
+            const userSavedSet = new Set(userSavesResult.data?.map(item => item.mindmap_id) || []);
 
             const processedSavedMaps = savedMapsData
               .map((map) => ({
@@ -754,22 +963,28 @@ export default function Profile() {
                 comment_count: map.comment_count || 0,
                 createdAt: Date.now(),
                 is_main: map.is_main || false,
-                collaborators: map.collaborators || [],
+                // Use new optimized data structure
+                likes: likeCountsMap.get(map.id) || 0,
+                saves: saveCountsMap.get(map.id) || 0,
+                liked_by: userLikedSet.has(map.id) ? [user.id] : [],
+                saved_by: userSavedSet.has(map.id) ? [user.id] : [], // Should always include user.id since these are saved maps
+                collaborators: collaborationsMap.get(map.id) || [],
                 creatorUsername: creatorUsernames.get(map.creator) || "Unknown",
                 creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
                 creatorAvatar: creatorAvatars.get(map.creator) || null,
               }))
-              .sort((a, b) => b.updatedAt - a.updatedAt)
-            setSavedMaps(processedSavedMaps)
+              .sort((a, b) => b.updatedAt - a.updatedAt);
+            
+            setSavedMaps(processedSavedMaps);
           } else {
-            setSavedMaps([])
+            setSavedMaps([]);
           }
         } else {
-          setSavedMaps([])
+          setSavedMaps([]);
         }
       } catch (error) {
-        console.error("Error in saved maps fetch:", error)
-        setSavedMaps([])
+        console.error("Error in saved maps fetch:", error);
+        setSavedMaps([]);
       }
 
       setIsLoading(false)
@@ -1684,7 +1899,7 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.length > 0 ? "fill-current text-blue-500" : ""
                                 }`}
                             />
                             {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
@@ -1705,7 +1920,7 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.length > 0 ? 'fill-current text-blue-500' : ''
                                 }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
@@ -1840,7 +2055,7 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.length > 0 ? "fill-current text-blue-500" : ""
                                 }`}
                             />
                             {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
@@ -1861,7 +2076,7 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.length > 0 ? 'fill-current text-blue-500' : ''
                                 }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
@@ -1996,7 +2211,7 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Heart
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.includes(user.id) ? "fill-current text-blue-500" : ""
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.liked_by?.length > 0 ? "fill-current text-blue-500" : ""
                                 }`}
                             />
                             {map.likes > 0 && <span className="font-medium">{map.likes}</span>}
@@ -2017,7 +2232,7 @@ export default function Profile() {
                             className="group/action flex items-center gap-2 text-slate-400 hover:text-blue-500 transition-all duration-200"
                           >
                             <Bookmark
-                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.includes(user.id) ? 'fill-current text-blue-500' : ''
+                              className={`w-5 h-5 transition-all duration-200 group-hover/action:scale-110 ${user?.id && map.saved_by?.length > 0 ? 'fill-current text-blue-500' : ''
                                 }`}
                             />
                             {map.saves > 0 && <span className="font-medium">{map.saves}</span>}
@@ -2271,6 +2486,7 @@ export default function Profile() {
               setMapToEdit(null)
             }}
             mapData={{
+              id: userMaps.find(map => map.permalink === mapToEdit)?.id, // Add mindmap ID for collaboration functionality
               permalink: userMaps.find(map => map.permalink === mapToEdit)?.permalink || '',
               title: userMaps.find(map => map.permalink === mapToEdit)?.title || '',
               description: userMaps.find(map => map.permalink === mapToEdit)?.description || '',
@@ -2334,6 +2550,14 @@ export default function Profile() {
 
         {/* Publish Success Modal */}
         <PublishSuccessModal isVisible={showSuccessPopup} />
+
+        {/* Toast Notification */}
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          isVisible={toastVisible}
+          onClose={hideToast}
+        />
       </div>
     </div>
   )

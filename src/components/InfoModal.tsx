@@ -52,9 +52,10 @@ interface InfoModalProps {
     updatedAt: string;
     description: string;
     visibility?: 'public' | 'private' | 'linkOnly';
-    avatar_url?: string | null; // Add avatar_url to the interface
-    collaborators?: string[]; // Add collaborators array
-    published_at?: string | null; // Add published_at to the interface
+    avatar_url?: string | null;
+    id?: string; // Add mindmap id to fetch collaborations
+    collaborators?: string[];
+    published_at?: string | null;
     stats?: {
       nodes?: number;
       edges?: number;
@@ -64,7 +65,7 @@ interface InfoModalProps {
     };
   };
   onClose: () => void;
-  hideVisibility?: boolean; // Add prop to conditionally hide visibility section
+  hideVisibility?: boolean;
 }
 
 const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility = false }) => {
@@ -87,6 +88,45 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
   // Fetch collaborator profiles
   useEffect(() => {
     const fetchCollaboratorProfiles = async () => {
+      // If mindmap.id is provided, fetch from mindmap_collaborations table
+      if (mindmap.id) {
+        setIsLoadingCollaborators(true);
+        try {
+          const { data: collaborations, error: collaborationsError } = await supabase
+            .from('mindmap_collaborations')
+            .select(`
+              collaborator_id,
+              profiles!mindmap_collaborations_collaborator_id_fkey (
+                id, username, avatar_url
+              )
+            `)
+            .eq('mindmap_id', mindmap.id)
+            .eq('status', 'accepted');
+
+          if (collaborationsError) {
+            console.error('Error fetching collaborations:', collaborationsError);
+            return;
+          }
+
+          if (collaborations && collaborations.length > 0) {
+            setCollaboratorProfiles(collaborations.map((collab: any) => ({
+              id: collab.profiles.id,
+              username: collab.profiles.username,
+              avatar_url: collab.profiles.avatar_url,
+              isOnline: connectedUsers.includes(collab.profiles.id)
+            })));
+          } else {
+            setCollaboratorProfiles([]);
+          }
+        } catch (error) {
+          console.error('Error fetching collaborations:', error);
+        } finally {
+          setIsLoadingCollaborators(false);
+        }
+        return;
+      }
+
+      // Fallback to using collaborators array if mindmap.id is not provided
       if (!mindmap.collaborators || mindmap.collaborators.length === 0) {
         setCollaboratorProfiles([]);
         return;
@@ -120,7 +160,7 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
     };
 
     fetchCollaboratorProfiles();
-  }, [mindmap.collaborators, connectedUsers]);
+  }, [mindmap.id, mindmap.collaborators, connectedUsers]);
 
   // Update online status when connected users change
   useEffect(() => {
@@ -301,12 +341,12 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
               </div>
             </div>
           </div>          {/* Enhanced Collaborators */}
-          {mindmap.collaborators && mindmap.collaborators.length > 0 && (
+          {((mindmap.id && collaboratorProfiles.length > 0) || (mindmap.collaborators && mindmap.collaborators.length > 0)) && (
             <div className="compact-modal-section">
               <h3 className="text-sm font-medium text-slate-400 mb-3 compact-section-title">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-purple-400" />
-                  <span>Collaborators ({mindmap.collaborators.length})</span>
+                  <span>Collaborators ({collaboratorProfiles.length || mindmap.collaborators?.length || 0})</span>
                 </div>
               </h3>
               {isLoadingCollaborators ? (

@@ -9,7 +9,7 @@ import { supabase } from "../supabaseClient"
 import "../styles/carousel.css"
 
 // Move mindmap keys outside component to prevent recreation
-const MINDMAP_KEYS = [
+const MINDMAP_IDS = [
   "844c2fbc-9ae6-450b-8d08-e7de8bf6a149",
   "deaeed19-6dc9-431a-aa02-60268061a459",
   "5d4670ec-35ec-40f5-b68c-d95654611d26",
@@ -45,7 +45,7 @@ export default function Home() {
     const fetchMaps = async () => {
       try {
         setIsLoading(true)
-        const { data, error } = await supabase.from("mindmaps").select("id, title, key").in("key", MINDMAP_KEYS)
+        const { data, error } = await supabase.from("mindmaps").select("permalink, title, id").in("id", MINDMAP_IDS)
 
         if (isMounted && !error && data) {
           setPublicMaps(data)

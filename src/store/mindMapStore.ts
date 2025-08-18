@@ -55,7 +55,6 @@ interface MindMapState {
   updateMapTitle: (permalink: string, title: string) => void;
   updateMapVisibility: (permalink: string, visibility: 'public' | 'private' | 'linkOnly') => void;
   getPublicMapsCount: () => number;
-  toggleLike: (mapPermalink: string, userId: string) => void;
   toggleMapPin: (permalink: string) => void;
   proposeAIChanges: (permalink: string, nodes: Node[], edges: Edge[], title: string) => void;
   acceptAIChanges: (nodes?: Node[], edges?: Edge[], title?: string) => void;
@@ -86,7 +85,11 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     console.log('[mindMapStore] Fetching mindmaps from Supabase for userId:', userId);
     const { data, error } = await supabase
       .from("mindmaps")
-      .select("permalink, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, id, collaborators, published_at")
+      .select(`
+        permalink, title, json_data, drawing_data, created_at, updated_at, visibility, is_pinned, is_main, description, creator, id, published_at,
+        mindmap_like_counts (like_count),
+        mindmap_save_counts (save_count)
+      `)
       .eq("creator", userId);
 
     if (error) {
@@ -119,16 +122,16 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       dotColor: map.json_data.dotColor || '#81818a',
       createdAt: new Date(map.created_at).getTime(),
       updatedAt: new Date(map.updated_at).getTime(),
-      likes: map.likes,
-      comment_count: map.comment_count,
-      saves: map.saves,
-      likedBy: map.liked_by || [],
+      likes: map.mindmap_like_counts?.[0]?.like_count || 0,
+      comment_count: 0, // TODO: Add comment count from comments table
+      saves: map.mindmap_save_counts?.[0]?.save_count || 0,
+      likedBy: [], // Will be populated when needed for specific maps
       isPinned: map.is_pinned,
       is_main: map.is_main || false,
       visibility: map.visibility || 'private',
       description: map.description || '',
       creator: map.creator,
-      collaborators: map.collaborators || [],
+      collaborators: [], // Will be populated from mindmap_collaborations table when needed
       creatorAvatar: userAvatar,
       published_at: map.published_at,
       drawingData: decompressDrawingData(map.drawing_data) || undefined,
@@ -145,22 +148,31 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     console.log("Fetching collaboration maps for userId:", userId);
 
-    // Use the @> operator for JSONB containment
-    const { data, error } = await supabase
-      .from("mindmaps")
-      .select("permalink, title, json_data, drawing_data, created_at, updated_at, visibility, likes, comment_count, saves, liked_by, is_pinned, is_main, description, creator, username, id, collaborators, published_at")
-      .filter("collaborators", "cs", JSON.stringify([userId]));
+    // Fetch from mindmap_collaborations table instead of using array containment
+    const { data: collaborations, error: collaborationsError } = await supabase
+      .from("mindmap_collaborations")
+      .select(`
+        mindmap_id,
+        mindmaps!mindmap_collaborations_mindmap_id_fkey (
+          permalink, title, json_data, drawing_data, created_at, updated_at, visibility, 
+          is_pinned, is_main, description, creator, id, published_at,
+          mindmap_like_counts (like_count),
+          mindmap_save_counts (save_count)
+        )
+      `)
+      .eq("collaborator_id", userId)
+      .eq("status", "accepted");
 
-    if (error) {
-      console.error("Error fetching collaboration mindmaps:", error);
+    if (collaborationsError) {
+      console.error("Error fetching collaboration mindmaps:", collaborationsError);
       return;
     }
 
-    console.log("Raw collaboration maps data:", data);
+    console.log("Raw collaboration maps data:", collaborations);
 
     // Fetch creator profiles separately to get avatar URLs
-    if (data && data.length > 0) {
-      const creatorIds = [...new Set(data.map(map => map.creator))];
+    if (collaborations && collaborations.length > 0) {
+      const creatorIds = [...new Set(collaborations.map((collab: any) => collab.mindmaps.creator))];
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("id, avatar_url")
@@ -176,32 +188,35 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         creatorAvatars.set(profile.id, profile.avatar_url);
       });
 
-      const collaborationMaps = data.map((map) => ({
-        permalink: map.permalink,
-        id: map.id,
-        title: map.title,
-        nodes: map.json_data.nodes,
-        edges: map.json_data.edges,
-        edgeType: map.json_data.edgeType || 'default',
-        backgroundColor: map.json_data.backgroundColor || '#11192C',
-        dotColor: map.json_data.dotColor || '#81818a',
-        createdAt: new Date(map.created_at).getTime(),
-        updatedAt: new Date(map.updated_at).getTime(),
-        likes: map.likes,
-        comment_count: map.comment_count,
-        saves: map.saves,
-        likedBy: map.liked_by || [],
-        isPinned: map.is_pinned,
-        is_main: map.is_main || false,
-        visibility: map.visibility || 'private',
-        description: map.description || '',
-        collaborators: map.collaborators || [],
-        creator: map.creator,
-        creatorUsername: map.username,
-        creatorAvatar: creatorAvatars.get(map.creator) || null,
-        published_at: map.published_at,
-        drawingData: decompressDrawingData(map.drawing_data) || undefined,
-      }));
+      const collaborationMaps = collaborations.map((collab: any) => {
+        const map = collab.mindmaps;
+        return {
+          permalink: map.permalink,
+          id: map.id,
+          title: map.title,
+          nodes: map.json_data.nodes,
+          edges: map.json_data.edges,
+          edgeType: map.json_data.edgeType || 'default',
+          backgroundColor: map.json_data.backgroundColor || '#11192C',
+          dotColor: map.json_data.dotColor || '#81818a',
+          createdAt: new Date(map.created_at).getTime(),
+          updatedAt: new Date(map.updated_at).getTime(),
+          likes: map.mindmap_like_counts?.[0]?.like_count || 0,
+          comment_count: 0, // TODO: Add comment count from comments table
+          saves: map.mindmap_save_counts?.[0]?.save_count || 0,
+          likedBy: [], // Will be populated when needed for specific maps
+          isPinned: map.is_pinned,
+          is_main: map.is_main || false,
+          visibility: map.visibility || 'private',
+          description: map.description || '',
+          collaborators: [], // Will be populated when needed
+          creator: map.creator,
+          creatorUsername: map.username,
+          creatorAvatar: creatorAvatars.get(map.creator) || null,
+          published_at: map.published_at,
+          drawingData: decompressDrawingData(map.drawing_data) || undefined,
+        };
+      });
 
       console.log("Processed collaboration maps:", collaborationMaps);
       set({ collaborationMaps: collaborationMaps || [] });
@@ -210,7 +225,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, likes, comment_count, saves, likedBy, isPinned, is_main, description, collaborators, published_at, drawingData } = map;
+    const { permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -271,13 +286,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         const validCreatedAt = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
         const validUpdatedAt = updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString();
 
-        // Convert likedBy to a proper format for Supabase
-        const likedByArray = Array.isArray(likedBy) ? likedBy : [];
-
-        // Convert collaborators to a proper format for Supabase
-        const collaboratorsArray = Array.isArray(collaborators) ? collaborators : [];
-
-        // Create the data object with proper typing
+        // Create the data object with proper typing (no longer storing likes, saves, liked_by, collaborators in main table)
         const mapData = {
           permalink: permalink,
           title,
@@ -286,15 +295,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           created_at: validCreatedAt,
           updated_at: validUpdatedAt,
           visibility,
-          likes,
-          comment_count,
-          saves,
-          liked_by: likedByArray,
           is_pinned: isPinned,
           is_main: is_main || false,
           creator: effectiveUserId,
           description: description || '',
-          collaborators: collaboratorsArray,
           published_at: published_at,
         };
 
@@ -1139,21 +1143,6 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
   },
   getPublicMapsCount: () => {
     return get().maps.filter((map) => map.visibility === 'public').length;
-  },
-  toggleLike: (mapPermalink, userId) => {
-    set((state) => ({
-      maps: state.maps.map((map) => {
-        if (map.permalink === mapPermalink) {
-          const isLiked = map.likedBy.includes(userId);
-          return {
-            ...map,
-            likes: isLiked ? map.likes - 1 : map.likes + 1,
-            likedBy: isLiked ? map.likedBy.filter((id) => id !== userId) : [...map.likedBy, userId],
-          };
-        }
-        return map;
-      }),
-    }));
   },
   toggleMapPin: (permalink) => {
     const currentMap = get().maps.find((map) => map.permalink === permalink);

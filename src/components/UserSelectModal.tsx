@@ -25,9 +25,18 @@ interface UserSelectModalProps {
   initialMessage?: string;
   mode?: 'share' | 'collaborate';
   existingCollaborators?: string[]; // Array of user IDs who are already collaborators
+  maxCollaborators?: number; // Maximum number of collaborators allowed
 }
 
-const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", mode = 'share', existingCollaborators = [] }: UserSelectModalProps) => {
+const UserSelectModal = ({ 
+  isOpen, 
+  onClose, 
+  onSelectUsers, 
+  initialMessage = "", 
+  mode = 'share', 
+  existingCollaborators = [], 
+  maxCollaborators = 10 
+}: UserSelectModalProps) => {
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -39,30 +48,13 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
   const { user: currentUser } = useAuthStore();
   const currentUserId = currentUser?.id || null;
 
-  // Reset state when modal closes, but pre-select existing collaborators when it opens
+  // Reset state when modal opens and pre-select existing collaborators
   useEffect(() => {
     if (!isOpen) {
       setSelectedUsers([]);
       setMessage(initialMessage);
-    } else if (mode === 'collaborate' && existingCollaborators.length > 0) {
-      // Pre-select existing collaborators when opening in collaborate mode
-      // We'll need to wait for users to be fetched first, so this will be handled in the fetch effect
     }
-  }, [isOpen, initialMessage, mode, existingCollaborators]);
-
-  // Filter users based on search query and exclude current user
-  useEffect(() => {
-    setFilteredUsers(
-      users.filter(
-        (user) =>
-          // Exclude current user
-          user.id !== currentUserId &&
-          // Match search query
-          (user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase())))
-      )
-    );
-  }, [users, searchQuery, currentUserId]);
+  }, [isOpen, initialMessage]);
 
   // Pre-select existing collaborators when users are loaded in collaborate mode
   useEffect(() => {
@@ -79,6 +71,20 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
       })));
     }
   }, [mode, existingCollaborators, users]);
+
+  // Filter users based on search query and exclude current user
+  useEffect(() => {
+    setFilteredUsers(
+      users.filter(
+        (user) =>
+          // Exclude current user
+          user.id !== currentUserId &&
+          // Match search query
+          (user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase())))
+      )
+    );
+  }, [users, searchQuery, currentUserId]);
 
   // Fetch users when modal opens
   useEffect(() => {
@@ -176,7 +182,13 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
         // Remove user if already selected
         return prevSelected.filter(selected => selected.id !== user.id);
       } else {
-        // Add user if not selected
+        // Check if adding this user would exceed the limit
+        if (prevSelected.length >= maxCollaborators) {
+          console.log(`Cannot add more collaborators. Limit is ${maxCollaborators}.`);
+          return prevSelected; // Don't add the user
+        }
+
+        // Add user if not selected and under the limit
         return [...prevSelected, {
           id: user.id,
           username: user.username,
@@ -189,10 +201,14 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
 
   // Handle form submission
   const handleSubmit = () => {
-    if (selectedUsers.length > 0) {
-      onSelectUsers(selectedUsers, message);
-      onClose();
+    // For collaborate mode, allow submitting with 0 users (means removing all collaborators)
+    // For share mode, require at least 1 user
+    if (mode === 'share' && selectedUsers.length === 0) {
+      return;
     }
+    
+    onSelectUsers(selectedUsers, message);
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -226,6 +242,27 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
                   className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-slate-200 placeholder:text-slate-400 resize-none transition-all duration-200"
                   rows={2}
                 />
+              </div>
+            )}
+
+            {/* Collaborator limit indicator - only show in collaborate mode */}
+            {mode === 'collaborate' && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Collaborators</span>
+                  <span className={`font-medium ${
+                    selectedUsers.length >= maxCollaborators 
+                      ? 'text-orange-400' 
+                      : 'text-slate-300'
+                  }`}>
+                    {selectedUsers.length} / {maxCollaborators}
+                  </span>
+                </div>
+                {selectedUsers.length >= maxCollaborators && (
+                  <p className="text-xs text-orange-400 mt-1">
+                    Maximum collaborators reached
+                  </p>
+                )}
               </div>
             )}
 
@@ -289,14 +326,20 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
                 <ul className="space-y-2">
                   {filteredUsers.map((user) => {
                     const isSelected = selectedUsers.some(selected => selected.id === user.id);
+                    const isAtLimit = !isSelected && selectedUsers.length >= maxCollaborators;
+                    const canSelect = !isAtLimit;
+                    
                     return (
                       <li key={user.id}>
                         <button
-                          onClick={() => toggleUserSelection(user)}
-                          className={`w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-200 transition-all duration-200 border ${
-                            isSelected 
-                              ? 'bg-slate-700/50 border-blue-500/50 shadow-lg shadow-blue-500/10' 
-                              : 'bg-slate-800/30 border-slate-700/30 hover:border-slate-600/50'
+                          onClick={() => canSelect ? toggleUserSelection(user) : undefined}
+                          disabled={!canSelect}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl text-slate-200 transition-all duration-200 border ${
+                            !canSelect
+                              ? 'bg-slate-800/20 border-slate-700/20 opacity-50 cursor-not-allowed'
+                              : isSelected 
+                                ? 'bg-slate-700/50 border-blue-500/50 shadow-lg shadow-blue-500/10 hover:bg-slate-700/70' 
+                                : 'bg-slate-800/30 border-slate-700/30 hover:border-slate-600/50 hover:bg-slate-700/50'
                           }`}
                         >
                           <div className="relative">
@@ -347,15 +390,15 @@ const UserSelectModal = ({ isOpen, onClose, onSelectUsers, initialMessage = "", 
             {/* Submit button */}
             <button
               onClick={handleSubmit}
-              disabled={selectedUsers.length === 0}
+              disabled={mode === 'share' && selectedUsers.length === 0}
               className={`w-full py-3 px-6 rounded-xl text-white font-semibold transition-all duration-200 shadow-lg ${
-                selectedUsers.length > 0
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border border-blue-500/30 hover:border-blue-400/50'
-                  : 'bg-slate-700/50 border border-slate-600/30 cursor-not-allowed opacity-50'
+                mode === 'share' && selectedUsers.length === 0
+                  ? 'bg-slate-700/50 border border-slate-600/30 cursor-not-allowed opacity-50'
+                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border border-blue-500/30 hover:border-blue-400/50'
               }`}
             >
               {mode === 'collaborate' 
-                ? 'Add Collaborators' 
+                ? 'Update Collaborators'
                 : (selectedUsers.length > 1 ? 'Send separately' : 'Send')
               }
             </button>

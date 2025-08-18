@@ -3,6 +3,16 @@ import { supabase } from '../supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 
+/**
+ * Hook for handling mindmap like and save actions using optimized database tables.
+ * 
+ * Uses the new database structure:
+ * - Likes: `mindmap_likes` table for individual likes, `mindmap_like_counts` for aggregated counts
+ * - Saves: `mindmap_saves` table for individual saves, `mindmap_save_counts` for aggregated counts
+ * 
+ * This replaces the old array-based approach using `liked_by`, `saved_by` arrays and direct count columns.
+ */
+
 interface MindMapActionsProps {
   onLikeUpdate?: (mapPermalink: string, newLikes: number, newLikedBy: string[]) => void;
   onSaveUpdate?: (mapPermalink: string, newSaves: number, newSavedBy: string[]) => void;
@@ -22,7 +32,7 @@ export const useMindMapActions = ({
     e: React.MouseEvent,
     mindmap: {
       permalink: string;
-      key?: string;
+      id?: string;
       title: string;
       likes: number;
       liked_by?: string[];
@@ -33,7 +43,7 @@ export const useMindMapActions = ({
     e.preventDefault();
     e.stopPropagation();
 
-    if (!user?.id) return;
+    if (!user?.id || !mindmap.id) return;
 
     // Handle both liked_by and likedBy field names for compatibility
     const currentLikedBy = mindmap.liked_by || mindmap.likedBy || [];
@@ -44,20 +54,39 @@ export const useMindMapActions = ({
       : [...currentLikedBy, user.id];
 
     // Optimistically update UI
-    onLikeUpdate?.(mindmap.permalink, updatedLikes, updatedLikedBy); try {
-      // Update likes in the database
-      const { error } = await supabase
-        .from('mindmaps')
-        .update({ likes: updatedLikes, liked_by: updatedLikedBy })
-        .eq('permalink', mindmap.permalink);
+    onLikeUpdate?.(mindmap.permalink, updatedLikes, updatedLikedBy);
 
-      if (error) throw error;      // Send notification for like/unlike action (only if not own mindmap)
+    try {
+      if (isLiked) {
+        // Remove like from mindmap_likes table
+        const { error: deleteError } = await supabase
+          .from('mindmap_likes')
+          .delete()
+          .eq('mindmap_id', mindmap.id)
+          .eq('user_id', user.id);
+
+        if (deleteError) throw deleteError;
+      } else {
+        // Add like to mindmap_likes table
+        const { error: insertError } = await supabase
+          .from('mindmap_likes')
+          .insert({
+            mindmap_id: mindmap.id,
+            user_id: user.id
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      // Note: mindmap_like_counts table is updated automatically via database triggers
+
+      // Send notification for like/unlike action (only if not own mindmap)
       if (sendNotifications && mindmap.creator && mindmap.creator !== user.id && user.username) {
         try {
           console.log('Sending like notification:', {
             creator: mindmap.creator,
             user: user.id,
-            key: mindmap.key,
+            id: mindmap.id,
             title: mindmap.title,
             isLiked
           });
@@ -69,7 +98,7 @@ export const useMindMapActions = ({
               ? `@${user.username} unliked your mindmap: ${mindmap.title}`
               : `@${user.username} liked your mindmap: ${mindmap.title}`,
             related_user: user.id,
-            mindmap_key: mindmap.key
+            mindmap_id: mindmap.id
           });
           console.log('Like notification sent successfully');
         } catch (notificationError) {
@@ -95,7 +124,7 @@ export const useMindMapActions = ({
     e: React.MouseEvent,
     mindmap: {
       permalink: string;
-      key: string;
+      id: string;
       title: string;
       saves: number;
       saved_by?: string[];
@@ -120,38 +149,29 @@ export const useMindMapActions = ({
     onSaveUpdate?.(mindmap.permalink, updatedSaves, updatedSavedBy);
 
     try {
-      // Update saves in the mindmaps table
-      const { error: mindmapError } = await supabase
-        .from('mindmaps')
-        .update({ saves: updatedSaves, saved_by: updatedSavedBy })
-        .eq('permalink', mindmap.permalink);
+      if (isSaved) {
+        // Remove save from mindmap_saves table
+        const { error: deleteError } = await supabase
+          .from('mindmap_saves')
+          .delete()
+          .eq('mindmap_id', mindmap.id)
+          .eq('user_id', user.id);
 
-      if (mindmapError) throw mindmapError;
-
-      // Update user's profile saves column
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('saves')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching user profile for saves update:', profileError);
+        if (deleteError) throw deleteError;
       } else {
-        const currentUserSaves = userProfile?.saves || [];
-        const updatedUserSaves = isSaved
-          ? currentUserSaves.filter((key: string) => key !== mindmap.key)
-          : [...currentUserSaves, mindmap.key];
+        // Add save to mindmap_saves table
+        const { error: insertError } = await supabase
+          .from('mindmap_saves')
+          .insert({
+            mindmap_id: mindmap.id,
+            user_id: user.id
+          });
 
-        const { error: updateProfileError } = await supabase
-          .from('profiles')
-          .update({ saves: updatedUserSaves })
-          .eq('id', user.id);
-
-        if (updateProfileError) {
-          console.error('Error updating user profile saves:', updateProfileError);
-        }
+        if (insertError) throw insertError;
       }
+
+      // Note: mindmap_save_counts table is updated automatically via database triggers
+
     } catch (error) {
       console.error('Error updating saves:', error);
       onError?.('Failed to update save', 'save');

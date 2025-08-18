@@ -360,9 +360,11 @@ const ViewMindMap: React.FC = () => {
       }
       const { data: map, error: mapError } = await supabase
         .from("mindmaps")
-        .select(
-          "id, permalink, title, json_data, likes, liked_by, saves, saved_by, updated_at, visibility, description, is_main, collaborators, published_at",
-        )
+        .select(`
+          id, permalink, title, json_data, updated_at, visibility, description, is_main, published_at,
+          mindmap_like_counts (like_count),
+          mindmap_save_counts (save_count)
+        `)
         .eq("permalink", permalink)
         .eq("creator", profile.id)
         .single()
@@ -389,14 +391,50 @@ const ViewMindMap: React.FC = () => {
             type: edge.type || "default",
           })) || []
 
+        // Fetch user interaction status
+        const likes = map.mindmap_like_counts?.[0]?.like_count || 0
+        const saves = map.mindmap_save_counts?.[0]?.save_count || 0
+        
+        let likedBy: string[] = []
+        let savedBy: string[] = []
+        let collaborators: string[] = []
+        
+        if (user?.id) {
+          const [{ data: likeData }, { data: saveData }, { data: collaborationData }] = await Promise.all([
+            supabase
+              .from("mindmap_likes")
+              .select("id")
+              .eq("mindmap_id", map.id)
+              .eq("user_id", user.id)
+              .single(),
+            supabase
+              .from("mindmap_saves")
+              .select("id")
+              .eq("mindmap_id", map.id)
+              .eq("user_id", user.id)
+              .single(),
+            supabase
+              .from("mindmap_collaborations")
+              .select("collaborator_id")
+              .eq("mindmap_id", map.id)
+              .eq("status", "accepted")
+          ])
+          
+          likedBy = likeData ? [user.id] : []
+          savedBy = saveData ? [user.id] : []
+          collaborators = collaborationData?.map(c => c.collaborator_id) || []
+        }
+
         setCurrentMap({
           ...map,
           nodes: processedNodes,
-            edges: processedEdges,
+          edges: processedEdges,
           edgeType: map.json_data?.edgeType || 'default',
-          likedBy: map.liked_by || [],
-          saves: map.saves || 0,
-          savedBy: map.saved_by || [],
+          likes,
+          likedBy,
+          saves,
+          savedBy,
+          collaborators,
           creator: profile.id,
         })
 
@@ -435,13 +473,25 @@ const ViewMindMap: React.FC = () => {
     const fetchSimilarMindmaps = async () => {
       const { data: mindmaps, error } = await supabase
         .from("mindmaps")
-        .select("id, permalink, title, json_data, creator, updated_at, saves, saved_by, likes, liked_by")
+        .select(`
+          id, permalink, title, json_data, creator, updated_at,
+          mindmap_like_counts (like_count),
+          mindmap_save_counts (save_count)
+        `)
         .eq("visibility", "public")
 
       if (error) {
         console.error("Error fetching similar mindmaps:", error)
       } else {
-        const shuffledMindmaps = mindmaps.sort(() => Math.random() - 0.5).slice(0, 5)
+        const processedMindmaps = mindmaps?.map(mindmap => ({
+          ...mindmap,
+          likes: mindmap.mindmap_like_counts?.[0]?.like_count || 0,
+          saves: mindmap.mindmap_save_counts?.[0]?.save_count || 0,
+          liked_by: [],
+          saved_by: []
+        })) || []
+        
+        const shuffledMindmaps = processedMindmaps.sort(() => Math.random() - 0.5).slice(0, 5)
         setSimilarMindmaps(shuffledMindmaps || [])
       }
     }

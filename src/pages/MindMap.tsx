@@ -813,7 +813,13 @@ export default function MindMap() {
         return;
   } const { data: map, error: mapError } = await supabase
         .from("mindmaps")
-        .select("id, permalink, title, json_data, drawing_data, likes, liked_by, updated_at, visibility, description, creator, created_at, comment_count, saves, is_pinned, collaborators")
+        .select(`
+          id, permalink, title, json_data, drawing_data, updated_at, visibility, description, creator, created_at, is_pinned,
+          mindmap_like_counts(count),
+          mindmap_save_counts(count),
+          comment_count,
+          mindmap_collaborations(user_id)
+        `)
         .eq("id", MapId)
         .single();
 
@@ -825,8 +831,8 @@ export default function MindMap() {
 
       // Check if user is creator or collaborator
       const isCreator = user?.id === map.creator;
-      const isCollaborator = map.collaborators && user?.id ?
-        map.collaborators.includes(user.id) : false;
+      const isCollaborator = user?.id && map.mindmap_collaborations && 
+        map.mindmap_collaborations.some((collab: any) => collab.user_id === user.id);
 
       if (!isCreator && !isCollaborator) {
         // Redirect to view-only mode if user is neither creator nor collaborator
@@ -916,15 +922,15 @@ export default function MindMap() {
         edgeType: map.json_data?.edgeType || 'default',
         createdAt: new Date(map.created_at).getTime(),
         updatedAt: new Date(map.updated_at).getTime(),
-        likes: map.likes || 0,
+        likes: map.mindmap_like_counts?.[0]?.count || 0,
         comment_count: map.comment_count || 0,
-        saves: map.saves || 0,
-        likedBy: map.liked_by || [],
+        saves: map.mindmap_save_counts?.[0]?.count || 0,
+        likedBy: [], // No longer needed for edit mode, simplified for performance
         isPinned: map.is_pinned || false,
         visibility: map.visibility || 'private',
         description: map.description || '',
         creator: map.creator,
-        collaborators: map.collaborators || [],
+        collaborators: map.mindmap_collaborations?.map((collab: any) => collab.user_id) || [],
       };
 
       // Don't modify the global maps store here - let fetchMaps handle that
@@ -7241,6 +7247,7 @@ export default function MindMap() {
             isOpen={showEditDetailsModal}
             onClose={() => setShowEditDetailsModal(false)}
             mapData={{
+              id: currentMap.id, // Add mindmap ID for collaboration functionality
               permalink: currentMap.permalink,
               title: currentMap.title,
               description: currentMap.description,
