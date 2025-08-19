@@ -111,22 +111,54 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
 
       const { data, error } = await query.range(from, to);
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        setHasMore(false);
+        if (!isLoadingMore) {
+          setMindmaps([]);
+        }
+        return;
+      }
+
+      const mapIds = data.map(map => map.id);
+      let userLikedSet = new Set<string>();
+      let userSavedSet = new Set<string>();
+
+      if (user?.id && mapIds.length > 0) {
+        const [userLikesResult, userSavesResult] = await Promise.all([
+          supabase
+            .from("mindmap_likes")
+            .select("mindmap_id")
+            .eq("user_id", user.id)
+            .in("mindmap_id", mapIds),
+          supabase
+            .from("mindmap_saves")
+            .select("mindmap_id")
+            .eq("user_id", user.id)
+            .in("mindmap_id", mapIds),
+        ]);
+
+        if (userLikesResult.data) {
+          userLikedSet = new Set(userLikesResult.data.map(item => item.mindmap_id));
+        }
+        if (userSavesResult.data) {
+          userSavedSet = new Set(userSavesResult.data.map(item => item.mindmap_id));
+        }
       }
 
       // Process mindmaps to normalize the data structure
-      const processedMindmaps = data?.map(mindmap => ({
+      const processedMindmaps = data.map(mindmap => ({
         ...mindmap,
         likes: mindmap.mindmap_like_counts?.[0]?.like_count || 0,
         saves: mindmap.mindmap_save_counts?.[0]?.save_count || 0,
-        liked_by: [],
-        saved_by: [],
+        liked_by: userLikedSet.has(mindmap.id) ? [user?.id] : [],
+        saved_by: userSavedSet.has(mindmap.id) ? [user?.id] : [],
         comment_count: 0
-      })) || [];
+      }));
 
       // Check if we have more data to load
-      setHasMore(data?.length === pageSize);
+      setHasMore(data.length === pageSize);
 
       if (isLoadingMore) {
         setMindmaps(prev => [...prev, ...processedMindmaps]);
@@ -140,7 +172,7 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [filter, followingIds]);
+  }, [filter, followingIds, user?.id]);
 
   // Initial load and when filter changes
   useEffect(() => {

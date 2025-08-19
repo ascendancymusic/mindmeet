@@ -68,12 +68,12 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
   const [username, setUsername] = useState<string>("unknown");
   const [fullName, setFullName] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [localMindmap, setLocalMindmap] = useState<any>(null);
+  const [localMindmap, setLocalMindmap] = useState<any>(mindmap);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!mindmap);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080);
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
 
@@ -177,82 +177,11 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
     );
   }
 
-  // Fetch mindmap data from Supabase
+  // When mindmap prop changes, update localMindmap state
   useEffect(() => {
-    const fetchMindmapData = async () => {
-      try {
-        setIsLoading(true);
-        if (!mindmap || !mindmap.id) {
-          console.error("Missing mindmap id for:", mindmap?.title);
-          setIsLoading(false);
-          return;
-        }
-        const { data, error } = await supabase
-          .from("mindmaps")
-          .select(`
-            permalink, id, title, json_data, creator, created_at, description, visibility, updated_at, published_at,
-            mindmap_like_counts (like_count),
-            mindmap_save_counts (save_count)
-          `)
-          .eq("id", mindmap.id)
-          .single();
-
-        if (error) throw error;
-        if (!data) {
-          console.error("No mindmap found for id:", mindmap.id);
-          setIsLoading(false);
-          return;
-        }
-
-        // Process the data to normalize structure
-        const likes = data.mindmap_like_counts?.[0]?.like_count || 0;
-        const saves = data.mindmap_save_counts?.[0]?.save_count || 0;
-        
-        let liked_by: string[] = [];
-        let saved_by: string[] = [];
-        
-        // Fetch user interaction status if logged in
-        if (user?.id) {
-          const [{ data: likeData }, { data: saveData }] = await Promise.all([
-            supabase
-              .from("mindmap_likes")
-              .select("id")
-              .eq("mindmap_id", data.id)
-              .eq("user_id", user.id)
-              .single(),
-            supabase
-              .from("mindmap_saves")
-              .select("id")
-              .eq("mindmap_id", data.id)
-              .eq("user_id", user.id)
-              .single()
-          ]);
-          
-          liked_by = likeData ? [user.id] : [];
-          saved_by = saveData ? [user.id] : [];
-        }
-
-        setLocalMindmap({
-          ...data,
-          likes,
-          liked_by,
-          comment_count: 0, // TODO: Add comment count from comments table
-          saves,
-          saved_by,
-        });
-      } catch (error) {
-        console.error("Error fetching mindmap data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (mindmap && mindmap.id) {
-      fetchMindmapData();
-    } else {
-      setIsLoading(false);
-    }
-  }, [mindmap?.id, mindmap?.title, user?.id]);
+    setLocalMindmap(mindmap);
+    setIsLoading(!mindmap);
+  }, [mindmap]);
 
   // Fetch user profile
   useEffect(() => {
@@ -271,7 +200,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       }
     };
     fetchProfile();
-  }, [mindmap.creator]);
+  }, [mindmap?.creator]);
 
   const handleResize = useCallback(() => {
     if (reactFlowInstance) reactFlowInstance.fitView();
@@ -391,7 +320,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
   };
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || !localMindmap) {
     return (
       <div className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/30 shadow-xl animate-pulse">
         {/* Header skeleton */}
@@ -510,7 +439,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
 
             <div className="flex items-center gap-3">
               <p className="text-xs text-slate-400">
-                {formatDateWithPreference(localMindmap?.published_at)}
+                {formatDateWithPreference(mindmap?.created_at)}
               </p>
             </div>
           </div>
@@ -519,7 +448,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         {/* Title section */}
         <div className="px-6 py-4">
           <h3 className="text-xl font-bold text-slate-100 line-clamp-2 leading-tight">
-            {mindmap.title}
+            {localMindmap.title}
           </h3>
         </div>
 
