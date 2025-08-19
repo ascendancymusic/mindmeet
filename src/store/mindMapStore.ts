@@ -173,22 +173,24 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
     console.log("Raw collaboration maps data:", collaborations);
 
-    // Fetch creator profiles separately to get avatar URLs
+    // Fetch creator profiles separately to get avatar URLs and usernames
     if (collaborations && collaborations.length > 0) {
       const creatorIds = [...new Set(collaborations.map((collab: any) => collab.mindmaps.creator))];
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, avatar_url")
+        .select("id, avatar_url, username")
         .in("id", creatorIds);
 
       if (profilesError) {
         console.error("Error fetching creator profiles:", profilesError);
       }
 
-      // Create a map of creator ID to avatar URL
+      // Create maps of creator ID to avatar URL and username
       const creatorAvatars = new Map();
+      const creatorUsernames = new Map();
       profilesData?.forEach(profile => {
         creatorAvatars.set(profile.id, profile.avatar_url);
+        creatorUsernames.set(profile.id, profile.username);
       });
 
       const collaborationMaps = collaborations.map((collab: any) => {
@@ -214,7 +216,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           description: map.description || '',
           collaborators: [], // Will be populated when needed
           creator: map.creator,
-          creatorUsername: map.username,
+          creatorUsername: creatorUsernames.get(map.creator) || null,
           creatorAvatar: creatorAvatars.get(map.creator) || null,
           published_at: map.published_at,
           drawingData: decompressDrawingData(map.drawing_data) || undefined,
