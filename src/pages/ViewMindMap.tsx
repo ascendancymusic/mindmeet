@@ -281,7 +281,8 @@ const ViewMindMap: React.FC = () => {
     setTimeout(() => setReportSuccessMessage(null), 3000) // Hide after 3 seconds
   }
 
-  const isCreator = user?.username === username
+  // Determine if the authenticated user is the creator of the mindmap by comparing user ID to the creator field
+  const isCreator = !!(user?.id && currentMap?.creator && user.id === currentMap.creator)
   // Check if current user is a collaborator
   const isCollaborator = currentMap?.collaborators && user?.id ? currentMap.collaborators.includes(user.id) : false
 

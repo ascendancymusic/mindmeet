@@ -1439,14 +1439,14 @@ export default function Profile() {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
                 creator_id: user.id,
-                mindmap_key: currentMap.id,
+                mindmap_id: currentMap.id,
                 mindmap_title: details.title,
                 creator_username: user.username
               });
 
               const { data: notificationData, error: notificationError } = await supabase.rpc('notify_followers_on_publish', {
                 p_creator_id: user.id,
-                p_mindmap_key: currentMap.id,
+                p_mindmap_id: currentMap.id,
                 p_mindmap_title: details.title,
                 p_creator_username: user.username
               });
