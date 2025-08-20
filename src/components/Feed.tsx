@@ -5,6 +5,12 @@ import { Loader } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import { useAuthStore } from "../store/authStore";
 
+interface Profile {
+  username: string;
+  full_name: string;
+  avatar_url: string;
+}
+
 interface MindMap {
   permalink: string;
   id: string;
@@ -23,6 +29,7 @@ interface MindMap {
   description?: string;
   visibility?: "public" | "private";
   is_main?: boolean;
+  profile?: Profile;
 }
 
 interface FeedProps {
@@ -122,6 +129,22 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
         return;
       }
 
+      const creatorIds = [...new Set(data.map((map) => map.creator))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url")
+        .in("id", creatorIds);
+
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+      }
+
+      const profilesById = profilesData?.reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {} as Record<string, Profile>);
+
+
       const mapIds = data.map(map => map.id);
       let userLikedSet = new Set<string>();
       let userSavedSet = new Set<string>();
@@ -155,7 +178,8 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
         saves: mindmap.mindmap_save_counts?.[0]?.save_count || 0,
         liked_by: userLikedSet.has(mindmap.id) ? [user?.id] : [],
         saved_by: userSavedSet.has(mindmap.id) ? [user?.id] : [],
-        comment_count: mindmap.mindmap_comment_counts?.[0]?.comment_count || 0
+        comment_count: mindmap.mindmap_comment_counts?.[0]?.comment_count || 0,
+        profile: profilesById?.[mindmap.creator],
       }));
 
       // Check if we have more data to load

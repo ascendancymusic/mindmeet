@@ -39,6 +39,12 @@ const CustomBackground = () => {
   );
 };
 
+interface Profile {
+  username: string;
+  full_name: string;
+  avatar_url: string;
+}
+
 interface FeedMindMapNodeProps {
   mindmap: {
     permalink: string;
@@ -47,6 +53,7 @@ interface FeedMindMapNodeProps {
     json_data?: {
       nodes: any[];
       edges: any[];
+      edgeType?: string;
     };
     creator: string;
     created_at?: string;
@@ -58,16 +65,14 @@ interface FeedMindMapNodeProps {
     description?: string;
     visibility?: 'public' | 'private';
     updated_at?: string;
+    profile?: Profile;
   } | null;
   onDelete?: (mindmapKey: string) => void;
 }
 
-const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) => {
+const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, onDelete }) => {
   const { user } = useAuthStore();
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [username, setUsername] = useState<string>("unknown");
-  const [fullName, setFullName] = useState<string>("");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [localMindmap, setLocalMindmap] = useState<any>(mindmap);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -95,6 +100,34 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
 
   // Memoize nodeTypes to prevent recreation on each render
   const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []);
+
+  const { processedNodes, processedEdges } = useMemo(() => {
+    if (!localMindmap?.json_data?.nodes?.length) return { processedNodes: [], processedEdges: [] };
+
+    const nodes = processNodesForTextRendering(prepareNodesForRendering(localMindmap.json_data.nodes));
+    const edges = localMindmap.json_data.edges.map((edge: any) => {
+      const sourceNode = localMindmap.json_data.nodes.find((node: any) => node.id === edge.source);
+      const sourceNodeColor = sourceNode
+        ? (sourceNode.background || sourceNode.style?.background || "#374151")
+        : "#374151";
+
+      const edgeType = ['default', 'straight', 'smoothstep'].includes(localMindmap.json_data.edgeType)
+        ? localMindmap.json_data.edgeType
+        : 'default';
+
+      return {
+        ...edge,
+        type: edgeType === 'default' ? 'default' : edgeType,
+        style: {
+          ...edge.style,
+          strokeWidth: 2,
+          stroke: sourceNodeColor,
+        },
+      };
+    });
+
+    return { processedNodes: nodes, processedEdges: edges };
+  }, [localMindmap?.json_data]);
 
   // If mindmap is null, show skeleton immediately
   if (!mindmap) {
@@ -182,25 +215,6 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
     setLocalMindmap(mindmap);
     setIsLoading(!mindmap);
   }, [mindmap]);
-
-  // Fetch user profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("username, full_name, avatar_url")
-        .eq("id", mindmap.creator)
-        .single();
-      if (error) {
-        console.error("Error fetching profile:", error);
-      } else {
-        setUsername(profile?.username || "unknown");
-        setFullName(profile?.full_name || profile?.username || "unknown");
-        setAvatarUrl(profile?.avatar_url || null);
-      }
-    };
-    fetchProfile();
-  }, [mindmap?.creator]);
 
   const handleResize = useCallback(() => {
     if (reactFlowInstance) reactFlowInstance.fitView();
@@ -408,31 +422,31 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
           <div className="flex items-center justify-between">
             <a
-              href={`/${username}`}
+              href={`/${localMindmap.profile?.username}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.location.href = `/${username}`;
+                window.location.href = `/${localMindmap.profile?.username}`;
               }}
               className="flex items-center space-x-3 hover:bg-slate-700/30 rounded-xl p-3 -m-3 transition-all duration-200 group/creator"
             >
               <div className="relative">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex-shrink-0 overflow-hidden ring-2 ring-slate-600/50 group-hover/creator:ring-blue-400/50 transition-all duration-300">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
+                  {localMindmap.profile?.avatar_url ? (
+                    <img src={localMindmap.profile.avatar_url} alt={localMindmap.profile.username} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-200 font-semibold text-sm">
-                      {username.charAt(0).toUpperCase()}
+                      {localMindmap.profile?.username?.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-200 group-hover/creator:text-white transition-colors">
-                  {fullName}
+                  {localMindmap.profile?.full_name}
                 </p>
                 <p className="text-xs text-slate-400 group-hover/creator:text-slate-300 transition-colors">
-                  @{username}
+                  @{localMindmap.profile?.username}
                 </p>
               </div>
             </a>
@@ -495,31 +509,31 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
           <div className="flex items-center justify-between">
             <a
-              href={`/${username}`}
+              href={`/${localMindmap.profile?.username}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.location.href = `/${username}`;
+                window.location.href = `/${localMindmap.profile?.username}`;
               }}
               className="flex items-center space-x-3 hover:bg-slate-700/30 rounded-xl p-3 -m-3 transition-all duration-200 group/creator"
             >
               <div className="relative">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex-shrink-0 overflow-hidden ring-2 ring-slate-600/50 group-hover/creator:ring-blue-400/50 transition-all duration-300">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
+                  {localMindmap.profile?.avatar_url ? (
+                    <img src={localMindmap.profile.avatar_url} alt={localMindmap.profile.username} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-200 font-semibold text-sm">
-                      {username.charAt(0).toUpperCase()}
+                      {localMindmap.profile?.username?.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-200 group-hover/creator:text-white transition-colors">
-                  {fullName}
+                  {localMindmap.profile?.full_name}
                 </p>
                 <p className="text-xs text-slate-400 group-hover/creator:text-slate-300 transition-colors">
-                  @{username}
+                  @{localMindmap.profile?.username}
                 </p>
               </div>
             </a>
@@ -596,7 +610,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
 
         {/* Mind map preview */}
         <div className="relative mx-6 mb-6">
-          <a href={`/${username}/${localMindmap.permalink}`} className="block group/preview">
+          <a href={`/${localMindmap.profile?.username}/${localMindmap.permalink}`} className="block group/preview">
             <div className="h-[280px] border border-slate-700/50 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm group-hover/preview:border-blue-400/30 group-hover/preview:shadow-lg group-hover/preview:shadow-blue-500/10 transition-all duration-300 relative">
               {/* Subtle grid background */}
               <div className="absolute inset-0 opacity-20" style={{
@@ -608,29 +622,8 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
               }}></div>
 
               <ReactFlow
-                nodes={processNodesForTextRendering(prepareNodesForRendering(localMindmap.json_data.nodes))}
-                edges={localMindmap.json_data.edges.map((edge: any) => {
-                  // Find the source node to get its color
-                  const sourceNode = localMindmap.json_data.nodes.find((node: any) => node.id === edge.source);
-                  const sourceNodeColor = sourceNode
-                    ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                    : "#374151";
-
-                  // Get edgeType from mindmap data, default to 'default' if not valid
-                  const edgeType = ['default', 'straight', 'smoothstep'].includes(localMindmap.json_data.edgeType)
-                    ? localMindmap.json_data.edgeType
-                    : 'default';
-
-                  return {
-                    ...edge,
-                    type: edgeType === 'default' ? 'default' : edgeType,
-                    style: {
-                      ...edge.style,
-                      strokeWidth: 2,
-                      stroke: sourceNodeColor,
-                    },
-                  };
-                })}
+                nodes={processedNodes}
+                edges={processedEdges}
                 nodeTypes={memoizedNodeTypes}
                 fitView
                 nodesDraggable={false}
@@ -677,7 +670,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  window.location.href = `/${username}/${localMindmap.permalink}#comments-section`;
+                  window.location.href = `/${localMindmap.profile?.username}/${localMindmap.permalink}#comments-section`;
                 }}
                 className="group/btn flex items-center gap-2 transition-all duration-200 hover:scale-105"
               >
@@ -720,8 +713,8 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       {isShareModalOpen && localMindmap && (
         <ShareModal
           title={localMindmap.title}
-          url={`${window.location.origin}/${username}/${localMindmap.permalink}`}
-          creator={username || ''}
+          url={`${window.location.origin}/${localMindmap.profile?.username}/${localMindmap.permalink}`}
+          creator={localMindmap.profile?.username || ''}
           onClose={() => setIsShareModalOpen(false)}
           mindmapId={localMindmap.id}
         />
@@ -730,13 +723,13 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
         <InfoModal
           mindmap={{
             id: localMindmap.id,
-            username: username,
-            displayName: fullName,
+            username: localMindmap.profile?.username,
+            displayName: localMindmap.profile?.full_name,
             name: localMindmap.title,
             permalink: localMindmap.permalink,
             updatedAt: localMindmap.updated_at || localMindmap.created_at,
             description: localMindmap.description || 'No description provided.',
-            avatar_url: avatarUrl,
+            avatar_url: localMindmap.profile?.avatar_url,
             collaborators: localMindmap.collaborators || [],
             published_at: localMindmap.published_at,
             stats: {
@@ -765,7 +758,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             collaborators: localMindmap.collaborators || [],
             published_at: localMindmap.published_at || null
           }}
-          username={username}
+          username={localMindmap.profile?.username}
           onSave={saveMapDetails}
           showMainMapOption={false}
         />
@@ -804,6 +797,16 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
       )}
     </ReactFlowProvider>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  return (
+    prevProps.mindmap?.id === nextProps.mindmap?.id &&
+    prevProps.mindmap?.updated_at === nextProps.mindmap?.updated_at &&
+    JSON.stringify(prevProps.mindmap?.json_data) === JSON.stringify(nextProps.mindmap?.json_data) &&
+    prevProps.mindmap?.likes === nextProps.mindmap?.likes &&
+    prevProps.mindmap?.saves === nextProps.mindmap?.saves &&
+    prevProps.mindmap?.comment_count === nextProps.mindmap?.comment_count
+  );
+});
 
 export default FeedMindMapNode;
