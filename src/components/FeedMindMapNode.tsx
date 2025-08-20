@@ -734,7 +734,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = ({ mindmap, onDelete }) 
             displayName: fullName,
             name: localMindmap.title,
             permalink: localMindmap.permalink,
-            updatedAt: localMindmap.updated_at || new Date().toISOString(),
+            updatedAt: localMindmap.updated_at || localMindmap.created_at,
             description: localMindmap.description || 'No description provided.',
             avatar_url: avatarUrl,
             collaborators: localMindmap.collaborators || [],
