@@ -4177,7 +4177,7 @@ export default function MindMap() {
                 if (nextAction.data.color) {
                   updatedNode = {
                     ...updatedNode,
-                    // background color applied via style below
+                    background: nextAction.data.color, // Ensure top-level background is also updated
                     style: {
                       ...updatedNode.style,
                       background: nextAction.data.color,
@@ -4963,7 +4963,6 @@ export default function MindMap() {
         "update_node",
         {
           nodeId,
-          label: previewColor,
           affectedNodes: allNodesToUpdate,
           color: previewColor,
         },
@@ -4977,41 +4976,98 @@ export default function MindMap() {
   }
 
   const handleDefaultColorChange = (nodeId: string) => {
-    // Find the parent node's color
-    const parentEdge = edges.find(edge => edge.target === nodeId);
-    const parentNode = parentEdge ? nodes.find(node => node.id === parentEdge.source) : null;
+    // Calculate defaultColor outside the setNodes callback
+    const parentEdge = edges.find((edge) => edge.target === nodeId);
+    const parentNode = parentEdge ? nodes.find((n) => n.id === parentEdge.source) : null;
     const defaultColor = parentNode
       ? ((parentNode as any).background || parentNode.style?.background || "#4c5b6f")
       : "#4c5b6f";
-    handleColorChange(nodeId, defaultColor)
 
-    const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : []
-    const allNodesToUpdate = [nodeId, ...descendantIds]
+    setNodes((nds) => {
+      const updatedNodes = nds.map((node) => {
+        if (node.id === nodeId) {
+          // Broadcast live change
+          if (currentMindMapId && broadcastLiveChange) {
+            broadcastLiveChange({
+              id: nodeId,
+              type: 'node',
+              action: 'update',
+              data: { background: defaultColor, style: { ...node.style, background: defaultColor } }
+            });
+          }
 
-    // Create a snapshot of current node states for history
-    const previousState = nodes.map((node) => ({
-      id: node.id,
-      background: (node as any).background,
-      style: node.style,
-      data: node.data,
-    }))
+          return {
+            ...node,
+            background: defaultColor,
+            style: { ...node.style, background: defaultColor },
+          };
+        }
+        return node;
+      });
 
-    // Create history action for default color change
-    const action = createHistoryAction(
-      "update_node",
-      {
-        nodeId,
-        label: defaultColor,
-        affectedNodes: allNodesToUpdate,
-        color: defaultColor,
-      },
-      previousState as unknown as Node[]
-    )
-    addToHistory(action)
+      // Create history action for color change
+      const action = createHistoryAction(
+        "update_node",
+        { nodeId, color: defaultColor },
+        nds, // Pass current nodes (nds) as previous state
+        edges,
+        { nodes: nds } // Pass current nodes (nds) as previous state for accurate undo
+      );
+      addToHistory(action);
 
-    setShowColorPicker(false)
-    setPreviewColor(null)
-  }
+      return updatedNodes;
+    });
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+    setShowColorPicker(false);
+    setPreviewColor(null);
+  };
+
+  const handleTransparentColorChange = (nodeId: string) => {
+    // Define transparentColor outside the setNodes callback
+    const transparentColor = "transparent";
+
+    setNodes((nds) => {
+      const updatedNodes = nds.map((node) => {
+        if (node.id === nodeId) {
+          // Broadcast live change
+          if (currentMindMapId && broadcastLiveChange) {
+            broadcastLiveChange({
+              id: nodeId,
+              type: 'node',
+              action: 'update',
+              data: { background: transparentColor, style: { ...node.style, background: transparentColor } }
+            });
+          }
+
+          return {
+            ...node,
+            background: transparentColor,
+            style: { ...node.style, background: transparentColor },
+          };
+        }
+        return node;
+      });
+
+      // Create history action for color change to transparent
+      const action = createHistoryAction(
+        "update_node",
+        { nodeId, color: "transparent" },
+        nds, // Pass current nodes (nds) as previous state
+        edges,
+        { nodes: nds } // Pass current nodes (nds) as previous state for accurate undo
+      );
+      addToHistory(action);
+
+      return updatedNodes;
+    });
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+    setShowColorPicker(false);
+    setPreviewColor(null);
+  };
 
   const handleColorPickerCancel = (nodeId: string) => {
     const selectedNode = nodes.find((node) => node.id === nodeId)
@@ -6895,6 +6951,22 @@ export default function MindMap() {
                                 ></div>
                                 <span>Default</span>
                               </button>
+
+                              {selectedNode.type === "image" && (
+                                <button
+                                  onClick={() => {
+                                    handleTransparentColorChange(selectedNodeId)
+                                    setShowColorPicker(false)
+                                  }}
+                                  className="w-full px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 rounded-xl flex items-center space-x-2 transition-all duration-200"
+                                >
+                                  <div
+                                    className="w-4 h-4 rounded border border-slate-600"
+                                    style={{ backgroundColor: "transparent" }}
+                                  ></div>
+                                  <span>Transparent</span>
+                                </button>
+                              )}
 
                               <HexColorPicker
                                 color={selectedColor}
