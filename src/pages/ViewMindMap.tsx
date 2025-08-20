@@ -401,16 +401,16 @@ const ViewMindMap: React.FC = () => {
         let collaborators: string[] = []
         
         if (user?.id) {
-          const [{ data: likeData }, { data: saveData }, { data: collaborationData }] = await Promise.all([
+          const [{ data: likeData, error: likeError }, { data: saveData, error: saveError }, { data: collaborationData }] = await Promise.all([
             supabase
               .from("mindmap_likes")
-              .select("id")
+              .select("mindmap_id, user_id")
               .eq("mindmap_id", map.id)
               .eq("user_id", user.id)
               .single(),
             supabase
               .from("mindmap_saves")
-              .select("id")
+              .select("mindmap_id, user_id")
               .eq("mindmap_id", map.id)
               .eq("user_id", user.id)
               .single(),
@@ -421,8 +421,8 @@ const ViewMindMap: React.FC = () => {
               .eq("status", "accepted")
           ])
           
-          likedBy = likeData ? [user.id] : []
-          savedBy = saveData ? [user.id] : []
+          likedBy = (likeData && likeData.mindmap_id) ? [user.id] : [];
+          savedBy = (saveData && saveData.mindmap_id) ? [user.id] : [];
           collaborators = collaborationData?.map(c => c.collaborator_id) || []
         }
 
@@ -484,13 +484,38 @@ const ViewMindMap: React.FC = () => {
       if (error) {
         console.error("Error fetching similar mindmaps:", error)
       } else {
-        const processedMindmaps = mindmaps?.map(mindmap => ({
+        let processedMindmaps = mindmaps?.map(mindmap => ({
           ...mindmap,
           likes: mindmap.mindmap_like_counts?.[0]?.like_count || 0,
           saves: mindmap.mindmap_save_counts?.[0]?.save_count || 0,
           liked_by: [],
           saved_by: []
         })) || []
+
+        if (user?.id && processedMindmaps.length > 0) {
+          const mindmapIds = processedMindmaps.map(m => m.id);
+          const [userLikesResult, userSavesResult] = await Promise.all([
+            supabase
+              .from("mindmap_likes")
+              .select("mindmap_id")
+              .eq("user_id", user.id)
+              .in("mindmap_id", mindmapIds),
+            supabase
+              .from("mindmap_saves")
+              .select("mindmap_id")
+              .eq("user_id", user.id)
+              .in("mindmap_id", mindmapIds),
+          ]);
+
+          const userLikedSet = new Set(userLikesResult.data?.map(item => item.mindmap_id) || []);
+          const userSavedSet = new Set(userSavesResult.data?.map(item => item.mindmap_id) || []);
+
+          processedMindmaps = processedMindmaps.map(mindmap => ({
+            ...mindmap,
+            liked_by: userLikedSet.has(mindmap.id) ? [user.id] : [],
+            saved_by: userSavedSet.has(mindmap.id) ? [user.id] : [],
+          }));
+        }
         
         const shuffledMindmaps = processedMindmaps.sort(() => Math.random() - 0.5).slice(0, 5)
         setSimilarMindmaps(shuffledMindmaps || [])

@@ -259,6 +259,7 @@ export default function MindMap() {
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [showThreeDotMenu, setShowThreeDotMenu] = useState(false);
+  const [detailedMap, setDetailedMap] = useState<any | null>(null);
   const {
     initializeCollaboration,
     cleanupCollaboration,
@@ -815,10 +816,10 @@ export default function MindMap() {
         .from("mindmaps")
         .select(`
           id, permalink, title, json_data, drawing_data, updated_at, visibility, description, creator, created_at, is_pinned,
-          mindmap_like_counts(count),
+                    mindmap_like_counts(count),
           mindmap_save_counts(count),
           comment_count,
-          mindmap_collaborations(user_id)
+          mindmap_collaborations(user_id, status)
         `)
         .eq("id", MapId)
         .single();
@@ -930,8 +931,10 @@ export default function MindMap() {
         visibility: map.visibility || 'private',
         description: map.description || '',
         creator: map.creator,
-        collaborators: map.mindmap_collaborations?.map((collab: any) => collab.user_id) || [],
+        collaborators: map.mindmap_collaborations?.filter((c: any) => c.status === 'accepted').map((collab: any) => collab.user_id) || [],
       };
+
+      setDetailedMap(processedMap);
 
       // Don't modify the global maps store here - let fetchMaps handle that
       // This function is only responsible for loading the current map's content
@@ -1007,6 +1010,9 @@ export default function MindMap() {
     if (currentMap) {
       console.log('🗃️ [MindMap] Using cached data, skipping database fetch');
 
+      // Ensure collaborators data is available from the cache
+      const collaborators = (currentMap as any).collaborators || [];
+
       // Batch all state updates together to prevent multiple re-renders
       const loadedEdgeType = (currentMap as any).edgeType;
       const validEdgeTypes = ['default', 'straight', 'smoothstep'];
@@ -1029,6 +1035,7 @@ export default function MindMap() {
       setOriginalTitle(currentMap.title);
       setEdgeType(edgeTypeToSet);
       setDrawingData(drawingDataToSet);
+      setDetailedMap({ ...currentMap, collaborators });
 
       // Set optional color states only if they exist
       if ((currentMap as any).backgroundColor) {
@@ -6062,7 +6069,7 @@ export default function MindMap() {
                   </div>
 
                   {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
-                  {currentMap && currentMap.creator && (
+                  {currentMap && currentMap.creator && currentMap.collaborators && currentMap.collaborators.length > 0 && (
                     <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
                       <CollaboratorsList
                         mindMapId={(currentMap as any).id || currentMap.permalink}
