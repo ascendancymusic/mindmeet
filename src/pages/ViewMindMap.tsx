@@ -238,7 +238,8 @@ const SkeletonLoader = () => {
                   </div>
                 </div>
               </div>
-            ))}          </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -249,7 +250,7 @@ const ViewMindMap: React.FC = () => {
   const { username, id: permalink } = useParams<{ username: string; id: string }>()
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const [userProfile, setUserProfile] = useState<{ avatar_url: string | null } | null>(null)
+  const [userProfile, setUserProfile] = useState<{ avatar_url: string | null; username?: string } | null>(null)
   const [currentMap, setCurrentMap] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
@@ -528,7 +529,7 @@ const ViewMindMap: React.FC = () => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
-        const { data: profile, error } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).single()
+        const { data: profile, error } = await supabase.from("profiles").select("avatar_url, username").eq("id", user.id).single()
 
         if (error) {
           console.error("Error fetching user profile:", error)
@@ -1526,7 +1527,8 @@ const ViewMindMap: React.FC = () => {
 
           {/* Enhanced Similar mindmaps sidebar - only visible on xl screens */}
           <div className="hidden xl:block">
-            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 overflow-hidden shadow-2xl h-[75vh]">              <div className="p-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
+            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 overflow-hidden shadow-2xl h-[75vh]">
+              <div className="p-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
               <h3 className="font-semibold text-slate-200 flex items-center gap-2">
                 <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -1737,7 +1739,7 @@ const ViewMindMap: React.FC = () => {
               <div className="flex-1">
                 <div className="text-sm text-slate-400 mb-3 flex items-center gap-2">
                   <span>Comment as</span>
-                  <span className="text-blue-400 font-medium">@{user?.username || "username"}</span>
+                  <span className="text-blue-400 font-medium">@{userProfile?.username || user?.username || "username"}</span>
                 </div>
                 <textarea
                   className="w-full bg-slate-800/50 border border-slate-600/50 rounded-xl p-4 text-sm min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 placeholder-slate-400 resize-none"

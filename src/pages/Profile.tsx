@@ -453,6 +453,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [countsLoaded, setCountsLoaded] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Username availability state
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("empty")
@@ -1115,8 +1116,6 @@ export default function Profile() {
     // Optimistically update UI
     setProfile(updatedProfile)
 
-    setIsEditProfileOpen(false)
-
     try {
       // Check if username has actually changed
       const usernameChanged = profile?.username !== editProfileData.username;
@@ -1138,7 +1137,16 @@ export default function Profile() {
         .update(updateData)
         .eq("id", user.id)
 
-      if (error) throw error
+      if (error) throw error;
+
+      if (usernameChanged) {
+        setIsRefreshing(true);
+        setTimeout(() => {
+          window.location.href = `/${editProfileData.username}`;
+        }, 1000);
+      } else {
+        setIsEditProfileOpen(false)
+      }
     } catch (error) {
       console.error("Error updating profile:", error)
       // If there was an error, revert to the previous state by refetching
@@ -1274,9 +1282,11 @@ export default function Profile() {
 
       setProfile(updatedProfile)
 
-      // Close editor
-      setIsAvatarEditorOpen(false)
-      setAvatarImage(null)
+      setIsRefreshing(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
     } catch (error) {
       console.error("Error uploading avatar:", error)
       alert("Failed to upload avatar. Please try again.")
@@ -2353,11 +2363,11 @@ export default function Profile() {
                 </button>
                 <button
                   onClick={handleUpdateProfile}
-                  className={`px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 ${usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty" ? "opacity-50 cursor-not-allowed" : ""
+                  className={`px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 ${usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty" || isRefreshing ? "opacity-50 cursor-not-allowed" : ""
                     }`}
-                  disabled={usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty"}
+                  disabled={usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "unavailable" || usernameStatus === "empty" || isRefreshing}
                 >
-                  Save Changes
+                  {isRefreshing ? "Refreshing..." : "Save Changes"}
                 </button>
               </div>
             </div>
@@ -2416,13 +2426,15 @@ export default function Profile() {
                 <button
                   onClick={handleSaveAvatar}
                   className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed font-medium transform hover:scale-105"
-                  disabled={isUploading}
+                  disabled={isUploading || isRefreshing}
                 >
                   {isUploading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Uploading...
                     </>
+                  ) : isRefreshing ? (
+                    "Refreshing..."
                   ) : (
                     <>
                       <Check className="w-4 h-4 mr-2" />
