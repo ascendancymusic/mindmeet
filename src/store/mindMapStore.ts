@@ -100,17 +100,19 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       return;
     }
 
-    // Fetch user's avatar for owned maps
+    // Fetch user's avatar and username for owned maps
     let userAvatar = null;
+    let username = null;
     if (userId) {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("avatar_url")
+        .select("avatar_url, username")
         .eq("id", userId)
         .single();
 
       if (!profileError && profileData) {
         userAvatar = profileData.avatar_url;
+        username = profileData.username;
       }
     }
 
@@ -134,6 +136,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       visibility: map.visibility || 'private',
       description: map.description || '',
       creator: map.creator,
+      creatorUsername: username,
       collaborators: [], // Will be populated from mindmap_collaborations table when needed
       creatorAvatar: userAvatar,
       published_at: map.published_at,

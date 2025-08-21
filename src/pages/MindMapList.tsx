@@ -2055,7 +2055,7 @@ export default function MindMapList() {
                 {/* Enhanced Mind Map Preview */}
                   <a
                   href={(() => {
-                    if (viewMode === "collaboration" && map?.creatorUsername) {
+                    if (map?.creatorUsername) {
                       return `/${map.creatorUsername}/${map.permalink}/edit`
                     } else {
                       return `/${user?.username}/${map.permalink}/edit`
