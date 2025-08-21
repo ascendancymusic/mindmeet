@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../supabaseClient';
+import { useAuthStore } from './authStore';
 
 export interface Notification {
   id: string;
@@ -47,16 +48,56 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
       set({ isLoading: false });
     }
   },
-  addNotification: async (notification) => {
+    addNotification: async (notification) => {
     try {
+      const authUser = useAuthStore.getState().user;
+      let message = notification.message;
+
+      if (notification.related_user && authUser && notification.related_user === authUser.id && authUser.username) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', notification.related_user)
+          .single();
+        
+        if (profile && profile.username !== authUser.username) {
+          message = notification.message.replace(`@${authUser.username}`, `@${profile.username}`);
+        }
+      }
+
+      const updatedNotification = { ...notification, message };
+
+
+      if (updatedNotification.type === 'publish') {
+        const { data, error } = await supabase.rpc('create_mindmap_publish_notification', {
+          p_user_id: updatedNotification.user_id,           // sender (publisher)
+          p_title: updatedNotification.title,
+          p_message: updatedNotification.message,
+          p_type: updatedNotification.type,
+          p_mindmap_id: updatedNotification.mindmap_id
+        });
+      
+        if (error) {
+          console.error('Publish notification creation failed:', error);
+          throw error;
+        }
+      
+        if (data && data.length > 0) {
+          set((state) => ({
+            notifications: [data[0], ...state.notifications],
+          }));
+        }
+        return;
+      }
+
       // For follow notifications, use the simple RPC method since they don't need mindmap_id
-      if (notification.type === 'follow') {
+      if (updatedNotification.type === 'follow') {
         const { data, error } = await supabase.rpc('create_notification', {
-          p_message: notification.message,
-          p_related_user: notification.related_user,
-          p_title: notification.title,
-          p_type: notification.type,
-          p_user_id: notification.user_id,
+          p_message: updatedNotification.message,
+          p_related_user: updatedNotification.related_user,
+          p_title: updatedNotification.title,
+          p_type: updatedNotification.type,
+          p_user_id: updatedNotification.user_id,
         });
 
         if (error) {
@@ -73,15 +114,15 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
       }
 
       // For like notifications, use the specific server-side function
-      if (notification.type === 'like') {
+      if (updatedNotification.type === 'like') {
         const { data, error } = await supabase.rpc('create_like_notification_with_mindmap_id', {
-          p_user_id: notification.user_id,
-          p_type: notification.type,
-          p_title: notification.title,
-          p_message: notification.message,
-          p_related_user: notification.related_user,
-          p_mindmap_id: notification.mindmap_id,
-          p_comment_id: notification.comment_id
+          p_user_id: updatedNotification.user_id,
+          p_type: updatedNotification.type,
+          p_title: updatedNotification.title,
+          p_message: updatedNotification.message,
+          p_related_user: updatedNotification.related_user,
+          p_mindmap_id: updatedNotification.mindmap_id,
+          p_comment_id: updatedNotification.comment_id
         });
 
         if (error) {
@@ -99,13 +140,13 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
       // For other notification types (comment), use the server-side function
       const { data, error } = await supabase.rpc('create_notification_with_mindmap_id', {
-        p_user_id: notification.user_id,
-        p_type: notification.type,
-        p_title: notification.title,
-        p_message: notification.message,
-        p_related_user: notification.related_user,
-        p_mindmap_id: notification.mindmap_id,
-        p_comment_id: notification.comment_id
+        p_user_id: updatedNotification.user_id,
+        p_type: updatedNotification.type,
+        p_title: updatedNotification.title,
+        p_message: updatedNotification.message,
+        p_related_user: updatedNotification.related_user,
+        p_mindmap_id: updatedNotification.mindmap_id,
+        p_comment_id: updatedNotification.comment_id
       });
 
       if (error) {

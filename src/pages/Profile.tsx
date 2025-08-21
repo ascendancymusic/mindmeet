@@ -89,6 +89,7 @@ import InfoModal from '../components/InfoModal'
 import PublishSuccessModal from '../components/PublishSuccessModal'
 import { Toast } from '../components/Toast'
 import { useToastStore } from '../store/toastStore'
+import { useNotificationStore } from '../store/notificationStore';
 
 const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
   const bgColor = backgroundColor || '#11192C';
@@ -1442,32 +1443,41 @@ export default function Profile() {
 
           // If this is a publish/republish action, notify followers
           // Only send notifications if published_at was just set (not if it already existed)
-          const wasJustPublished = details.published_at &&
-            details.visibility === "public" &&
-            details.published_at !== currentMap.published_at;
+          const wasJustPublished =
+            details.published_at && details.visibility === "public" && details.published_at !== currentMap.published_at
           if (wasJustPublished && currentMap.id && user?.username) {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
                 creator_id: user.id,
                 mindmap_id: currentMap.id,
                 mindmap_title: details.title,
-                creator_username: user.username
-              });
+                creator_username: user.username,
+              })
 
-              const { data: notificationData, error: notificationError } = await supabase.rpc('notify_followers_on_publish', {
-                p_creator_id: user.id,
-                p_mindmap_id: currentMap.id,
-                p_mindmap_title: details.title,
-                p_creator_username: user.username
-              });
+              const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', user.id)
+                .single();
+              if (profileError) throw profileError;
+                      
+              const username = profile?.username
 
-              if (notificationError) {
+              try {
+                await useNotificationStore.getState().addNotification({
+                  user_id: user.id, // sender (publisher)
+                  type: 'publish',
+                  title: 'Mindmap Published',
+                  message: `@${username} published a new mindmap: ${details.title}`,
+                  mindmap_id: currentMap.id,
+                })
+                console.log("Successfully sent notifications to followers via notificationStore");
+              } catch (notificationError) {
                 console.error("Error sending follower notifications:", notificationError);
-              } else {
-                console.log("Successfully sent notifications to followers:", notificationData);
               }
+
             } catch (notifyError) {
-              console.error("Failed to notify followers:", notifyError);
+              console.error("Failed to notify followers:", notifyError)
               // Don't throw here - we don't want to fail the publish because notifications failed
             }
           }

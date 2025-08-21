@@ -45,6 +45,7 @@ import EditDetailsModal from "../components/EditDetailsModal"
 import PublishSuccessModal from "../components/PublishSuccessModal"
 import CloneSuccessModal from "../components/CloneSuccessModal"
 import { supabase } from "../supabaseClient"
+import { useNotificationStore } from '../store/notificationStore';
 import { processNodesForTextRendering } from "../utils/textNodeUtils"
 
 // Add shimmer animation styles
@@ -1471,26 +1472,33 @@ export default function MindMapList() {
             try {
               console.log("Sending notifications to followers for published mindmap:", {
                 creator_id: userId,
-                mindmap_key: currentMap.id,
+                mindmap_id: currentMap.id,
                 mindmap_title: details.title,
                 creator_username: user.username,
               })
 
-              const { data: notificationData, error: notificationError } = await supabase.rpc(
-                "notify_followers_on_publish",
-                {
-                  p_creator_id: userId,
-                  p_mindmap_key: currentMap.id,
-                  p_mindmap_title: details.title,
-                  p_creator_username: user.username,
-                },
-              )
+              const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', user.id)
+                .single();
+              if (profileError) throw profileError;
+                      
+              const username = profile?.username
 
-              if (notificationError) {
-                console.error("Error sending follower notifications:", notificationError)
-              } else {
-                console.log("Successfully sent notifications to followers:", notificationData)
+              try {
+                await useNotificationStore.getState().addNotification({
+                  user_id: userId, // sender (publisher)
+                  type: 'publish',
+                  title: 'Mindmap Published',
+                  message: `@${username} published a new mindmap: ${details.title}`,
+                  mindmap_id: currentMap.id,
+                })
+                console.log("Successfully sent notifications to followers via notificationStore");
+              } catch (notificationError) {
+                console.error("Error sending follower notifications:", notificationError);
               }
+
             } catch (notifyError) {
               console.error("Failed to notify followers:", notifyError)
               // Don't throw here - we don't want to fail the publish because notifications failed
