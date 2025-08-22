@@ -88,75 +88,79 @@ const InfoModal: React.FC<InfoModalProps> = ({ mindmap, onClose, hideVisibility 
   // Fetch collaborator profiles
   useEffect(() => {
     const fetchCollaboratorProfiles = async () => {
-      // If mindmap.id is provided, fetch from mindmap_collaborations table
-      if (mindmap.id) {
+      // If collaborators are already provided and populated, use them directly
+      if (mindmap.collaborators && mindmap.collaborators.length > 0) {
         setIsLoadingCollaborators(true);
         try {
-          const { data: collaborations, error: collaborationsError } = await supabase
-            .from('mindmap_collaborations')
-            .select(`
-              collaborator_id,
-              profiles!mindmap_collaborations_collaborator_id_fkey (
-                id, username, avatar_url
-              )
-            `)
-            .eq('mindmap_id', mindmap.id)
-            .eq('status', 'accepted');
+          const { data: profiles, error } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', mindmap.collaborators);
 
-          if (collaborationsError) {
-            console.error('Error fetching collaborations:', collaborationsError);
+          if (error) {
+            console.error('Error fetching collaborator profiles from provided array:', error);
             return;
           }
 
-          if (collaborations && collaborations.length > 0) {
-            setCollaboratorProfiles(collaborations.map((collab: any) => ({
-              id: collab.profiles.id,
-              username: collab.profiles.username,
-              avatar_url: collab.profiles.avatar_url,
-              isOnline: connectedUsers.includes(collab.profiles.id)
+          if (profiles) {
+            setCollaboratorProfiles(profiles.map(profile => ({
+              id: profile.id,
+              username: profile.username,
+              avatar_url: profile.avatar_url,
+              isOnline: connectedUsers.includes(profile.id)
             })));
-          } else {
-            setCollaboratorProfiles([]);
           }
         } catch (error) {
-          console.error('Error fetching collaborations:', error);
+          console.error('Error fetching collaborator profiles from provided array:', error);
         } finally {
           setIsLoadingCollaborators(false);
         }
         return;
       }
 
-      // Fallback to using collaborators array if mindmap.id is not provided
-      if (!mindmap.collaborators || mindmap.collaborators.length === 0) {
-        setCollaboratorProfiles([]);
+      // If mindmap.id is provided, fetch from mindmap_collaborations table
+      if (mindmap.id) {
+        setIsLoadingCollaborators(true);
+        try {
+          const { data: collaborationEntries, error: collabError } = await supabase
+            .from('mindmap_collaborations')
+            .select('collaborator_id')
+            .eq('mindmap_id', mindmap.id)
+            .eq('status', 'accepted');
+
+          if (collabError) throw collabError;
+
+          const collaboratorIds = collaborationEntries.map(entry => entry.collaborator_id);
+
+          if (collaboratorIds.length > 0) {
+            const { data: profiles, error: profilesError } = await supabase
+              .from('profiles')
+              .select('id, username, avatar_url')
+              .in('id', collaboratorIds);
+
+            if (profilesError) throw profilesError;
+
+            if (profiles) {
+              setCollaboratorProfiles(profiles.map(profile => ({
+                id: profile.id,
+                username: profile.username,
+                avatar_url: profile.avatar_url,
+                isOnline: connectedUsers.includes(profile.id)
+              })));
+            }
+          } else {
+            setCollaboratorProfiles([]);
+          }
+        } catch (error) {
+          console.error('Error fetching collaborations from mindmap.id:', error);
+        } finally {
+          setIsLoadingCollaborators(false);
+        }
         return;
       }
 
-      setIsLoadingCollaborators(true);
-      try {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('id, username, avatar_url')
-          .in('id', mindmap.collaborators);
-
-        if (error) {
-          console.error('Error fetching collaborator profiles:', error);
-          return;
-        }
-
-        if (profiles) {
-          setCollaboratorProfiles(profiles.map(profile => ({
-            id: profile.id,
-            username: profile.username,
-            avatar_url: profile.avatar_url,
-            isOnline: connectedUsers.includes(profile.id)
-          })));
-        }
-      } catch (error) {
-        console.error('Error fetching collaborator profiles:', error);
-      } finally {
-        setIsLoadingCollaborators(false);
-      }
+      // If neither mindmap.collaborators nor mindmap.id is provided
+      setCollaboratorProfiles([]);
     };
 
     fetchCollaboratorProfiles();

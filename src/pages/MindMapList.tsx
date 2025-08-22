@@ -33,6 +33,7 @@ import {
   Palette,
   Music,
   Search,
+  Info,
 } from "lucide-react"
 import ReactFlow, { type ReactFlowInstance, type NodeTypes } from "reactflow"
 import "reactflow/dist/style.css"
@@ -48,6 +49,7 @@ import CloneSuccessModal from "../components/CloneSuccessModal"
 import { supabase } from "../supabaseClient"
 import { useNotificationStore } from '../store/notificationStore';
 import { processNodesForTextRendering } from "../utils/textNodeUtils"
+import InfoModal from "../components/InfoModal"
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -770,6 +772,8 @@ export default function MindMapList() {
   const [showCloneSuccessPopup, setShowCloneSuccessPopup] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const reactFlowRef = useRef<ReactFlowInstance>(null)
+  const [showInfoModal, setShowInfoModal] = useState(false)
+  const [selectedMindmapForInfo, setSelectedMindmapForInfo] = useState<any>(null)
 
   // Pending collaboration invitations state
   interface PendingInvite {
@@ -2098,10 +2102,35 @@ export default function MindMapList() {
                             )}
                             {viewMode === "collaboration" && (
                               <>
-                                <div className="px-4 py-3 text-xs text-slate-500 flex items-center gap-3">
-                                  <Users className="w-4 h-4" />
-                                  Collaboration Map
-                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedMindmapForInfo({
+                                      username: map.creatorUsername,
+                                      displayName: map.creatorUsername, // Assuming display name is same as username for now
+                                      name: map.title,
+                                      permalink: map.permalink,
+                                      updatedAt: map.updatedAt,
+                                      description: map.description,
+                                      visibility: map.visibility,
+                                      avatar_url: map.creatorAvatar,
+                                      id: map.id,
+                                      collaborators: map.collaborators,
+                                      published_at: map.published_at,
+                                      stats: {
+                                        nodes: map.nodes?.length,
+                                        edges: map.edges?.length,
+                                        // Add other stats if available in map object
+                                      }
+                                    })
+                                    setShowInfoModal(true)
+                                    toggleMenu(map.permalink)
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
+                                >
+                                  <Info className="w-4 h-4" />
+                                  Info
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -2441,7 +2470,7 @@ export default function MindMapList() {
             published_at: maps.find((map) => map.permalink === mapToEdit)?.published_at || null,
           }}
           showMainMapOption={false}
-          username={user?.username}
+          username={maps.find((map) => map.permalink === mapToEdit)?.creatorUsername || user?.username}
           onSave={saveMapDetails}
         />
       )}
@@ -2469,6 +2498,16 @@ export default function MindMapList() {
 
       {/* Clone Success Modal */}
       <CloneSuccessModal isVisible={showCloneSuccessPopup} />
+
+      {showInfoModal && selectedMindmapForInfo && (
+        <InfoModal
+          mindmap={selectedMindmapForInfo}
+          onClose={() => {
+            setShowInfoModal(false)
+            setSelectedMindmapForInfo(null)
+          }}
+        />
+      )}
     </div>
   )
 }
