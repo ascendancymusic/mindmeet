@@ -749,6 +749,7 @@ export default function MindMapList() {
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
   const [groupToEdit, setGroupToEdit] = useState<string | null>(null)
   const [addToGroupMapId, setAddToGroupMapId] = useState<string | null>(null)
+  const [editingGroupSelections, setEditingGroupSelections] = useState<Record<string, string[]>>({})
   const [openGroupMenuId, setOpenGroupMenuId] = useState<string | null>(null)
   const [groupMenuPosition, setGroupMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -1435,6 +1436,46 @@ export default function MindMapList() {
     setOpenMenuId(null)
   }
 
+  const handleManageGroups = (permalink: string) => {
+    setAddToGroupMapId(permalink)
+    const currentGroupIds = groups
+      .filter((g) => g.mindmapIds.includes(permalink))
+      .map((g) => g.id)
+    setEditingGroupSelections((prev) => ({
+      ...prev,
+      [permalink]: currentGroupIds,
+    }))
+  }
+
+  const handleApplyGroupChanges = async (mapPermalink: string) => {
+    const currentMapGroups = groups
+      .filter((g) => g.mindmapIds.includes(mapPermalink))
+      .map((g) => g.id)
+    const newSelectedGroups = editingGroupSelections[mapPermalink] || []
+
+    const groupsToAdd = newSelectedGroups.filter(
+      (groupId) => !currentMapGroups.includes(groupId)
+    )
+    const groupsToRemove = currentMapGroups.filter(
+      (groupId) => !newSelectedGroups.includes(groupId)
+    )
+
+    for (const groupId of groupsToAdd) {
+      await addMapToGroup(mapPermalink, groupId)
+    }
+
+    for (const groupId of groupsToRemove) {
+      await removeMapFromGroup(mapPermalink, groupId)
+    }
+
+    setAddToGroupMapId(null) // Close the modal
+    setEditingGroupSelections((prev) => {
+      const newState = { ...prev }
+      delete newState[mapPermalink]
+      return newState
+    })
+  }
+
   /**
    * Saves updated map details including title, permalink, visibility, description, and collaborators
    * Handles permalink changes by updating the map ID in both local state and Supabase
@@ -2020,7 +2061,7 @@ export default function MindMapList() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                  setAddToGroupMapId(map.permalink)
+                  handleManageGroups(map.permalink)
                   toggleMenu(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
@@ -2289,27 +2330,27 @@ export default function MindMapList() {
               </p>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {groups.map((group) => {
-                  const isInGroup = group.mindmapIds.includes(addToGroupMapId)
+                  const isSelected = editingGroupSelections[addToGroupMapId]?.includes(group.id)
                   return (
                     <button
                       key={group.id}
                       onClick={() => {
-                        if (isInGroup) {
-                          removeMapFromGroup(addToGroupMapId, group.id)
-                        } else {
-                          addMapToGroup(addToGroupMapId, group.id)
-                        }
+                        const currentSelections = editingGroupSelections[addToGroupMapId] || []
+                        const newSelections = isSelected
+                          ? currentSelections.filter(id => id !== group.id)
+                          : [...currentSelections, group.id]
+                        setEditingGroupSelections(prev => ({ ...prev, [addToGroupMapId]: newSelections }))
                       }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${isInGroup
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${isSelected
                         ? "bg-blue-500/20 border border-blue-500/50 text-blue-300"
                         : "bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 text-slate-300"
                         }`}
                     >
                       <div
-                        className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isInGroup ? "bg-blue-500 border-blue-500" : "border-slate-500"
+                        className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-blue-500 border-blue-500" : "border-slate-500"
                           }`}
                       >
-                        {isInGroup && <Check className="w-3 h-3 text-white" />}
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
                       {group.color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />}
                       <span className="flex-1 text-left">{group.name}</span>
@@ -2325,9 +2366,15 @@ export default function MindMapList() {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setAddToGroupMapId(null)}
+                className="px-4 py-2 text-slate-400 hover:text-slate-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleApplyGroupChanges(addToGroupMapId)}
                 className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium"
               >
                 Done
