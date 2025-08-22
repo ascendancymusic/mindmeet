@@ -29,6 +29,7 @@ import {
   Heart,
   Share2,
   Edit2,
+  Network,
   Trash2,
   MoreHorizontal,
   X,
@@ -44,8 +45,11 @@ import SimilarMindMapNode, { SimilarMindMapNodeSkeleton } from "../components/Si
 import ShareModal from "../components/ShareModal"
 import InfoModal from "../components/InfoModal"
 import { SpotifyLoginModal } from "../components/SpotifyLoginModal"
+import EditDetailsModal from "../components/EditDetailsModal"
+import PublishSuccessModal from "../components/PublishSuccessModal"
 import { useNotificationStore } from "../store/notificationStore"
 import { useMindMapActions } from "../hooks/useMindMapActions"
+import { useMindMapStore } from "../store/mindMapStore"
 import eventEmitter from "../services/eventService"
 import defaultNodeStyles from "../config/defaultNodeStyles"
 
@@ -270,8 +274,11 @@ const ViewMindMap: React.FC = () => {
   const [commentSortBy, setCommentSortBy] = useState<"newest" | "likes">("likes")
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
   const [isSpotifyModalOpen, setIsSpotifyModalOpen] = useState(false)
+  const [isEditDetailsModalOpen, setIsEditDetailsModalOpen] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
+  const [editMindMapData, setEditMindMapData] = useState<any>(null)
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
   const [similarMindmapsCollapsed, setSimilarMindmapsCollapsed] = useState(false)
   const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null)
@@ -286,6 +293,94 @@ const ViewMindMap: React.FC = () => {
   const isCreator = !!(user?.id && currentMap?.creator && user.id === currentMap.creator)
   // Check if current user is a collaborator
   const isCollaborator = currentMap?.collaborators && user?.id ? currentMap.collaborators.includes(user.id) : false
+
+  // Function to save mindmap details (used by EditDetailsModal)
+  const saveMindMapDetails = async (details: {
+    title: string;
+    permalink: string;
+    visibility: "public" | "private" | "linkOnly";
+    description: string;
+    is_main: boolean;
+    collaborators: string[];
+    published_at?: string | null;
+  }) => {
+    if (!currentMap || !user?.id) return;
+
+    try {
+      const isPermalinkChanged = currentMap.permalink !== details.permalink;
+
+      const updatedMapData = {
+        ...currentMap, // Keep existing nodes, edges, etc.
+        title: details.title,
+        visibility: details.visibility,
+        description: details.description,
+        is_main: details.is_main,
+        collaborators: details.collaborators,
+        published_at: details.published_at,
+      };
+
+      if (isPermalinkChanged) {
+        await useMindMapStore.getState().saveMapToSupabase(updatedMapData, user.id);
+        await useMindMapStore.getState().updateMapPermalink(currentMap.permalink, details.permalink);
+      } else {
+        await useMindMapStore.getState().saveMapToSupabase(updatedMapData, user.id);
+      }
+
+      // Update local state
+      setCurrentMap((prev: any) => ({
+        ...prev,
+        ...updatedMapData,
+        permalink: isPermalinkChanged ? details.permalink : prev.permalink,
+      }));
+
+      // If this is a publish/republish action, notify followers
+      const wasJustPublished =
+        details.published_at && details.visibility === "public" && details.published_at !== currentMap.published_at;
+      if (wasJustPublished && currentMap.id && user?.username) {
+        try {
+          console.log("Sending notifications to followers for published mindmap:", {
+            creator_id: user.id,
+            mindmap_id: currentMap.id,
+            mindmap_title: details.title,
+            creator_username: user.username,
+          });
+
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', user.id)
+            .single();
+          if (profileError) throw profileError;
+
+          const username = profile?.username;
+
+          await useNotificationStore.getState().addNotification({
+            user_id: user.id, // sender (publisher)
+            type: 'publish',
+            title: 'Mindmap Published',
+            message: `@${username} published a new mindmap: ${details.title}`,
+            mindmap_id: currentMap.id,
+          });
+          console.log("Successfully sent notifications to followers via notificationStore");
+        } catch (notificationError) {
+          console.error("Error sending follower notifications:", notificationError);
+        }
+      }
+
+      // Show success popup if publishing/republishing
+      if (wasJustPublished) {
+        setShowSuccessPopup(true);
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+        }, 3000);
+      }
+
+      setIsEditDetailsModalOpen(false); // Close the modal
+    } catch (error) {
+      console.error("Error saving mindmap details:", error);
+      throw error; // Re-throw to be caught by the modal's error handling
+    }
+  };
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
@@ -429,6 +524,7 @@ const ViewMindMap: React.FC = () => {
 
         setCurrentMap({
           ...map,
+          title: map.title || "", // Ensure title is always a string
           nodes: processedNodes,
           edges: processedEdges,
           edgeType: map.json_data?.edgeType || 'default',
@@ -1276,6 +1372,14 @@ const ViewMindMap: React.FC = () => {
           isMainMap={currentMap.is_main || false}
           mindmapId={currentMap.id}
         />)}
+      {isEditDetailsModalOpen && editMindMapData && (
+        <EditDetailsModal
+          mapData={editMindMapData}
+          username={username || ""}
+          onClose={() => setIsEditDetailsModalOpen(false)}
+          onSave={saveMindMapDetails}
+        />
+      )}
       {isSpotifyModalOpen && (
         <SpotifyLoginModal
           isOpen={isSpotifyModalOpen}
@@ -1283,7 +1387,15 @@ const ViewMindMap: React.FC = () => {
           onGotIt={handleSpotifyModalGotIt}
           onLoginSuccess={handleSpotifyLoginSuccess}
         />
-      )}      <div className="w-[90vw] max-w-none mx-auto pb-6 pt-[calc(5rem+0.5rem)] min-h-full">
+      )}      {showSuccessPopup && (
+        <PublishSuccessModal
+          onClose={() => setShowSuccessPopup(false)}
+          mindmapTitle={currentMap?.title || "Your Mindmap"}
+          mindmapPermalink={currentMap?.permalink || ""}
+          creatorUsername={username || ""}
+        />
+      )}
+      <div className="w-[90vw] max-w-none mx-auto pb-6 pt-[calc(5rem+0.5rem)] min-h-full">
         {" "}        {/* Enhanced Header Section */}
         <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl mb-3">
           <div className="flex items-center justify-between gap-4">
@@ -1339,7 +1451,7 @@ const ViewMindMap: React.FC = () => {
                 href={`/${username}/${permalink}/edit`}
                 className="group inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
               >
-                <Edit2 className="w-4 h-4 transition-transform group-hover:scale-110" />
+                <Network className="w-4 h-4 transition-transform group-hover:scale-110" />
                 <span className="hidden sm:inline">Edit</span>
               </a>
             )}              {!isCreator && user?.id && (
@@ -1633,6 +1745,31 @@ const ViewMindMap: React.FC = () => {
                 <Share2 className="w-5 h-5 text-slate-300 group-hover:text-blue-800 transition-colors duration-200" />
                 <span className="text-sm font-medium text-slate-200">Share</span>
               </button>
+              {(isCreator || isCollaborator) && (
+                <button
+                  onClick={() => {
+                    if (currentMap) {
+                      setEditMindMapData({
+                        id: currentMap.id,
+                        title: currentMap.title || "",
+                        description: currentMap.description || "",
+                        visibility: currentMap.visibility || "private",
+                        is_main: currentMap.is_main || false,
+                        permalink: currentMap.permalink || "",
+                        collaborators: currentMap.collaborators || [],
+                        published_at: currentMap.published_at || null,
+                      });
+                      setIsEditDetailsModalOpen(true);
+                    } else {
+                      console.warn("currentMap is not loaded yet. Cannot open edit modal.");
+                    }
+                  }}
+                  className="group flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-700/50 hover:bg-blue-800/20 border border-slate-600/50 hover:border-blue-800/50 transition-all duration-200 hover:scale-105"
+                >
+                  <Edit2 className="w-5 h-5 text-slate-300 group-hover:text-blue-800 transition-colors duration-200" />
+                  <span className="text-sm font-medium text-slate-200">Edit</span>
+                </button>
+              )}
             </div>{" "}
             {currentMap.updated_at && (
               <div className="flex items-center gap-2 text-sm text-slate-400">
