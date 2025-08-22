@@ -32,6 +32,7 @@ import {
   Book,
   Palette,
   Music,
+  Search,
 } from "lucide-react"
 import ReactFlow, { type ReactFlowInstance, type NodeTypes } from "reactflow"
 import "reactflow/dist/style.css"
@@ -332,6 +333,7 @@ const EditGroupModal = ({
   const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
   const [selectedIcon, setSelectedIcon] = useState("Folder")
   const [sortOption, setSortOption] = useState("newest")
+  const [searchTerm, setSearchTerm] = useState('');
   // icon selection replaces legacy color selection
 
   // Initialize form when group changes
@@ -372,6 +374,10 @@ const EditGroupModal = ({
         return b.updatedAt - a.updatedAt
     }
   })
+
+  const filteredMindmaps = sortedMindmaps.filter(mindmap =>
+    mindmap.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (!isOpen || !group) return null
 
@@ -445,8 +451,20 @@ const EditGroupModal = ({
                 <option value="alphabeticalDesc">Z-A</option>
               </select>
             </div>
+            <div className="mb-3 relative">
+              <input
+                type="text"
+                placeholder="Search mindmaps..."
+                className="w-full px-4 py-2 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200 pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Search className="w-4 h-4 text-slate-400" />
+              </div>
+            </div>
             <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
-              {sortedMindmaps.map((mindmap) => (
+              {filteredMindmaps.map((mindmap) => (
                 <div
                   key={mindmap.permalink}
                   onClick={() => toggleMindmapSelection(mindmap.permalink)}
@@ -509,6 +527,7 @@ const CreateGroupModal = ({
   const [selectedMindmapIds, setSelectedMindmapIds] = useState<string[]>([])
   const [selectedIcon, setSelectedIcon] = useState("Folder")
   const [sortOption, setSortOption] = useState("newest")
+  const [searchTerm, setSearchTerm] = useState('');
 
 
 
@@ -544,6 +563,10 @@ const CreateGroupModal = ({
         return b.updatedAt - a.updatedAt
     }
   })
+
+  const filteredMindmaps = sortedMindmaps.filter(mindmap =>
+    mindmap.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (!isOpen) return null
 
@@ -617,8 +640,20 @@ const CreateGroupModal = ({
                 <option value="alphabeticalDesc">Z-A</option>
               </select>
             </div>
+            <div className="mb-3 relative">
+              <input
+                type="text"
+                placeholder="Search mindmaps..."
+                className="w-full px-4 py-2 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200 pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Search className="w-4 h-4 text-slate-400" />
+              </div>
+            </div>
             <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-600/50 rounded-xl p-3 bg-slate-800/30">
-              {sortedMindmaps.map((mindmap) => (
+              {filteredMindmaps.map((mindmap) => (
                 <div
                   key={mindmap.permalink}
                   onClick={() => toggleMindmapSelection(mindmap.permalink)}
