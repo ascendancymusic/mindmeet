@@ -174,6 +174,14 @@ const LoggedInNavigation: React.FC = () => {
     setMobileMenuOpen(false)
   }
 
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`)
+      setShowSearchResults(false)
+    }
+  };
+
   const handleSearch = async (query: string) => {
     if (query.trim() === "") {
       setSearchResults([])
@@ -188,7 +196,7 @@ const LoggedInNavigation: React.FC = () => {
 
     const { data: mindmapsData, error: mindmapsError } = await supabase
       .from("mindmaps")
-      .select("id, title, username") // Join with profiles to get the username
+      .select("id, title, username, permalink") // Join with profiles to get the username
       .ilike("title", `%${query}%`) // Case-insensitive search for mindmaps
 
     if (profilesError || mindmapsError) {
@@ -206,8 +214,8 @@ const LoggedInNavigation: React.FC = () => {
   const handleSearchResultClick = (result: any) => {
     if (result.type === "profile" && result.username) {
       navigate(`/${result.username}`)
-    } else if (result.type === "mindmap" && result.username && result.id) {
-      navigate(`/${result.username}/${result.id}`)
+    } else if (result.type === "mindmap" && result.username && result.permalink) {
+      navigate(`/${result.username}/${result.permalink}`)
     }
     setSearchQuery("")
     setSearchResults([])
@@ -252,7 +260,7 @@ const LoggedInNavigation: React.FC = () => {
           </h1>
         </div>        {/* Search bar - visible on desktop, hidden on mobile */}
         <div className={`flex-1 max-w-xl px-2 md:px-3 ${isMobile ? "hidden" : "block"}`}>
-          <div className="relative">
+          <form className="relative" onSubmit={handleSearchSubmit}>
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-3.5 h-3.5 md:w-4 md:h-4" />
             <input
               type="search"
@@ -296,7 +304,7 @@ const LoggedInNavigation: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
+          </form>
         </div>        {/* Right section with navigation icons - always visible */}
         <nav className="flex items-center gap-1 md:gap-1.5">
           {!isMobile && (
@@ -412,8 +420,9 @@ const LoggedInNavigation: React.FC = () => {
             </div>
 
             {/* Search bar in mobile menu */}
+            {/* Search bar in mobile menu */}
             <div className="p-3 border-b border-slate-700/50" style={{ backgroundColor: '#0f172a' }}>
-              <div className="relative">
+              <form className="relative" onSubmit={handleSearchSubmit}>
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="search"
@@ -457,7 +466,7 @@ const LoggedInNavigation: React.FC = () => {
                     ))}
                   </div>
                 )}
-              </div>
+              </form>
             </div>            {/* Navigation links in mobile menu */}
             <nav className="p-3" style={{ backgroundColor: '#0f172a' }}>
               <ul className="space-y-1">

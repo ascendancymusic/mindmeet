@@ -16,6 +16,7 @@ import MindMapDebug from './components/MindMapDebug';
 import ForgotPassword from './pages/ForgotPassword';
 import UserProfile from './pages/UserProfile';
 import ViewMindMap from './pages/ViewMindMap';
+import SearchPage from './pages/SearchPage';
 import './styles/theme.css';
 import { useAuthStore } from './store/authStore';
 
@@ -103,6 +104,7 @@ function App() {
             {username && <Route path={`/${username}`} element={<Profile />} />} {/* Route for fetched username */}
             <Route path="/:username/:id/edit" element={<MindMap />} /> {/* Updated route for editing mindmaps */}
             <Route path="/:username/:id" element={<ViewMindMap />} /> {/* Route for viewing mind maps */}
+            <Route path="/search" element={effectivelyLoggedIn ? <SearchPage /> : <Navigate to="/login" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
