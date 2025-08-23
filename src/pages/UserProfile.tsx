@@ -340,8 +340,8 @@ const UserProfile: React.FC = () => {
     },
     onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
       setSavedMaps((prevMaps) => {
-        // If the current user unsaved the map, remove it from the saved maps list
-        if (user?.id && !newSavedBy.includes(user.id)) {
+        // Only remove from saved maps list if we're viewing our own profile and we unsaved it
+        if (user?.id && profile?.id === user.id && !newSavedBy.includes(user.id)) {
           return prevMaps.filter((map) => map.permalink !== mapPermalink)
         }
         // Otherwise, just update the save count
