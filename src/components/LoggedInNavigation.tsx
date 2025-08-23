@@ -191,7 +191,7 @@ const LoggedInNavigation: React.FC = () => {
 
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, username, avatar_url")
+      .select("id, username, avatar_url, full_name")
       .ilike("username", `%${query}%`) // Case-insensitive search for profiles
 
     const { data: mindmapsData, error: mindmapsError } = await supabase
@@ -290,7 +290,10 @@ const LoggedInNavigation: React.FC = () => {
                             <User className="w-4 h-4 text-slate-400" />
                           </div>
                         )}
-                        <span className="font-medium">{result.username}</span>
+                        <div>
+                          <span className="font-medium">{result.username}</span>
+                          <p className="text-xs text-slate-400">{result.full_name}</p>
+                        </div>
                       </>
                     ) : (
                       <>
@@ -452,7 +455,10 @@ const LoggedInNavigation: React.FC = () => {
                                 <User className="w-4 h-4 text-slate-400" />
                               </div>
                             )}
-                            <span className="font-medium">{result.username}</span>
+                            <div>
+                              <span className="font-medium">{result.username}</span>
+                              <p className="text-xs text-slate-400">{result.full_name}</p>
+                            </div>
                           </>
                         ) : (
                           <>
