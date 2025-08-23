@@ -812,7 +812,7 @@ export default function MindMap() {
         setLoadError("Could not find the user profile.");
         setIsLoading(false);
         return;
-  } const { data: map, error: mapError } = await supabase
+      } const { data: map, error: mapError } = await supabase
         .from("mindmaps")
         .select(`
           id, permalink, title, json_data, drawing_data, updated_at, visibility, description, creator, created_at, is_pinned,
@@ -832,12 +832,12 @@ export default function MindMap() {
 
       // Check if user is creator or collaborator
       const isCreator = user?.id === map.creator;
-      const isCollaborator = user?.id && map.mindmap_collaborations && 
-        map.mindmap_collaborations.some((collab: any) => collab.user_id === user.id);
+      const isCollaborator = user?.id && map.mindmap_collaborations &&
+        map.mindmap_collaborations.some((collab: any) => collab.user_id === user.id && collab.status === 'accepted');
 
       if (!isCreator && !isCollaborator) {
         // Redirect to view-only mode if user is neither creator nor collaborator
-  navigate(`/${username}/${map.permalink}`);
+        navigate(`/${username}/${map.permalink}`);
         return;
       } const processedMap = {
         id: map.id,
@@ -993,8 +993,8 @@ export default function MindMap() {
 
   useEffect(() => {
     // Prevent multiple initializations for the same map
-  const initKey = `${MapId}-${(currentMap as any)?.id || currentMap?.permalink || 'no-cache'}`;
-  if (initializationKeyRef.current === initKey) {
+    const initKey = `${MapId}-${(currentMap as any)?.id || currentMap?.permalink || 'no-cache'}`;
+    if (initializationKeyRef.current === initKey) {
       return;
     }
 
@@ -1048,12 +1048,12 @@ export default function MindMap() {
       initializeCommonState();
       setIsLoading(false);
 
-  initializationKeyRef.current = initKey;
+      initializationKeyRef.current = initKey;
       hasInitializedRef.current = true;
     } else if (!hasInitializedRef.current) {
       console.log('💾 [MindMap] No cached data, fetching from database');
       fetchMindMapFromSupabase();
-  initializationKeyRef.current = MapId || '';
+      initializationKeyRef.current = MapId || '';
       hasInitializedRef.current = true;
     }
   }, [currentMap?.id, MapId, navigate, fetchMindMapFromSupabase, validateAndFixEdgeIds])
@@ -1090,13 +1090,13 @@ export default function MindMap() {
   const lastCollaborationInitRef = useRef<string>('');
 
   useEffect(() => {
-  const collaborationKey = `${MapId}-${user?.id}-${user?.username}`;
+    const collaborationKey = `${MapId}-${user?.id}-${user?.username}`;
 
-  if (MapId && user?.id && user.username && isLoggedIn &&
+    if (MapId && user?.id && user.username && isLoggedIn &&
       lastCollaborationInitRef.current !== collaborationKey) {
 
       console.log('🤝 [MindMap] Initializing collaboration for:', collaborationKey);
-  initializeCollaboration(MapId, user.id, user.username, user.avatar_url);
+      initializeCollaboration(MapId, user.id, user.username, user.avatar_url);
       lastCollaborationInitRef.current = collaborationKey;
     }
 
@@ -3498,7 +3498,7 @@ export default function MindMap() {
   }
   const updateNodeMapId = (nodeId: string, MapId: string) => {
     // Retrieve the unique mapId from the selected map for cross-user compatibility
-  const selectedMap = maps.find(map => (map as any).id === MapId || map.permalink === MapId);
+    const selectedMap = maps.find(map => (map as any).id === MapId || map.permalink === MapId);
     const mapId = selectedMap?.id;
 
     updateNodeData(
@@ -3614,10 +3614,10 @@ export default function MindMap() {
       return;
     }
 
-  if (MapId && editedTitle.trim() !== "") {
+    if (MapId && editedTitle.trim() !== "") {
       setIsSaving(true);
       try {
-  await updateMap(currentMap?.id || MapId, nodes, edges, editedTitle, user?.id || '', {
+        await updateMap(currentMap?.id || MapId, nodes, edges, editedTitle, user?.id || '', {
           edgeType,
           backgroundColor: backgroundColor || undefined,
           dotColor: dotColor || undefined,
@@ -3649,7 +3649,7 @@ export default function MindMap() {
       } finally {
         setIsSaving(false);
       }
-  } else if (MapId) {
+    } else if (MapId) {
       setEditedTitle(originalTitle)
       setHasUnsavedChanges(false)
     }
@@ -4858,10 +4858,10 @@ export default function MindMap() {
 
   const handleViewNavigation = () => {
     if (hasUnsavedChanges) {
-  setPendingNavigation(`/${username}/${MapId}`)
+      setPendingNavigation(`/${username}/${MapId}`)
       setShowUnsavedChangesModal(true)
     } else {
-  navigate(`/${username}/${MapId}`)
+      navigate(`/${username}/${MapId}`)
     }
   }
   const handleColorChange = (nodeId: string, color: string) => {
@@ -5647,7 +5647,7 @@ export default function MindMap() {
 
   return (
     <>
-  {errorScreen}
+      {errorScreen}
       {/* Custom styles for ReactFlow controls */}
       <style>{`
         .react-flow__controls-custom .react-flow__controls-button {
@@ -6125,12 +6125,12 @@ export default function MindMap() {
                   </div>
 
                   {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
-                  {currentMap && currentMap.creator && currentMap.collaborators && currentMap.collaborators.length > 0 && (
+                  {(detailedMap || currentMap) && (detailedMap || currentMap).collaborators && (detailedMap || currentMap).collaborators.length > 0 && (
                     <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
                       <CollaboratorsList
-                        mindMapId={(currentMap as any).id || currentMap.permalink}
-                        collaboratorIds={currentMap.collaborators || []}
-                        creatorId={currentMap.creator}
+                        mindMapId={((detailedMap || currentMap) as any).id || (detailedMap || currentMap).permalink}
+                        collaboratorIds={(detailedMap || currentMap).collaborators || []}
+                        creatorId={(detailedMap || currentMap).creator}
                         className="max-w-xs"
                         onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
                         isChatOpen={isChatOpen}
@@ -6187,7 +6187,7 @@ export default function MindMap() {
                   {/* Action buttons group - Top Right */}
                   <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
                     {/* Three-dot menu - Only show for creator */}
-                    {user?.id === currentMap?.creator && (
+                    {user?.id === (detailedMap || currentMap)?.creator && (
                       <div className="relative three-dot-dropdown">
                         <button
                           onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
@@ -6229,9 +6229,9 @@ export default function MindMap() {
                     )}
 
                     {/* View button - Only show for collaborators (not creators) */}
-                    {user?.id && user.id !== currentMap?.creator && currentMap?.collaborators?.includes(user.id) && (
+                    {user?.id && user.id !== (detailedMap || currentMap)?.creator && (detailedMap || currentMap)?.collaborators?.includes(user.id) && (
                       <a
-                        href={`/${username}/${currentMap?.permalink}`}
+                        href={`/${username}/${(detailedMap || currentMap)?.permalink}`}
                         onClick={(e) => {
                           e.preventDefault();
                           handleViewNavigation();
@@ -7321,35 +7321,36 @@ export default function MindMap() {
         <MindMapHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
 
         {/* Edit Details Modal */}
-        {currentMap && (
+        {(detailedMap || currentMap) && (
           <EditDetailsModal
             isOpen={showEditDetailsModal}
             onClose={() => setShowEditDetailsModal(false)}
             mapData={{
-              id: currentMap.id, // Add mindmap ID for collaboration functionality
-              permalink: currentMap.permalink,
-              title: currentMap.title,
-              description: currentMap.description,
-              visibility: currentMap.visibility,
-              is_main: currentMap.is_main,
-              collaborators: currentMap.collaborators,
-              published_at: currentMap.published_at,
+              id: (detailedMap || currentMap).id, // Add mindmap ID for collaboration functionality
+              permalink: (detailedMap || currentMap).permalink,
+              title: (detailedMap || currentMap).title,
+              description: (detailedMap || currentMap).description,
+              visibility: (detailedMap || currentMap).visibility,
+              is_main: (detailedMap || currentMap).is_main,
+              collaborators: (detailedMap || currentMap).collaborators,
+              published_at: (detailedMap || currentMap).published_at,
             }}
             username={username}
             onSave={async (details) => {
               try {
-                if (!user?.id || !currentMap) return;
+                const mapToUpdate = detailedMap || currentMap;
+                if (!user?.id || !mapToUpdate) return;
 
                 // Check if the new permalink already exists for the current user
                 const conflictingMap = maps.find(
-                  (map) => ((map as any).id === details.permalink || map.permalink === details.permalink) && map.permalink !== currentMap.permalink
+                  (map) => ((map as any).id === details.permalink || map.permalink === details.permalink) && map.permalink !== mapToUpdate.permalink
                 );
 
                 if (conflictingMap) {
                   throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
                 }
 
-                const isPermalinkChanged = currentMap.permalink !== details.permalink;
+                const isPermalinkChanged = mapToUpdate.permalink !== details.permalink;
                 const updatedMapData = {
                   title: details.title,
                   visibility: details.visibility,
@@ -7362,11 +7363,11 @@ export default function MindMap() {
                 // Check if this is a publish/republish action
                 const wasJustPublished = details.published_at &&
                   details.visibility === "public" &&
-                  details.published_at !== currentMap.published_at;
+                  details.published_at !== mapToUpdate.published_at;
 
                 if (isPermalinkChanged) {
                   const updatedMap = {
-                    ...currentMap,
+                    ...mapToUpdate,
                     ...updatedMapData
                   };
 
@@ -7374,14 +7375,14 @@ export default function MindMap() {
                   await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
 
                   // Then update the ID (this creates a new record and deletes the old one)
-                  await updateMapPermalink(currentMap.permalink, details.permalink);
+                  await updateMapPermalink(mapToUpdate.permalink, details.permalink);
 
                   // Navigate to the new URL in edit mode and refresh
                   navigate(`/${username}/${details.permalink}/edit`);
                   window.location.reload();
                 } else {
                   const updatedMap = {
-                    ...currentMap,
+                    ...mapToUpdate,
                     ...updatedMapData
                   };
 

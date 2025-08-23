@@ -91,7 +91,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       .select(`
         permalink, title, json_data, drawing_data, created_at, updated_at, visibility, is_pinned, is_main, description, creator, id, published_at,
         mindmap_like_counts (like_count),
-        mindmap_save_counts (save_count)
+        mindmap_save_counts (save_count),
+        mindmap_collaborations (collaborator_id, status)
       `)
       .eq("creator", userId);
 
@@ -137,7 +138,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       description: map.description || '',
       creator: map.creator,
       creatorUsername: username,
-      collaborators: [], // Will be populated from mindmap_collaborations table when needed
+      collaborators: map.mindmap_collaborations?.filter((c: any) => c.status === 'accepted').map((c: any) => c.collaborator_id) || [],
       creatorAvatar: userAvatar,
       published_at: map.published_at,
       drawingData: decompressDrawingData(map.drawing_data) || undefined,
@@ -163,7 +164,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           permalink, title, json_data, drawing_data, created_at, updated_at, visibility, 
           is_pinned, is_main, description, creator, id, published_at,
           mindmap_like_counts (like_count),
-          mindmap_save_counts (save_count)
+          mindmap_save_counts (save_count),
+          mindmap_collaborations!mindmap_collaborations_mindmap_id_fkey (
+            collaborator_id, status
+          )
         )
       `)
       .eq("collaborator_id", userId)
@@ -198,6 +202,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
 
       const collaborationMaps = collaborations.map((collab: any) => {
         const map = collab.mindmaps;
+        const collaborators = map.mindmap_collaborations?.filter((c: any) => c.status === 'accepted').map((c: any) => c.collaborator_id) || [userId];
+        
         return {
           permalink: map.permalink,
           id: map.id,
@@ -217,7 +223,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           is_main: map.is_main || false,
           visibility: map.visibility || 'private',
           description: map.description || '',
-          collaborators: [], // Will be populated when needed
+          collaborators: collaborators,
           creator: map.creator,
           creatorUsername: creatorUsernames.get(map.creator) || null,
           creatorAvatar: creatorAvatars.get(map.creator) || null,
