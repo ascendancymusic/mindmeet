@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAISettingsStore } from '../store/aiSettingsStore';
+import { useAISettingsStore, AVAILABLE_AI_MODELS } from '../store/aiSettingsStore';
 import { useChatStore } from '../store/chatStore';
 
 interface AISettingsModalProps {
@@ -14,19 +14,23 @@ const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClose, conv
   const supabaseConvId = conversation?.supabaseId || '';
   
   // Get the AI settings store
-  const { 
+  const {
     defaultMemoryLength,
-    defaultCustomContext, 
+    defaultCustomContext,
+    defaultModel,
     setDefaultMemoryLength,
     setDefaultCustomContext,
+    setDefaultModel,
     setConversationMemoryLength,
     setConversationCustomContext,
+    setConversationModel,
     getConversationSettings
   } = useAISettingsStore();
   
   // Local state for form values
   const [memoryLength, setMemoryLength] = useState(10);
   const [customContext, setCustomContext] = useState('');
+  const [model, setModel] = useState(AVAILABLE_AI_MODELS[1]);
   const [isGlobal, setIsGlobal] = useState(false);
   
   // Load settings when the component mounts or conversation changes
@@ -36,29 +40,33 @@ const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClose, conv
       const settings = getConversationSettings(supabaseConvId);
       setMemoryLength(settings.memoryLength);
       setCustomContext(settings.customContext);
+      setModel(settings.model);
       setIsGlobal(false);
     } else {
       // Load global defaults
       setMemoryLength(defaultMemoryLength);
       setCustomContext(defaultCustomContext);
+      setModel(defaultModel);
       setIsGlobal(true);
     }
-  }, [supabaseConvId, defaultMemoryLength, defaultCustomContext, getConversationSettings]);
+  }, [supabaseConvId, defaultMemoryLength, defaultCustomContext, defaultModel, getConversationSettings]);
 
   // Handle form submission
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (isGlobal || !supabaseConvId) {
       // Update global defaults
       setDefaultMemoryLength(memoryLength);
       setDefaultCustomContext(customContext);
+      setDefaultModel(model);
     } else {
       // Update conversation-specific settings
       setConversationMemoryLength(supabaseConvId, memoryLength);
       setConversationCustomContext(supabaseConvId, customContext);
+      setConversationModel(supabaseConvId, model);
     }
-    
+
     onClose();
   };
 
@@ -86,6 +94,22 @@ const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClose, conv
             </div>
           )}
           
+          {/* Model Selection */}
+          <div className="mb-4">
+            <label className="block mb-2 text-sm font-medium">
+              AI Model
+            </label>
+            <select
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              className="w-full p-2 bg-gray-800 border border-gray-700 rounded-lg"
+            >
+              {AVAILABLE_AI_MODELS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Memory Length Slider */}
           <div className="mb-4">
             <label className="block mb-2 text-sm font-medium">

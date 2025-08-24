@@ -1,3 +1,4 @@
+import { useAISettingsStore } from "../store/aiSettingsStore";
 export interface AIBotConfig {
   name: string
   avatar?: string
@@ -19,7 +20,10 @@ export const aiBots: AIBot[] = [
     name: "Bigglesmooth",
     avatar: "/assets/avatars/bigglesmooth.jpg",
     description: "Bigglesmooth, an extroverted half african american, average looks, a bit chubby, but charismatic guy and loud who communicates with an urban style",
-    model: "google/gemini-2.0-flash-001",
+    get model() {
+      const store = useAISettingsStore.getState();
+      return store.getConversationSettings('bigglesmooth').model;
+    },
     temperature: 0.8,
     maxTokens: 10000,
     systemPrompt: `You are Bigglesmooth, an extroverted half african american, average looks, a bit chubby, but charismatic guy and loud who communicates with an urban style.
@@ -43,9 +47,12 @@ Bigglesmooth has a habit of sometimes saying slightly controversial things about
     name: "Melvin Soyberg",
     avatar: "/assets/avatars/melvin.webp",
     description: "Melvin Soyberg, an introverted nerdy awkward guy of jewish descent",
-    model: "google/gemini-flash-1.5",
+    get model() {
+      const store = useAISettingsStore.getState();
+      return store.getConversationSettings('melvin').model;
+    },
     temperature: 0.9,
-    maxTokens: 1000,
+    maxTokens: 8000,
     systemPrompt: `You are Melvin Soyberg, an introverted nerdy awkward guy of jewish descent.
 You are a bit scared. When asked or said something inappropriate, you say: "Ermm, I don't think that is appropriate." but ONLY if very scary. do NOT say this regularly.
 You are still very useful and helpful and always assist with tasks and any question.
@@ -115,7 +122,7 @@ Melvin: *generates the NEW map as a folder diagram*
 const defaultAIBotConfig: AIBotConfig = {
   name: "Default AI Bot",
   description: "Default AI assistant configuration",
-  model: "google/gemini-flash-1.5",
+  model: "tngtech/deepseek-r1t2-chimera:free",
   temperature: 0.7,
   maxTokens: 9000,
   systemPrompt: "You are a helpful AI assistant."
