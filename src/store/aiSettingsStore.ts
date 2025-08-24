@@ -3,10 +3,10 @@ import { persist } from "zustand/middleware"
 
 
 export const AVAILABLE_AI_MODELS = [
-  "qwen/qwen3-coder:free",
-  "tngtech/deepseek-r1t2-chimera:free",
-  "deepseek/deepseek-r1-0528:free",
-  "deepseek/deepseek-chat-v3-0324:free"
+  "qwen/qwen3-coder:free:nitro",
+  "tngtech/deepseek-r1t2-chimera:free:nitro",
+  "deepseek/deepseek-r1-0528:free:nitro",
+  "deepseek/deepseek-chat-v3-0324:free:nitro"
 ];
 
 interface AISettings {
