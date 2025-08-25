@@ -104,6 +104,7 @@ import { PaneContextMenu } from "../components/PaneContextMenu";
 import { DrawModal } from "../components/DrawModal";
 import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
+import BrainstormChat from "../components/BrainstormChat";
 
 
 interface HistoryAction {
@@ -148,6 +149,8 @@ export interface YouTubeVideo {
 }
 
 export default function MindMap() {
+  // Brainstorm Chat modal state
+  const [showBrainstormChat, setShowBrainstormChat] = useState(false);
   // Treat route param 'id' as the internal mindmap id now (previously legacy id/permalink)
   const { username, id: MapId } = useParams() // 'MapId' corresponds to Supabase mindmaps.id
   const navigate = useNavigate()
@@ -6200,7 +6203,7 @@ export default function MindMap() {
 
 
                   {/* Action buttons group - Top Right */}
-                  <div className="absolute top-16 right-4 z-40 flex items-center space-x-2">
+                  <div className="absolute top-16 right-0 z-40 flex items-center space-x-2">
                     {/* Three-dot menu - Show for both creator and collaborators */}
                     {(user?.id === (detailedMap || currentMap)?.creator || ((detailedMap || currentMap)?.collaborators?.includes(user?.id))) && (
                       <div className="relative three-dot-dropdown">
@@ -6430,23 +6433,23 @@ export default function MindMap() {
         {/* UI Elements - Hidden in fullscreen */}
         {!isFullscreen && (
           <>
-            {/* Mind Map Customization button removed; now in three-dot menu */}
-
-            {/* Help button */}
 
 
+          {/* Brainstorm Chat Modal */}
+            <BrainstormChat isOpen={showBrainstormChat} onClose={() => setShowBrainstormChat(false)} />
 
             {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
             <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
               <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
                 <button
-                  onClick={() => {/* TODO: open AI chat modal */}}
+                  onClick={() => setShowBrainstormChat(true)}
                   className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
                   title="AI Chat"
                 >
                   <FiMessageSquare className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
                 </button>
               </div>
+
               <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
                 <button
                   onClick={() => setShowHelpModal(true)}
