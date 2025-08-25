@@ -6436,7 +6436,20 @@ export default function MindMap() {
 
 
           {/* Brainstorm Chat Modal */}
-            <BrainstormChat isOpen={showBrainstormChat} onClose={() => setShowBrainstormChat(false)} />
+            <BrainstormChat
+              isOpen={showBrainstormChat}
+              onClose={() => setShowBrainstormChat(false)}
+              username={user?.username}
+              collaborators={
+                (currentMap?.collaborators || [])
+                  .filter((c: any) => c && c.id !== user?.id)
+                  .map((c: any) => ({
+                    id: c.id,
+                    username: c.username,
+                    avatarUrl: c.avatar_url
+                  }))
+              }
+            />
 
             {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
             <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
