@@ -6184,10 +6184,11 @@ export default function MindMap() {
                     )}
                   </div>
 
+
                   {/* Action buttons group - Top Right */}
                   <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
-                    {/* Three-dot menu - Only show for creator */}
-                    {user?.id === (detailedMap || currentMap)?.creator && (
+                    {/* Three-dot menu - Show for both creator and collaborators */}
+                    {(user?.id === (detailedMap || currentMap)?.creator || ((detailedMap || currentMap)?.collaborators?.includes(user?.id))) && (
                       <div className="relative three-dot-dropdown">
                         <button
                           onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
@@ -6200,15 +6201,28 @@ export default function MindMap() {
                         {showThreeDotMenu && (
                           <div className="absolute top-full right-0 mt-1 w-40 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
                             <div className="p-1">
+                              {/* Only show Edit details for creator */}
+                              {user?.id === (detailedMap || currentMap)?.creator && (
+                                <button
+                                  onClick={() => {
+                                    setShowEditDetailsModal(true);
+                                    setShowThreeDotMenu(false);
+                                  }}
+                                  className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                  <span>Edit details</span>
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
-                                  setShowEditDetailsModal(true);
+                                  setShowCustomizationModal(true);
                                   setShowThreeDotMenu(false);
                                 }}
                                 className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
                               >
-                                <Edit3 className="w-4 h-4" />
-                                <span>Edit details</span>
+                                <SquarePen className="w-4 h-4" />
+                                <span>Customize</span>
                               </button>
                               <a
                                 href={`/${username}/${currentMap?.permalink}`}
@@ -6226,20 +6240,6 @@ export default function MindMap() {
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* View button - Only show for collaborators (not creators) */}
-                    {user?.id && user.id !== (detailedMap || currentMap)?.creator && (detailedMap || currentMap)?.collaborators?.includes(user.id) && (
-                      <a
-                        href={`/${username}/${(detailedMap || currentMap)?.permalink}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleViewNavigation();
-                        }}
-                        className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                      >
-                        <Monitor className="w-4 h-4" />
-                      </a>
                     )}
 
                     {/* Save button with dropdown */}
@@ -6434,16 +6434,7 @@ export default function MindMap() {
         {/* UI Elements - Hidden in fullscreen */}
         {!isFullscreen && (
           <>
-            {/* Mind Map Customization button */}
-            <div className="fixed bottom-4 right-16 z-30">
-              <button
-                onClick={() => setShowCustomizationModal(true)}
-                className="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
-                title="Mind Map Customization"
-              >
-                <SquarePen className="w-4 h-4 text-gray-300" />
-              </button>
-            </div>
+            {/* Mind Map Customization button removed; now in three-dot menu */}
 
             {/* Help button */}
             <button
