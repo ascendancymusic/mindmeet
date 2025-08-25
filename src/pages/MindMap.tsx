@@ -6077,8 +6077,6 @@ export default function MindMap() {
               {/* Real-time collaboration cursors */}
               <CollaboratorCursors />
 
-              {/* Simple animation system - no visual indicators needed */}
-
               {/* Selection Toolbar */}
               <SelectionToolbarWrapper
                 selectionBounds={selectionBounds}
@@ -6087,15 +6085,31 @@ export default function MindMap() {
                 onDelete={handleDeleteSelectedNodes}
               />
 
+            </ReactFlow>
+          </ReactFlowProvider>
 
+          {/* Drawing Canvas - Overlays ReactFlow for drawing functionality */}
+          <DrawingCanvas
+            isDrawingMode={isPenModeActive}
+            isEraserMode={isEraserMode}
+            drawingColor={drawingColor}
+            lineWidth={drawingLineWidth}
+            onDrawingChange={handleDrawingChange}
+            initialDrawingData={drawingData}
+            reactFlowInstance={reactFlowInstance}
+            isFullscreen={isFullscreen}
+            drawingTool={drawingTool}
+            ref={drawingCanvasRef}
+          />
+          
+          
 
-              {/* Removed floating paste toolbox UI */}
 
               {/* Header Elements - Always visible, positioned over ReactFlow */}
               {!isFullscreen && (
                 <>
                   {/* Back to Maps button and Search - Top Left */}
-                  <div className="absolute top-4 left-0 z-50 flex items-center space-x-2">
+                  <div className="absolute top-16 left-0 z-50 flex items-center space-x-2">
                     <button
                       onClick={() => {
                         if (hasUnsavedChanges) {
@@ -6126,7 +6140,7 @@ export default function MindMap() {
 
                   {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
                   {(detailedMap || currentMap) && (detailedMap || currentMap).collaborators && (detailedMap || currentMap).collaborators.length > 0 && (
-                    <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
+                    <div className={`absolute top-16 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
                       <CollaboratorsList
                         mindMapId={((detailedMap || currentMap) as any).id || (detailedMap || currentMap).permalink}
                         collaboratorIds={(detailedMap || currentMap).collaborators || []}
@@ -6149,7 +6163,7 @@ export default function MindMap() {
                   )}
 
                   {/* Title - Top Center */}
-                  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50">
                     {isEditingTitle ? (
                       <input
                         type="text"
@@ -6186,7 +6200,7 @@ export default function MindMap() {
 
 
                   {/* Action buttons group - Top Right */}
-                  <div className="absolute top-4 right-0 z-50 flex items-center space-x-2">
+                  <div className="absolute top-16 right-4 z-40 flex items-center space-x-2">
                     {/* Three-dot menu - Show for both creator and collaborators */}
                     {(user?.id === (detailedMap || currentMap)?.creator || ((detailedMap || currentMap)?.collaborators?.includes(user?.id))) && (
                       <div className="relative three-dot-dropdown">
@@ -6402,24 +6416,6 @@ export default function MindMap() {
                   )}
                 </>
               )}
-
-
-            </ReactFlow>
-          </ReactFlowProvider>
-
-          {/* Drawing Canvas - Overlays ReactFlow for drawing functionality */}
-          <DrawingCanvas
-            isDrawingMode={isPenModeActive}
-            isEraserMode={isEraserMode}
-            drawingColor={drawingColor}
-            lineWidth={drawingLineWidth}
-            onDrawingChange={handleDrawingChange}
-            initialDrawingData={drawingData}
-            reactFlowInstance={reactFlowInstance}
-            isFullscreen={isFullscreen}
-            drawingTool={drawingTool}
-            ref={drawingCanvasRef}
-          />
 
 
 
