@@ -34,7 +34,6 @@ import {
   X,
   Network, ChevronDown,
   Loader,
-  HelpCircle,
   AudioWaveform,
   ListMusic,
   Plus,
@@ -45,8 +44,9 @@ import {
   Search,
   MoreVertical,
   Monitor,
-
 } from "lucide-react"
+import { MdQuestionMark } from "react-icons/md"
+import { FiMessageSquare } from "react-icons/fi"
 import {
   DndContext,
   closestCenter,
@@ -6286,7 +6286,7 @@ export default function MindMap() {
                             <div className="flex items-center justify-between mb-2 px-2">
                               <span className="text-xs text-slate-400">Autosave</span>
                               <div className="relative group">
-                                <HelpCircle className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
+                                <MdQuestionMark className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
                                 <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                                   <div className="text-xs text-slate-300 space-y-2">
                                     <p>This setting applies to all your mindmaps globally.</p>
@@ -6437,13 +6437,30 @@ export default function MindMap() {
             {/* Mind Map Customization button removed; now in three-dot menu */}
 
             {/* Help button */}
-            <button
-              onClick={() => setShowHelpModal(true)}
-              className="fixed bottom-4 right-4 p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors z-30"
-              title="Help"
-            >
-              <HelpCircle className="w-4 h-4 text-gray-300" />
-            </button>
+
+
+
+            {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
+            <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
+              <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
+                <button
+                  onClick={() => {/* TODO: open AI chat modal */}}
+                  className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
+                  title="AI Chat"
+                >
+                  <FiMessageSquare className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
+                </button>
+              </div>
+              <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
+                <button
+                  onClick={() => setShowHelpModal(true)}
+                  className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
+                  title="Help"
+                >
+                  <MdQuestionMark className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
+                </button>
+              </div>
+            </div>
 
 
           </>
