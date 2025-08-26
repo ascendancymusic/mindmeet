@@ -323,10 +323,30 @@ export function NodeTypesMenu({
   }
 
   return (
-    <div className="relative" style={{ isolation: "isolate", zIndex: 1000 }}>
+    <div className="relative group" style={{ isolation: "isolate", zIndex: 1000 }}>
+      {/* Larger hover area for chevron button */}
       <div
-        className={`${isCompactMode ? "space-y-1 p-1.5" : "space-y-2 p-2"} rounded-2xl shadow-2xl overflow-y-auto transition-all duration-300 ease-in-out ${isMinimized ? "w-0 p-0 opacity-0" : "w-auto opacity-100"
-          } bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
+        className={`absolute ${isMinimized ? 'left-0' : 'left-full -translate-x-2'} top-1/2 -translate-y-1/2 z-[2000] h-20 flex items-center group/chevron-hover`}
+        style={{ height: '80px', width: '40px' }}
+      >
+        <button
+          onClick={() => setIsMinimized(!isMinimized)}
+          className={`w-10 h-10 flex items-center justify-center shadow-xl transition-transform hover:scale-110
+            bg-gradient-to-br from-slate-800/70 via-slate-900/80 to-purple-900/30 backdrop-blur-md border border-white/15 border-t-2 border-l-2 border-b-2 border-r-0
+            rounded-r-2xl
+            ${isMinimized ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 group-hover/chevron-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto group-hover/chevron-hover:pointer-events-auto'}`}
+          style={{ boxShadow: '0 4px 24px 0 rgba(80,0,120,0.10), 0 1.5px 8px 0 rgba(80,0,120,0.05)' }}
+          tabIndex={0}
+          aria-label={isMinimized ? 'Expand menu' : 'Collapse menu'}
+        >
+          <ChevronRight
+            className={`w-7 h-7 text-white/80 drop-shadow transform transition-transform duration-300 ${isMinimized ? '' : 'rotate-180'}`}
+          />
+        </button>
+      </div>
+      <div
+        className={`${isCompactMode ? "space-y-1 p-1.5" : "space-y-2 p-2"} rounded-2xl shadow-2xl overflow-y-auto transition-all duration-300 ease-in-out ${isMinimized ? "w-0 p-0 opacity-0 pointer-events-none select-none" : "w-auto opacity-100"}
+          bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
         style={{
           maxHeight,
           scrollbarColor: "rgb(147, 34, 192) rgb(34, 34, 44)",
@@ -641,15 +661,7 @@ export function NodeTypesMenu({
           )}
         </button>
       </div>
-      <button
-        onClick={() => setIsMinimized(!isMinimized)}
-        className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-105 bg-gradient-to-r from-slate-700 to-slate-800 border border-slate-600/30 rounded-r-xl"
-      >
-        <ChevronRight
-          className={`w-4 h-4 text-white transform transition-transform duration-300 ${isMinimized ? "" : "rotate-180"
-            }`}
-        />
-      </button>
+  {/* Collapse/Expand button moved above for better control */}
       {renderTooltip()}
     </div>
   )
