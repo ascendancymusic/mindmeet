@@ -1,8 +1,10 @@
+
 "use client"
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { MessageCircle, Bot, Users, X, Move } from "lucide-react"
+import AITypingIndicator from "./AITypingIndicator";
 
 interface Collaborator {
   id: string
@@ -11,6 +13,8 @@ interface Collaborator {
 }
 
 import { supabase } from "../supabaseClient";
+import { aiBots } from "../config/aiBot";
+
 
 interface BrainstormChatProps {
   isOpen: boolean
@@ -32,6 +36,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ])
+  const [aiLoading, setAiLoading] = useState(false);
 
   const [collabInput, setCollabInput] = useState("")
   const [aiInput, setAiInput] = useState("")
@@ -135,25 +140,81 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
     }
   }, [isResizing, resizeStart, isDragging, dragStart, panelSize.width, panelSize.height])
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (activeTab === "collab") {
-      if (collabInput.trim() === "") return
-      setCollabMessages([...collabMessages, collabInput])
-      setCollabInput("")
+      if (collabInput.trim() === "") return;
+      setCollabMessages([...collabMessages, collabInput]);
+      setCollabInput("");
     } else {
-      if (aiInput.trim() === "") return
-      setAiMessages([
-        ...aiMessages,
-        {
-          user: username || "You",
-          text: aiInput,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ])
-      setAiInput("")
+      if (aiInput.trim() === "" || aiLoading) return;
+      const userMsg = {
+        user: username || "You",
+        text: aiInput,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setAiMessages((prev) => [...prev, userMsg]);
+      setAiInput("");
+      setAiLoading(true);
+      try {
+        // Use Melvin model from aiBot.ts
+        const melvin = aiBots.find((b) => b.id === "melvin");
+        // Compose the prompt: systemPrompt + chat history
+        const systemPrompt = melvin?.systemPrompt || "You are a helpful AI assistant.";
+        const messages = [
+          { role: "system", content: systemPrompt },
+          ...aiMessages.map((m) => ({ role: m.user === "Mystical nordic prophet" ? "assistant" : "user", content: m.text })),
+          { role: "user", content: aiInput },
+        ];
+        // Call OpenRouter API (or your backend proxy)
+        const apiKey = melvin?.apiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
+        // model is a getter, but TS may not infer correctly, so use a type guard
+        let model: string = "tngtech/deepseek-r1t2-chimera:free";
+        if (melvin) {
+          if (typeof melvin.model === "function") {
+            model = (melvin.model as () => string)();
+          } else if (typeof melvin.model === "string") {
+            model = melvin.model;
+          }
+        }
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            max_tokens: melvin?.maxTokens || 1024,
+            temperature: melvin?.temperature || 0.7,
+          }),
+        });
+        if (!response.ok) throw new Error("AI API error");
+        const data = await response.json();
+        const aiText = data.choices?.[0]?.message?.content || "(No response)";
+        setAiMessages((prev) => [
+          ...prev,
+          {
+            user: "Mystical nordic prophet",
+            text: aiText,
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      } catch (err) {
+        setAiMessages((prev) => [
+          ...prev,
+          {
+            user: "Mystical nordic prophet",
+            text: "Sorry, the AI is currently unavailable.",
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      } finally {
+        setAiLoading(false);
+      }
     }
-  }
+  };
 
 
   // Track if avatar image failed to load
@@ -218,18 +279,18 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
             e.preventDefault();
             e.stopPropagation();
           }}
-          className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10 rounded-tl-2xl flex items-center justify-center group"
+          className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10 rounded-tl-2xl flex items-center justify-center resize-handle-group"
           title="Resize"
         >
           {/* Classic resize handle: three diagonal lines */}
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg className="resize-handle-svg" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
             <line x1="2" y1="12" x2="12" y2="2" stroke="currentColor" strokeWidth="1.2"/>
             <line x1="2" y1="8" x2="8" y2="2" stroke="currentColor" strokeWidth="1.2"/>
             <line x1="6" y1="12" x2="12" y2="6" stroke="currentColor" strokeWidth="1.2"/>
           </svg>
           <style>{`
-            .group svg { color: #94a3b8; transition: color 0.15s; } /* text-slate-400 */
-            .group:hover svg { color: #fff; }
+            .resize-handle-group .resize-handle-svg { color: #94a3b8; transition: color 0.15s; }
+            .resize-handle-group:hover .resize-handle-svg { color: #fff; }
           `}</style>
         </div>
 
@@ -379,7 +440,6 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
               {aiMessages.map((msg, idx) => {
                 const isAI = msg.user === "Mystical nordic prophet"
                 const isMe = !isAI && msg.user === (username || "You")
-
                 return (
                   <div key={idx} className="group">
                     <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
@@ -392,7 +452,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                         <img
                           src={avatarUrl}
                           alt={username || "User"}
-                            className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
                           onError={() => setAvatarError(true)}
                         />
                       ) : (
@@ -420,6 +480,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                   </div>
                 )
               })}
+              {aiLoading && <AITypingIndicator />}
             </div>
           )}
           <div ref={chatEndRef} />
@@ -447,9 +508,9 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                 ? "bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg shadow-blue-500/25 focus:ring-blue-400/50"
                 : "bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white shadow-lg shadow-purple-500/25 focus:ring-purple-400/50"
             }`}
-            disabled={activeTab === "collab" ? collabInput.trim() === "" : aiInput.trim() === ""}
+            disabled={activeTab === "collab" ? collabInput.trim() === "" : aiInput.trim() === "" || aiLoading}
           >
-            Send
+            {aiLoading && activeTab === "ai" ? "Sending..." : "Send"}
           </button>
         </form>
       </div>

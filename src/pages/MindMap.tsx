@@ -5699,27 +5699,25 @@ export default function MindMap() {
       `}</style>
 
       {/* Always render NodeTypesMenu first - independent of loading states */}
-      {!isFullscreen && (
-        <div ref={nodeTypesMenuRef} className="fixed left-0 top-[7rem] node-types-menu-container" style={{ zIndex: 9999 }}>
-          <NodeTypesMenu
-            key={nodeTypesMenuKey} // Force re-render to fix refresh issues
-            moveWithChildren={moveWithChildren}
-            setMoveWithChildren={setMoveWithChildren}
-            snapToGrid={snapToGrid}
-            setSnapToGrid={setSnapToGrid}
-            autocolorSubnodes={autocolorSubnodes}
-            setAutocolorSubnodes={setAutocolorSubnodes}
-            isAltPressed={isAltPressed}
-            isCtrlPressed={isCtrlPressed}
-            onDragStart={onDragStart}
-            maxHeight="60vh"
-            onUndo={undo}
-            onRedo={redo}
-            canUndo={canUndo}
-            canRedo={canRedo}
-          />
-        </div>
-      )}
+      <div ref={nodeTypesMenuRef} className="fixed left-0 top-[7rem] node-types-menu-container" style={{ zIndex: 9999 }}>
+        <NodeTypesMenu
+          key={nodeTypesMenuKey} // Force re-render to fix refresh issues
+          moveWithChildren={moveWithChildren}
+          setMoveWithChildren={setMoveWithChildren}
+          snapToGrid={snapToGrid}
+          setSnapToGrid={setSnapToGrid}
+          autocolorSubnodes={autocolorSubnodes}
+          setAutocolorSubnodes={setAutocolorSubnodes}
+          isAltPressed={isAltPressed}
+          isCtrlPressed={isCtrlPressed}
+          onDragStart={onDragStart}
+          maxHeight="60vh"
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+        />
+      </div>
 
       <div className={`fixed inset-0 mindmap-content ${isLoading ? 'loading' : ''}`}>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -6109,8 +6107,7 @@ export default function MindMap() {
 
 
               {/* Header Elements - Always visible, positioned over ReactFlow */}
-              {!isFullscreen && (
-                <>
+              <>
                   {/* Back to Maps button and Search - Top Left */}
                   <div className="absolute top-16 left-0 z-50 flex items-center space-x-2">
                     <button
@@ -6418,7 +6415,6 @@ export default function MindMap() {
                     </div>
                   )}
                 </>
-              )}
 
 
 
@@ -6430,9 +6426,8 @@ export default function MindMap() {
           )}
         </div>
 
-        {/* UI Elements - Hidden in fullscreen */}
-        {!isFullscreen && (
-          <>
+  {/* UI Elements - Always visible, even in fullscreen */}
+  <>
 
 
           {/* Brainstorm Chat Modal */}
@@ -6477,7 +6472,7 @@ export default function MindMap() {
 
 
           </>
-        )}
+
 
         {selectedNodeId && selectedNode && (
           <div

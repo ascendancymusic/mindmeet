@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import SignUp from './pages/SignUp';
 import Settings from './pages/Settings';
 import Chat from './pages/Chat';
+import Chat2Page from './pages/Chat2';
 import PricingPage from './pages/Pro';
 import MindMapDebug from './components/MindMapDebug';
 import ForgotPassword from './pages/ForgotPassword';
@@ -95,6 +96,7 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/chat" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
             <Route path="/chat/:supabaseId" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
+            <Route path="/chat2" element={<Chat2Page />} />
             <Route path="/pro" element={<PricingPage />} />
             <Route path="/debug" element={<MindMapDebug />} />
             <Route path="/login" element={effectivelyLoggedIn ? <Navigate to="/" /> : <Home />} />
