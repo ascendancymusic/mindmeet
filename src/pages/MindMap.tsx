@@ -6440,6 +6440,7 @@ export default function MindMap() {
               isOpen={showBrainstormChat}
               onClose={() => setShowBrainstormChat(false)}
               username={user?.username}
+              userId={user?.id}
               collaborators={
                 (currentMap?.collaborators || [])
                   .filter((c: any) => c && c.id !== user?.id)

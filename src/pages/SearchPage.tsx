@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { supabase } from "../supabaseClient"
-import { User, Network, Search, Users, FileText, Sparkles, ArrowUpDown, Heart, UserPlus } from "lucide-react"
+import { User, Network, Search, Users, FileText, Sparkles, ArrowUpDown, UserPlus } from "lucide-react"
 
 const shimmerStyles = `
   @keyframes shimmer {
