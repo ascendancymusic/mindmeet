@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { MessageCircle, Bot, Users, X, Move, CornerUpLeft } from "lucide-react"
+import { MessageCircle, Bot, Users, X, Move } from "lucide-react"
 
 interface Collaborator {
   id: string
@@ -218,15 +218,19 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
             e.preventDefault();
             e.stopPropagation();
           }}
-          className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10 rounded-tl-2xl flex items-center justify-center"
+          className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10 rounded-tl-2xl flex items-center justify-center group"
           title="Resize"
         >
           {/* Classic resize handle: three diagonal lines */}
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <line x1="2" y1="12" x2="12" y2="2" stroke="#fff" strokeWidth="1.2"/>
-            <line x1="2" y1="8" x2="8" y2="2" stroke="#fff" strokeWidth="1.2"/>
-            <line x1="6" y1="12" x2="12" y2="6" stroke="#fff" strokeWidth="1.2"/>
+            <line x1="2" y1="12" x2="12" y2="2" stroke="currentColor" strokeWidth="1.2"/>
+            <line x1="2" y1="8" x2="8" y2="2" stroke="currentColor" strokeWidth="1.2"/>
+            <line x1="6" y1="12" x2="12" y2="6" stroke="currentColor" strokeWidth="1.2"/>
           </svg>
+          <style>{`
+            .group svg { color: #94a3b8; transition: color 0.15s; } /* text-slate-400 */
+            .group:hover svg { color: #fff; }
+          `}</style>
         </div>
 
         {/* Header (draggable) */}
