@@ -120,7 +120,7 @@ Melvin: *generates the NEW map as a folder diagram*
     {
     id: 'mnp',
     name: "Mystical Nordic Prophet",
-    avatar: "/assets/avatars/mnp.webp",
+    avatar: "/assets/avatars/mnp2.webp",
     description: "Mystical Nordic Prophet, a wise, mysterious, and philosophical AI with nordic vibes.",
     get model() {
       const store = useAISettingsStore.getState();

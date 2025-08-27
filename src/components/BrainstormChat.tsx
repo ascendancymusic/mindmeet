@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { MessageCircle, Bot, Users, X, Move } from "lucide-react"
 import ChatTypingIndicator from "./ChatTypingIndicator";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface Collaborator {
   id: string
@@ -496,21 +497,23 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                     const isMe = !isAI && msg.user === (username || "You")
                     return (
                       <div key={idx} className="group">
-                        <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
+                        <div className="flex items-start gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
                           {/* Avatar for user or AI */}
                           {isAI ? (
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500">
-                              <Bot className="w-4 h-4" />
-                            </div>
+                            <img
+                              src={aiBots.find((b) => b.id === "mnp")?.avatar || "/assets/avatars/mnp2.webp"}
+                              alt="Mystical nordic prophet"
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500 mt-1.5"
+                            />
                           ) : (typeof avatarUrl === "string" && avatarUrl.trim() !== "" && !avatarError) ? (
                             <img
                               src={avatarUrl}
                               alt={username || "User"}
-                              className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500 mt-1.5"
                               onError={() => setAvatarError(true)}
                             />
                           ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-1.5">
                               {(msg.user[0] || "U").toUpperCase()}
                             </div>
                           )}
@@ -525,7 +528,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                                 {msg.time}
                               </span>
                             </div>
-                            <div className="text-white text-sm leading-relaxed break-words">{msg.text}</div>
+                            <MarkdownRenderer content={msg.text} className="text-white text-sm leading-relaxed break-words" />
                           </div>
                         </div>
                         {idx < aiMessages.length - 1 && (
@@ -537,17 +540,19 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                   {/* Show streaming AI text as it types */}
                   {aiStreamingText !== null && (
                     <div className="group">
-                      <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500">
-                          <Bot className="w-4 h-4" />
-                        </div>
+                      <div className="flex items-start gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
+                        <img
+                          src={aiBots.find((b) => b.id === "mnp")?.avatar || "/assets/avatars/mnp.webp"}
+                          alt="Mystical nordic prophet"
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500 mt-1.5"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-semibold text-purple-300">Mystical nordic prophet</span>
                             <span className="text-xs text-slate-500">(AI)</span>
                           </div>
                           <div className="text-white text-sm leading-relaxed break-words">
-                            {aiStreamingText}
+                            <MarkdownRenderer content={aiStreamingText ?? ""} className="inline" />
                             <span className="animate-pulse">▋</span>
                           </div>
                         </div>
