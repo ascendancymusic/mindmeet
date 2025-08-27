@@ -19,9 +19,9 @@ class AIService {
   private publicMindmapsLoaded = false;
 
   constructor() {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY
+    const apiKey = import.meta.env.VITE_PORTKEY_API_KEY
     if (!apiKey) {
-      throw new Error("OpenRouter API key is not configured")
+      throw new Error("Portkey API key is not configured")
     }
     this.apiKey = apiKey
     this.config.apiKey = apiKey
@@ -148,6 +148,7 @@ class AIService {
 
   async generateResponse(message: string, conversationId: number, mindMapData?: any): Promise<string> {
     await this.ensurePublicMindmapsLoaded();
+    const aiSettings = useAISettingsStore.getState();
 
     try {
       const currentBot = this.getCurrentBot()
@@ -253,7 +254,7 @@ class AIService {
       // Add public mindmaps to the context
       const publicMindmapsContext = this.publicMindmaps.length > 0 ? `\n\nHere are some public mindmaps from other users for additional reference and learning (titles and structures):\n${JSON.stringify(this.publicMindmaps, null, 2)}` : "";
 
-      // Build messages array for OpenRouter API
+  // Build messages array for Portkey API
       const messages = [
         { 
           role: "system", 
@@ -271,17 +272,20 @@ class AIService {
         }
       ]
 
-      // Make request to OpenRouter API
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      // Make request to Portkey API
+      // Get model from aiSettingsStore (conversation or global)
+      // Use existing aiSettings variable (already declared above)
+      const model = conversation && conversation.supabaseId
+        ? aiSettings.getConversationSettings(conversation.supabaseId).model
+        : aiSettings.defaultModel;
+      const response = await fetch('https://api.portkey.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'MindMeetar'
         },
         body: JSON.stringify({
-          model: currentBot.model,
+          model,
           messages: messages,
           temperature: currentBot.temperature,
           max_tokens: currentBot.maxTokens
@@ -290,7 +294,7 @@ class AIService {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(`OpenRouter API error: ${errorData.error?.message || response.statusText}`)
+        throw new Error(`Portkey API error: ${errorData.error?.message || response.statusText}`)
       }
 
       const data = await response.json()
@@ -475,6 +479,7 @@ class AIService {
    */
   async generateMindMapContent(prompt: string, mindMapData: any): Promise<string> {
     await this.ensurePublicMindmapsLoaded();
+    const aiSettings = useAISettingsStore.getState();
 
     try {
       const currentBot = this.getCurrentBot()
@@ -725,17 +730,18 @@ class AIService {
         { role: "user", content: enhancedPrompt },
       ]
 
-      // Make request to OpenRouter API
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      // Make request to Portkey API
+      // Get model from aiSettingsStore (global default)
+  // Use existing aiSettings variable (already declared above)
+  const model = aiSettings.defaultModel;
+      const response = await fetch('https://api.portkey.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'MindMeetar'
         },
         body: JSON.stringify({
-          model: currentBot.model,
+          model,
           messages: messages,
           temperature: currentBot.temperature,
           max_tokens: currentBot.maxTokens
@@ -744,7 +750,7 @@ class AIService {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(`OpenRouter API error: ${errorData.error?.message || response.statusText}`)
+        throw new Error(`Portkey API error: ${errorData.error?.message || response.statusText}`)
       }
 
       const data = await response.json()

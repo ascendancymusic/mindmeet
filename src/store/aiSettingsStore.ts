@@ -3,10 +3,12 @@ import { persist } from "zustand/middleware"
 
 
 export const AVAILABLE_AI_MODELS = [
-  "qwen/qwen3-coder:free:nitro",
-  "tngtech/deepseek-r1t2-chimera:free:nitro",
-  "deepseek/deepseek-r1-0528:free:nitro",
-  "deepseek/deepseek-chat-v3-0324:free:nitro"
+  "@github/gpt-4o",
+  "@github/DeepSeek-R1",
+  "@github/DeepSeek-V3-0324",
+  "@github/gpt-4.1",
+  "@google/gemini-2.5-flash"
+  
 ];
 
 interface AISettings {
@@ -38,14 +40,35 @@ interface AISettingsStore extends AISettings {
   };
 }
 
+// MIGRATION: On store load, fix any invalid model values in persisted state
+const fixModels = (state: any) => {
+  const validModel = AVAILABLE_AI_MODELS[0];
+  let changed = false;
+  // Fix global defaultModel
+  if (!AVAILABLE_AI_MODELS.includes(state.defaultModel)) {
+    state.defaultModel = validModel;
+    changed = true;
+  }
+  // Fix per-conversation models
+  if (state.conversationSettings) {
+    for (const key in state.conversationSettings) {
+      if (!AVAILABLE_AI_MODELS.includes(state.conversationSettings[key].model)) {
+        state.conversationSettings[key].model = validModel;
+        changed = true;
+      }
+    }
+  }
+  return changed ? { ...state } : state;
+};
+
 export const useAISettingsStore = create<AISettingsStore>()(
   persist(
     (set, get) => ({
-      // Default values
-      defaultMemoryLength: 10,
-      defaultCustomContext: "",
-      defaultModel: AVAILABLE_AI_MODELS[1], // default to deepseek-r1t2-chimera
-      conversationSettings: {},
+  // Default values
+  defaultMemoryLength: 10,
+  defaultCustomContext: "",
+  defaultModel: AVAILABLE_AI_MODELS[4], // default to gemini 2.5 flash
+  conversationSettings: {},
 
       // Actions
       setDefaultMemoryLength: (length: number) => {
@@ -106,9 +129,11 @@ export const useAISettingsStore = create<AISettingsStore>()(
           model: settings?.model ?? state.defaultModel
         };
       }
-    }),
+  }),
     {
-      name: "mindmeetar-ai-settings"
+      name: "mindmeetar-ai-settings",
+      version: 2,
+      migrate: async (persistedState: any) => fixModels(persistedState)
     }
   )
 );

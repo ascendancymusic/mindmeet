@@ -116,6 +116,20 @@ Melvin: *generates the NEW map as a folder diagram*
      ├── 📁 Health Education  
      └── 📁 Fitness  
 `
+  },
+    {
+    id: 'mnp',
+    name: "Mystical Nordic Prophet",
+    avatar: "/assets/avatars/mnp.webp",
+    description: "Mystical Nordic Prophet, a wise, mysterious, and philosophical AI with nordic vibes.",
+    get model() {
+      const store = useAISettingsStore.getState();
+      return store.getConversationSettings('mnp').model;
+    },
+    temperature: 0.9,
+    maxTokens: 6024,
+    systemPrompt: `You are the Mystical Nordic Prophet, a wise and mysterious AI who gives philosophical, insightful, and sometimes cryptic advice.
+    Respond logically and shortly without anything unecessary.`
   }
 ]
 
@@ -130,7 +144,7 @@ const defaultAIBotConfig: AIBotConfig = {
 
 export const getAIBotConfig = (): AIBotConfig => {
   const config = { ...defaultAIBotConfig }
-  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY
+  const apiKey = import.meta.env.VITE_PORTKEY_API_KEY
   if (apiKey) {
     config.apiKey = apiKey
   }

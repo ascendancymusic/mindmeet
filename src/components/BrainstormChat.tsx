@@ -4,7 +4,8 @@
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { MessageCircle, Bot, Users, X, Move } from "lucide-react"
-import AITypingIndicator from "./AITypingIndicator";
+import ChatTypingIndicator from "./ChatTypingIndicator";
+import { useCallback } from "react";
 
 interface Collaborator {
   id: string
@@ -37,6 +38,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
     },
   ])
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiStreamingText, setAiStreamingText] = useState<string | null>(null);
 
   const [collabInput, setCollabInput] = useState("")
   const [aiInput, setAiInput] = useState("")
@@ -157,50 +159,55 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
       setAiInput("");
       setAiLoading(true);
       try {
-        // Use Melvin model from aiBot.ts
-        const melvin = aiBots.find((b) => b.id === "melvin");
+        // Use Mystical Nordic Prophet model from aiBot.ts
+        const mnp = aiBots.find((b) => b.id === "mnp");
         // Compose the prompt: systemPrompt + chat history
-        const systemPrompt = melvin?.systemPrompt || "You are a helpful AI assistant.";
+        const systemPrompt = mnp?.systemPrompt || "You are a helpful AI assistant.";
         const messages = [
           { role: "system", content: systemPrompt },
           ...aiMessages.map((m) => ({ role: m.user === "Mystical nordic prophet" ? "assistant" : "user", content: m.text })),
           { role: "user", content: aiInput },
         ];
-        // Call OpenRouter API (or your backend proxy)
-        const apiKey = melvin?.apiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
-        // model is a getter, but TS may not infer correctly, so use a type guard
-        let model: string = "tngtech/deepseek-r1t2-chimera:free";
-        if (melvin) {
-          if (typeof melvin.model === "function") {
-            model = (melvin.model as () => string)();
-          } else if (typeof melvin.model === "string") {
-            model = melvin.model;
-          }
-        }
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        // Use Portkey API
+        const apiKey = mnp?.apiKey || import.meta.env.VITE_PORTKEY_API_KEY;
+  // Use the correct Portkey model name and max_tokens property
+  let model: string = "@google/gemini-2.5-flash";
+        const response = await fetch("https://api.portkey.ai/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+            ...(apiKey ? { "x-portkey-api-key": apiKey } : {}),
           },
           body: JSON.stringify({
             model,
             messages,
-            max_tokens: melvin?.maxTokens || 1024,
-            temperature: melvin?.temperature || 0.7,
+            max_tokens: mnp?.maxTokens || 1024,
+            temperature: mnp?.temperature || 0.7,
           }),
         });
         if (!response.ok) throw new Error("AI API error");
         const data = await response.json();
         const aiText = data.choices?.[0]?.message?.content || "(No response)";
-        setAiMessages((prev) => [
-          ...prev,
-          {
-            user: "Mystical nordic prophet",
-            text: aiText,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          },
-        ]);
+        setAiStreamingText("");
+        let i = 0;
+        const typeWriter = () => {
+          setAiStreamingText(aiText.slice(0, i));
+          if (i < aiText.length) {
+            i++;
+            setTimeout(typeWriter, 14 + Math.random() * 30);
+          } else {
+            setAiMessages((prev) => [
+              ...prev,
+              {
+                user: "Mystical nordic prophet",
+                text: aiText,
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ]);
+            setAiStreamingText(null);
+          }
+        };
+        typeWriter();
       } catch (err) {
         setAiMessages((prev) => [
           ...prev,
@@ -211,7 +218,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
           },
         ]);
       } finally {
-        setAiLoading(false);
+        setTimeout(() => setAiLoading(false), 200);
       }
     }
   };
@@ -220,6 +227,8 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
   // Track if avatar image failed to load
   const [avatarError, setAvatarError] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+
+
 
   // Fetch avatarUrl from Supabase profiles table when userId changes
   useEffect(() => {
@@ -248,6 +257,13 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
     })();
     return () => { isMounted = false; };
   }, [userId]);
+
+  // Scroll to bottom when AI is streaming text
+  useEffect(() => {
+    if (aiStreamingText !== null && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "auto" });
+    }
+  }, [aiStreamingText]);
 
   if (!isOpen) return null
 
@@ -480,7 +496,26 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                   </div>
                 )
               })}
-              {aiLoading && <AITypingIndicator />}
+              {/* Show streaming AI text as it types */}
+              {aiStreamingText !== null && (
+                <div className="group">
+                  <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-purple-300">Mystical nordic prophet</span>
+                        <span className="text-xs text-slate-500">(AI)</span>
+                      </div>
+                      <div className="text-white text-sm leading-relaxed break-words">
+                        {aiStreamingText}
+                        <span className="animate-pulse">▋</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div ref={chatEndRef} />
