@@ -13,6 +13,7 @@ interface MindMapCustomizationProps {
   onBackgroundColorChange: (color: string) => void
   dotColor: string | null
   onDotColorChange: (color: string) => void
+  // fontFamily?: string // (future prop for font)
 }
 
 export default function MindMapCustomization({
@@ -24,7 +25,16 @@ export default function MindMapCustomization({
   onBackgroundColorChange,
   dotColor,
   onDotColorChange,
+  // fontFamily,
 }: MindMapCustomizationProps) {
+  // Font selection state (not implemented yet)
+  const fontOptions = [
+    { value: 'aspekta', label: 'Standard' },
+    { value: 'chillax', label: 'Chillax' },
+    { value: 'array', label: 'Array' },
+    { value: 'switzer', label: 'Switzer' },
+  ];
+  const [pendingFont, setPendingFont] = useState('aspekta');
   // Track original values - these will be updated when modal opens
   const [originalEdgeType, setOriginalEdgeType] = useState(edgeType)
   const [originalBackgroundColor, setOriginalBackgroundColor] = useState(backgroundColor || "#11192C")
@@ -259,6 +269,8 @@ export default function MindMapCustomization({
           </button>
         </div>
 
+
+
         <div className="space-y-8 overflow-y-auto max-h-[60vh] pr-2 -mr-2">
           {/* Edge Type Section */}
           <div className="space-y-4">
@@ -311,7 +323,6 @@ export default function MindMapCustomization({
 
             {/* Background Color */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-300">Background Color</label>
               <div className="relative" ref={backgroundColorPickerRef}>
                 <button
                   onClick={() => {
@@ -390,7 +401,6 @@ export default function MindMapCustomization({
 
             {/* Dot Color */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-300">Dot Pattern Color</label>
               <div className="relative" ref={dotColorPickerRef}>
                 <button
                   onClick={() => {
@@ -462,6 +472,32 @@ export default function MindMapCustomization({
                 )}
               </div>
             </div>
+        {/* Font Family Section (preview only, no logic) - moved to just above footer */}
+        <div className="space-y-4 mt-10">
+          <div className="flex items-center space-x-2">
+            <div className="w-1 h-6 bg-gradient-to-b from-pink-400 to-blue-400 rounded-full"></div>
+            <h3 className="text-lg font-semibold text-white">Font Family</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { value: 'aspekta', label: 'Standard', font: 'Aspekta, sans-serif' },
+              { value: 'chillax', label: 'Chillax', font: 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif' },
+              { value: 'array', label: 'Array', font: 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif' },
+              { value: 'switzer', label: 'Switzer', font: 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif' },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`group relative overflow-hidden p-3 text-left rounded-2xl transition-all duration-300 border flex items-center space-x-3 bg-white/5 border-white/10`}
+                style={{ fontFamily: option.font }}
+                disabled
+              >
+                <span className="text-white font-medium">{option.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-slate-400 mt-1">(Font selection coming soon)</div>
+        </div>
           </div>
         </div>
 

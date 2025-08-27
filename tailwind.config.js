@@ -5,6 +5,38 @@ export default {
     extend: {
       fontFamily: {
         aspekta: ['Aspekta', 'sans-serif'],
+        chillax: [
+          'Chillax-Variable',
+          'Chillax-Bold',
+          'Chillax-Semibold',
+          'Chillax-Medium',
+          'Chillax-Regular',
+          'Chillax-Light',
+          'Chillax-Extralight',
+          'sans-serif',
+        ],
+        array: [
+          'Array-Wide',
+          'Array-Regular',
+          'Array-Semibold',
+          'Array-SemiboldWide',
+          'Array-BoldWide',
+          'Array-Bold',
+          'sans-serif',
+        ],
+        switzer: [
+          'Switzer-Variable',
+          'Switzer-Black',
+          'Switzer-Extrabold',
+          'Switzer-Bold',
+          'Switzer-Semibold',
+          'Switzer-Medium',
+          'Switzer-Regular',
+          'Switzer-Light',
+          'Switzer-Extralight',
+          'Switzer-Thin',
+          'sans-serif',
+        ],
       },
       keyframes: {
         slideDown: {
