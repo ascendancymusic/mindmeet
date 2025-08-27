@@ -464,7 +464,9 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
                                 </div>
                               )}
                               <div className="flex items-center">
-                                <div className="text-white text-sm leading-relaxed break-words">{msg}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-white text-sm leading-relaxed break-words whitespace-pre-line">{msg}</div>
+                                </div>
                                 {!showHeader && (
                                   <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                     {new Date(msgTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
