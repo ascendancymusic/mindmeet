@@ -6445,6 +6445,16 @@ export default function MindMap() {
                     avatarUrl: c.avatar_url
                   }))
               }
+              mindMapData={currentMap ? {
+                title: currentMap.title,
+                nodes: currentMap.nodes,
+                edges: currentMap.edges,
+                edgeType: currentMap.edgeType,
+                backgroundColor: currentMap.backgroundColor,
+                dotColor: currentMap.dotColor,
+                description: currentMap.description,
+                drawingData: currentMap.drawingData,
+              } : undefined}
             />
 
             {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}

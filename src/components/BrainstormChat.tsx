@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { MessageCircle, Bot, Users, X, Move } from "lucide-react"
 import ChatTypingIndicator from "./ChatTypingIndicator";
-import { useCallback } from "react";
 
 interface Collaborator {
   id: string
@@ -23,11 +22,23 @@ interface BrainstormChatProps {
   username?: string
   userId?: string
   collaborators?: Collaborator[]
+  mindMapData?: any // Pass the current mindmap's json_data or full object
+  onGiveMindmapContext?: (mindMapData: any) => void // Called when button is pressed
 }
 
-const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, username, userId, collaborators }) => {
+const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, username, userId, collaborators, mindMapData, onGiveMindmapContext }) => {
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const hasCollab = Array.isArray(collaborators) && collaborators.length > 0
   const [activeTab, setActiveTab] = useState<"collab" | "ai">(hasCollab ? "collab" : "ai")
+
+  // If collaborators prop changes (e.g. loaded async), update default tab accordingly when chat is opened
+  useEffect(() => {
+    if (!isOpen) return;
+    if (hasCollab && activeTab !== "collab") setActiveTab("collab");
+    if (!hasCollab && activeTab !== "ai") setActiveTab("ai");
+    // Only update when chat is opened, to avoid disrupting user tab switching
+    // eslint-disable-next-line
+  }, [isOpen, hasCollab]);
 
   const [collabMessages, setCollabMessages] = useState<string[]>([])
   const [aiMessages, setAiMessages] = useState<{ user: string; text: string; time: string }[]>([
@@ -161,8 +172,11 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
       try {
         // Use Mystical Nordic Prophet model from aiBot.ts
         const mnp = aiBots.find((b) => b.id === "mnp");
-        // Compose the prompt: systemPrompt + chat history
-        const systemPrompt = mnp?.systemPrompt || "You are a helpful AI assistant.";
+        // Compose the prompt: systemPrompt + mindmap context (if available)
+        let systemPrompt = mnp?.systemPrompt || "You are a helpful AI assistant.";
+        if (isChatOpen && mindMapData) {
+          systemPrompt += `\n\n[Mindmap Context]\n${JSON.stringify(mindMapData, null, 2)}`;
+        }
         const messages = [
           { role: "system", content: systemPrompt },
           ...aiMessages.map((m) => ({ role: m.user === "Mystical nordic prophet" ? "assistant" : "user", content: m.text })),
@@ -170,8 +184,8 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
         ];
         // Use Portkey API
         const apiKey = mnp?.apiKey || import.meta.env.VITE_PORTKEY_API_KEY;
-  // Use the correct Portkey model name and max_tokens property
-  let model: string = "@google/gemini-2.5-flash";
+        // Use the correct Portkey model name and max_tokens property
+        let model: string = "@google/gemini-2.5-flash";
         const response = await fetch("https://api.portkey.ai/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -365,189 +379,225 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({ isOpen, onClose, userna
             </button>
           </div>
         </div>
-
-        {/* Chat messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-600/50 scrollbar-track-transparent">
-          {activeTab === "collab" ? (
-            collabMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 border border-blue-400/20 mb-4">
-                  <MessageCircle className="w-8 h-8 text-blue-300 mx-auto mb-2" />
+        {/* Only show the "Give mindmap context" button if AI tab is active and chat is not open */}
+        {activeTab === "ai" && !isChatOpen ? (
+          <div className="flex flex-col items-center justify-center h-full text-center p-6">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-600/10 border border-purple-400/20 mb-4">
+              <Bot className="w-12 h-12 text-purple-300 mx-auto" />
+            </div>
+            <button
+              onClick={() => {
+                if (onGiveMindmapContext && mindMapData) {
+                  onGiveMindmapContext(mindMapData);
+                } else if (mindMapData) {
+                  // fallback: just log
+                  console.log('[BrainstormChat] Mindmap context sent to AI:', mindMapData);
+                } else {
+                  console.warn('[BrainstormChat] No mindMapData provided to send as context.');
+                }
+                setIsChatOpen(true);
+              }}
+              className="px-6 py-3 rounded-2xl font-medium transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white shadow-lg shadow-purple-500/25 focus:ring-purple-400/50"
+            >
+              Give mindmap context
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Chat messages */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-600/50 scrollbar-track-transparent">
+              {activeTab === "collab" ? (
+                collabMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 border border-blue-400/20 mb-4">
+                      <MessageCircle className="w-8 h-8 text-blue-300 mx-auto mb-2" />
+                    </div>
+                    <div className="text-slate-300 font-medium mb-1">Start brainstorming!</div>
+                    <div className="text-slate-500 text-sm">Share ideas with your team</div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {collabMessages.map((msg, idx, arr) => {
+                      // For demo: treat all messages as from current user, with fake timestamps
+                      // In real app, use message.user and message.timestamp
+                      const now = Date.now();
+                      const fifteenMins = 15 * 60 * 1000;
+                      // Simulate timestamps: oldest first
+                      const msgTime = now - (arr.length - idx - 1) * 2 * 60 * 1000; // 2 min apart
+                      let showHeader = true;
+                      if (idx > 0) {
+                        // Previous message time
+                        const prevTime = now - (arr.length - idx) * 2 * 60 * 1000;
+                        // If previous is same user and within 15 mins, group
+                        showHeader = false;
+                        if (msgTime - prevTime > fifteenMins) showHeader = true;
+                      }
+                      return (
+                        <div key={idx} className="group">
+                          <div className={`flex items-center gap-3 ${showHeader ? 'py-2' : 'py-0'} hover:bg-white/5 rounded-xl transition-all`}>
+                            {showHeader && (
+                              (typeof avatarUrl === "string" && avatarUrl.trim() !== "" && !avatarError) ? (
+                                <img
+                                  src={avatarUrl}
+                                  alt={username || "User"}
+                                    className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
+                                  onError={() => setAvatarError(true)}
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                                  {(username || "U")[0].toUpperCase()}
+                                </div>
+                              )
+                            )}
+                            {!showHeader && (
+                              <div className="w-8 h-8 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              {showHeader && (
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-semibold text-blue-300">{username}</span>
+                                  <span className="text-xs text-slate-500">(you)</span>
+                                  <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {new Date(msgTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center">
+                                <div className="text-white text-sm leading-relaxed break-words">{msg}</div>
+                                {!showHeader && (
+                                  <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                    {new Date(msgTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Only show divider if next message is not grouped (i.e., next is a header) */}
+                          {idx < collabMessages.length - 1 && (
+                            <div className={`h-px bg-gradient-to-r from-transparent via-white/10 to-transparent ${showHeader ? 'my-2' : 'my-0.5'}`} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : aiMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-600/10 border border-purple-400/20 mb-4">
+                    <Bot className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                  </div>
+                  <div className="text-slate-300 font-medium mb-1">AI Assistant Ready</div>
+                  <div className="text-slate-500 text-sm">Ask me anything about your mindmap</div>
                 </div>
-                <div className="text-slate-300 font-medium mb-1">Start brainstorming!</div>
-                <div className="text-slate-500 text-sm">Share ideas with your team</div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {collabMessages.map((msg, idx, arr) => {
-                  // For demo: treat all messages as from current user, with fake timestamps
-                  // In real app, use message.user and message.timestamp
-                  const now = Date.now();
-                  const fifteenMins = 15 * 60 * 1000;
-                  // Simulate timestamps: oldest first
-                  const msgTime = now - (arr.length - idx - 1) * 2 * 60 * 1000; // 2 min apart
-                  let showHeader = true;
-                  if (idx > 0) {
-                    // Previous message time
-                    const prevTime = now - (arr.length - idx) * 2 * 60 * 1000;
-                    // If previous is same user and within 15 mins, group
-                    showHeader = false;
-                    if (msgTime - prevTime > fifteenMins) showHeader = true;
-                  }
-                  return (
-                    <div key={idx} className="group">
-                      <div className={`flex items-center gap-3 ${showHeader ? 'py-2' : 'py-0'} hover:bg-white/5 rounded-xl transition-all`}>
-                        {showHeader && (
-                          (typeof avatarUrl === "string" && avatarUrl.trim() !== "" && !avatarError) ? (
+              ) : (
+                <div className="space-y-3">
+                  {aiMessages.map((msg, idx) => {
+                    const isAI = msg.user === "Mystical nordic prophet"
+                    const isMe = !isAI && msg.user === (username || "You")
+                    return (
+                      <div key={idx} className="group">
+                        <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
+                          {/* Avatar for user or AI */}
+                          {isAI ? (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500">
+                              <Bot className="w-4 h-4" />
+                            </div>
+                          ) : (typeof avatarUrl === "string" && avatarUrl.trim() !== "" && !avatarError) ? (
                             <img
                               src={avatarUrl}
                               alt={username || "User"}
-                                className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
                               onError={() => setAvatarError(true)}
                             />
                           ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                              {(username || "U")[0].toUpperCase()}
-                            </div>
-                          )
-                        )}
-                        {!showHeader && (
-                          <div className="w-8 h-8 flex-shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          {showHeader && (
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-semibold text-blue-300">{username}</span>
-                              <span className="text-xs text-slate-500">(you)</span>
-                              <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {new Date(msgTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </span>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                              {(msg.user[0] || "U").toUpperCase()}
                             </div>
                           )}
-                          <div className="flex items-center">
-                            <div className="text-white text-sm leading-relaxed break-words">{msg}</div>
-                            {!showHeader && (
-                              <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                                {new Date(msgTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-sm font-semibold ${isAI ? "text-purple-300" : "text-cyan-300"}`}>
+                                {msg.user}
                               </span>
-                            )}
+                              {isAI && <span className="text-xs text-slate-500">(AI)</span>}
+                              {isMe && <span className="text-xs text-slate-500">(you)</span>}
+                              <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {msg.time}
+                              </span>
+                            </div>
+                            <div className="text-white text-sm leading-relaxed break-words">{msg.text}</div>
                           </div>
                         </div>
+                        {idx < aiMessages.length - 1 && (
+                          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
+                        )}
                       </div>
-                      {/* Only show divider if next message is not grouped (i.e., next is a header) */}
-                      {idx < collabMessages.length - 1 && (
-                        <div className={`h-px bg-gradient-to-r from-transparent via-white/10 to-transparent ${showHeader ? 'my-2' : 'my-0.5'}`} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          ) : aiMessages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-600/10 border border-purple-400/20 mb-4">
-                <Bot className="w-8 h-8 text-purple-300 mx-auto mb-2" />
-              </div>
-              <div className="text-slate-300 font-medium mb-1">AI Assistant Ready</div>
-              <div className="text-slate-500 text-sm">Ask me anything about your mindmap</div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {aiMessages.map((msg, idx) => {
-                const isAI = msg.user === "Mystical nordic prophet"
-                const isMe = !isAI && msg.user === (username || "You")
-                return (
-                  <div key={idx} className="group">
-                    <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
-                      {/* Avatar for user or AI */}
-                      {isAI ? (
+                    )
+                  })}
+                  {/* Show streaming AI text as it types */}
+                  {aiStreamingText !== null && (
+                    <div className="group">
+                      <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500">
                           <Bot className="w-4 h-4" />
                         </div>
-                      ) : (typeof avatarUrl === "string" && avatarUrl.trim() !== "" && !avatarError) ? (
-                        <img
-                          src={avatarUrl}
-                          alt={username || "User"}
-                          className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-blue-400 to-cyan-500"
-                          onError={() => setAvatarError(true)}
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                          {(msg.user[0] || "U").toUpperCase()}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold text-purple-300">Mystical nordic prophet</span>
+                            <span className="text-xs text-slate-500">(AI)</span>
+                          </div>
+                          <div className="text-white text-sm leading-relaxed break-words">
+                            {aiStreamingText}
+                            <span className="animate-pulse">▋</span>
+                          </div>
                         </div>
-                      )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Show typing indicator as a chat bubble if waiting for AI (aiLoading) and not streaming */}
+                  {aiLoading && aiStreamingText === null && activeTab === "ai" && (
+                    <div className="flex items-center py-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-sm font-semibold ${isAI ? "text-purple-300" : "text-cyan-300"}`}>
-                            {msg.user}
-                          </span>
-                          {isAI && <span className="text-xs text-slate-500">(AI)</span>}
-                          {isMe && <span className="text-xs text-slate-500">(you)</span>}
-                          <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {msg.time}
-                          </span>
+                        <div className="text-white text-sm leading-relaxed break-words">
+                          <ChatTypingIndicator />
                         </div>
-                        <div className="text-white text-sm leading-relaxed break-words">{msg.text}</div>
                       </div>
                     </div>
-                    {idx < aiMessages.length - 1 && (
-                      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
-                    )}
-                  </div>
-                )
-              })}
-              {/* Show streaming AI text as it types */}
-              {aiStreamingText !== null && (
-                <div className="group">
-                  <div className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-purple-300">Mystical nordic prophet</span>
-                        <span className="text-xs text-slate-500">(AI)</span>
-                      </div>
-                      <div className="text-white text-sm leading-relaxed break-words">
-                        {aiStreamingText}
-                        <span className="animate-pulse">▋</span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
+              <div ref={chatEndRef} />
             </div>
-          )}
-          <div ref={chatEndRef} />
-        </div>
 
-        {/* Input */}
-        <form
-          onSubmit={handleSend}
-          className="flex items-center gap-3 px-6 py-4 border-t border-white/10 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm rounded-b-3xl"
-        >
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              className="w-full px-4 py-3 rounded-2xl bg-white/5 backdrop-blur-sm text-white placeholder-slate-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/30 transition-all duration-200"
-              placeholder={activeTab === "collab" ? "Share your thoughts..." : "Ask the AI assistant..."}
-              value={activeTab === "collab" ? collabInput : aiInput}
-              onChange={(e) => (activeTab === "collab" ? setCollabInput(e.target.value) : setAiInput(e.target.value))}
-              autoFocus
-            />
-          </div>
-          <button
-            type="submit"
-            className={`px-6 py-3 rounded-2xl font-medium transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
-              activeTab === "collab"
-                ? "bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg shadow-blue-500/25 focus:ring-blue-400/50"
-                : "bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white shadow-lg shadow-purple-500/25 focus:ring-purple-400/50"
-            }`}
-            disabled={activeTab === "collab" ? collabInput.trim() === "" : aiInput.trim() === "" || aiLoading}
-          >
-            {aiLoading && activeTab === "ai" ? "Sending..." : "Send"}
-          </button>
-        </form>
+            {/* Input */}
+            <form
+              onSubmit={handleSend}
+              className="flex items-center gap-3 px-6 py-4 border-t border-white/10 bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm rounded-b-3xl"
+            >
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 rounded-2xl bg-white/5 backdrop-blur-sm text-white placeholder-slate-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/30 transition-all duration-200"
+                  placeholder={activeTab === "collab" ? "Share your thoughts..." : "Ask the AI assistant..."}
+                  value={activeTab === "collab" ? collabInput : aiInput}
+                  onChange={(e) => (activeTab === "collab" ? setCollabInput(e.target.value) : setAiInput(e.target.value))}
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                className={`px-6 py-3 rounded-2xl font-medium transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                  activeTab === "collab"
+                    ? "bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg shadow-blue-500/25 focus:ring-blue-400/50"
+                    : "bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white shadow-lg shadow-purple-500/25 focus:ring-purple-400/50"
+                }`}
+                disabled={activeTab === "collab" ? collabInput.trim() === "" : aiInput.trim() === "" || aiLoading}
+              >
+                Send
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   )

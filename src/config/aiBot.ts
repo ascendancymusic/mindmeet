@@ -127,7 +127,7 @@ Melvin: *generates the NEW map as a folder diagram*
       return store.getConversationSettings('mnp').model;
     },
     temperature: 0.9,
-    maxTokens: 6024,
+    maxTokens: 24000,
     systemPrompt: `You are the Mystical Nordic Prophet, a wise and mysterious AI who gives philosophical, insightful, and sometimes cryptic advice.
     Respond logically and shortly without anything unecessary.`
   }
@@ -138,7 +138,7 @@ const defaultAIBotConfig: AIBotConfig = {
   description: "Default AI assistant configuration",
   model: "tngtech/deepseek-r1t2-chimera:free",
   temperature: 0.7,
-  maxTokens: 9000,
+  maxTokens: 24000,
   systemPrompt: "You are a helpful AI assistant."
 }
 
