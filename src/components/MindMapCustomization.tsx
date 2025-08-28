@@ -1,3 +1,21 @@
+// Normalize fontFamily to match fontOptions values
+function normalizeFontFamily(font: string | null | undefined): string {
+  if (!font) return 'aspekta';
+  const map: Record<string, string> = {
+    array: 'array',
+    'array-regular': 'array',
+    'array-wide': 'array',
+    switzer: 'switzer',
+    'switzer-regular': 'switzer',
+    'switzer-variable': 'switzer',
+    chillax: 'chillax',
+    'chillax-regular': 'chillax',
+    'chillax-variable': 'chillax',
+    aspekta: 'aspekta',
+  };
+  const key = font.toLowerCase();
+  return map[key] || 'aspekta';
+}
 "use client"
 
 import { X, Network, Check, ChevronDown } from "lucide-react"
@@ -46,7 +64,10 @@ export default function MindMapCustomization({
   const [showDotColorPicker, setShowDotColorPicker] = useState(false)
   const [tempBackgroundColor, setTempBackgroundColor] = useState(backgroundColor || "#11192C")
   const [tempDotColor, setTempDotColor] = useState(dotColor || "#81818a")
-  const [pendingFontFamily, setPendingFontFamily] = useState(fontFamily || "Aspekta")
+  const [pendingFontFamily, setPendingFontFamily] = useState(() => {
+    const normalized = normalizeFontFamily(fontFamily);
+    return normalized;
+  });
 
   const [hasBackgroundColorChanged, setHasBackgroundColorChanged] = useState(false)
   const [hasDotColorChanged, setHasDotColorChanged] = useState(false)
@@ -58,15 +79,16 @@ export default function MindMapCustomization({
 
   useEffect(() => {
     if (isOpen) {
+      const normalized = normalizeFontFamily(fontFamily);
       setOriginalEdgeType(edgeType)
       setOriginalBackgroundColor(backgroundColor || "#11192C")
       setOriginalDotColor(dotColor || "#81818a")
-      setOriginalFontFamily(fontFamily || "Aspekta")
+      setOriginalFontFamily(normalized)
 
       setPendingEdgeType(edgeType)
       setTempBackgroundColor(backgroundColor || "#11192C")
       setTempDotColor(dotColor || "#81818a")
-      setPendingFontFamily(fontFamily || "Aspekta")
+      setPendingFontFamily(normalized)
 
       setHasBackgroundColorChanged(false)
       setHasDotColorChanged(false)
@@ -158,8 +180,9 @@ export default function MindMapCustomization({
   }
 
   const handleFontFamilyChange = (font: string) => {
-    setPendingFontFamily(font)
-  setHasFontFamilyChanged(true)
+    const normalized = normalizeFontFamily(font);
+    setPendingFontFamily(normalized);
+    setHasFontFamilyChanged(true);
   }
 
   const handleBackgroundColorDefault = () => {
@@ -479,24 +502,27 @@ export default function MindMapCustomization({
                 <h3 className="text-lg font-semibold text-white">Font Family</h3>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {fontOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleFontFamilyChange(option.value)}
-                    className={`group relative overflow-hidden p-3 text-left rounded-2xl transition-all duration-300 border flex items-center space-x-3 ${
-                      pendingFontFamily === option.value
-                        ? "bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 border-blue-400/50 shadow-lg shadow-blue-500/20"
-                        : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
-                    }`}
-                    style={{ fontFamily: option.font }}
-                  >
-                    <span className="text-white font-medium">{option.label}</span>
-                    {pendingFontFamily === option.value && (
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                    )}
-                  </button>
-                ))}
+                {fontOptions.map((option) => {
+                  const isSelected = pendingFontFamily === normalizeFontFamily(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleFontFamilyChange(option.value)}
+                      className={`group relative overflow-hidden p-3 text-left rounded-2xl transition-all duration-300 border flex items-center space-x-3 ${
+                        isSelected
+                          ? "bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 border-blue-400/50 shadow-lg shadow-blue-500/20"
+                          : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                      }`}
+                      style={{ fontFamily: option.font }}
+                    >
+                      <span className="text-white font-medium">{option.label}</span>
+                      {isSelected && (
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

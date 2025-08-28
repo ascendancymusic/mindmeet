@@ -366,7 +366,13 @@ export default function MindMap() {
   // Color and font customization state
   const [backgroundColor, setBackgroundColor] = useState<string | null>(null);
   const [dotColor, setDotColor] = useState<string | null>(null);
-  const [fontFamily, setFontFamily] = useState<string | null>("Aspekta");
+  const [fontFamily, setFontFamily] = useState<string | null>(currentMap?.fontFamily || "Aspekta");
+  // Sync fontFamily with currentMap when map changes
+  useEffect(() => {
+    if (currentMap?.fontFamily && currentMap.fontFamily !== fontFamily) {
+      setFontFamily(currentMap.fontFamily);
+    }
+  }, [currentMap?.fontFamily]);
 
   // Collaboration chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -5745,7 +5751,36 @@ export default function MindMap() {
         />
       </div>
 
-      <div className={`fixed inset-0 mindmap-content ${isLoading ? 'loading' : ''}`}>
+      {/* Font family wrapper for per-mindmap font control */}
+      {(() => {
+        // Map short font names to full font-face names
+        const fontMap: Record<string, string> = {
+          array: 'Array-Regular',
+          switzer: 'Switzer-Regular',
+          chillax: 'Chillax-Regular',
+          aspekta: 'Aspekta',
+        };
+        const rawFont = (currentMap?.fontFamily || fontFamily || 'aspekta').toLowerCase();
+        const mappedFont = fontMap[rawFont] || currentMap?.fontFamily || fontFamily || 'Aspekta';
+        const cssVar = `${mappedFont}, Chillax-Regular, Chillax-Variable, Array-Regular, Array-Wide, Switzer-Regular, Switzer, Aspekta, sans-serif`;
+        return null;
+      })()}
+      <div
+        className={`fixed inset-0 mindmap-content ${isLoading ? 'loading' : ''}`}
+        style={{
+          '--mindmap-font-family': (() => {
+            const fontMap: Record<string, string> = {
+              array: 'Array-Regular',
+              switzer: 'Switzer-Regular',
+              chillax: 'Chillax-Regular',
+              aspekta: 'Aspekta',
+            };
+            const rawFont = (currentMap?.fontFamily || fontFamily || 'aspekta').toLowerCase();
+            const mappedFont = fontMap[rawFont] || currentMap?.fontFamily || fontFamily || 'Aspekta';
+            return `${mappedFont}, Chillax-Regular, Chillax-Variable, Array-Regular, Array-Wide, Switzer-Regular, Switzer, Aspekta, sans-serif`;
+          })()
+        } as React.CSSProperties}
+      >
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
         <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
 

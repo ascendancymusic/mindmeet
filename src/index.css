@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Use Array font for all React Flow nodes and their content */
+.react-flow__node, .react-flow__node * {
+  font-family: var(--mindmap-font-family, Aspekta, sans-serif) !important;
+}
+
 
 /* screen size change */
 @media (max-height: 1090px) {
