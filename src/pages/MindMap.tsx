@@ -1,3 +1,6 @@
+// ...existing code...
+
+// (moved below imports)
 import React from "react"
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react"
 import MarkdownRenderer from '../components/MarkdownRenderer'
@@ -20,6 +23,7 @@ import ReactFlow,
   type Node
 } from "reactflow"
 import "reactflow/dist/style.css"
+// ...existing code...
 import {
   Trash2,
   Unlink,
@@ -359,9 +363,10 @@ export default function MindMap() {
   // Edge type state
   const [edgeType, setEdgeType] = useState<'default' | 'straight' | 'smoothstep'>('default');
 
-  // Color customization state
+  // Color and font customization state
   const [backgroundColor, setBackgroundColor] = useState<string | null>(null);
   const [dotColor, setDotColor] = useState<string | null>(null);
+  const [fontFamily, setFontFamily] = useState<string | null>("Aspekta");
 
   // Collaboration chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -1390,6 +1395,26 @@ export default function MindMap() {
     },
     [currentHistoryIndex, lastSavedHistoryIndex],
   )
+
+      // Handle font family changes with history tracking
+      const handleFontFamilyChange = useCallback(
+        (newFont: string) => {
+          const previousFontFamily = fontFamily;
+          const action = createHistoryAction(
+            "change_font_family",
+            { fontFamily: newFont },
+            nodes,
+            edges,
+            { fontFamily: previousFontFamily || undefined }
+          );
+          addToHistory(action);
+          setFontFamily(newFont);
+          if (!isInitialLoad) {
+            setHasUnsavedChanges(true);
+          }
+        },
+        [fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+      );
 
   // Handle edge type changes with history tracking
   const handleEdgeTypeChange = useCallback(
@@ -3624,7 +3649,8 @@ export default function MindMap() {
           edgeType,
           backgroundColor: backgroundColor || undefined,
           dotColor: dotColor || undefined,
-          drawingData: drawingData
+          drawingData: drawingData,
+          fontFamily: fontFamily || undefined
         })
         setHasUnsavedChanges(false)
         setOriginalTitle(editedTitle)
@@ -7449,6 +7475,8 @@ export default function MindMap() {
           onBackgroundColorChange={handleBackgroundColorChange}
           dotColor={dotColor}
           onDotColorChange={handleDotColorChange}
+          fontFamily={fontFamily}
+          onFontFamilyChange={handleFontFamilyChange}
         />
 
         {/* Toast Notification */}

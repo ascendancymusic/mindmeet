@@ -13,7 +13,8 @@ interface MindMapCustomizationProps {
   onBackgroundColorChange: (color: string) => void
   dotColor: string | null
   onDotColorChange: (color: string) => void
-  // fontFamily?: string // (future prop for font)
+  fontFamily: string | null
+  onFontFamilyChange: (font: string) => void
 }
 
 export default function MindMapCustomization({
@@ -25,57 +26,55 @@ export default function MindMapCustomization({
   onBackgroundColorChange,
   dotColor,
   onDotColorChange,
-  // fontFamily,
+  fontFamily,
+  onFontFamilyChange,
 }: MindMapCustomizationProps) {
-  // Font selection state (not implemented yet)
   const fontOptions = [
-    { value: 'aspekta', label: 'Standard' },
-    { value: 'chillax', label: 'Chillax' },
-    { value: 'array', label: 'Array' },
-    { value: 'switzer', label: 'Switzer' },
+    { value: 'Aspekta', label: 'Standard', font: 'Aspekta, sans-serif' },
+    { value: 'Chillax', label: 'Chillax', font: 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif' },
+    { value: 'Array', label: 'Array', font: 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif' },
+    { value: 'Switzer', label: 'Switzer', font: 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif' },
   ];
-  const [pendingFont, setPendingFont] = useState('aspekta');
-  // Track original values - these will be updated when modal opens
+
   const [originalEdgeType, setOriginalEdgeType] = useState(edgeType)
   const [originalBackgroundColor, setOriginalBackgroundColor] = useState(backgroundColor || "#11192C")
   const [originalDotColor, setOriginalDotColor] = useState(dotColor || "#81818a")
-  
-  // Track pending changes
+  const [originalFontFamily, setOriginalFontFamily] = useState(fontFamily || "Aspekta")
+
   const [pendingEdgeType, setPendingEdgeType] = useState(edgeType)
   const [showBackgroundColorPicker, setShowBackgroundColorPicker] = useState(false)
   const [showDotColorPicker, setShowDotColorPicker] = useState(false)
   const [tempBackgroundColor, setTempBackgroundColor] = useState(backgroundColor || "#11192C")
   const [tempDotColor, setTempDotColor] = useState(dotColor || "#81818a")
-  
-  // Track if user has made explicit changes (like clicking "Default")
+  const [pendingFontFamily, setPendingFontFamily] = useState(fontFamily || "Aspekta")
+
   const [hasBackgroundColorChanged, setHasBackgroundColorChanged] = useState(false)
   const [hasDotColorChanged, setHasDotColorChanged] = useState(false)
   const [hasEdgeTypeChanged, setHasEdgeTypeChanged] = useState(false)
+  const [hasFontFamilyChanged, setHasFontFamilyChanged] = useState(false)
 
   const backgroundColorPickerRef = useRef<HTMLDivElement>(null)
   const dotColorPickerRef = useRef<HTMLDivElement>(null)
 
-  // Update temp colors when props change (when component opens)
   useEffect(() => {
     if (isOpen) {
-      // Update original values to current props when modal opens
       setOriginalEdgeType(edgeType)
       setOriginalBackgroundColor(backgroundColor || "#11192C")
       setOriginalDotColor(dotColor || "#81818a")
-      
-      // Update temp values
+      setOriginalFontFamily(fontFamily || "Aspekta")
+
       setPendingEdgeType(edgeType)
       setTempBackgroundColor(backgroundColor || "#11192C")
       setTempDotColor(dotColor || "#81818a")
-      
-      // Reset change tracking when modal opens
+      setPendingFontFamily(fontFamily || "Aspekta")
+
       setHasBackgroundColorChanged(false)
       setHasDotColorChanged(false)
       setHasEdgeTypeChanged(false)
+      setHasFontFamilyChanged(false)
     }
-  }, [isOpen, edgeType, backgroundColor, dotColor])
+  }, [isOpen, edgeType, backgroundColor, dotColor, fontFamily])
 
-  // Handle hex input changes
   const handleBackgroundHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setTempBackgroundColor(value)
@@ -88,23 +87,15 @@ export default function MindMapCustomization({
     setHasDotColorChanged(true)
   }
 
-  // Validate and format hex color on blur
   const validateHexColor = (color: string): string => {
-    // Remove any whitespace
     let cleanColor = color.trim()
-    
-    // Add # if missing
     if (!cleanColor.startsWith('#')) {
       cleanColor = '#' + cleanColor
     }
-    
-    // Check if it's a valid hex color (3 or 6 digits after #)
     const hexRegex = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/
     if (hexRegex.test(cleanColor)) {
       return cleanColor.toUpperCase()
     }
-    
-    // If invalid, return original color
     return color
   }
 
@@ -118,7 +109,6 @@ export default function MindMapCustomization({
     setTempDotColor(validatedColor)
   }
 
-  // Close color pickers when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (backgroundColorPickerRef.current && !backgroundColorPickerRef.current.contains(event.target as Element)) {
@@ -134,7 +124,6 @@ export default function MindMapCustomization({
   }, [])
 
   const handleBackgroundColorConfirm = () => {
-    // Color editing disabled for now
     setShowBackgroundColorPicker(false)
   }
 
@@ -144,7 +133,6 @@ export default function MindMapCustomization({
   }
 
   const handleDotColorConfirm = () => {
-    // Color editing disabled for now
     setShowDotColorPicker(false)
   }
 
@@ -156,11 +144,22 @@ export default function MindMapCustomization({
   const handleBackgroundColorChange = (color: string) => {
     setTempBackgroundColor(color)
     setHasBackgroundColorChanged(true)
+    if (color !== backgroundColor) {
+      onBackgroundColorChange(color)
+    }
   }
 
   const handleDotColorChange = (color: string) => {
     setTempDotColor(color)
     setHasDotColorChanged(true)
+    if (color !== dotColor) {
+      onDotColorChange(color)
+    }
+  }
+
+  const handleFontFamilyChange = (font: string) => {
+    setPendingFontFamily(font)
+  setHasFontFamilyChanged(true)
   }
 
   const handleBackgroundColorDefault = () => {
@@ -174,22 +173,21 @@ export default function MindMapCustomization({
   }
 
   const handleCancel = () => {
-    // Reset all pending changes
     setPendingEdgeType(originalEdgeType)
     setTempBackgroundColor(originalBackgroundColor)
     setTempDotColor(originalDotColor)
+    setPendingFontFamily(originalFontFamily)
     setShowBackgroundColorPicker(false)
     setShowDotColorPicker(false)
     onClose()
   }
 
   const handleDone = () => {
-    // Check if any changes were made (either values changed OR user explicitly clicked default)
     const backgroundChanged = hasBackgroundColorChanged || tempBackgroundColor !== originalBackgroundColor
     const dotChanged = hasDotColorChanged || tempDotColor !== originalDotColor
     const edgeChanged = hasEdgeTypeChanged || pendingEdgeType !== originalEdgeType
-    
-    // Only apply changes if something actually changed
+    const fontChanged = hasFontFamilyChanged || pendingFontFamily !== originalFontFamily
+
     if (edgeChanged) {
       onEdgeTypeChange(pendingEdgeType)
     }
@@ -198,6 +196,9 @@ export default function MindMapCustomization({
     }
     if (dotChanged) {
       onDotColorChange(tempDotColor)
+    }
+    if (fontChanged) {
+      onFontFamilyChange(pendingFontFamily)
     }
 
     setShowBackgroundColorPicker(false)
@@ -268,8 +269,6 @@ export default function MindMapCustomization({
             <X className="w-5 h-5" />
           </button>
         </div>
-
-
 
         <div className="space-y-8 overflow-y-auto max-h-[60vh] pr-2 -mr-2">
           {/* Edge Type Section */}
@@ -472,32 +471,34 @@ export default function MindMapCustomization({
                 )}
               </div>
             </div>
-        {/* Font Family Section (preview only, no logic) - moved to just above footer */}
-        <div className="space-y-4 mt-10">
-          <div className="flex items-center space-x-2">
-            <div className="w-1 h-6 bg-gradient-to-b from-pink-400 to-blue-400 rounded-full"></div>
-            <h3 className="text-lg font-semibold text-white">Font Family</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { value: 'aspekta', label: 'Standard', font: 'Aspekta, sans-serif' },
-              { value: 'chillax', label: 'Chillax', font: 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif' },
-              { value: 'array', label: 'Array', font: 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif' },
-              { value: 'switzer', label: 'Switzer', font: 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif' },
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`group relative overflow-hidden p-3 text-left rounded-2xl transition-all duration-300 border flex items-center space-x-3 bg-white/5 border-white/10`}
-                style={{ fontFamily: option.font }}
-                disabled
-              >
-                <span className="text-white font-medium">{option.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="text-xs text-slate-400 mt-1">(Font selection coming soon)</div>
-        </div>
+
+            {/* Font Family Section */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-1 h-6 bg-gradient-to-b from-pink-400 to-blue-400 rounded-full"></div>
+                <h3 className="text-lg font-semibold text-white">Font Family</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {fontOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleFontFamilyChange(option.value)}
+                    className={`group relative overflow-hidden p-3 text-left rounded-2xl transition-all duration-300 border flex items-center space-x-3 ${
+                      pendingFontFamily === option.value
+                        ? "bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 border-blue-400/50 shadow-lg shadow-blue-500/20"
+                        : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
+                    }`}
+                    style={{ fontFamily: option.font }}
+                  >
+                    <span className="text-white font-medium">{option.label}</span>
+                    {pendingFontFamily === option.value && (
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

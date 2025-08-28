@@ -12,6 +12,7 @@ const defaultNodeStyles = {
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
     backgroundClip: "border-box",
+    fontFamily: "inherit",
   },
   default: {
     background: "#4c5b6f",
@@ -26,6 +27,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   "text-no-bg": {
     background: "transparent",
@@ -41,6 +43,7 @@ const defaultNodeStyles = {
     overflow: "visible",
     textShadow: "none",
     boxShadow: "none",
+    fontFamily: "inherit",
   },
   link: {
     background: "#4c5b6f",
@@ -55,6 +58,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   "youtube-video": {
     background: "#4c5b6f",
@@ -69,6 +73,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   mindmap: {
     background: "#4c5b6f",
@@ -83,6 +88,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   spotify: {
     background: "#4c5b6f",
@@ -97,6 +103,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   soundcloud: {
     background: "#4c5b6f",
@@ -111,6 +118,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
 
   instagram: {
@@ -126,6 +134,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   twitter: {
     background: "#4c5b6f",
@@ -140,6 +149,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   tiktok: {
     background: "#4c5b6f",
@@ -154,6 +164,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   youtube: {
     background: "#4c5b6f",
@@ -168,6 +179,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   facebook: {
     background: "#4c5b6f",
@@ -182,6 +194,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   mindmeet: {
     background: "#4c5b6f",
@@ -196,6 +209,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   image: {
     background: "#4c5b6f",
@@ -210,6 +224,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   audio: {
     background: "#4c5b6f",
@@ -224,6 +239,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
   playlist: {
     background: "#4c5b6f",
@@ -238,6 +254,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+    fontFamily: "inherit",
   },
 };
 

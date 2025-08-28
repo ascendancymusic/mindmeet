@@ -22,6 +22,7 @@ export interface MindMap {
   edgeType?: 'default' | 'straight' | 'smoothstep';
   backgroundColor?: string;
   dotColor?: string;
+  fontFamily?: string;
   createdAt: number;
   updatedAt: number;
   likes: number;
@@ -50,7 +51,7 @@ interface MindMapState {
   addMap: (title: string, userId: string) => Promise<string>;
   cloneMap: (mapPermalink: string, userId: string) => Promise<string>;
   // First arg can be a UUID mindmap id (preferred) or legacy permalink
-  updateMap: (idOrPermalink: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData }) => Promise<void>;
+  updateMap: (idOrPermalink: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData; fontFamily?: string; }) => Promise<void>;
   deleteMap: (permalink: string, userId: string) => void;
   setCurrentMap: (id: string | null) => void;
   updateMapTitle: (permalink: string, title: string) => void;
@@ -126,6 +127,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       edgeType: map.json_data.edgeType || 'default',
       backgroundColor: map.json_data.backgroundColor || '#11192C',
       dotColor: map.json_data.dotColor || '#81818a',
+      fontFamily: map.json_data.fontFamily || 'Aspekta',
       createdAt: new Date(map.created_at).getTime(),
       updatedAt: new Date(map.updated_at).getTime(),
       likes: map.mindmap_like_counts?.[0]?.like_count || 0,
@@ -213,6 +215,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           edgeType: map.json_data.edgeType || 'default',
           backgroundColor: map.json_data.backgroundColor || '#11192C',
           dotColor: map.json_data.dotColor || '#81818a',
+          fontFamily: map.json_data.fontFamily || 'Aspekta',
           createdAt: new Date(map.created_at).getTime(),
           updatedAt: new Date(map.updated_at).getTime(),
           likes: map.mindmap_like_counts?.[0]?.like_count || 0,
@@ -239,7 +242,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { id, permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData } = map;
+    const { id, permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', fontFamily = 'Aspekta', createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -302,7 +305,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         const { error: updateError } = await supabase
           .from('mindmaps')
           .update({
-            json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
+            json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor, fontFamily },
             drawing_data: compressDrawingData(drawingData),
             updated_at: new Date().toISOString()
           })
@@ -319,7 +322,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         const mapData = {
           permalink: permalink,
           title,
-          json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor },
+          json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor, fontFamily },
           drawing_data: compressDrawingData(drawingData),
           created_at: validCreatedAt,
           updated_at: validUpdatedAt,
@@ -569,6 +572,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       ],
       edges: [],
       edgeType: 'default',
+      fontFamily: 'Aspekta',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       likes: 0,
@@ -651,6 +655,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       edgeType: mapToClone.edgeType || 'default',
       backgroundColor: mapToClone.backgroundColor,
       dotColor: mapToClone.dotColor,
+      fontFamily: mapToClone.fontFamily || 'Aspekta',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       likes: 0, // Reset to default
@@ -697,8 +702,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       return;
     }
 
-    // Extract customization data with defaults
-  const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', drawingData } = customization;
+  // Extract customization data with defaults, but do NOT default fontFamily to 'Aspekta' here
+  const { edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', drawingData, fontFamily } = customization;
   const identifier = idOrPermalink;
   const identifierIsId = isUUID(identifier);
 
@@ -1034,6 +1039,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         title,
         updatedAt: Date.now(),
         drawingData: drawingData, // Keep original drawing data without optimization
+        fontFamily: typeof fontFamily === 'string' ? fontFamily : updatedMap.fontFamily,
       };
 
       // Determine if this is a collaborator edit
