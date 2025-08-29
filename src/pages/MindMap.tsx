@@ -113,6 +113,7 @@ import BrainstormChat from "../components/BrainstormChat";
 
 interface HistoryAction {
   type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke"
+  timestamp?: string;
   data: {
     nodes?: Node[]
     edges?: Edge[]
@@ -1368,6 +1369,7 @@ export default function MindMap() {
           title: previousState?.title,
           drawingData: previousState?.drawingData,
         },
+        timestamp: new Date().toISOString(),
       };
     },
     [nodes, edges]

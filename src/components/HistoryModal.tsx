@@ -1,6 +1,17 @@
 "use client"
 
 import React from "react"
+// Helper to format time ago
+function formatTimeAgo(date: Date | string | undefined): string {
+  if (!date) return "";
+  const now = new Date();
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff/60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)} hr ago`;
+  return d.toLocaleDateString();
+}
 import { createPortal } from "react-dom"
 import { Clock, X, ChevronDown, ChevronRight } from "lucide-react"
 
@@ -49,6 +60,7 @@ interface HistoryModalProps {
 export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, buttonRef }: HistoryModalProps) {
   const [expandedGroups, setExpandedGroups] = React.useState<Set<number>>(new Set())
   const [visibleCount, setVisibleCount] = React.useState(15)
+  const [selectedIndex, setSelectedIndex] = React.useState(currentHistoryIndex)
 
   // Helper function to format history action types for display
   const formatActionType = (type: string): string => {
@@ -210,7 +222,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
       
       {/* Dropdown Panel */}
       <div 
-        className="fixed z-[10000] w-72 max-h-96 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-[10000] w-96 max-h-96 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
         style={{
           left: position.left,
           top: position.top,
@@ -256,80 +268,84 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                   const isCurrentAction = actualIndex === currentHistoryIndex
                   const details = getActionDetails(action)
                   
+                  // Determine if this action is newer than the selected point
+                  // Grey out actions above (older than) the selected point
+                  const isUndone = actualIndex < selectedIndex && selectedIndex !== -1;
                   return (
-                    <div
+                    <button
                       key={`single-${actualIndex}-${action.type}`}
-                      className={`p-2 rounded-lg transition-all duration-200 flex items-center hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20`}
+                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${
+                        selectedIndex === actualIndex
+                          ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg" 
+                          : isUndone
+                            ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
+                            : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
+                      }`}
+                      style={{ border: 'none', outline: 'none' }}
+                      onClick={() => setSelectedIndex(actualIndex)}
+                      title={isUndone ? "Redo to this point" : "Jump to this point in history"}
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <div className={`text-xs font-medium text-white/90 truncate ${
-                            isCurrentAction ? "text-blue-100" : ""
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex items-center space-x-2 justify-between">
+                          <div className={`text-xs font-medium truncate ${
+                            selectedIndex === actualIndex ? "text-blue-100" : isUndone ? "text-white/40" : "text-white/90"
                           }`}>
                             {formatActionType(action.type)}
                           </div>
-                          {/* Removed blue dot for current action */}
+                          <div className="text-[10px] text-white/40 font-normal ml-2 whitespace-nowrap">
+                            {formatTimeAgo((action as any).timestamp)}
+                          </div>
                         </div>
                         {details && (
-                          <div className="text-xs text-white/60 truncate mt-0.5">
+                          <div className={`text-xs truncate mt-0.5 ${isUndone ? "text-white/30" : "text-white/60"}`}>
                             {details}
                           </div>
                         )}
                       </div>
-                      <div className="relative flex items-center justify-center ml-2">
-                        <button
-                          className="group flex items-center justify-center w-7 h-7 rounded-full border border-purple-400/30 bg-gradient-to-br from-purple-700/30 via-purple-900/40 to-blue-900/30 backdrop-blur-md text-white/70 hover:text-white/90 hover:from-purple-700/50 hover:to-blue-900/50 transition-all overflow-hidden"
-                          tabIndex={-1}
-                          type="button"
-                          // onClick: not implemented yet
-                          style={{ minWidth: 28 }}
-                        >
-                          <X className="w-4 h-4 z-10 transition-all" />
-                        </button>
-                        <span className="pointer-events-none select-none absolute left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:left-10 transition-all bg-gradient-to-br from-purple-700/80 via-purple-900/90 to-blue-900/80 px-2 py-0.5 rounded text-xs text-white/90 shadow-lg border border-purple-400/30 ml-1" style={{whiteSpace:'nowrap'}}>
-                          Undo
-                        </span>
-                      </div>
-                    </div>
+                    </button>
                   )
                 } else {
                   // Group of actions
                   const isExpanded = expandedGroups.has(groupIndex)
                   const firstAction = group.actions[0]
-                  const hasCurrentAction = group.startIndex <= currentHistoryIndex && currentHistoryIndex <= group.endIndex
-                  const groupDetails = getActionDetails(firstAction)
                   
                   return (
                     <div key={`group-${groupIndex}`} className="space-y-1">
                       {/* Group Header */}
-                      <div
-                        className="w-full p-2 rounded-lg transition-all duration-200 flex items-center hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => toggleGroup(groupIndex)}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-3 h-3 text-white/60 flex-shrink-0 mr-2" />
-                        ) : (
-                          <ChevronRight className="w-3 h-3 text-white/60 flex-shrink-0 mr-2" />
-                        )}
-                        <span className="text-xs font-medium text-white/90 truncate">{formatActionType(firstAction.type)} ({group.actions.length}×)</span>
-                        {/* No highlight or blue dot for current action in group row */}
-                        <div className="flex-1" />
-                        <div className="relative flex items-center justify-center ml-2">
-                          <button
-                            className="group flex items-center justify-center w-7 h-7 rounded-full border border-purple-400/30 bg-gradient-to-br from-purple-700/30 via-purple-900/40 to-blue-900/30 backdrop-blur-md text-white/70 hover:text-white/90 hover:from-purple-700/50 hover:to-blue-900/50 transition-all overflow-hidden"
-                            tabIndex={-1}
-                            type="button"
-                            // onClick: not implemented yet
-                            style={{ minWidth: 28 }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <X className="w-4 h-4 z-10 transition-all" />
-                          </button>
-                          <span className="pointer-events-none select-none absolute left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:left-10 transition-all bg-gradient-to-br from-purple-700/80 via-purple-900/90 to-blue-900/80 px-2 py-0.5 rounded text-xs text-white/90 shadow-lg border border-purple-400/30 ml-1" style={{whiteSpace:'nowrap'}}>
-                            Undo All
-                          </span>
-                        </div>
+                      <div className="flex items-center w-full">
+                        <button
+                          className="px-2 py-1 rounded-lg border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none bg-gradient-to-br from-slate-900/60 via-purple-900/40 to-blue-900/30 hover:bg-purple-900/40 transition-colors"
+                          style={{ border: 'none', outline: 'none', height: '2rem' }}
+                          onClick={() => {
+                            if (isExpanded) {
+                              expandedGroups.delete(groupIndex);
+                              setExpandedGroups(new Set(expandedGroups));
+                            } else {
+                              setExpandedGroups(prev => new Set(prev).add(groupIndex));
+                            }
+                          }}
+                          title={isExpanded ? "Collapse group" : "Expand group"}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-white/60" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-white/60" />
+                          )}
+                        </button>
+                        <button
+                          className={`flex-1 text-left p-2 rounded-lg transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${
+                            selectedIndex >= group.startIndex && selectedIndex <= group.endIndex
+                              ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg" 
+                              : selectedIndex > group.endIndex && selectedIndex !== -1
+                                ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
+                                : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
+                          }`}
+                          style={{ cursor: 'pointer', border: 'none', outline: 'none' }}
+                          onClick={() => setSelectedIndex(group.startIndex)}
+                          title="Jump to this point in history"
+                        >
+                          <span className={`text-xs font-medium truncate ${selectedIndex > group.endIndex && selectedIndex !== -1 ? "text-white/40" : "text-white/90"}`}>{formatActionType(firstAction.type)} ({group.actions.length}×)</span>
+                        </button>
                       </div>
                       {/* No sub text for grouped actions */}
                       
@@ -337,30 +353,47 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                       {isExpanded && (
                         <div className="ml-4 space-y-1 border-l border-white/10 pl-2">
                           {group.actions.map((action, actionIndex) => {
-                            const actualIndex = group.startIndex + actionIndex
-                            const details = getActionDetails(action)
+                            const actualIndex = group.startIndex + actionIndex;
+                            const details = getActionDetails(action);
+                            let isUndone = false;
+                            if (selectedIndex !== -1) {
+                              if (selectedIndex >= group.startIndex && selectedIndex <= group.endIndex) {
+                                // If selectedIndex is inside this group, grey out actions above it
+                                isUndone = actualIndex < selectedIndex;
+                              } else {
+                                // If selectedIndex is outside, use global logic
+                                isUndone = actualIndex < selectedIndex;
+                              }
+                            }
                             return (
-                              <div
+                              <button
                                 key={`group-item-${actualIndex}-${action.type}`}
-                                className="p-1.5 rounded-md transition-all duration-200 hover:bg-white/5"
+                                className={`w-full text-left p-1.5 rounded-md transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${
+                                  selectedIndex === actualIndex
+                                    ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg" 
+                                    : isUndone
+                                      ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
+                                      : "hover:bg-white/5"
+                                }`}
+                                style={{ border: 'none', outline: 'none' }}
+                                onClick={() => setSelectedIndex(actualIndex)}
+                                title={isUndone ? "Redo to this point" : "Jump to this point in history"}
                               >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2">
-                                      <div className="text-xs text-white/80 truncate">
-                                        {formatActionType(action.type)}
-                                      </div>
+                                <div className="flex-1 min-w-0 flex flex-col">
+                                  <div className="flex items-center space-x-2 justify-between">
+                                    <div className={`text-xs truncate ${selectedIndex === actualIndex ? "text-blue-100 font-medium" : isUndone ? "text-white/40" : "text-white/80"}`}>{formatActionType(action.type)}</div>
+                                    <div className="text-[10px] text-white/40 font-normal ml-2 whitespace-nowrap">
+                                      {formatTimeAgo((action as any).timestamp)}
                                     </div>
-                                    {details && (
-                                      <div className="text-xs text-white/50 truncate mt-0.5">
-                                        {details}
-                                      </div>
-                                    )}
                                   </div>
-                                  {/* Removed #number and highlight for group items */}
+                                  {details && (
+                                    <div className={`text-xs truncate mt-0.5 ${isUndone ? "text-white/30" : "text-white/50"}`}>
+                                      {details}
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            )
+                              </button>
+                            );
                           })}
                         </div>
                       )}
