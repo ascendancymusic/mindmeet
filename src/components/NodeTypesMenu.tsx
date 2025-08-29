@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
   TextCursor,
@@ -26,16 +26,53 @@ import {
   Edit3,
   MousePointer,
   Type,
+  History,
+  Clock,
 } from "lucide-react"
 import { TikTokIcon } from "./icons/TikTokIcon"
 import { SpotifyIcon } from "./icons/SpotifyIcon"
 import { SoundCloudIcon } from "./icons/SoundCloudIcon"
+import { HistoryModal } from "./HistoryModal"
 
 interface NodeType {
   id: string
   icon: React.ReactNode
   label: string
   type: string
+}
+
+interface HistoryAction {
+  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke"
+  data: {
+    nodes?: any[]
+    edges?: any[]
+    nodeId?: string
+    position?: { x: number; y: number } | Record<string, { x: number; y: number }>
+    connection?: any
+    label?: string
+    width?: number
+    height?: number
+    videoUrl?: string
+    spotifyUrl?: string
+    displayText?: string
+    color?: string
+    affectedNodes?: string[]
+    edgeType?: 'default' | 'straight' | 'smoothstep'
+    backgroundColor?: string
+    dotColor?: string
+    replacedEdgeId?: string
+    drawingData?: any
+    strokeId?: string
+  }
+  previousState?: {
+    nodes: any[]
+    edges: any[]
+    title?: string
+    edgeType?: 'default' | 'straight' | 'smoothstep'
+    backgroundColor?: string
+    dotColor?: string
+    drawingData?: any
+  }
 }
 
 interface NodeTypesMenuProps {
@@ -53,6 +90,8 @@ interface NodeTypesMenuProps {
   canRedo: boolean
   autocolorSubnodes: boolean
   setAutocolorSubnodes: (autocolorSubnodes: boolean) => void
+  history?: HistoryAction[]
+  currentHistoryIndex?: number
 }
 
 // Text node variants
@@ -196,15 +235,19 @@ export function NodeTypesMenu({
   canRedo,
   autocolorSubnodes,
   setAutocolorSubnodes,
+  history = [],
+  currentHistoryIndex = -1,
 }: NodeTypesMenuProps) {
   const [isMusicDropdownOpen, setIsMusicDropdownOpen] = useState(false)
   const [isSocialDropdownOpen, setIsSocialDropdownOpen] = useState(false)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [activeTooltip, setActiveTooltip] = useState<{ content: React.ReactNode; element: HTMLElement } | null>(null)
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true)
   const [isCompactMode, setIsCompactMode] = useState(window.innerHeight < 1090)
   const [isPenMode, setIsPenMode] = useState(false)
   const [selectedTextVariant, setSelectedTextVariant] = useState(0) // 0 = with background, 1 = no background
+  const historyButtonRef = useRef<HTMLButtonElement>(null)
 
   // Load tooltip setting from localStorage
   useEffect(() => {
@@ -244,9 +287,25 @@ export function NodeTypesMenu({
     }
   }, [])
 
+  // Close history modal when pressing Escape
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isHistoryModalOpen && event.key === 'Escape') {
+        setIsHistoryModalOpen(false)
+      }
+    }
+
+    if (isHistoryModalOpen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isHistoryModalOpen])
+
   // Calculate effective states for visual feedback
   const effectiveSnapToGrid = snapToGrid && !isAltPressed
   const effectiveMoveWithChildren = moveWithChildren || (!moveWithChildren && isCtrlPressed)
+
+
 
   // Tooltip handlers
   const showTooltip = useCallback(
@@ -371,6 +430,7 @@ export function NodeTypesMenu({
           >
             <Undo className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
           </button>
+
           <button
             onClick={onRedo}
             disabled={!canRedo}
@@ -386,6 +446,25 @@ export function NodeTypesMenu({
             onMouseLeave={hideTooltip}
           >
             <Redo className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
+          </button>
+        </div>
+
+        {/* History Log Viewer - positioned close to undo/redo */}
+        <div className={`flex justify-center ${isCompactMode ? "mb-2" : "mb-3"} -mt-1`}>
+          <button
+            ref={historyButtonRef}
+            onClick={() => setIsHistoryModalOpen(true)}
+            disabled={history.length === 0}
+            className={`${isCompactMode ? "p-0.5" : "p-1"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${history.length === 0 ? "text-gray-500" : "text-white/70 hover:text-white"}`}
+            onMouseEnter={(e) =>
+              showTooltip(
+                history.length === 0 ? "No history available" : `View History (${history.length} actions)`,
+                e.currentTarget,
+              )
+            }
+            onMouseLeave={hideTooltip}
+          >
+            <History className={`${isCompactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} />
           </button>
         </div>
 
@@ -405,8 +484,8 @@ export function NodeTypesMenu({
             <div className="absolute bottom-0.5 right-0.5 w-2 h-2 flex items-center justify-center">
               <div
                 className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${selectedTextVariant === 0
-                    ? "bg-blue-400 shadow-[0_0_4px_rgba(59,130,246,0.6)]"
-                    : "bg-purple-400 shadow-[0_0_4px_rgba(168,85,247,0.6)]"
+                  ? "bg-blue-400 shadow-[0_0_4px_rgba(59,130,246,0.6)]"
+                  : "bg-purple-400 shadow-[0_0_4px_rgba(168,85,247,0.6)]"
                   }`}
               />
             </div>
@@ -456,7 +535,13 @@ export function NodeTypesMenu({
 
         <div className="relative">
           <button
-            onClick={() => setIsMusicDropdownOpen((prev) => !prev)}
+            onClick={() => {
+              setIsMusicDropdownOpen((prev) => !prev)
+              // Close other dropdowns when opening music
+              if (!isMusicDropdownOpen) {
+                setIsSocialDropdownOpen(false)
+              }
+            }}
             onMouseEnter={(e) => showTooltip("Music", e.currentTarget)}
             onMouseLeave={hideTooltip}
             className={`${isCompactMode ? "w-8 h-8" : "w-9 h-10"} flex items-center justify-center text-white rounded-xl shadow-md transition-all duration-300 ${isMusicDropdownOpen ? "ring-2 ring-slate-500/50" : ""
@@ -496,7 +581,13 @@ export function NodeTypesMenu({
 
         <div className="relative">
           <button
-            onClick={() => setIsSocialDropdownOpen((prev) => !prev)}
+            onClick={() => {
+              setIsSocialDropdownOpen((prev) => !prev)
+              // Close other dropdowns when opening social
+              if (!isSocialDropdownOpen) {
+                setIsMusicDropdownOpen(false)
+              }
+            }}
             onMouseEnter={(e) => showTooltip("Social Media", e.currentTarget)}
             onMouseLeave={hideTooltip}
             className={`${isCompactMode ? "w-8 h-8" : "w-9 h-10"} flex items-center justify-center text-white rounded-xl shadow-md transition-all duration-300 ${isSocialDropdownOpen ? "ring-2 ring-slate-500/50" : ""
@@ -570,8 +661,8 @@ export function NodeTypesMenu({
           }}
           onMouseLeave={hideTooltip}
           className={`${isCompactMode ? "w-8 h-8" : "w-9 h-10"} flex items-center justify-center rounded-xl shadow-lg transition-colors ${effectiveMoveWithChildren
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
             }`}
         >
           <GitBranch className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
@@ -609,8 +700,8 @@ export function NodeTypesMenu({
           }}
           onMouseLeave={hideTooltip}
           className={`${isCompactMode ? "mt-1 w-8 h-8" : "mt-2 w-9 h-10"} flex items-center justify-center rounded-xl shadow-lg transition-colors ${effectiveSnapToGrid
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
             }`}
         >
           <Grid3X3 className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
@@ -630,8 +721,8 @@ export function NodeTypesMenu({
           }}
           onMouseLeave={hideTooltip}
           className={`${isCompactMode ? "mt-1 w-8 h-8" : "mt-2 w-9 h-10"} flex items-center justify-center rounded-xl shadow-lg transition-colors ${autocolorSubnodes
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
             }`}
         >
           <Palette className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
@@ -650,8 +741,8 @@ export function NodeTypesMenu({
           onMouseEnter={(e) => showTooltip(isPenMode ? "Switch to Cursor Mode" : "Switch to Pen Mode", e.currentTarget)}
           onMouseLeave={hideTooltip}
           className={`${isCompactMode ? "mt-1 w-8 h-8" : "mt-2 w-9 h-10"} flex items-center justify-center rounded-xl shadow-lg transition-colors ${isPenMode
-              ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
-              : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+            ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-500/25 text-white"
+            : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
             }`}
         >
           {isPenMode ? (
@@ -661,7 +752,17 @@ export function NodeTypesMenu({
           )}
         </button>
       </div>
-  {/* Collapse/Expand button moved above for better control */}
+      {/* Collapse/Expand button moved above for better control */}
+
+      {/* History Modal */}
+      <HistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        history={history}
+        currentHistoryIndex={currentHistoryIndex}
+        buttonRef={historyButtonRef}
+      />
+
       {renderTooltip()}
     </div>
   )

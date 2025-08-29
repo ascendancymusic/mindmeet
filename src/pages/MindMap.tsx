@@ -5748,6 +5748,8 @@ export default function MindMap() {
           onRedo={redo}
           canUndo={canUndo}
           canRedo={canRedo}
+          history={history}
+          currentHistoryIndex={currentHistoryIndex}
         />
       </div>
 
