@@ -48,6 +48,7 @@ interface HistoryModalProps {
 
 export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, buttonRef }: HistoryModalProps) {
   const [expandedGroups, setExpandedGroups] = React.useState<Set<number>>(new Set())
+  const [visibleCount, setVisibleCount] = React.useState(15)
 
   // Helper function to format history action types for display
   const formatActionType = (type: string): string => {
@@ -168,8 +169,8 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
     return groups
   }
 
-  // Get recent history items (last 15 actions for dropdown, then group them)
-  const recentHistory = history.slice(Math.max(0, currentHistoryIndex - 14), currentHistoryIndex + 1).reverse()
+  // Get recent history items (last visibleCount actions for dropdown, then group them)
+  const recentHistory = history.slice(Math.max(0, currentHistoryIndex - (visibleCount - 1)), currentHistoryIndex + 1).reverse()
   const groupedHistory = groupActions(recentHistory)
 
   const toggleGroup = (groupIndex: number) => {
@@ -238,6 +239,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
         <div className="p-2 max-h-80 overflow-y-auto" style={{
           scrollbarColor: "rgb(147, 34, 192) rgb(34, 34, 44)",
           scrollbarWidth: "thin",
+          overflowX: "hidden"
         }}>
           {groupedHistory.length === 0 ? (
             <div className="p-6 text-center text-white/50">
@@ -257,33 +259,36 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                   return (
                     <div
                       key={`single-${actualIndex}-${action.type}`}
-                      className={`p-2 rounded-lg transition-all duration-200 ${
-                        isCurrentAction 
-                          ? "bg-blue-500/20 border border-blue-400/30" 
-                          : "hover:bg-white/5"
-                      }`}
+                      className={`p-2 rounded-lg transition-all duration-200 flex items-center hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <div className={`text-xs font-medium text-white/90 truncate ${
-                              isCurrentAction ? "text-blue-100" : ""
-                            }`}>
-                              {formatActionType(action.type)}
-                            </div>
-                            {isCurrentAction && (
-                              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                            )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <div className={`text-xs font-medium text-white/90 truncate ${
+                            isCurrentAction ? "text-blue-100" : ""
+                          }`}>
+                            {formatActionType(action.type)}
                           </div>
-                          {details && (
-                            <div className="text-xs text-white/60 truncate mt-0.5">
-                              {details}
-                            </div>
-                          )}
+                          {/* Removed blue dot for current action */}
                         </div>
-                        <div className="text-xs text-white/40 ml-2 flex-shrink-0 font-mono">
-                          #{actualIndex + 1}
-                        </div>
+                        {details && (
+                          <div className="text-xs text-white/60 truncate mt-0.5">
+                            {details}
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative flex items-center justify-center ml-2">
+                        <button
+                          className="group flex items-center justify-center w-7 h-7 rounded-full border border-purple-400/30 bg-gradient-to-br from-purple-700/30 via-purple-900/40 to-blue-900/30 backdrop-blur-md text-white/70 hover:text-white/90 hover:from-purple-700/50 hover:to-blue-900/50 transition-all overflow-hidden"
+                          tabIndex={-1}
+                          type="button"
+                          // onClick: not implemented yet
+                          style={{ minWidth: 28 }}
+                        >
+                          <X className="w-4 h-4 z-10 transition-all" />
+                        </button>
+                        <span className="pointer-events-none select-none absolute left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:left-10 transition-all bg-gradient-to-br from-purple-700/80 via-purple-900/90 to-blue-900/80 px-2 py-0.5 rounded text-xs text-white/90 shadow-lg border border-purple-400/30 ml-1" style={{whiteSpace:'nowrap'}}>
+                          Undo
+                        </span>
                       </div>
                     </div>
                   )
@@ -297,71 +302,54 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                   return (
                     <div key={`group-${groupIndex}`} className="space-y-1">
                       {/* Group Header */}
-                      <button
+                      <div
+                        className="w-full p-2 rounded-lg transition-all duration-200 flex items-center hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
+                        style={{ cursor: 'pointer' }}
                         onClick={() => toggleGroup(groupIndex)}
-                        className={`w-full p-2 rounded-lg transition-all duration-200 text-left ${
-                          hasCurrentAction 
-                            ? "bg-blue-500/20 border border-blue-400/30" 
-                            : "hover:bg-white/5 bg-white/3"
-                        }`}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2">
-                              {isExpanded ? (
-                                <ChevronDown className="w-3 h-3 text-white/60 flex-shrink-0" />
-                              ) : (
-                                <ChevronRight className="w-3 h-3 text-white/60 flex-shrink-0" />
-                              )}
-                              <div className={`text-xs font-medium text-white/90 truncate ${
-                                hasCurrentAction ? "text-blue-100" : ""
-                              }`}>
-                                {formatActionType(firstAction.type)} ({group.actions.length}×)
-                              </div>
-                              {hasCurrentAction && (
-                                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                              )}
-                            </div>
-                            {groupDetails && (
-                              <div className="text-xs text-white/60 truncate mt-0.5 ml-5">
-                                {groupDetails}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-xs text-white/40 ml-2 flex-shrink-0 font-mono">
-                            #{group.startIndex + 1}-#{group.endIndex + 1}
-                          </div>
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3 text-white/60 flex-shrink-0 mr-2" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 text-white/60 flex-shrink-0 mr-2" />
+                        )}
+                        <span className="text-xs font-medium text-white/90 truncate">{formatActionType(firstAction.type)} ({group.actions.length}×)</span>
+                        {/* No highlight or blue dot for current action in group row */}
+                        <div className="flex-1" />
+                        <div className="relative flex items-center justify-center ml-2">
+                          <button
+                            className="group flex items-center justify-center w-7 h-7 rounded-full border border-purple-400/30 bg-gradient-to-br from-purple-700/30 via-purple-900/40 to-blue-900/30 backdrop-blur-md text-white/70 hover:text-white/90 hover:from-purple-700/50 hover:to-blue-900/50 transition-all overflow-hidden"
+                            tabIndex={-1}
+                            type="button"
+                            // onClick: not implemented yet
+                            style={{ minWidth: 28 }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <X className="w-4 h-4 z-10 transition-all" />
+                          </button>
+                          <span className="pointer-events-none select-none absolute left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:left-10 transition-all bg-gradient-to-br from-purple-700/80 via-purple-900/90 to-blue-900/80 px-2 py-0.5 rounded text-xs text-white/90 shadow-lg border border-purple-400/30 ml-1" style={{whiteSpace:'nowrap'}}>
+                            Undo All
+                          </span>
                         </div>
-                      </button>
+                      </div>
+                      {/* No sub text for grouped actions */}
                       
                       {/* Expanded Group Items */}
                       {isExpanded && (
                         <div className="ml-4 space-y-1 border-l border-white/10 pl-2">
                           {group.actions.map((action, actionIndex) => {
                             const actualIndex = group.startIndex + actionIndex
-                            const isCurrentAction = actualIndex === currentHistoryIndex
                             const details = getActionDetails(action)
-                            
                             return (
                               <div
                                 key={`group-item-${actualIndex}-${action.type}`}
-                                className={`p-1.5 rounded-md transition-all duration-200 ${
-                                  isCurrentAction 
-                                    ? "bg-blue-500/30 border border-blue-400/40" 
-                                    : "hover:bg-white/5"
-                                }`}
+                                className="p-1.5 rounded-md transition-all duration-200 hover:bg-white/5"
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
-                                      <div className={`text-xs text-white/80 truncate ${
-                                        isCurrentAction ? "text-blue-100 font-medium" : ""
-                                      }`}>
+                                      <div className="text-xs text-white/80 truncate">
                                         {formatActionType(action.type)}
                                       </div>
-                                      {isCurrentAction && (
-                                        <div className="w-1 h-1 bg-blue-400 rounded-full" />
-                                      )}
                                     </div>
                                     {details && (
                                       <div className="text-xs text-white/50 truncate mt-0.5">
@@ -369,9 +357,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                                       </div>
                                     )}
                                   </div>
-                                  <div className="text-xs text-white/30 ml-2 flex-shrink-0 font-mono">
-                                    #{actualIndex + 1}
-                                  </div>
+                                  {/* Removed #number and highlight for group items */}
                                 </div>
                               </div>
                             )
@@ -385,10 +371,16 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
             </div>
           )}
           
-          {history.length > 15 && (
+          {history.length > visibleCount && (
             <div className="mt-2 pt-2 border-t border-white/10 text-center">
-              <p className="text-xs text-white/50">
-                Showing last 15 of {history.length} actions
+              <button
+                className="px-3 py-1 text-xs rounded bg-gradient-to-br from-purple-700/60 via-purple-900/70 to-blue-900/60 text-white/80 hover:bg-purple-700/80 transition-colors shadow"
+                onClick={() => setVisibleCount(v => Math.min(v + 15, history.length))}
+              >
+                Show more
+              </button>
+              <p className="text-xs text-white/40 mt-1">
+                Showing last {Math.min(visibleCount, history.length)} of {history.length} actions
               </p>
             </div>
           )}
