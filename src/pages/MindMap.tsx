@@ -1402,25 +1402,25 @@ export default function MindMap() {
     [currentHistoryIndex, lastSavedHistoryIndex],
   )
 
-      // Handle font family changes with history tracking
-      const handleFontFamilyChange = useCallback(
-        (newFont: string) => {
-          const previousFontFamily = fontFamily;
-          const action = createHistoryAction(
-            "change_font_family",
-            { fontFamily: newFont },
-            nodes,
-            edges,
-            { fontFamily: previousFontFamily || undefined }
-          );
-          addToHistory(action);
-          setFontFamily(newFont);
-          if (!isInitialLoad) {
-            setHasUnsavedChanges(true);
-          }
-        },
-        [fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+  // Handle font family changes with history tracking
+  const handleFontFamilyChange = useCallback(
+    (newFont: string) => {
+      const previousFontFamily = fontFamily;
+      const action = createHistoryAction(
+        "change_font_family",
+        { fontFamily: newFont },
+        nodes,
+        edges,
+        { fontFamily: previousFontFamily || undefined }
       );
+      addToHistory(action);
+      setFontFamily(newFont);
+      if (!isInitialLoad) {
+        setHasUnsavedChanges(true);
+      }
+    },
+    [fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+  );
 
   // Handle edge type changes with history tracking
   const handleEdgeTypeChange = useCallback(
@@ -5751,20 +5751,6 @@ export default function MindMap() {
         />
       </div>
 
-      {/* Font family wrapper for per-mindmap font control */}
-      {(() => {
-        // Map short font names to full font-face names
-        const fontMap: Record<string, string> = {
-          array: 'Array-Regular',
-          switzer: 'Switzer-Regular',
-          chillax: 'Chillax-Regular',
-          aspekta: 'Aspekta',
-        };
-        const rawFont = (currentMap?.fontFamily || fontFamily || 'aspekta').toLowerCase();
-        const mappedFont = fontMap[rawFont] || currentMap?.fontFamily || fontFamily || 'Aspekta';
-        const cssVar = `${mappedFont}, Chillax-Regular, Chillax-Variable, Array-Regular, Array-Wide, Switzer-Regular, Switzer, Aspekta, sans-serif`;
-        return null;
-      })()}
       <div
         className={`fixed inset-0 mindmap-content ${isLoading ? 'loading' : ''}`}
         style={{
@@ -5775,11 +5761,13 @@ export default function MindMap() {
               chillax: 'Chillax-Regular',
               aspekta: 'Aspekta',
             };
-            const rawFont = (currentMap?.fontFamily || fontFamily || 'aspekta').toLowerCase();
-            const mappedFont = fontMap[rawFont] || currentMap?.fontFamily || fontFamily || 'Aspekta';
+            // Use the current fontFamily state which gets updated immediately
+            const rawFont = (fontFamily || currentMap?.fontFamily || 'aspekta').toLowerCase();
+            const mappedFont = fontMap[rawFont] || fontFamily || currentMap?.fontFamily || 'Aspekta';
             return `${mappedFont}, Chillax-Regular, Chillax-Variable, Array-Regular, Array-Wide, Switzer-Regular, Switzer, Aspekta, sans-serif`;
           })()
         } as React.CSSProperties}
+        key={fontFamily} // Force re-render when font changes
       >
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
         <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
@@ -6163,319 +6151,319 @@ export default function MindMap() {
             drawingTool={drawingTool}
             ref={drawingCanvasRef}
           />
-          
-          
 
 
-              {/* Header Elements - Always visible, positioned over ReactFlow */}
-              <>
-                  {/* Back to Maps button and Search - Top Left */}
-                  <div className="absolute top-16 left-0 z-50 flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        if (hasUnsavedChanges) {
-                          setShowUnsavedChangesModal(true)
-                        } else {
-                          navigate("/mindmap")
-                        }
-                      }}
-                      disabled={isSaving}
-                      className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${isSaving
-                        ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
-                        }`}
-                    >
-                      <ArrowLeft className="w-4 h-4 mr-2" />
-                      {isSmallScreen ? null : <span>Back to Maps</span>}
-                    </button>
-
-                    {/* Search button */}
-                    <button
-                      onClick={handleSearchOpen}
-                      className="flex items-center justify-center w-10 h-10 transition-all duration-200 rounded-lg backdrop-blur-sm border text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50"
-                      title="Search nodes"
-                    >
-                      <Search className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
-                  {(detailedMap || currentMap) && (detailedMap || currentMap).collaborators && (detailedMap || currentMap).collaborators.length > 0 && (
-                    <div className={`absolute top-16 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
-                      <CollaboratorsList
-                        mindMapId={((detailedMap || currentMap) as any).id || (detailedMap || currentMap).permalink}
-                        collaboratorIds={(detailedMap || currentMap).collaborators || []}
-                        creatorId={(detailedMap || currentMap).creator}
-                        className="max-w-xs"
-                        onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
-                        isChatOpen={isChatOpen}
-                      />
-
-                      {/* Collaboration Chat - positioned under the collaborators menu */}
-                      {currentMindMapId && user && (
-                        <CollaborationChat
-                          isOpen={isChatOpen}
-                          onClose={() => setIsChatOpen(false)}
-                          currentUserName={user.username || user.email || 'Anonymous'}
-                          mindMapId={currentMindMapId}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Title - Top Center */}
-                  <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50">
-                    {isEditingTitle ? (
-                      <input
-                        type="text"
-                        ref={titleRef}
-                        value={editedTitle}
-                        onChange={(e) => handleTitleChange(e.target.value)}
-                        onBlur={() => {
-                          setIsEditingTitle(false)
-                          if (editedTitle.trim() === "") {
-                            setEditedTitle(originalTitle)
-                            setHasUnsavedChanges(false)
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key !== "Enter") return;
-                          setIsEditingTitle(false)
-                          if (editedTitle.trim() === "") {
-                            setEditedTitle(originalTitle)
-                            setHasUnsavedChanges(false)
-                          }
-                        }}
-                        className="text-xl font-bold text-center bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-white"
-                        autoFocus
-                      />
-                    ) : (
-                      <h1
-                        className="text-xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 text-white"
-                        onClick={() => setIsEditingTitle(true)}
-                      >
-                        {editedTitle}
-                      </h1>
-                    )}
-                  </div>
 
 
-                  {/* Action buttons group - Top Right */}
-                  <div className="absolute top-16 right-0 z-40 flex items-center space-x-2">
-                    {/* Three-dot menu - Show for both creator and collaborators */}
-                    {(user?.id === (detailedMap || currentMap)?.creator || ((detailedMap || currentMap)?.collaborators?.includes(user?.id))) && (
-                      <div className="relative three-dot-dropdown">
-                        <button
-                          onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
-                          className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
+          {/* Header Elements - Always visible, positioned over ReactFlow */}
+          <>
+            {/* Back to Maps button and Search - Top Left */}
+            <div className="absolute top-16 left-0 z-50 flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  if (hasUnsavedChanges) {
+                    setShowUnsavedChangesModal(true)
+                  } else {
+                    navigate("/mindmap")
+                  }
+                }}
+                disabled={isSaving}
+                className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${isSaving
+                  ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
+                  }`}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {isSmallScreen ? null : <span>Back to Maps</span>}
+              </button>
 
-                        {/* Three-dot dropdown menu */}
-                        {showThreeDotMenu && (
-                          <div className="absolute top-full right-0 mt-1 w-40 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
-                            <div className="p-1">
-                              {/* Only show Edit details for creator */}
-                              {user?.id === (detailedMap || currentMap)?.creator && (
-                                <button
-                                  onClick={() => {
-                                    setShowEditDetailsModal(true);
-                                    setShowThreeDotMenu(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                  <span>Edit details</span>
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setShowCustomizationModal(true);
-                                  setShowThreeDotMenu(false);
-                                }}
-                                className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
-                              >
-                                <SquarePen className="w-4 h-4" />
-                                <span>Customize</span>
-                              </button>
-                              <a
-                                href={`/${username}/${currentMap?.permalink}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setShowThreeDotMenu(false);
-                                  handleViewNavigation();
-                                }}
-                                className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
-                              >
-                                <Monitor className="w-4 h-4" />
-                                <span>View</span>
-                              </a>
-                            </div>
-                          </div>
+              {/* Search button */}
+              <button
+                onClick={handleSearchOpen}
+                className="flex items-center justify-center w-10 h-10 transition-all duration-200 rounded-lg backdrop-blur-sm border text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50"
+                title="Search nodes"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
+            {(detailedMap || currentMap) && (detailedMap || currentMap).collaborators && (detailedMap || currentMap).collaborators.length > 0 && (
+              <div className={`absolute top-16 z-50 transform translate-x-2 ${isSmallScreen ? 'left-24' : 'left-48'}`}>
+                <CollaboratorsList
+                  mindMapId={((detailedMap || currentMap) as any).id || (detailedMap || currentMap).permalink}
+                  collaboratorIds={(detailedMap || currentMap).collaborators || []}
+                  creatorId={(detailedMap || currentMap).creator}
+                  className="max-w-xs"
+                  onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
+                  isChatOpen={isChatOpen}
+                />
+
+                {/* Collaboration Chat - positioned under the collaborators menu */}
+                {currentMindMapId && user && (
+                  <CollaborationChat
+                    isOpen={isChatOpen}
+                    onClose={() => setIsChatOpen(false)}
+                    currentUserName={user.username || user.email || 'Anonymous'}
+                    mindMapId={currentMindMapId}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Title - Top Center */}
+            <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50">
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  ref={titleRef}
+                  value={editedTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  onBlur={() => {
+                    setIsEditingTitle(false)
+                    if (editedTitle.trim() === "") {
+                      setEditedTitle(originalTitle)
+                      setHasUnsavedChanges(false)
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    setIsEditingTitle(false)
+                    if (editedTitle.trim() === "") {
+                      setEditedTitle(originalTitle)
+                      setHasUnsavedChanges(false)
+                    }
+                  }}
+                  className="text-xl font-bold text-center bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-white"
+                  autoFocus
+                />
+              ) : (
+                <h1
+                  className="text-xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 text-white"
+                  onClick={() => setIsEditingTitle(true)}
+                >
+                  {editedTitle}
+                </h1>
+              )}
+            </div>
+
+
+            {/* Action buttons group - Top Right */}
+            <div className="absolute top-16 right-0 z-40 flex items-center space-x-2">
+              {/* Three-dot menu - Show for both creator and collaborators */}
+              {(user?.id === (detailedMap || currentMap)?.creator || ((detailedMap || currentMap)?.collaborators?.includes(user?.id))) && (
+                <div className="relative three-dot-dropdown">
+                  <button
+                    onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
+                    className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {/* Three-dot dropdown menu */}
+                  {showThreeDotMenu && (
+                    <div className="absolute top-full right-0 mt-1 w-40 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
+                      <div className="p-1">
+                        {/* Only show Edit details for creator */}
+                        {user?.id === (detailedMap || currentMap)?.creator && (
+                          <button
+                            onClick={() => {
+                              setShowEditDetailsModal(true);
+                              setShowThreeDotMenu(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            <span>Edit details</span>
+                          </button>
                         )}
-                      </div>
-                    )}
-
-                    {/* Save button with dropdown */}
-                    <div className="relative autosave-dropdown">
-                      <div className="flex">
-                        {/* Main save button */}
                         <button
-                          onClick={handleSave}
-                          className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
-                            ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
-                            : isSaving
-                              ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
-                              : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
-                            }`}
-                          disabled={!hasUnsavedChanges || isSaving}
+                          onClick={() => {
+                            setShowCustomizationModal(true);
+                            setShowThreeDotMenu(false);
+                          }}
+                          className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
                         >
-                          {isSaving ? (
-                            <>
-                              <Loader className="w-4 h-4 animate-spin" />
-                              {isSmallScreen ? null : <span>Saving...</span>}
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4" />
-                              {isSmallScreen ? null : <span>Save</span>}
-                            </>
-                          )}
+                          <SquarePen className="w-4 h-4" />
+                          <span>Customize</span>
                         </button>
-
-                        {/* Chevron dropdown button */}
-                        <button
-                          onClick={() => setShowAutosaveMenu(!showAutosaveMenu)}
-                          className="flex items-center px-2 py-2 rounded-r-lg transition-all duration-200 backdrop-blur-sm border bg-slate-800/70 text-white hover:text-white hover:bg-slate-700/80 border-slate-600/50"
-                          disabled={isSaving}
+                        <a
+                          href={`/${username}/${currentMap?.permalink}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowThreeDotMenu(false);
+                            handleViewNavigation();
+                          }}
+                          className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
                         >
-                          <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAutosaveMenu ? 'rotate-180' : ''}`} />
-                        </button>
-                      </div>
-
-                      {/* Autosave dropdown menu */}
-                      {showAutosaveMenu && (
-                        <div className="absolute top-full right-0 mt-1 w-48 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
-                          <div className="p-2">
-                            <div className="flex items-center justify-between mb-2 px-2">
-                              <span className="text-xs text-slate-400">Autosave</span>
-                              <div className="relative group">
-                                <MdQuestionMark className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
-                                <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                                  <div className="text-xs text-slate-300 space-y-2">
-                                    <p>This setting applies to all your mindmaps globally.</p>
-                                    <p className="text-amber-400 font-medium">⚠️ After saving, you cannot undo changes, so use autosave with caution.</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => {
-                                setAutosaveInterval('off')
-                                setShowCustomInput(false)
-                                setShowAutosaveMenu(false)
-                              }}
-                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'off'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                                }`}
-                            >
-                              Off
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setAutosaveInterval('5min')
-                                setShowCustomInput(false)
-                                setShowAutosaveMenu(false)
-                              }}
-                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '5min'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                                }`}
-                            >
-                              5 minutes
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setAutosaveInterval('10min')
-                                setShowCustomInput(false)
-                                setShowAutosaveMenu(false)
-                              }}
-                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '10min'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                                }`}
-                            >
-                              10 minutes
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setAutosaveInterval('custom')
-                                setShowCustomInput(true)
-                              }}
-                              className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'custom'
-                                ? 'bg-blue-600/20 text-blue-300'
-                                : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                                }`}
-                            >
-                              Custom ({customAutosaveMinutes} min)
-                            </button>
-
-                            {/* Custom input field */}
-                            {showCustomInput && (
-                              <div className="mt-2 p-2 border-t border-slate-600/50">
-                                <div className="text-xs text-slate-400 mb-2">Custom interval (1-30 minutes)</div>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="30"
-                                  value={customAutosaveMinutes}
-                                  onChange={(e) => {
-                                    const value = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
-                                    setCustomAutosaveMinutes(value);
-                                  }}
-                                  className="w-full px-2 py-1 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white focus:outline-none focus:border-blue-500/50"
-                                  autoFocus
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Fullscreen button */}
-                    <button
-                      onClick={handleFullscreen}
-                      className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Playlist banner - Below title if active */}
-                  {isAddingToPlaylist && (
-                    <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl">
-                      <div className="px-4 py-2 bg-blue-600/80 border border-blue-500/50 rounded-xl text-sm text-blue-100 flex items-center justify-between backdrop-blur-sm">
-                        <div className="flex items-center">
-                          <ListMusic className="w-4 h-4 mr-2" />
-                          <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
-                        </div>
-                        <button
-                          onClick={() => toggleAddToPlaylistMode(null)}
-                          className="px-2 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs ml-3"
-                        >
-                          Cancel
-                        </button>
+                          <Monitor className="w-4 h-4" />
+                          <span>View</span>
+                        </a>
                       </div>
                     </div>
                   )}
-                </>
+                </div>
+              )}
+
+              {/* Save button with dropdown */}
+              <div className="relative autosave-dropdown">
+                <div className="flex">
+                  {/* Main save button */}
+                  <button
+                    onClick={handleSave}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
+                      ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
+                      : isSaving
+                        ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
+                        : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
+                      }`}
+                    disabled={!hasUnsavedChanges || isSaving}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        {isSmallScreen ? null : <span>Saving...</span>}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        {isSmallScreen ? null : <span>Save</span>}
+                      </>
+                    )}
+                  </button>
+
+                  {/* Chevron dropdown button */}
+                  <button
+                    onClick={() => setShowAutosaveMenu(!showAutosaveMenu)}
+                    className="flex items-center px-2 py-2 rounded-r-lg transition-all duration-200 backdrop-blur-sm border bg-slate-800/70 text-white hover:text-white hover:bg-slate-700/80 border-slate-600/50"
+                    disabled={isSaving}
+                  >
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAutosaveMenu ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+
+                {/* Autosave dropdown menu */}
+                {showAutosaveMenu && (
+                  <div className="absolute top-full right-0 mt-1 w-48 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-2 px-2">
+                        <span className="text-xs text-slate-400">Autosave</span>
+                        <div className="relative group">
+                          <MdQuestionMark className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
+                          <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                            <div className="text-xs text-slate-300 space-y-2">
+                              <p>This setting applies to all your mindmaps globally.</p>
+                              <p className="text-amber-400 font-medium">⚠️ After saving, you cannot undo changes, so use autosave with caution.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setAutosaveInterval('off')
+                          setShowCustomInput(false)
+                          setShowAutosaveMenu(false)
+                        }}
+                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'off'
+                          ? 'bg-blue-600/20 text-blue-300'
+                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                          }`}
+                      >
+                        Off
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAutosaveInterval('5min')
+                          setShowCustomInput(false)
+                          setShowAutosaveMenu(false)
+                        }}
+                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '5min'
+                          ? 'bg-blue-600/20 text-blue-300'
+                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                          }`}
+                      >
+                        5 minutes
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAutosaveInterval('10min')
+                          setShowCustomInput(false)
+                          setShowAutosaveMenu(false)
+                        }}
+                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '10min'
+                          ? 'bg-blue-600/20 text-blue-300'
+                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                          }`}
+                      >
+                        10 minutes
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setAutosaveInterval('custom')
+                          setShowCustomInput(true)
+                        }}
+                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'custom'
+                          ? 'bg-blue-600/20 text-blue-300'
+                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                          }`}
+                      >
+                        Custom ({customAutosaveMinutes} min)
+                      </button>
+
+                      {/* Custom input field */}
+                      {showCustomInput && (
+                        <div className="mt-2 p-2 border-t border-slate-600/50">
+                          <div className="text-xs text-slate-400 mb-2">Custom interval (1-30 minutes)</div>
+                          <input
+                            type="number"
+                            min="1"
+                            max="30"
+                            value={customAutosaveMinutes}
+                            onChange={(e) => {
+                              const value = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
+                              setCustomAutosaveMinutes(value);
+                            }}
+                            className="w-full px-2 py-1 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white focus:outline-none focus:border-blue-500/50"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Fullscreen button */}
+              <button
+                onClick={handleFullscreen}
+                className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Playlist banner - Below title if active */}
+            {isAddingToPlaylist && (
+              <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl">
+                <div className="px-4 py-2 bg-blue-600/80 border border-blue-500/50 rounded-xl text-sm text-blue-100 flex items-center justify-between backdrop-blur-sm">
+                  <div className="flex items-center">
+                    <ListMusic className="w-4 h-4 mr-2" />
+                    <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
+                  </div>
+                  <button
+                    onClick={() => toggleAddToPlaylistMode(null)}
+                    className="px-2 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs ml-3"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
 
 
 
@@ -6487,62 +6475,62 @@ export default function MindMap() {
           )}
         </div>
 
-  {/* UI Elements - Always visible, even in fullscreen */}
-  <>
+        {/* UI Elements - Always visible, even in fullscreen */}
+        <>
 
 
           {/* Brainstorm Chat Modal */}
-            <BrainstormChat
-              isOpen={showBrainstormChat}
-              onClose={() => setShowBrainstormChat(false)}
-              username={user?.username}
-              userId={user?.id}
-              collaborators={
-                (currentMap?.collaborators || [])
-                  .filter((c: any) => c && c.id !== user?.id)
-                  .map((c: any) => ({
-                    id: c.id,
-                    username: c.username,
-                    avatarUrl: c.avatar_url
-                  }))
-              }
-              mindMapData={currentMap ? {
-                title: currentMap.title,
-                nodes: currentMap.nodes,
-                edges: currentMap.edges,
-                edgeType: currentMap.edgeType,
-                backgroundColor: currentMap.backgroundColor,
-                dotColor: currentMap.dotColor,
-                description: currentMap.description,
-                drawingData: currentMap.drawingData,
-              } : undefined}
-            />
+          <BrainstormChat
+            isOpen={showBrainstormChat}
+            onClose={() => setShowBrainstormChat(false)}
+            username={user?.username}
+            userId={user?.id}
+            collaborators={
+              (currentMap?.collaborators || [])
+                .filter((c: any) => c && c.id !== user?.id)
+                .map((c: any) => ({
+                  id: c.id,
+                  username: c.username,
+                  avatarUrl: c.avatar_url
+                }))
+            }
+            mindMapData={currentMap ? {
+              title: currentMap.title,
+              nodes: currentMap.nodes,
+              edges: currentMap.edges,
+              edgeType: currentMap.edgeType,
+              backgroundColor: currentMap.backgroundColor,
+              dotColor: currentMap.dotColor,
+              description: currentMap.description,
+              drawingData: currentMap.drawingData,
+            } : undefined}
+          />
 
-            {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
-            <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
-              <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
-                <button
-                  onClick={() => setShowBrainstormChat(true)}
-                  className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
-                  title="AI Chat"
-                >
-                  <FiMessageSquare className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
-                </button>
-              </div>
-
-              <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
-                <button
-                  onClick={() => setShowHelpModal(true)}
-                  className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
-                  title="Help"
-                >
-                  <MdQuestionMark className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
-                </button>
-              </div>
+          {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
+          <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
+            <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
+              <button
+                onClick={() => setShowBrainstormChat(true)}
+                className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
+                title="AI Chat"
+              >
+                <FiMessageSquare className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
+              </button>
             </div>
 
+            <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
+              <button
+                onClick={() => setShowHelpModal(true)}
+                className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
+                title="Help"
+              >
+                <MdQuestionMark className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
+              </button>
+            </div>
+          </div>
 
-          </>
+
+        </>
 
 
         {selectedNodeId && selectedNode && (
