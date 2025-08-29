@@ -27,7 +27,6 @@ import {
   MousePointer,
   Type,
   History,
-  Clock,
 } from "lucide-react"
 import { TikTokIcon } from "./icons/TikTokIcon"
 import { SpotifyIcon } from "./icons/SpotifyIcon"
@@ -413,49 +412,48 @@ export function NodeTypesMenu({
           overflowX: "hidden",
         }}
       >
-        <div className={`flex justify-between items-center ${isCompactMode ? "mb-1" : "mb-2"}`}>
-          <button
-            onClick={onUndo}
-            disabled={!canUndo}
-            className={`${isCompactMode ? "p-0.5" : "p-1"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!canUndo ? "text-gray-400" : "text-white"}`}
-            onMouseEnter={(e) =>
-              showTooltip(
-                <span>
-                  Undo (<span className="font-mono">Ctrl+Z</span>)
-                </span>,
-                e.currentTarget,
-              )
-            }
-            onMouseLeave={hideTooltip}
-          >
-            <Undo className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
-          </button>
 
-          <button
-            onClick={onRedo}
-            disabled={!canRedo}
-            className={`${isCompactMode ? "p-0.5" : "p-1"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!canRedo ? "text-gray-400" : "text-white"}`}
-            onMouseEnter={(e) =>
-              showTooltip(
-                <span>
-                  Redo (<span className="font-mono">Ctrl+Y</span>)
-                </span>,
-                e.currentTarget,
-              )
-            }
-            onMouseLeave={hideTooltip}
-          >
-            <Redo className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
-          </button>
-        </div>
-
-        {/* History Log Viewer - positioned close to undo/redo */}
-        <div className={`flex justify-center ${isCompactMode ? "mb-2" : "mb-3"} -mt-1`}>
+        {/* Undo/Redo above History, perfectly aligned and responsive */}
+        <div className="flex flex-col items-center w-full mb-2">
+          <div className="flex flex-row items-center gap-0">
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className={`${isCompactMode ? "p-0.5" : "p-1"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!canUndo ? "text-gray-400" : "text-white"}`}
+              onMouseEnter={(e) =>
+                showTooltip(
+                  <span>
+                    Undo (<span className="font-mono">Ctrl+Z</span>)
+                  </span>,
+                  e.currentTarget,
+                )
+              }
+              onMouseLeave={hideTooltip}
+            >
+              <Undo className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
+            </button>
+            <button
+              onClick={onRedo}
+              disabled={!canRedo}
+              className={`${isCompactMode ? "p-0.5" : "p-1"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!canRedo ? "text-gray-400" : "text-white"}`}
+              onMouseEnter={(e) =>
+                showTooltip(
+                  <span>
+                    Redo (<span className="font-mono">Ctrl+Y</span>)
+                  </span>,
+                  e.currentTarget,
+                )
+              }
+              onMouseLeave={hideTooltip}
+            >
+              <Redo className={`${isCompactMode ? "w-4 h-4" : "w-5 h-5"}`} />
+            </button>
+          </div>
           <button
             ref={historyButtonRef}
             onClick={() => setIsHistoryModalOpen(true)}
             disabled={history.length === 0}
-            className={`${isCompactMode ? "p-0.5" : "p-1"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${history.length === 0 ? "text-gray-500" : "text-white/70 hover:text-white"}`}
+            className={`${isCompactMode ? "p-0.5 mt-0.5" : "p-1 mt-0"} rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${history.length === 0 ? "text-gray-500" : "text-white/70 hover:text-white"}`}
             onMouseEnter={(e) =>
               showTooltip(
                 history.length === 0 ? "No history available" : `View History (${history.length} actions)`,
@@ -467,6 +465,9 @@ export function NodeTypesMenu({
             <History className={`${isCompactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} />
           </button>
         </div>
+
+        {/* Separator between history/undo/redo and node types */}
+        <div className={`${isCompactMode ? "my-2" : "my-3"} border-t border-white/10`}></div>
 
         {/* Text Node Variants Section - Integrated Toggle */}
         <div className="relative">
