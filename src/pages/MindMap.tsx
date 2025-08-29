@@ -5767,7 +5767,6 @@ export default function MindMap() {
             return `${mappedFont}, Chillax-Regular, Chillax-Variable, Array-Regular, Array-Wide, Switzer-Regular, Switzer, Aspekta, sans-serif`;
           })()
         } as React.CSSProperties}
-        key={fontFamily} // Force re-render when font changes
       >
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
         <input type="file" ref={audioFileInputRef} onChange={handleAudioFileChange} accept="audio/*" className="hidden" />
