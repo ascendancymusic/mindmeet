@@ -85,6 +85,7 @@ interface NodeTypesMenuProps {
   maxHeight: string
   onUndo: () => void
   onRedo: () => void
+  onJumpToHistory?: (index: number) => void
   canUndo: boolean
   canRedo: boolean
   autocolorSubnodes: boolean
@@ -230,6 +231,7 @@ export function NodeTypesMenu({
   maxHeight,
   onUndo,
   onRedo,
+  onJumpToHistory,
   canUndo,
   canRedo,
   autocolorSubnodes,
@@ -762,6 +764,7 @@ export function NodeTypesMenu({
         history={history}
         currentHistoryIndex={currentHistoryIndex}
         buttonRef={historyButtonRef}
+        onJumpToHistory={onJumpToHistory}
       />
 
       {renderTooltip()}

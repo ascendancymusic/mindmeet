@@ -8,8 +8,8 @@ function formatTimeAgo(date: Date | string | undefined): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
   if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff/60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff/3600)} hr ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
   return d.toLocaleDateString();
 }
 import { createPortal } from "react-dom"
@@ -55,12 +55,15 @@ interface HistoryModalProps {
   history: HistoryAction[]
   currentHistoryIndex: number
   buttonRef: React.RefObject<HTMLButtonElement>
+  onJumpToHistory?: (index: number) => void
 }
 
-export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, buttonRef }: HistoryModalProps) {
+export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, buttonRef, onJumpToHistory }: HistoryModalProps) {
   const [expandedGroups, setExpandedGroups] = React.useState<Set<number>>(new Set())
   const [visibleCount, setVisibleCount] = React.useState(15)
-  const [selectedIndex, setSelectedIndex] = React.useState(currentHistoryIndex)
+
+  // Use currentHistoryIndex as the source of truth instead of separate state
+  const selectedIndex = currentHistoryIndex
 
   // Helper function to format history action types for display
   const formatActionType = (type: string): string => {
@@ -111,79 +114,90 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
   const shouldGroupActions = (action1: HistoryAction, action2: HistoryAction): boolean => {
     // Group same action types - this is the main criteria
     if (action1.type !== action2.type) return false
-    
+
     // For most action types, just group by type (consecutive same actions)
     // This will group all consecutive "move_node", "update_node", etc. together
     return true
   }
 
   // Group consecutive similar actions
-  const groupActions = (actions: HistoryAction[]) => {
-    if (actions.length === 0) return []
-    
+  const groupActions = (actionsWithIndices: Array<{ action: HistoryAction, actualIndex: number }>) => {
+    if (actionsWithIndices.length === 0) return []
+
     const groups: Array<{
       type: 'single' | 'group'
       actions: HistoryAction[]
       startIndex: number
       endIndex: number
+      actionIndices?: number[] // Store individual indices for grouped actions
     }> = []
-    
-    let currentGroup: HistoryAction[] = [actions[0]]
-    let groupStartIndex = currentHistoryIndex - (actions.length - 1)
-    
-    for (let i = 1; i < actions.length; i++) {
-      const prevAction = actions[i - 1]
-      const currentAction = actions[i]
-      
-      if (shouldGroupActions(prevAction, currentAction)) {
-        currentGroup.push(currentAction)
+
+    let currentGroup: Array<{ action: HistoryAction, actualIndex: number }> = [actionsWithIndices[0]]
+
+    for (let i = 1; i < actionsWithIndices.length; i++) {
+      const prevItem = actionsWithIndices[i - 1]
+      const currentItem = actionsWithIndices[i]
+
+      if (shouldGroupActions(prevItem.action, currentItem.action)) {
+        currentGroup.push(currentItem)
       } else {
         // Finalize current group
+        const groupIndices = currentGroup.map(item => item.actualIndex)
         if (currentGroup.length > 1) {
           groups.push({
             type: 'group',
-            actions: currentGroup,
-            startIndex: groupStartIndex,
-            endIndex: groupStartIndex + currentGroup.length - 1
+            actions: currentGroup.map(item => item.action),
+            startIndex: Math.min(...groupIndices),
+            endIndex: Math.max(...groupIndices),
+            actionIndices: groupIndices
           })
         } else {
           groups.push({
             type: 'single',
-            actions: currentGroup,
-            startIndex: groupStartIndex,
-            endIndex: groupStartIndex
+            actions: currentGroup.map(item => item.action),
+            startIndex: currentGroup[0].actualIndex,
+            endIndex: currentGroup[0].actualIndex
           })
         }
-        
+
         // Start new group
-        currentGroup = [currentAction]
-        groupStartIndex = groupStartIndex + groups[groups.length - 1].actions.length
+        currentGroup = [currentItem]
       }
     }
-    
+
     // Add final group
+    const groupIndices = currentGroup.map(item => item.actualIndex)
     if (currentGroup.length > 1) {
       groups.push({
         type: 'group',
-        actions: currentGroup,
-        startIndex: groupStartIndex,
-        endIndex: groupStartIndex + currentGroup.length - 1
+        actions: currentGroup.map(item => item.action),
+        startIndex: Math.min(...groupIndices),
+        endIndex: Math.max(...groupIndices),
+        actionIndices: groupIndices
       })
     } else {
       groups.push({
         type: 'single',
-        actions: currentGroup,
-        startIndex: groupStartIndex,
-        endIndex: groupStartIndex
+        actions: currentGroup.map(item => item.action),
+        startIndex: currentGroup[0].actualIndex,
+        endIndex: currentGroup[0].actualIndex
       })
     }
-    
+
     return groups
   }
 
-  // Get recent history items (last visibleCount actions for dropdown, then group them)
-  const recentHistory = history.slice(Math.max(0, currentHistoryIndex - (visibleCount - 1)), currentHistoryIndex + 1).reverse()
-  const groupedHistory = groupActions(recentHistory)
+  // Get recent history items (show full history up to visibleCount, including undone actions)
+  const startIndex = Math.max(0, history.length - visibleCount)
+  const recentHistory = history.slice(startIndex).reverse()
+
+  // Map each action to its actual history index
+  const actionsWithIndices = recentHistory.map((action, reversedIndex) => ({
+    action,
+    actualIndex: history.length - 1 - reversedIndex
+  }))
+
+  const groupedHistory = groupActions(actionsWithIndices)
 
   const toggleGroup = (groupIndex: number) => {
     setExpandedGroups(prev => {
@@ -202,7 +216,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
   // Calculate position based on button
   const getPosition = () => {
     if (!buttonRef.current) return { left: 80, top: 200 }
-    
+
     const buttonRect = buttonRef.current.getBoundingClientRect()
     return {
       left: buttonRect.right + 8, // 8px gap from button
@@ -215,13 +229,13 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
   return createPortal(
     <>
       {/* Invisible backdrop for click-outside */}
-      <div 
+      <div
         className="fixed inset-0 z-[9999]"
         onClick={onClose}
       />
-      
+
       {/* Dropdown Panel */}
-      <div 
+      <div
         className="fixed z-[10000] w-96 max-h-96 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
         style={{
           left: position.left,
@@ -267,29 +281,27 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                   const actualIndex = group.startIndex
                   const isCurrentAction = actualIndex === currentHistoryIndex
                   const details = getActionDetails(action)
-                  
-                  // Determine if this action is newer than the selected point
-                  // Grey out actions above (older than) the selected point
-                  const isUndone = actualIndex < selectedIndex && selectedIndex !== -1;
+
+                  // Determine if this action has been undone (is ahead of current position)
+                  // Grey out actions that are ahead of the current history position
+                  const isUndone = actualIndex > selectedIndex;
                   return (
                     <button
                       key={`single-${actualIndex}-${action.type}`}
-                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${
-                        selectedIndex === actualIndex
-                          ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg" 
-                          : isUndone
-                            ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
-                            : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
-                      }`}
+                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${selectedIndex === actualIndex
+                        ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg"
+                        : isUndone
+                          ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
+                          : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
+                        }`}
                       style={{ border: 'none', outline: 'none' }}
-                      onClick={() => setSelectedIndex(actualIndex)}
-                      title={isUndone ? "Redo to this point" : "Jump to this point in history"}
+                      onClick={() => onJumpToHistory?.(actualIndex)}
+                      title={isUndone ? "Jump to this point (redo)" : "Jump to this point in history"}
                     >
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex items-center space-x-2 justify-between">
-                          <div className={`text-xs font-medium truncate ${
-                            selectedIndex === actualIndex ? "text-blue-100" : isUndone ? "text-white/40" : "text-white/90"
-                          }`}>
+                          <div className={`text-xs font-medium truncate ${selectedIndex === actualIndex ? "text-blue-100" : isUndone ? "text-white/40" : "text-white/90"
+                            }`}>
                             {formatActionType(action.type)}
                           </div>
                           <div className="text-[10px] text-white/40 font-normal ml-2 whitespace-nowrap">
@@ -308,7 +320,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                   // Group of actions
                   const isExpanded = expandedGroups.has(groupIndex)
                   const firstAction = group.actions[0]
-                  
+
                   return (
                     <div key={`group-${groupIndex}`} className="space-y-1">
                       {/* Group Header */}
@@ -333,51 +345,41 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                           )}
                         </button>
                         <button
-                          className={`flex-1 text-left p-2 rounded-lg transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${
-                            selectedIndex >= group.startIndex && selectedIndex <= group.endIndex
-                              ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg" 
-                              : selectedIndex > group.endIndex && selectedIndex !== -1
-                                ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
-                                : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
-                          }`}
+                          className={`flex-1 text-left p-2 rounded-lg transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${selectedIndex >= group.startIndex && selectedIndex <= group.endIndex
+                            ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg"
+                            : selectedIndex < group.endIndex
+                              ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
+                              : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
+                            }`}
                           style={{ cursor: 'pointer', border: 'none', outline: 'none' }}
-                          onClick={() => setSelectedIndex(group.startIndex)}
+                          onClick={() => onJumpToHistory?.(group.startIndex)}
                           title="Jump to this point in history"
                         >
-                          <span className={`text-xs font-medium truncate ${selectedIndex > group.endIndex && selectedIndex !== -1 ? "text-white/40" : "text-white/90"}`}>{formatActionType(firstAction.type)} ({group.actions.length}×)</span>
+                          <span className={`text-xs font-medium truncate ${selectedIndex < group.endIndex ? "text-white/40" : "text-white/90"}`}>{formatActionType(firstAction.type)} ({group.actions.length}×)</span>
                         </button>
                       </div>
                       {/* No sub text for grouped actions */}
-                      
+
                       {/* Expanded Group Items */}
                       {isExpanded && (
                         <div className="ml-4 space-y-1 border-l border-white/10 pl-2">
                           {group.actions.map((action, actionIndex) => {
-                            const actualIndex = group.startIndex + actionIndex;
+                            const actualIndex = group.actionIndices ? group.actionIndices[actionIndex] : group.startIndex + actionIndex;
                             const details = getActionDetails(action);
-                            let isUndone = false;
-                            if (selectedIndex !== -1) {
-                              if (selectedIndex >= group.startIndex && selectedIndex <= group.endIndex) {
-                                // If selectedIndex is inside this group, grey out actions above it
-                                isUndone = actualIndex < selectedIndex;
-                              } else {
-                                // If selectedIndex is outside, use global logic
-                                isUndone = actualIndex < selectedIndex;
-                              }
-                            }
+                            // Determine if this action has been undone (is ahead of current position)
+                            const isUndone = actualIndex > selectedIndex;
                             return (
                               <button
                                 key={`group-item-${actualIndex}-${action.type}`}
-                                className={`w-full text-left p-1.5 rounded-md transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${
-                                  selectedIndex === actualIndex
-                                    ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg" 
-                                    : isUndone
-                                      ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
-                                      : "hover:bg-white/5"
-                                }`}
+                                className={`w-full text-left p-1.5 rounded-md transition-all duration-200 flex items-center border-none outline-none focus:outline-none focus-visible:outline-none focus-visible:border-none ${selectedIndex === actualIndex
+                                  ? "bg-gradient-to-br from-purple-700/40 via-purple-900/50 to-blue-900/40 border border-purple-400/40 shadow-lg"
+                                  : isUndone
+                                    ? "bg-gradient-to-br from-slate-800/60 via-slate-900/70 to-purple-900/60 text-white/40 opacity-60 hover:opacity-80 hover:text-white/70"
+                                    : "hover:bg-white/5"
+                                  }`}
                                 style={{ border: 'none', outline: 'none' }}
-                                onClick={() => setSelectedIndex(actualIndex)}
-                                title={isUndone ? "Redo to this point" : "Jump to this point in history"}
+                                onClick={() => onJumpToHistory?.(actualIndex)}
+                                title={isUndone ? "Jump to this point (redo)" : "Jump to this point in history"}
                               >
                                 <div className="flex-1 min-w-0 flex flex-col">
                                   <div className="flex items-center space-x-2 justify-between">
@@ -403,7 +405,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
               })}
             </div>
           )}
-          
+
           {history.length > visibleCount && (
             <div className="mt-2 pt-2 border-t border-white/10 text-center">
               <button

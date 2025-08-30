@@ -109,6 +109,7 @@ import { DrawModal } from "../components/DrawModal";
 import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 import BrainstormChat from "../components/BrainstormChat";
+import { HistoryModal } from "../components/HistoryModal";
 
 
 interface HistoryAction {
@@ -265,6 +266,7 @@ export default function MindMap() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [showThreeDotMenu, setShowThreeDotMenu] = useState(false);
   const [detailedMap, setDetailedMap] = useState<any | null>(null);
@@ -403,6 +405,7 @@ export default function MindMap() {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const nodeTypesMenuRef = useRef<HTMLDivElement>(null);
+  const historyButtonRef = useRef<HTMLButtonElement>(null);
 
   // Drawing state
   const [isPenModeActive, setIsPenModeActive] = useState(false);
@@ -4437,6 +4440,56 @@ export default function MindMap() {
     }
   }, [history, currentHistoryIndex, getNodeDescendants, selectedNodeId, canRedo, lastSavedHistoryIndex, broadcastLiveChange, nodes, edges, currentMindMapId])
 
+  // Jump to a specific point in history
+  const jumpToHistory = useCallback((targetIndex: number) => {
+    if (targetIndex < 0 || targetIndex >= history.length) return;
+    
+    // If target is current position, do nothing
+    if (targetIndex === currentHistoryIndex) return;
+    
+    // Don't allow jumping to before the last saved point
+    if (targetIndex < lastSavedHistoryIndex) return;
+    
+    // Get the target state from history
+    const targetAction = history[targetIndex];
+    if (!targetAction || !targetAction.previousState) return;
+    
+    // Apply the target state directly
+    setNodes(targetAction.previousState.nodes);
+    setEdges(targetAction.previousState.edges);
+    
+    // Update other state if present
+    if (targetAction.previousState.title !== undefined) {
+      setEditedTitle(targetAction.previousState.title);
+    }
+    if (targetAction.previousState.edgeType !== undefined) {
+      setEdgeType(targetAction.previousState.edgeType);
+    }
+    if (targetAction.previousState.backgroundColor !== undefined) {
+      setBackgroundColor(targetAction.previousState.backgroundColor);
+    }
+    if (targetAction.previousState.dotColor !== undefined) {
+      setDotColor(targetAction.previousState.dotColor);
+    }
+    if (targetAction.previousState.drawingData !== undefined) {
+      setDrawingData(targetAction.previousState.drawingData);
+    }
+    
+    // Update history index
+    setCurrentHistoryIndex(targetIndex);
+    
+    // Update undo/redo state
+    const reachedSavePoint = targetIndex === lastSavedHistoryIndex;
+    setHasUnsavedChanges(!reachedSavePoint);
+    setCanUndo(targetIndex > lastSavedHistoryIndex);
+    setCanRedo(targetIndex < history.length - 1);
+    
+    // Clear any selection state
+    setSelectedNodeId(null);
+    setVisuallySelectedNodeId(null);
+    
+  }, [currentHistoryIndex, history, lastSavedHistoryIndex]);
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       // Check if the focus is on an input field or textarea
@@ -5748,6 +5801,7 @@ export default function MindMap() {
           maxHeight="60vh"
           onUndo={undo}
           onRedo={redo}
+          onJumpToHistory={jumpToHistory}
           canUndo={canUndo}
           canRedo={canRedo}
           history={history}
