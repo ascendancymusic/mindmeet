@@ -115,9 +115,74 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
     // Group same action types - this is the main criteria
     if (action1.type !== action2.type) return false
 
-    // For most action types, just group by type (consecutive same actions)
-    // This will group all consecutive "move_node", "update_node", etc. together
-    return true
+    // For node-related actions, also check if they affect the same node
+    const nodeRelatedActions = ['move_node', 'update_node', 'resize_node', 'delete_node'];
+    if (nodeRelatedActions.includes(action1.type)) {
+      // Check if both actions affect the same node
+      const nodeId1 = action1.data.nodeId;
+      const nodeId2 = action2.data.nodeId;
+
+      // Only group if they affect the same node
+      if (nodeId1 && nodeId2 && nodeId1 === nodeId2) {
+        return true;
+      }
+
+      // For move_node actions, also check if they're part of the same multi-node move
+      if (action1.type === 'move_node' && action2.type === 'move_node') {
+        // Check if the position data contains the same set of nodes
+        const positions1 = action1.data.position;
+        const positions2 = action2.data.position;
+
+        if (positions1 && positions2 && typeof positions1 === 'object' && typeof positions2 === 'object') {
+          const nodeIds1 = Object.keys(positions1).sort();
+          const nodeIds2 = Object.keys(positions2).sort();
+
+          // Group if they affect the same set of nodes (multi-selection moves)
+          if (nodeIds1.length === nodeIds2.length &&
+            nodeIds1.every((id, index) => id === nodeIds2[index])) {
+            return true;
+          }
+        }
+      }
+
+      // Don't group if they affect different nodes
+      return false;
+    }
+
+    // For edge-related actions, check if they affect the same connection
+    const edgeRelatedActions = ['connect_nodes', 'disconnect_nodes'];
+    if (edgeRelatedActions.includes(action1.type)) {
+      const connection1 = action1.data.connection;
+      const connection2 = action2.data.connection;
+
+      if (connection1 && connection2) {
+        // Group if they affect the same source-target pair
+        return connection1.source === connection2.source &&
+          connection1.target === connection2.target;
+      }
+
+      return false;
+    }
+
+    // For drawing actions, group consecutive drawing changes
+    const drawingActions = ['drawing_change', 'move_stroke'];
+    if (drawingActions.includes(action1.type)) {
+      return true; // Group all consecutive drawing actions
+    }
+
+    // For global actions (title, colors, edge types), group consecutive changes
+    const globalActions = ['update_title', 'change_edge_type', 'change_background_color', 'change_dot_color'];
+    if (globalActions.includes(action1.type)) {
+      return true; // Group consecutive global changes
+    }
+
+    // For add_node actions, don't group (each node addition is distinct)
+    if (action1.type === 'add_node') {
+      return false;
+    }
+
+    // Default: don't group
+    return false;
   }
 
   // Group consecutive similar actions
@@ -352,7 +417,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                               : "hover:bg-gradient-to-br hover:from-purple-700/20 hover:via-purple-900/30 hover:to-blue-900/20"
                             }`}
                           style={{ cursor: 'pointer', border: 'none', outline: 'none' }}
-                          onClick={() => onJumpToHistory?.(group.startIndex)}
+                          onClick={() => onJumpToHistory?.(group.endIndex)}
                           title="Jump to this point in history"
                         >
                           <span className={`text-xs font-medium truncate ${selectedIndex < group.endIndex ? "text-white/40" : "text-white/90"}`}>{formatActionType(firstAction.type)} ({group.actions.length}×)</span>

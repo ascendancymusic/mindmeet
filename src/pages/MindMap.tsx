@@ -3665,7 +3665,11 @@ export default function MindMap() {
         })
         setHasUnsavedChanges(false)
         setOriginalTitle(editedTitle)
-        setLastSavedHistoryIndex(currentHistoryIndex)
+        
+        // Clear history after successful save since there are no more actions to undo
+        setHistory([])
+        setCurrentHistoryIndex(-1)
+        setLastSavedHistoryIndex(-1)
       } catch (error) {
         console.error('Error saving mindmap:', error);
 
@@ -3693,6 +3697,8 @@ export default function MindMap() {
       setEditedTitle(originalTitle)
       setHasUnsavedChanges(false)
     }
+    
+    // Always reset undo/redo state after save attempt
     setCanUndo(false)
     setCanRedo(false)
   }, [MapId, currentMap?.id, currentMap?.permalink, nodes, edges, editedTitle, updateMap, originalTitle, isLoggedIn, user?.id, currentHistoryIndex, edgeType, backgroundColor, dotColor, drawingData]);
@@ -4450,29 +4456,55 @@ export default function MindMap() {
     // Don't allow jumping to before the last saved point
     if (targetIndex < lastSavedHistoryIndex) return;
     
-    // Get the target state from history
-    const targetAction = history[targetIndex];
-    if (!targetAction || !targetAction.previousState) return;
+    // To get the state after the target action, we look at the next action's previousState
+    // If there's no next action, we use the current state (since target is the latest action)
+    let targetState;
     
-    // Apply the target state directly
-    setNodes(targetAction.previousState.nodes);
-    setEdges(targetAction.previousState.edges);
+    if (targetIndex === history.length - 1) {
+      // Target is the latest action, use current state
+      targetState = {
+        nodes: nodes,
+        edges: edges,
+        title: editedTitle,
+        edgeType: edgeType,
+        backgroundColor: backgroundColor,
+        dotColor: dotColor,
+        drawingData: drawingData
+      };
+    } else {
+      // Use the next action's previousState (which is the state after the target action)
+      const nextAction = history[targetIndex + 1];
+      if (!nextAction || !nextAction.previousState) return;
+      
+      targetState = {
+        nodes: nextAction.previousState.nodes,
+        edges: nextAction.previousState.edges,
+        title: nextAction.previousState.title,
+        edgeType: nextAction.previousState.edgeType,
+        backgroundColor: nextAction.previousState.backgroundColor,
+        dotColor: nextAction.previousState.dotColor,
+        drawingData: nextAction.previousState.drawingData
+      };
+    }
     
-    // Update other state if present
-    if (targetAction.previousState.title !== undefined) {
-      setEditedTitle(targetAction.previousState.title);
+    // Apply the target state
+    setNodes(targetState.nodes);
+    setEdges(targetState.edges);
+    
+    if (targetState.title !== undefined) {
+      setEditedTitle(targetState.title);
     }
-    if (targetAction.previousState.edgeType !== undefined) {
-      setEdgeType(targetAction.previousState.edgeType);
+    if (targetState.edgeType !== undefined) {
+      setEdgeType(targetState.edgeType);
     }
-    if (targetAction.previousState.backgroundColor !== undefined) {
-      setBackgroundColor(targetAction.previousState.backgroundColor);
+    if (targetState.backgroundColor !== undefined) {
+      setBackgroundColor(targetState.backgroundColor);
     }
-    if (targetAction.previousState.dotColor !== undefined) {
-      setDotColor(targetAction.previousState.dotColor);
+    if (targetState.dotColor !== undefined) {
+      setDotColor(targetState.dotColor);
     }
-    if (targetAction.previousState.drawingData !== undefined) {
-      setDrawingData(targetAction.previousState.drawingData);
+    if (targetState.drawingData !== undefined) {
+      setDrawingData(targetState.drawingData);
     }
     
     // Update history index
@@ -4488,7 +4520,7 @@ export default function MindMap() {
     setSelectedNodeId(null);
     setVisuallySelectedNodeId(null);
     
-  }, [currentHistoryIndex, history, lastSavedHistoryIndex]);
+  }, [currentHistoryIndex, history, lastSavedHistoryIndex, nodes, edges, editedTitle, edgeType, backgroundColor, dotColor, drawingData]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
