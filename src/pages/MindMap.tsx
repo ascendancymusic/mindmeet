@@ -1,6 +1,3 @@
-// ...existing code...
-
-// (moved below imports)
 import React from "react"
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react"
 import MarkdownRenderer from '../components/MarkdownRenderer'
@@ -23,7 +20,6 @@ import ReactFlow,
   type Node
 } from "reactflow"
 import "reactflow/dist/style.css"
-// ...existing code...
 import {
   Trash2,
   Unlink,
@@ -2996,16 +2992,18 @@ export default function MindMap() {
   }
 
   // Helper function to add an audio track to a playlist
+  // --- PLAYLIST STAGING ---
+  const [stagedPlaylistTrackIds, setStagedPlaylistTrackIds] = useState<string[] | null>(null);
   const handleAddTrackToPlaylist = useCallback((playlistNodeId: string, audioNode: Node) => {
+    if (isAddingToPlaylist && activePlaylistNodeId === playlistNodeId && stagedPlaylistTrackIds) {
+      setStagedPlaylistTrackIds([...stagedPlaylistTrackIds, audioNode.id]);
+      return;
+    }
     setNodes(nds => {
       return nds.map(node => {
         if (node.id === playlistNodeId) {
-          // Get existing track IDs or create an empty array
           const trackIds = node.data.trackIds ? [...node.data.trackIds] : [];
-
-          // Always add the track ID, even if it already exists in the playlist
           trackIds.push(audioNode.id);
-
           return {
             ...node,
             data: {
@@ -3017,42 +3015,44 @@ export default function MindMap() {
         return node;
       });
     });
-
-    // Exit "add to playlist" mode after adding a track
-    setIsAddingToPlaylist(false);
-    setActivePlaylistNodeId(null);
-
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
     }
-
     setIsInitialLoad(false);
-  }, [isInitialLoad]);
+  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds]);
 
   // Toggle "add to playlist" mode
   const toggleAddToPlaylistMode = useCallback((playlistNodeId: string | null) => {
     if (playlistNodeId) {
       setIsAddingToPlaylist(true);
       setActivePlaylistNodeId(playlistNodeId);
+      // Initialize staged trackIds from the current node
+      const node = nodes.find(n => n.id === playlistNodeId);
+      setStagedPlaylistTrackIds(node?.data.trackIds ? [...node.data.trackIds] : []);
     } else {
       setIsAddingToPlaylist(false);
       setActivePlaylistNodeId(null);
+      setStagedPlaylistTrackIds(null);
     }
-  }, []);
+  }, [nodes]);
 
   // Helper function to remove a track from a playlist
   const handleRemoveTrackFromPlaylist = useCallback((playlistNodeId: string, _trackId: string, trackIndex: number) => {
+    if (isAddingToPlaylist && activePlaylistNodeId === playlistNodeId && stagedPlaylistTrackIds) {
+      const updated = [...stagedPlaylistTrackIds];
+      if (trackIndex >= 0 && trackIndex < updated.length) {
+        updated.splice(trackIndex, 1);
+      }
+      setStagedPlaylistTrackIds(updated);
+      return;
+    }
     setNodes(nds => {
       return nds.map(node => {
         if (node.id === playlistNodeId && node.data.trackIds) {
-          // Create a copy of the trackIds array
           const updatedTrackIds = [...node.data.trackIds];
-
-          // Remove the track at the specific index
           if (trackIndex >= 0 && trackIndex < updatedTrackIds.length) {
             updatedTrackIds.splice(trackIndex, 1);
           }
-
           return {
             ...node,
             data: {
@@ -3064,22 +3064,27 @@ export default function MindMap() {
         return node;
       });
     });
-
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [isInitialLoad]);
+  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds]);
 
   // Helper function to reorder tracks in a playlist
   const handleReorderPlaylistTracks = useCallback((playlistNodeId: string, oldIndex: number, newIndex: number) => {
+    if (isAddingToPlaylist && activePlaylistNodeId === playlistNodeId && stagedPlaylistTrackIds) {
+      const updated = [...stagedPlaylistTrackIds];
+      const [movedItem] = updated.splice(oldIndex, 1);
+      updated.splice(newIndex, 0, movedItem);
+      setStagedPlaylistTrackIds(updated);
+      return;
+    }
     setNodes(nds => {
       return nds.map(node => {
         if (node.id === playlistNodeId && node.data.trackIds) {
           const trackIds = [...node.data.trackIds];
           const [movedItem] = trackIds.splice(oldIndex, 1);
           trackIds.splice(newIndex, 0, movedItem);
-
           return {
             ...node,
             data: {
@@ -3091,12 +3096,11 @@ export default function MindMap() {
         return node;
       });
     });
-
     if (!isInitialLoad) {
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [isInitialLoad]);
+  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds]);
 
   // Helper function to handle clipboard operations (copy/cut)
   const handleClipboardOperation = useCallback(
@@ -3598,7 +3602,7 @@ export default function MindMap() {
     (event: React.MouseEvent, nodeId: string) => {
       // Let ReactFlow handle multi-selection with modifier keys
       if (event.shiftKey || event.ctrlKey) {
-        return
+        return;
       }
 
       // Check if we're in "add to playlist" mode
@@ -3613,16 +3617,25 @@ export default function MindMap() {
           (clickedNode.type === 'youtube-video' && clickedNode.data.videoUrl)
         )) {
           handleAddTrackToPlaylist(activePlaylistNodeId, clickedNode);
+          // Do NOT exit add-to-playlist mode here; user must click Done or Cancel
+          // Keep the playlist node selected
+          setSelectedNodeId(activePlaylistNodeId);
+          setVisuallySelectedNodeId(activePlaylistNodeId);
           return;
         }
+        // Prevent selecting other nodes while in add-to-playlist mode
+        // Always keep the playlist node selected
+        setSelectedNodeId(activePlaylistNodeId);
+        setVisuallySelectedNodeId(activePlaylistNodeId);
+        return;
       }
 
       // Handle direct node selection while preserving editor state
-      setSelectedNodeId(nodeId)
-      setVisuallySelectedNodeId(nodeId)
-      const selectedNode = nodes.find((node) => node.id === nodeId)
+      setSelectedNodeId(nodeId);
+      setVisuallySelectedNodeId(nodeId);
+      const selectedNode = nodes.find((node) => node.id === nodeId);
       if (selectedNode) {
-        setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#4c5b6f"))
+        setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#4c5b6f"));
       }
     },
     [nodes, isAddingToPlaylist, activePlaylistNodeId, handleAddTrackToPlaylist],
@@ -6785,14 +6798,13 @@ export default function MindMap() {
                         }
                       }}
                     >
-                      {selectedNode.data.trackIds && selectedNode.data.trackIds.length > 0 ? (
+                      {(isAddingToPlaylist && activePlaylistNodeId === selectedNodeId && stagedPlaylistTrackIds && stagedPlaylistTrackIds.length > 0) || (selectedNode.data.trackIds && selectedNode.data.trackIds.length > 0) ? (
                         <DndContext
                           sensors={sensors}
                           collisionDetection={closestCenter}
                           onDragEnd={(event: DragEndEvent) => {
                             const { active, over } = event;
                             if (over && active.id !== over.id) {
-                              // Extract the indices from the IDs (format: "trackId-index")
                               const oldIndex = parseInt(active.id.toString().split('-')[1]);
                               const newIndex = parseInt(over.id.toString().split('-')[1]);
                               handleReorderPlaylistTracks(selectedNodeId, oldIndex, newIndex);
@@ -6800,19 +6812,22 @@ export default function MindMap() {
                           }}
                         >
                           <SortableContext
-                            items={selectedNode.data.trackIds.map((id: string, index: number) => `${id}-${index}`)}
+                            items={((isAddingToPlaylist && activePlaylistNodeId === selectedNodeId && stagedPlaylistTrackIds) ? stagedPlaylistTrackIds : selectedNode.data.trackIds).map((id: string, index: number) => `${id}-${index}`)}
                             strategy={verticalListSortingStrategy}
                           >
                             <div className="space-y-1">
-                              {selectedNode.data.trackIds.map((trackId: string, index: number) => {
+                              {((isAddingToPlaylist && activePlaylistNodeId === selectedNodeId && stagedPlaylistTrackIds) ? stagedPlaylistTrackIds : selectedNode.data.trackIds).map((trackId: string, index: number) => {
                                 // Find the audio, spotify, soundcloud, or youtube-video node with this ID
                                 const trackNode = nodes.find(node => node.id === trackId &&
                                   (node.type === 'audio' || node.type === 'spotify' ||
                                     node.type === 'soundcloud' || node.type === 'youtube-video'));
                                 if (!trackNode) return null;
 
-                                // Count occurrences of this track ID before this index
-                                const trackOccurrences = selectedNode.data.trackIds
+                                // Use correct trackIds array for duplicate counting
+                                const trackIdsArr = (isAddingToPlaylist && activePlaylistNodeId === selectedNodeId && stagedPlaylistTrackIds)
+                                  ? stagedPlaylistTrackIds
+                                  : selectedNode.data.trackIds || [];
+                                const trackOccurrences = trackIdsArr
                                   .slice(0, index)
                                   .filter((id: string) => id === trackId).length;
 
@@ -6836,7 +6851,6 @@ export default function MindMap() {
 
                                 // Determine duration based on node type
                                 const duration = trackNode.data.duration || 0;
-
 
                                 return (
                                   <SortableTrackItem
@@ -6868,12 +6882,36 @@ export default function MindMap() {
                         <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-sm text-blue-300">
                           <p>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</p>
                         </div>
-                        <button
-                          onClick={() => toggleAddToPlaylistMode(null)}
-                          className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
-                        >
-                          Cancel Selection
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              toggleAddToPlaylistMode(null);
+                              setSelectedNodeId(null);
+                              setVisuallySelectedNodeId(null);
+                            }}
+                            className="w-full px-4 py-3 bg-gradient-to-r from-slate-700/50 to-slate-600/50 hover:from-slate-600/50 hover:to-slate-500/50 text-white rounded-xl transition-all duration-200 font-medium border border-slate-600/30 hover:border-slate-500/50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              // Commit staged trackIds to the node
+                              if (activePlaylistNodeId && stagedPlaylistTrackIds) {
+                                setNodes(nds => nds.map(node =>
+                                  node.id === activePlaylistNodeId
+                                    ? { ...node, data: { ...node.data, trackIds: [...stagedPlaylistTrackIds] } }
+                                    : node
+                                ));
+                              }
+                              setIsAddingToPlaylist(false);
+                              setActivePlaylistNodeId(null);
+                              setStagedPlaylistTrackIds(null);
+                            }}
+                            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white rounded-xl transition-all duration-200 font-medium border border-green-600/30 hover:border-green-500/50"
+                          >
+                            Done
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
