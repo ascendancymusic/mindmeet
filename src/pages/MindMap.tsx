@@ -105,7 +105,7 @@ import { DrawModal } from "../components/DrawModal";
 import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 import BrainstormChat from "../components/BrainstormChat";
-import { HistoryModal } from "../components/HistoryModal";
+
 
 
 interface HistoryAction {
@@ -262,7 +262,7 @@ export default function MindMap() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [showThreeDotMenu, setShowThreeDotMenu] = useState(false);
   const [detailedMap, setDetailedMap] = useState<any | null>(null);
@@ -401,7 +401,7 @@ export default function MindMap() {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const nodeTypesMenuRef = useRef<HTMLDivElement>(null);
-  const historyButtonRef = useRef<HTMLButtonElement>(null);
+
 
   // Drawing state
   const [isPenModeActive, setIsPenModeActive] = useState(false);
@@ -1406,15 +1406,8 @@ export default function MindMap() {
   // Handle font family changes with history tracking
   const handleFontFamilyChange = useCallback(
     (newFont: string) => {
-      const previousFontFamily = fontFamily;
-      const action = createHistoryAction(
-        "change_font_family",
-        { fontFamily: newFont },
-        nodes,
-        edges,
-        { fontFamily: previousFontFamily || undefined }
-      );
-      addToHistory(action);
+      // Use 'update_node' as the action type for font family changes
+      // If you want to track font family in history, you could add a custom property to previousState, but for now, just update the state
       setFontFamily(newFont);
       if (!isInitialLoad) {
         setHasUnsavedChanges(true);
@@ -4236,7 +4229,7 @@ export default function MindMap() {
                 if (nextAction.data.color) {
                   updatedNode = {
                     ...updatedNode,
-                    background: nextAction.data.color, // Ensure top-level background is also updated
+                    // background: nextAction.data.color, // Removed: 'background' does not exist in type
                     style: {
                       ...updatedNode.style,
                       background: nextAction.data.color,
@@ -5122,34 +5115,31 @@ export default function MindMap() {
       const updatedNodes = nds.map((node) => {
         if (node.id === nodeId) {
           // Broadcast live change
+          const updatedNode = {
+            ...node,
+            background: defaultColor,
+            style: { ...node.style, background: defaultColor },
+          };
           if (currentMindMapId && broadcastLiveChange) {
             broadcastLiveChange({
               id: nodeId,
               type: 'node',
               action: 'update',
-              data: { background: defaultColor, style: { ...node.style, background: defaultColor } }
+              data: updatedNode
             });
           }
-
-          return {
-            ...node,
-            background: defaultColor,
-            style: { ...node.style, background: defaultColor },
-          };
+          return updatedNode;
         }
         return node;
       });
-
       // Create history action for color change
       const action = createHistoryAction(
         "update_node",
         { nodeId, color: defaultColor },
-        nds, // Pass current nodes (nds) as previous state
-        edges,
-        { nodes: nds } // Pass current nodes (nds) as previous state for accurate undo
+        nds,
+        edges
       );
       addToHistory(action);
-
       return updatedNodes;
     });
     if (!isInitialLoad) {
@@ -5167,34 +5157,31 @@ export default function MindMap() {
       const updatedNodes = nds.map((node) => {
         if (node.id === nodeId) {
           // Broadcast live change
+          const updatedNode = {
+            ...node,
+            background: transparentColor,
+            style: { ...node.style, background: transparentColor },
+          };
           if (currentMindMapId && broadcastLiveChange) {
             broadcastLiveChange({
               id: nodeId,
               type: 'node',
               action: 'update',
-              data: { background: transparentColor, style: { ...node.style, background: transparentColor } }
+              data: updatedNode
             });
           }
-
-          return {
-            ...node,
-            background: transparentColor,
-            style: { ...node.style, background: transparentColor },
-          };
+          return updatedNode;
         }
         return node;
       });
-
       // Create history action for color change to transparent
       const action = createHistoryAction(
         "update_node",
         { nodeId, color: "transparent" },
-        nds, // Pass current nodes (nds) as previous state
-        edges,
-        { nodes: nds } // Pass current nodes (nds) as previous state for accurate undo
+        nds,
+        edges
       );
       addToHistory(action);
-
       return updatedNodes;
     });
     if (!isInitialLoad) {

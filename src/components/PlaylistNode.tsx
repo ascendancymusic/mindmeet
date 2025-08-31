@@ -13,7 +13,6 @@ interface PlaylistItem {
   spotifyUrl?: string;
   soundCloudUrl?: string;
   videoUrl?: string; // Add videoUrl for YouTube videos
-  duration: number;
 }
 
 interface PlaylistNodeProps {
@@ -73,7 +72,6 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [hasEnded, setHasEnded] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -175,8 +173,6 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
           let spotifyUrl: string | undefined = undefined;
           let soundCloudUrl: string | undefined = undefined;
           let videoUrl: string | undefined = undefined;
-          let duration: number = node.data.duration || 0; // Assume duration is available in data for all types
-
           if (node.type === 'audio') {
             audioUrl = node.data.audioUrl as string | undefined;
           } else if (node.type === 'spotify') {
@@ -193,8 +189,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
             audioUrl: audioUrl,
             spotifyUrl: spotifyUrl,
             soundCloudUrl: soundCloudUrl,
-            videoUrl: videoUrl,
-            duration: duration
+            videoUrl: videoUrl
           } as PlaylistItem | null; // Explicitly type the returned object
         })
         .filter((item): item is PlaylistItem => item !== null);
@@ -279,26 +274,13 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
     if (audioRef.current && isMountedRef.current && currentTrackIndex >= 0 && currentTrackIndex < playlist.length) {
       // Always update progress for audio tracks, regardless of Spotify status
       const currentTrack = playlist[currentTrackIndex];
-      
       // Only proceed for audio tracks
       if (currentTrack.audioUrl && !currentTrack.spotifyUrl) {
         const currentTime = audioRef.current.currentTime;
-
-        // Prioritize the duration from the playlist item
-        const trackDuration = currentTrack.duration || 0;
         const audioDuration = audioRef.current.duration || 0;
-
-        // Use the playlist item duration if available, otherwise fall back to audio element duration
-        const effectiveDuration = trackDuration > 0 ? trackDuration : audioDuration;
-
-        if (effectiveDuration > 0) {
-          setProgress((currentTime / effectiveDuration) * 100);
+        if (audioDuration > 0) {
+          setProgress((currentTime / audioDuration) * 100);
           setCurrentTime(currentTime);
-
-          // Only update duration if we don't have one from the playlist item
-          if (trackDuration <= 0 && audioDuration > 0) {
-            setDuration(audioDuration);
-          }
         }
       }
     }
@@ -646,18 +628,13 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
           setCurrentSpotifyTrackId(trackId);
         }
         
-        // Create Spotify embed URL - don't use autoplay in URL as we'll control it via JS
-        const embedUrl = createSpotifyEmbedUrl(currentTrack.spotifyUrl);
-        setSpotifyEmbedUrl(embedUrl);
-        
-        // Set duration from playlist item
-        setDuration(currentTrack.duration || 0);
-        setHasEnded(false);
-        
-        // Set loading state but don't set isPlaying yet
-        setIsLoading(true);
-        
-        // We'll handle play state in the Spotify ready effect
+  // Create Spotify embed URL - don't use autoplay in URL as we'll control it via JS
+  const embedUrl = createSpotifyEmbedUrl(currentTrack.spotifyUrl);
+  setSpotifyEmbedUrl(embedUrl);
+  // setDuration(0); (removed duration logic)
+  setHasEnded(false);
+  setIsLoading(true);
+  // We'll handle play state in the Spotify ready effect
       } else if (currentTrack.soundCloudUrl) {
         // Handle SoundCloud track
         console.log('Selected SoundCloud track:', currentTrack.label, currentTrack.soundCloudUrl);
@@ -669,18 +646,13 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         // Reset SoundCloud player ready state since we're loading a new track
         setSoundCloudPlayerReady(false);
         
-        // Create SoundCloud embed URL
-        const embedUrl = createSoundCloudEmbedUrl(currentTrack.soundCloudUrl);
-        setSoundCloudEmbedUrl(embedUrl);
-        
-        // Set duration from playlist item
-        setDuration(currentTrack.duration || 0);
-        setHasEnded(false);
-        
-        // Set loading state but don't set isPlaying yet
-        setIsLoading(true);
-        
-        // We'll handle play state in the SoundCloud ready effect
+  // Create SoundCloud embed URL
+  const embedUrl = createSoundCloudEmbedUrl(currentTrack.soundCloudUrl);
+  setSoundCloudEmbedUrl(embedUrl);
+  // setDuration(0); (removed duration logic)
+  setHasEnded(false);
+  setIsLoading(true);
+  // We'll handle play state in the SoundCloud ready effect
       } else if (currentTrack.audioUrl) {
         // Handle regular audio track
         console.log('Selected Audio track:', currentTrack.label, currentTrack.audioUrl);
@@ -688,24 +660,15 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         // Clear any existing Spotify embed
         setSpotifyEmbedUrl(null);
         
-        // Set the track duration immediately from the playlist item
-        if (currentTrack.duration && currentTrack.duration > 0) {
-          setDuration(currentTrack.duration);
-        }
-        
-        // Reset other audio-specific states
+  // setDuration(0); (removed duration logic)
         setHasEnded(false);
         setIsLoading(true);
-        
-        // Make sure to fetch the audio blob for visualization
-        // Use immediate promise handling to ensure we capture any errors
         fetchAudioAsBlob(currentTrack.audioUrl, currentTrackIndex)
           .then(blob => {
             if (isMountedRef.current) {
               if (blob) {
                 console.log('Successfully fetched audio blob for visualization', blob.size);
-                // Explicitly set the audio blob if we're still on the same track
-                if (currentTrackIndex === trackIndexCopy) { // Use the copied value instead of 'index'
+                if (currentTrackIndex === trackIndexCopy) {
                   setAudioBlob(blob);
                 }
               } else {
@@ -727,14 +690,10 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         // Clear SoundCloud embed
         setSoundCloudEmbedUrl(null);
         
-        // Set duration from playlist item
-        setDuration(currentTrack.duration || 0);
-        setHasEnded(false);
-        
-        // Set loading state but don't set isPlaying yet
-        setIsLoading(true);
-        
-        // We'll handle play state in the YouTube iframe
+  // setDuration(0); (removed duration logic)
+  setHasEnded(false);
+  setIsLoading(true);
+  // We'll handle play state in the YouTube iframe
       }
     }
   }, [currentTrackIndex, playlist, fetchAudioAsBlob, createSpotifyEmbedUrl, extractSpotifyTrackId, createSoundCloudEmbedUrl]);
@@ -769,22 +728,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
             setIsLoading(false);
           }
           
-          // Handle direct duration response
-          if (data.method === 'getDuration' && typeof data.value === 'number') {
-            const durationMs = data.value;
-            console.log('Received SoundCloud duration:', durationMs, 'ms');
-            
-            // Convert ms to seconds and update state
-            const durationSec = durationMs / 1000;
-            setDuration(durationSec);
-            
-            // Update the playlist item's duration
-            if (currentTrackIndex >= 0 && currentTrackIndex < playlist.length) {
-              const updatedPlaylist = [...playlist];
-              updatedPlaylist[currentTrackIndex].duration = durationSec;
-              setPlaylist(updatedPlaylist);
-            }
-          }
+          // Removed SoundCloud duration handling
           
           // Handle ready event more aggressively
           if (data.method === 'ready') {
@@ -792,11 +736,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
             setSoundCloudPlayerReady(true);
             setIsLoading(false);
             
-            // Explicitly request duration immediately on ready
-            soundCloudIframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({ method: 'getDuration' }), 
-              '*'
-            );
+            // Removed explicit duration request
             
             // Force immediate play command on ready
             if (currentTrackIndex >= 0 && playlist[currentTrackIndex]?.soundCloudUrl) {
@@ -828,25 +768,8 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
             if (data.value && typeof data.value.currentPosition === 'number' && typeof data.value.duration === 'number') {
               const currentMs = data.value.currentPosition;
               const durationMs = data.value.duration;
-              
               setCurrentTime(currentMs / 1000); // Convert ms to seconds
               setProgress((currentMs / durationMs) * 100);
-              
-              // Always update duration from playProgress to ensure accuracy
-              const durationSec = durationMs / 1000;
-              
-              // Only update if the new duration is valid and different
-              if (durationSec > 0 && Math.abs(durationSec - duration) > 0.5) {
-                console.log('Updating SoundCloud duration from playProgress:', durationSec, 'sec');
-                setDuration(durationSec);
-                
-                // Update the playlist item's duration
-                if (currentTrackIndex >= 0 && currentTrackIndex < playlist.length) {
-                  const updatedPlaylist = [...playlist];
-                  updatedPlaylist[currentTrackIndex].duration = durationSec;
-                  setPlaylist(updatedPlaylist);
-                }
-              }
             }
           }
           
@@ -986,7 +909,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
     
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [currentTrackIndex, playlist.length, duration, controlYoutubePlayback, playlist]);
+  }, [currentTrackIndex, playlist.length, controlYoutubePlayback, playlist]);
 
   // Play/pause the current track - updated to handle YouTube videos
   const togglePlayPause = () => {
@@ -1144,7 +1067,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         setYoutubePlayerReady(false);
         
         // Set track metadata
-        setDuration(selectedTrack.duration || 0);
+  setDuration(0);
         setCurrentTime(0);
         setProgress(0);
         setHasEnded(false);
@@ -1188,7 +1111,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         }
         
         // Set track metadata
-        setDuration(selectedTrack.duration || 0);
+  setDuration(0);
         setCurrentTime(0);
         setProgress(0);
         setHasEnded(false);
@@ -1211,7 +1134,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         setSpotifyEmbedUrl(null);
         
         // Set track metadata
-        setDuration(selectedTrack.duration || 0);
+  // setDuration(selectedTrack.duration || 0); (removed duration logic)
         setCurrentTime(0);
         setProgress(0);
         setHasEnded(false);
@@ -1228,9 +1151,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         setSpotifyEmbedUrl(null);
         
         // Set the track duration immediately from the playlist item
-        if (selectedTrack.duration && selectedTrack.duration > 0) {
-          setDuration(selectedTrack.duration);
-        }
+  // setDuration(0); (removed duration logic)
         
         // Set initial audio states
         setIsPlaying(true);
@@ -1321,9 +1242,6 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                       <AudioWaveform className="w-3 h-3 text-gray-500 mr-1 flex-shrink-0" />
                     )}
                     <div className="flex-1 truncate">{track.label}</div>
-                    <div className="text-gray-500 ml-1 flex-shrink-0">
-                      {formatTime(track.duration || 0)}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1373,11 +1291,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                   <span className="truncate">{playlist[currentTrackIndex].label}</span>
                   
                   {/* Only show time display for regular audio tracks (not SoundCloud, Spotify, or YouTube) */}
-                  {!playlist[currentTrackIndex].soundCloudUrl && !playlist[currentTrackIndex].spotifyUrl && !playlist[currentTrackIndex].videoUrl && (
-                    <span>
-                      {formatTime(currentTime)} / {formatTime(playlist[currentTrackIndex].duration || duration)}
-                    </span>
-                  )}
+                  {/* No duration logic, only show current time if needed */}
                 </div>
               ) : (
                 <span>-</span>
@@ -1508,9 +1422,9 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                       const pos = (e.clientX - rect.left) / rect.width;
 
                       // Get the effective duration
-                      const trackDuration = playlist[currentTrackIndex].duration || 0;
+                      // duration property removed
                       const audioDuration = audioRef.current.duration || 0;
-                      const effectiveDuration = trackDuration > 0 ? trackDuration : audioDuration;
+                      const effectiveDuration = audioDuration;
 
                       // Only set currentTime if we have a valid duration
                       if (effectiveDuration && isFinite(effectiveDuration) && effectiveDuration > 0) {
@@ -1572,7 +1486,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
                       }}
                     >
-                      {formatTime(hoverPosition * (playlist[currentTrackIndex]?.duration || duration))}
+                      {/* No duration logic */}
                     </div>
                   )}
                 </div>
@@ -1592,9 +1506,9 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                       const pos = (e.clientX - rect.left) / rect.width;
 
                       // Get the effective duration
-                      const trackDuration = playlist[currentTrackIndex].duration || 0;
+                      // duration property removed
                       const audioDuration = audioRef.current.duration || 0;
-                      const effectiveDuration = trackDuration > 0 ? trackDuration : audioDuration;
+                      const effectiveDuration = audioDuration;
 
                       // Only set currentTime if we have a valid duration
                       if (effectiveDuration && isFinite(effectiveDuration) && effectiveDuration > 0) {
@@ -1644,7 +1558,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
                       }}
                     >
-                      {formatTime(hoverPosition * (playlist[currentTrackIndex]?.duration || duration))}
+                      {/* No duration logic */}
                     </div>
                   )}
                 </div>
@@ -1687,11 +1601,9 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
           onLoadedMetadata={() => {
             if (isMountedRef.current && audioRef.current) {
               // If we don't have a duration from the playlist item, use the audio element's duration
-              if (!playlist[currentTrackIndex].duration || playlist[currentTrackIndex].duration <= 0) {
-                 const audioDuration = audioRef.current.duration;
-                 if (!isNaN(audioDuration) && isFinite(audioDuration) && audioDuration > 0) {
-                   setDuration(audioDuration);
-                 }
+              const audioDuration = audioRef.current.duration;
+              if (!isNaN(audioDuration) && isFinite(audioDuration) && audioDuration > 0) {
+                // setDuration(audioDuration); (removed duration logic)
               }
             }
           }}
