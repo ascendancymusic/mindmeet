@@ -11,7 +11,7 @@ const defaultNodeStyles = {
     whiteSpace: "pre-wrap",
     overflow: "visible",
     textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
-    backgroundClip: "border-box",
+  // backgroundClip removed to avoid React warning about mixing background and backgroundClip
     fontFamily: "inherit",
   },
   default: {

@@ -6002,34 +6002,32 @@ export default function MindMap() {
                         "14px 14px 0 0" : // Only round top corners when image has title
                         nodeTypeStyle.borderRadius, // Use default for all other cases
                       background:
-
                         (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
                           ? previewColor
                           : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
-
-                      borderColor: node.id === visuallySelectedNodeId
-                        ? "skyblue"
-                        : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                      // Only apply border and borderColor for non-root nodes
+                      ...(node.id !== "1" && {
+                        borderColor: node.id === visuallySelectedNodeId
+                          ? "skyblue"
+                          : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
+                            (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                            (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                            (node.type === 'youtube-video' && nodeData.videoUrl)))
+                            ? "#4ade80"
+                            : "#374151",
+                        borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
                           (node.type === 'spotify' && nodeData.spotifyUrl) ||
                           (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
                           (node.type === 'youtube-video' && nodeData.videoUrl)))
-                          ? "#4ade80" // Highlight audio, spotify, soundcloud and YouTube nodes with green border when in add to playlist mode
-                          : "#374151",
-                      borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
-                        (node.type === 'spotify' && nodeData.spotifyUrl) ||
-                        (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                        (node.type === 'youtube-video' && nodeData.videoUrl)))
-                        ? "3px" // Thicker border for audio, spotify, soundcloud and YouTube nodes when in add to playlist mode
-                        : "2px", // Always show a border for all nodes
-
-                      border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
-                        ? "solid" // Ensure audio, playlist, spotify, and youtube-video nodes always have a border
-                        : node.style?.border || nodeTypeStyle.border,
-
+                          ? "3px"
+                          : "2px",
+                        border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
+                          ? "solid"
+                          : node.style?.border || nodeTypeStyle.border,
+                      }),
                       whiteSpace: "normal",
                       wordWrap: "break-word",
                       overflowWrap: "break-word",
-
                       // Make root node text bold
                       fontWeight: node.id === "1" ? "bold" : "normal",
                       color: computedTextColor,
