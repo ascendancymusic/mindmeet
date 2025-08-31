@@ -713,13 +713,13 @@ export default function MindMap() {
     // Create stable component references to prevent unnecessary re-renders
     const DefaultTextNodeMemo = React.memo((props: any) => <DefaultTextNode {...props} onContextMenu={handleNodeContextMenu} />);
     const TextNoBgNodeMemo = React.memo((props: any) => <TextNoBgNode {...props} onContextMenu={handleNodeContextMenu} />);
-    const SpotifyNodeMemo = React.memo((props: any) => <SpotifyNode {...props} onContextMenu={handleNodeContextMenu} />);
-    const SoundCloudNodeMemo = React.memo((props: any) => <SoundCloudNode {...props} onContextMenu={handleNodeContextMenu} />);
-    const YouTubeNodeMemo = React.memo((props: any) => <YouTubeNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const SpotifyNodeMemo = React.memo((props: any) => <SpotifyNode {...props} onContextMenu={handleNodeContextMenu} isAddingToPlaylist={isAddingToPlaylist} />);
+    const SoundCloudNodeMemo = React.memo((props: any) => <SoundCloudNode {...props} onContextMenu={handleNodeContextMenu} isAddingToPlaylist={isAddingToPlaylist} />);
+    const YouTubeNodeMemo = React.memo((props: any) => <YouTubeNode {...props} onContextMenu={handleNodeContextMenu} isAddingToPlaylist={isAddingToPlaylist} />);
     const ImageNodeMemo = React.memo((props: any) => <ImageNode {...props} onContextMenu={handleNodeContextMenu} />);
     const LinkNodeMemo = React.memo((props: any) => <LinkNode {...props} onContextMenu={handleNodeContextMenu} />);
     const MindMapNodeMemo = React.memo((props: any) => <MindMapNode {...props} onContextMenu={handleNodeContextMenu} />);
-    const AudioNodeMemo = React.memo((props: any) => <AudioNode {...props} onContextMenu={handleNodeContextMenu} />);
+    const AudioNodeMemo = React.memo((props: any) => <AudioNode {...props} onContextMenu={handleNodeContextMenu} isAddingToPlaylist={isAddingToPlaylist} />);
     const PlaylistNodeMemo = React.memo((props: any) => <PlaylistNode {...props} onContextMenu={handleNodeContextMenu} />);
     const SocialMediaNodeMemo = React.memo((props: any) => <SocialMediaNode {...props} onContextMenu={handleNodeContextMenu} />);
 
@@ -742,7 +742,7 @@ export default function MindMap() {
       audio: AudioNodeMemo,
       playlist: PlaylistNodeMemo,
     };
-  }, [handleNodeContextMenu]);
+  }, [handleNodeContextMenu, isAddingToPlaylist]);
 
   // Set up sensors for drag and drop functionality
   const sensors = useSensors(

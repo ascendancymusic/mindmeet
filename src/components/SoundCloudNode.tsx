@@ -1,7 +1,8 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, PlusCircle, Check } from 'lucide-react';
 import { SoundCloudIcon } from './icons/SoundCloudIcon';
+import { useState } from 'react';
 
 interface SoundCloudNodeProps {
   data: {
@@ -11,9 +12,19 @@ interface SoundCloudNodeProps {
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
   id?: string;
+  isAddingToPlaylist?: boolean;
 }
 
-export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnectable, onContextMenu, id }) => {
+export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnectable, onContextMenu, id, isAddingToPlaylist }) => {
+  const [showCheckmark, setShowCheckmark] = useState(false);
+
+  const handleOverlayClick = () => {
+    setShowCheckmark(true);
+    setTimeout(() => {
+      setShowCheckmark(false);
+    }, 1000);
+  };
+
   const handleContextMenu = (event: React.MouseEvent) => {
     if (onContextMenu && id) {
       onContextMenu(event, id);
@@ -29,6 +40,18 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
         className="!top-[-8px]"
       />
       <div className="group relative bg-gray-800 rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+        {isAddingToPlaylist && data.soundCloudUrl && (
+            <div
+              className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-10 cursor-pointer"
+              onClick={handleOverlayClick}
+            >
+              {showCheckmark ? (
+                <Check className="text-white w-12 h-12" />
+              ) : (
+                <PlusCircle className="text-white w-12 h-12" />
+              )}
+            </div>
+        )}
         {data.soundCloudUrl ? (
           <>
             <div className="border-2 border-gray-700 rounded-xl">
@@ -39,6 +62,7 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
                 frameBorder="no"
                 src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(data.soundCloudUrl)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`}
                 className="rounded-lg"
+                style={{ pointerEvents: isAddingToPlaylist ? 'none' : 'auto' }}
               />
             </div>
             <div className="absolute -right-12 top-1/2 -translate-y-1/2 cursor-move opacity-0 group-hover:opacity-100 transition-opacity duration-200">

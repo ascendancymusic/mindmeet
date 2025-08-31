@@ -1,6 +1,7 @@
 import { Handle, Position } from 'reactflow';
-import { GripVertical, Youtube } from 'lucide-react';
+import { GripVertical, Youtube, PlusCircle, Check } from 'lucide-react';
 import { YouTubeVideo } from '../services/youtubeSearch';
+import { useState } from 'react';
 
 interface YouTubeNodeProps {
   id: string;
@@ -12,9 +13,19 @@ interface YouTubeNodeProps {
   selected?: boolean;
   updateNodeData?: (nodeId: string, video: YouTubeVideo) => void;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
+  isAddingToPlaylist?: boolean;
 }
 
-export function YouTubeNode({ id, data, isConnectable, onContextMenu }: YouTubeNodeProps) {
+export function YouTubeNode({ id, data, isConnectable, onContextMenu, isAddingToPlaylist }: YouTubeNodeProps) {
+  const [showCheckmark, setShowCheckmark] = useState(false);
+
+  const handleOverlayClick = () => {
+    setShowCheckmark(true);
+    setTimeout(() => {
+      setShowCheckmark(false);
+    }, 1000);
+  };
+
   // Extract video ID from various YouTube URL formats
   const getYouTubeVideoId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -32,6 +43,18 @@ export function YouTubeNode({ id, data, isConnectable, onContextMenu }: YouTubeN
 
   return (
     <div className="group relative rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+      {isAddingToPlaylist && videoId && (
+        <div 
+          className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-10 cursor-pointer"
+          onClick={handleOverlayClick}
+        >
+          {showCheckmark ? (
+            <Check className="text-white w-12 h-12" />
+          ) : (
+            <PlusCircle className="text-white w-12 h-12" />
+          )}
+        </div>
+      )}
       <Handle
         type="target"
         position={Position.Top}
@@ -51,7 +74,7 @@ export function YouTubeNode({ id, data, isConnectable, onContextMenu }: YouTubeN
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="rounded-lg youtube-embed-content"
-                style={{ position: 'relative', zIndex: 2 }}
+                style={{ position: 'relative', zIndex: 2, pointerEvents: isAddingToPlaylist ? 'none' : 'auto' }}
               />
             </div>
           </div>

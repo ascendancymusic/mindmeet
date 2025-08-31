@@ -1,7 +1,7 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
 import { Spotify } from 'react-spotify-embed';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, PlusCircle, Check } from 'lucide-react';
 import { SpotifyIcon } from './icons/SpotifyIcon';
 import { useState, useEffect } from 'react';
 
@@ -14,11 +14,20 @@ interface SpotifyNodeProps {
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
   id?: string;
+  isAddingToPlaylist?: boolean;
 }
 
-export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, onContextMenu, id }) => {
+export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, onContextMenu, id, isAddingToPlaylist }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [showCheckmark, setShowCheckmark] = useState(false);
+
+  const handleOverlayClick = () => {
+    setShowCheckmark(true);
+    setTimeout(() => {
+      setShowCheckmark(false);
+    }, 1000);
+  };
 
   // Reset loading state when URL changes
   useEffect(() => {
@@ -42,13 +51,16 @@ export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, 
     const checkIframeLoaded = () => {
       const iframes = document.querySelectorAll('iframe');
       iframes.forEach(iframe => {
-        if (iframe.src.includes('spotify') && !iframe.onload) {
-          iframe.onload = handleIframeLoad;
+        if (iframe.src.includes('spotify')) {
+          iframe.style.pointerEvents = isAddingToPlaylist ? 'none' : 'auto';
+          if (!iframe.onload) {
+            iframe.onload = handleIframeLoad;
 
-          // Check if iframe is already loaded
-          if (iframe.contentDocument?.readyState === 'complete' ||
-              iframe.contentWindow?.document?.readyState === 'complete') {
-            handleIframeLoad();
+            // Check if iframe is already loaded
+            if (iframe.contentDocument?.readyState === 'complete' ||
+                iframe.contentWindow?.document?.readyState === 'complete') {
+              handleIframeLoad();
+            }
           }
         }
       });
@@ -69,7 +81,7 @@ export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, 
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [data.spotifyUrl, iframeLoaded]);
+  }, [data.spotifyUrl, iframeLoaded, isAddingToPlaylist]);
 
   const handleContextMenu = (event: React.MouseEvent) => {
     if (onContextMenu && id) {
@@ -79,6 +91,18 @@ export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, 
 
   return (
     <div className="group relative rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+      {isAddingToPlaylist && data.spotifyUrl && (
+        <div
+          className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-10 cursor-pointer"
+          onClick={handleOverlayClick}
+        >
+          {showCheckmark ? (
+            <Check className="text-white w-12 h-12" />
+          ) : (
+            <PlusCircle className="text-white w-12 h-12" />
+          )}
+        </div>
+      )}
       <Handle
         type="target"
         position={Position.Top}

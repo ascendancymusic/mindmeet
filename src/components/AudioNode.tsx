@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
-import { AudioWaveform, Loader, RotateCcw } from 'lucide-react';
+import { AudioWaveform, Loader, RotateCcw, PlusCircle, Check } from 'lucide-react';
 // Fixed width node, no need for getNodeWidth and getNodeHeight
 import { compressAudioFile } from '../utils/compressAudio';
 import { AudioVisualizer } from 'react-audio-visualize';
@@ -23,6 +23,7 @@ interface AudioNodeProps {
     background?: string;
   };
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
+  isAddingToPlaylist?: boolean;
 }
 
 
@@ -37,7 +38,15 @@ const formatTime = (timeInSeconds: number): string => {
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-export function AudioNode({ id, data, isConnectable, background, style, onContextMenu }: AudioNodeProps) {
+export function AudioNode({ id, data, isConnectable, background, style, onContextMenu, isAddingToPlaylist }: AudioNodeProps) {
+  const [showCheckmark, setShowCheckmark] = useState(false);
+
+  const handleOverlayClick = () => {
+    setShowCheckmark(true);
+    setTimeout(() => {
+      setShowCheckmark(false);
+    }, 1000);
+  };
   // Create a simple ref for the node container
   const nodeRef = useRef<HTMLDivElement>(null);
 
@@ -671,6 +680,18 @@ export function AudioNode({ id, data, isConnectable, background, style, onContex
 
   return (
     <div ref={nodeRef} className="relative overflow-visible" style={{ width: '300px' }} onContextMenu={handleContextMenu}>
+      {isAddingToPlaylist && (data.audioUrl || data.file) && (
+        <div
+          className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-20 cursor-pointer"
+          onClick={handleOverlayClick}
+        >
+          {showCheckmark ? (
+            <Check className="text-white w-12 h-12" />
+          ) : (
+            <PlusCircle className="text-white w-12 h-12" />
+          )}
+        </div>
+      )}
       {/* Fixed width audio node without resize control */}
       <Handle
         type="target"
@@ -679,7 +700,7 @@ export function AudioNode({ id, data, isConnectable, background, style, onContex
         className="!top-[-8px] !bg-sky-400 !border-1 !border-gray-700 !w-3 !h-3"
         style={{ zIndex: 20 }}
       />
-      <div className="p-0 m-0 font-size-0 line-height-0">
+      <div className="p-0 m-0 font-size-0 line-height-0" style={{ pointerEvents: isAddingToPlaylist ? 'none' : 'auto' }}>
         {/* Initial empty state */}
         {!audioSrc && !showError && !isCompressing && !isLoading && (
           <div className="flex flex-col items-center justify-center h-[100px] text-gray-500 bg-gray-700/30 rounded-lg">
@@ -767,7 +788,7 @@ export function AudioNode({ id, data, isConnectable, background, style, onContex
                       // Reset load attempts counter on successful metadata load
                       loadAttemptsRef.current = 0;
 
-                      // Only check duration if we don't already have it from JSON data
+                      // Only check duration if we don't already have it from JSON data or compression
                       // This avoids redundant checks and state updates
                       if (durationRef.current <= 0) {
                         // Try to get duration from the audio element
@@ -784,10 +805,6 @@ export function AudioNode({ id, data, isConnectable, background, style, onContex
                             setShowError(true);
                             setTimeout(() => setShowError(false), 2000);
                           }
-                        } else if (duration <= 0) {
-                          // Set a default duration if invalid and we don't have one yet
-                          setDuration(0);
-                          console.log('Setting default duration of 0');
                         }
                       }
                     }
