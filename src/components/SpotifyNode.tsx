@@ -2,6 +2,7 @@ import React from 'react';
 import { Handle, Position } from 'reactflow';
 import { Spotify } from 'react-spotify-embed';
 import { GripVertical, PlusCircle, Check } from 'lucide-react';
+import CollapseChevron from './CollapseChevron';
 import { SpotifyIcon } from './icons/SpotifyIcon';
 import { useState, useEffect } from 'react';
 
@@ -10,6 +11,9 @@ interface SpotifyNodeProps {
     label: string;
     spotifyUrl: string;
     background?: string;
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
@@ -21,6 +25,11 @@ export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, 
   const [isLoading, setIsLoading] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [showCheckmark, setShowCheckmark] = useState(false);
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   const handleOverlayClick = () => {
     setShowCheckmark(true);
@@ -91,6 +100,11 @@ export const SpotifyNode = React.memo<SpotifyNodeProps>(({ data, isConnectable, 
 
   return (
     <div className="group relative rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       {isAddingToPlaylist && data.spotifyUrl && (
         <div
           className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-10 cursor-pointer"

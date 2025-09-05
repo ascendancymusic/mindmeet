@@ -4,6 +4,7 @@ import { AudioWaveform, Loader, RotateCcw, PlusCircle, Check } from 'lucide-reac
 // Fixed width node, no need for getNodeWidth and getNodeHeight
 import { compressAudioFile } from '../utils/compressAudio';
 import { AudioVisualizer } from 'react-audio-visualize';
+import CollapseChevron from './CollapseChevron';
 
 // Constants
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
@@ -16,6 +17,9 @@ interface AudioNodeProps {
     file?: File;
     audioUrl?: string;
     duration?: number;
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   background?: string; // Node background color
@@ -40,6 +44,11 @@ const formatTime = (timeInSeconds: number): string => {
 
 export function AudioNode({ id, data, isConnectable, background, style, onContextMenu, isAddingToPlaylist }: AudioNodeProps) {
   const [showCheckmark, setShowCheckmark] = useState(false);
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   const handleOverlayClick = () => {
     setShowCheckmark(true);
@@ -679,7 +688,12 @@ export function AudioNode({ id, data, isConnectable, background, style, onContex
   };
 
   return (
-    <div ref={nodeRef} className="relative overflow-visible" style={{ width: '300px' }} onContextMenu={handleContextMenu}>
+    <div ref={nodeRef} className="group relative overflow-visible" style={{ width: '300px' }} onContextMenu={handleContextMenu}>
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       {isAddingToPlaylist && (data.audioUrl || data.file) && (
         <div
           className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-20 cursor-pointer"

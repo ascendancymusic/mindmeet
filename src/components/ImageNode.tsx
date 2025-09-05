@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Handle, Position, NodeResizeControl, useReactFlow } from 'reactflow';
 import { ImageIcon } from 'lucide-react';
+import CollapseChevron from './CollapseChevron';
 import { compressImage } from '../utils/compressImage';
 import { getNodeWidth, getNodeHeight } from '../utils/nodeUtils';
 
@@ -10,6 +11,9 @@ interface ImageNodeProps {
     label: string;
     file?: File;
     imageUrl?: string;
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   width?: number;
@@ -44,6 +48,11 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
   const [captionHeight, setCaptionHeight] = useState(0);
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   // Get the actual node to access its style/background
   const node = reactFlowInstance.getNode(id);
@@ -204,7 +213,14 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
   };
 
   return (
-    <div className={"relative overflow-visible no-node-overlay"} onContextMenu={handleContextMenu}>
+    <div className={"relative overflow-visible no-node-overlay group"} onContextMenu={handleContextMenu}>
+      {/* Collapse button overlay */}
+      <CollapseChevron
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
+
       {/* Show resize control only when image is present AND node is selected (parity with TextNode) */}
   {imageSrc && selected && (
     // We position the resize control so the visible grip sits just inside the bottom-right corner

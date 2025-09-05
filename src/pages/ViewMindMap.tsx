@@ -1501,32 +1501,7 @@ const ViewMindMap: React.FC = () => {
                         return ancestors.some((ancestorId) => collapsedNodes.has(ancestorId))
                       })()
 
-                      const nodeLabel = hasChildren ? (
-                        <div key={node.id} className="flex items-center justify-between w-full">
-                          <div
-                            className="break-words overflow-hidden"
-                            style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
-                          >
-                            {node.type === "default" && node.data.label === "" ? (
-                              <span className="text-gray-400">Text...</span>
-                            ) : node.type === "default" ? (
-                              <MarkdownRenderer content={node.data.label} />
-                            ) : (
-                              node.data.label
-                            )}
-                          </div>
-                          <button
-                            className="ml-2 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 z-10"
-                            onClick={(e) => toggleNodeCollapse(node.id, e)}
-                            title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
-                          >
-                            <ChevronDown
-                              className={`w-4 h-4 text-slate-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                                }`}
-                            />
-                          </button>
-                        </div>
-                      ) : node.type === "default" && node.data.label === "" ? (
+                      const nodeLabel = node.type === "default" && node.data.label === "" ? (
                         <span className="text-gray-400">Text...</span>
                       ) : node.type === "default" ? (
                         <MarkdownRenderer content={node.data.label} />
@@ -1572,8 +1547,7 @@ const ViewMindMap: React.FC = () => {
                           minHeight: node.type === "default" ?
                             calculateTextNodeMinHeight(
                               typeof node.data?.label === 'string' ? node.data.label : '',
-                              getNodeCurrentWidth(node),
-                              hasChildren
+                              getNodeCurrentWidth(node)
                             ) : "auto",
                           padding:
                             node.type === "image"
@@ -1584,6 +1558,9 @@ const ViewMindMap: React.FC = () => {
                         data: {
                           ...node.data,
                           label: nodeLabel,
+                          hasChildren: hasChildren,
+                          isCollapsed: collapsedNodes.has(node.id),
+                          onToggleCollapse: () => toggleNodeCollapse(node.id, new MouseEvent('click') as any),
                         },
                       }
                     })}

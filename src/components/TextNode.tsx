@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Type, Edit3, Bold, Italic, Code, Palette, Strikethrough } from 'lucide-react';
 import { Handle, Position, NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
 import MarkdownRenderer from './MarkdownRenderer';
+import CollapseChevron from './CollapseChevron';
 import { getNodeWidth, getNodeHeight } from '../utils/nodeUtils';
 
 const ResizeIcon = () => (
@@ -321,6 +322,9 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
   onContextMenu
 }) => {
   const label = data?.label;
+  const hasChildren = data?.hasChildren;
+  const isCollapsed = data?.isCollapsed;
+  const onToggleCollapse = data?.onToggleCollapse;
   const reactFlowInstance = useReactFlow();
   const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
 
@@ -332,7 +336,7 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
 
   return (
     <div
-      className="relative overflow-visible no-node-overlay w-full h-full"
+      className="relative overflow-visible no-node-overlay w-full h-full group"
       onContextMenu={handleContextMenu}
     >
       {/* ReactFlow handles positioned at the actual node boundaries */}
@@ -342,6 +346,13 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
         id={`${id}-target`}
         className="!top-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
         style={{ zIndex: 20 }}
+      />
+
+      {/* Collapse button overlay - only visible on hover if node has children */}
+      <CollapseChevron
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse}
       />
 
       {/* Node content that expands with text */}

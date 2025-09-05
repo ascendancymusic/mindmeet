@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { createPortal } from 'react-dom';
 import { Link as LinkIcon } from 'lucide-react';
+import CollapseChevron from './CollapseChevron';
 
 // Cache for storing favicons with timestamp for cache invalidation
 const faviconCache = new Map<string, { url: string; timestamp: number }>();
@@ -28,6 +29,9 @@ interface LinkNodeProps {
   data: {
     url: string;
     displayText?: string;
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
@@ -41,6 +45,11 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextM
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [nodeWidth, setNodeWidth] = useState(60);
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   const textRef = useRef<HTMLAnchorElement>(null);
 
@@ -182,10 +191,15 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextM
 
   return (
     <div
-      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
+      className="group relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ minWidth: nodeWidth, transition: 'min-width 0.2s ease-in-out' }}
       onContextMenu={handleContextMenu}
     >
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       <Handle
         type="target"
         position={Position.Top}

@@ -3,11 +3,15 @@ import { Handle, Position } from 'reactflow';
 import { GripVertical, PlusCircle, Check } from 'lucide-react';
 import { SoundCloudIcon } from './icons/SoundCloudIcon';
 import { useState } from 'react';
+import CollapseChevron from './CollapseChevron';
 
 interface SoundCloudNodeProps {
   data: {
     soundCloudUrl: string | null;
     background?: string;
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
@@ -17,6 +21,11 @@ interface SoundCloudNodeProps {
 
 export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnectable, onContextMenu, id, isAddingToPlaylist }) => {
   const [showCheckmark, setShowCheckmark] = useState(false);
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   const handleOverlayClick = () => {
     setShowCheckmark(true);
@@ -40,6 +49,11 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
         className="!top-[-8px]"
       />
       <div className="group relative bg-gray-800 rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+        <CollapseChevron 
+          hasChildren={hasChildren}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse || (() => {})}
+        />
         {isAddingToPlaylist && data.soundCloudUrl && (
             <div
               className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-10 cursor-pointer"

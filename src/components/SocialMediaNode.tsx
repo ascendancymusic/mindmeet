@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Handle, Position } from 'reactflow';
 import { Instagram, Twitter, Facebook, Youtube } from 'lucide-react';
+import CollapseChevron from './CollapseChevron';
 
 // Custom TikTok Icon
 const TikTok = ({ className }: { className: string }) => (
@@ -46,6 +47,11 @@ export function SocialMediaNode(props: any) {
   const textRef = useRef<HTMLSpanElement>(null);
   const { username = "" } = data || {};
 
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
+
   // Get the type from ReactFlow's node type prop
   const type = nodeType as 'instagram' | 'twitter' | 'facebook' | 'youtube' | 'tiktok' | 'mindmeet';
 
@@ -69,10 +75,15 @@ export function SocialMediaNode(props: any) {
 
   return (
     <div
-      className="relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
+      className="group relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ wordWrap: "break-word", whiteSpace: "normal" }} // Ensure text wraps properly
       onContextMenu={handleContextMenu}
     >
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       <Handle
         type="target"
         position={Position.Top}

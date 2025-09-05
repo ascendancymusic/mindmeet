@@ -5,13 +5,11 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
  * Calculates the minimum height needed for a text node based on its content and width
  * @param textContent The text content to measure
  * @param currentWidth The current width of the node
- * @param hasChildren Whether the node has children (affects padding calculation)
  * @returns The calculated minimum height in pixels as a string
  */
 export const calculateTextNodeMinHeight = (
   textContent: string,
-  currentWidth: number,
-  hasChildren: boolean = false
+  currentWidth: number
 ): string => {
   if (!textContent || textContent.trim() === '') {
     return "40px"; // Default minimum height for empty text
@@ -21,7 +19,7 @@ export const calculateTextNodeMinHeight = (
   const tempDiv = document.createElement('div');
   tempDiv.style.position = 'absolute';
   tempDiv.style.visibility = 'hidden';
-  tempDiv.style.width = `${currentWidth - 16 - (hasChildren ? 30 : 0)}px`; // Account for padding and chevron
+  tempDiv.style.width = `${currentWidth - 16}px`; // Account for padding only
   tempDiv.style.fontSize = '14px'; // Match node font size
   tempDiv.style.lineHeight = '20px'; // Match text line height
   tempDiv.style.fontFamily = 'inherit';
@@ -65,17 +63,16 @@ export const createTextNodeDisplayLabel = (textContent: string): React.ReactElem
 /**
  * Processes a text node to add markdown rendering and dynamic height calculation
  * @param node The ReactFlow node to process
- * @param hasChildren Whether the node has children (affects spacing calculations)
  * @returns The processed node with updated data and style
  */
-export const processTextNodeForRendering = (node: any, hasChildren: boolean = false): any => {
+export const processTextNodeForRendering = (node: any): any => {
   if (node.type !== "default") {
     return node;
   }
 
   const textContent = typeof node.data?.label === 'string' ? node.data.label : '';
   const currentWidth = getNodeCurrentWidth(node);
-  const minHeight = calculateTextNodeMinHeight(textContent, currentWidth, hasChildren);
+  const minHeight = calculateTextNodeMinHeight(textContent, currentWidth);
   const displayLabel = createTextNodeDisplayLabel(textContent);
 
   return {
@@ -94,15 +91,12 @@ export const processTextNodeForRendering = (node: any, hasChildren: boolean = fa
 /**
  * Processes an array of nodes, applying text node rendering logic to default type nodes
  * @param nodes Array of ReactFlow nodes
- * @param getHasChildren Optional function to determine if a node has children
  * @returns Array of processed nodes
  */
 export const processNodesForTextRendering = (
-  nodes: any[],
-  getHasChildren?: (nodeId: string) => boolean
+  nodes: any[]
 ): any[] => {
   return nodes.map((node: any) => {
-    const hasChildren = getHasChildren ? getHasChildren(node.id) : false;
-    return processTextNodeForRendering(node, hasChildren);
+    return processTextNodeForRendering(node);
   });
 };

@@ -6083,39 +6083,10 @@ export default function MindMap() {
                   const nodeData = node.data || {};
                   const nodeLabel = nodeData.label || "";
 
-                  // Create the node label with chevron if it has children
+                  // Create the node label without chevron - chevron will be handled as overlay
                   // Skip display label processing for text-no-bg nodes - they handle their own rendering
                   const displayLabel = node.type === "text-no-bg" ? nodeLabel : (
-                    hasChildren ? (
-                      <div className="flex items-center justify-between w-full">
-                        <div
-                          className="break-words overflow-hidden"
-                          style={{ wordBreak: "break-word", maxWidth: "calc(100% - 30px)" }}
-                        >
-                          {node.type === "default" && nodeLabel === "" ? (
-                            <span className="text-gray-400">Text...</span>
-                          ) : node.type === "default" ? (
-                            <MarkdownRenderer content={nodeLabel} />
-                          ) : (
-                            nodeLabel
-                          )}
-                        </div>
-                        <button
-                          className="ml-2 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleNodeCollapse(node.id, e);
-                          }}
-                          title={collapsedNodes.has(node.id) ? "Expand" : "Collapse"}
-                          key={node.id}
-                        >
-                          <ChevronDown
-                            className={`w-4 h-4 text-gray-300 transition-transform ${collapsedNodes.has(node.id) ? "" : "transform rotate-180"
-                              }`}
-                          />
-                        </button>
-                      </div>
-                    ) : node.type === "default" && nodeLabel === "" ? (
+                    node.type === "default" && nodeLabel === "" ? (
                       <span className="text-gray-400">Text...</span>
                     ) : node.type === "default" ? (
                       <MarkdownRenderer content={nodeLabel} />
@@ -6144,6 +6115,9 @@ export default function MindMap() {
                       ...nodeData,
                       label: displayLabel,
                       originalLabel: nodeLabel, // Store the original string value for ALL nodes
+                      hasChildren: hasChildren,
+                      isCollapsed: collapsedNodes.has(node.id),
+                      onToggleCollapse: () => toggleNodeCollapse(node.id, new MouseEvent('click') as any),
                     },
                     style: {
                       ...nodeTypeStyle,
@@ -6163,8 +6137,7 @@ export default function MindMap() {
                       minHeight: node.type === "default" ?
                         calculateTextNodeMinHeight(
                           typeof nodeData.label === 'string' ? nodeData.label : '',
-                          getNodeCurrentWidth(node),
-                          hasChildren
+                          getNodeCurrentWidth(node)
                         ) : "auto", // Remove minHeight calculation for text-no-bg
                       minWidth: "auto",
                       // Special border radius handling for image nodes with titles

@@ -18,6 +18,7 @@ import { TextNoBgNode } from "../components/TextNoBgNode";
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
 import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { supabase } from '../supabaseClient';
+import CollapseChevron from './CollapseChevron';
 
 const CustomBackground = React.memo(() => {
   return (
@@ -31,6 +32,9 @@ interface MindMapNodeProps {
     label: string;
     mapId?: string; // Use mapId as the primary identifier
     mapKey?: string;  // Keep for backward compatibility (will be removed in future)
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
@@ -46,6 +50,11 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
   const [isLoadingCreator, setIsLoadingCreator] = useState<boolean>(false);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
   const navigate = useNavigate();
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   // Memoized nodes and edges to prevent unnecessary ReactFlow re-renders
   const memoizedNodes = useMemo(() => {
@@ -201,7 +210,12 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
   };
 
   return (
-    <div className="relative min-w-[320px] bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl overflow-visible border border-slate-700/30 transition-all duration-300 hover:border-slate-600/50" onContextMenu={handleContextMenu}>
+    <div className="group relative min-w-[320px] bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl overflow-visible border border-slate-700/30 transition-all duration-300 hover:border-slate-600/50" onContextMenu={handleContextMenu}>
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       <Handle
         type="target"
         position={Position.Top}

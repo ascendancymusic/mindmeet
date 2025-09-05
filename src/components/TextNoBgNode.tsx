@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
+import CollapseChevron from './CollapseChevron';
 import { getNodeWidth, getNodeHeight } from '../utils/nodeUtils';
 
 const ResizeIcon = () => (
@@ -25,6 +26,11 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     const reactFlowInstance = useReactFlow();
     const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
+
+    // Extract collapse data
+    const hasChildren = data?.hasChildren || false;
+    const isCollapsed = data?.isCollapsed || false;
+    const onToggleCollapse = data?.onToggleCollapse;
 
     // Ensure the outer React Flow node wrapper has the correct classes/styles to disable overlays globally
     useEffect(() => {
@@ -197,7 +203,7 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     return (
         <div
             ref={rootRef}
-            className={`relative overflow-visible no-node-overlay ${selected
+            className={`relative overflow-visible no-node-overlay group ${selected
                 ? 'border border-blue-400/50 rounded-md'
                 : 'border border-transparent rounded-md hover:border-gray-500/30'
                 }`}
@@ -209,6 +215,13 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
             }}
             onContextMenu={handleContextMenu}
         >
+            {/* Collapse button overlay */}
+            <CollapseChevron
+                hasChildren={hasChildren}
+                isCollapsed={isCollapsed}
+                onToggleCollapse={onToggleCollapse}
+            />
+
             {/* No handles - this is a comment node, not connectable */}
 
             {/* Simple text content */}

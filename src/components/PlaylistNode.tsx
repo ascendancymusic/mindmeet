@@ -5,6 +5,7 @@ import { AudioVisualizer } from 'react-audio-visualize';
 import { SpotifyIcon } from './icons/SpotifyIcon';
 import { SoundCloudIcon } from './icons/SoundCloudIcon';
 import { Youtube } from 'lucide-react';
+import CollapseChevron from './CollapseChevron';
 
 interface PlaylistItem {
   id: string;
@@ -21,6 +22,9 @@ interface PlaylistNodeProps {
   data: {
     label: string;
     trackIds?: string[]; // Store only the IDs of audio or spotify nodes
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   background?: string;
@@ -63,6 +67,11 @@ const formatSoundCloudUrl = (url?: string, fallbackLabel: string = 'SoundCloud T
 };
 
 export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
+
   // Get ReactFlow instance to access nodes
   const reactFlowInstance = useReactFlow();
 
@@ -1205,7 +1214,12 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   };
 
   return (
-    <div ref={nodeRef} className="relative overflow-visible" style={{ width: '300px' }}>
+    <div ref={nodeRef} className="group relative overflow-visible" style={{ width: '300px' }}>
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       <Handle
         type="target"
         position={Position.Top}

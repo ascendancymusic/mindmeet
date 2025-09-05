@@ -2,12 +2,16 @@ import { Handle, Position } from 'reactflow';
 import { GripVertical, Youtube, PlusCircle, Check } from 'lucide-react';
 import { YouTubeVideo } from '../services/youtubeSearch';
 import { useState } from 'react';
+import CollapseChevron from './CollapseChevron';
 
 interface YouTubeNodeProps {
   id: string;
   data: {
     label: string;
     videoUrl: string;
+    hasChildren?: boolean;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
   };
   isConnectable: boolean;
   selected?: boolean;
@@ -18,6 +22,11 @@ interface YouTubeNodeProps {
 
 export function YouTubeNode({ id, data, isConnectable, onContextMenu, isAddingToPlaylist }: YouTubeNodeProps) {
   const [showCheckmark, setShowCheckmark] = useState(false);
+
+  // Extract collapse data
+  const hasChildren = data?.hasChildren || false;
+  const isCollapsed = data?.isCollapsed || false;
+  const onToggleCollapse = data?.onToggleCollapse;
 
   const handleOverlayClick = () => {
     setShowCheckmark(true);
@@ -43,6 +52,11 @@ export function YouTubeNode({ id, data, isConnectable, onContextMenu, isAddingTo
 
   return (
     <div className="group relative rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+      <CollapseChevron 
+        hasChildren={hasChildren}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse || (() => {})}
+      />
       {isAddingToPlaylist && videoId && (
         <div 
           className="absolute inset-0 bg-green-500 bg-opacity-50 flex items-center justify-center rounded-lg z-10 cursor-pointer"
