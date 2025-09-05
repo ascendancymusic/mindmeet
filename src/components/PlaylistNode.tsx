@@ -13,6 +13,7 @@ interface PlaylistItem {
   spotifyUrl?: string;
   soundCloudUrl?: string;
   videoUrl?: string; // Add videoUrl for YouTube videos
+  duration?: number; // Add duration from audio node data
 }
 
 interface PlaylistNodeProps {
@@ -72,6 +73,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [hasEnded, setHasEnded] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -93,6 +95,9 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
 
   // Track when mouse is hovering over the playlist tracks area
   const [isHoveringTracks, setIsHoveringTracks] = useState(false);
+
+  // Ref for playlist scroll throttle to prevent acceleration
+  const lastPlaylistScrollTimeRef = useRef<number>(0);
 
   // Notify ReactFlow when hovering state changes to disable/enable zooming
   useEffect(() => {
@@ -189,7 +194,8 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
             audioUrl: audioUrl,
             spotifyUrl: spotifyUrl,
             soundCloudUrl: soundCloudUrl,
-            videoUrl: videoUrl
+            videoUrl: videoUrl,
+            duration: node.data.duration // Include duration from the audio node data
           } as PlaylistItem | null; // Explicitly type the returned object
         })
         .filter((item): item is PlaylistItem => item !== null);
@@ -578,6 +584,31 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
     }
   }, []);
 
+  // Handle wheel events for smooth scrolling with throttling to prevent acceleration
+  const handleWheel = useCallback((e: WheelEvent, element: HTMLElement) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastPlaylistScrollTimeRef.current;
+    
+    // Throttle wheel events to prevent acceleration (16ms = ~60fps)
+    if (timeDiff < 16) {
+      return;
+    }
+    
+    if (!element) return;
+    
+    // Use small incremental scroll steps (20px) instead of raw deltaY
+    const scrollStep = 20;
+    const scrollDirection = e.deltaY > 0 ? 1 : -1;
+    const newScrollTop = element.scrollTop + (scrollDirection * scrollStep);
+    
+    element.scrollTop = Math.max(0, Math.min(newScrollTop, element.scrollHeight - element.clientHeight));
+    
+    lastPlaylistScrollTimeRef.current = currentTime;
+  }, []);
+
   // Update the ref when the state changes
   useEffect(() => {
     soundCloudPlayerReadyRef.current = soundCloudPlayerReady;
@@ -610,13 +641,19 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
     setAudioBlob(null);
     setSoundCloudEmbedUrl(null);
     
-    // Reset progress for all track changes to ensure clean state
+    // Reset progress and duration for all track changes to ensure clean state
     setProgress(0);
     setCurrentTime(0);
+    setDuration(0);
 
     if (currentTrackIndex >= 0 && currentTrackIndex < playlist.length) {
       const currentTrack = playlist[currentTrackIndex];
       const trackIndexCopy = currentTrackIndex;
+      
+      // Set duration from playlist item data if available
+      if (currentTrack.duration && currentTrack.duration > 0) {
+        setDuration(currentTrack.duration);
+      }
       
       if (currentTrack.spotifyUrl) {
         // Handle Spotify track
@@ -1197,11 +1234,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                 const wheelHandler = (e: WheelEvent) => {
                   // When hovering over tracks, we want to scroll the tracks, not zoom the mindmap
                   if (isHoveringTracks) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    // Manually handle scrolling
-                    el.scrollTop += e.deltaY;
+                    handleWheel(e, el);
                   }
                 };
 
@@ -1291,7 +1324,14 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                   <span className="truncate">{playlist[currentTrackIndex].label}</span>
                   
                   {/* Only show time display for regular audio tracks (not SoundCloud, Spotify, or YouTube) */}
-                  {/* No duration logic, only show current time if needed */}
+                  {playlist[currentTrackIndex].audioUrl && 
+                   !playlist[currentTrackIndex].spotifyUrl && 
+                   !playlist[currentTrackIndex].soundCloudUrl && 
+                   !playlist[currentTrackIndex].videoUrl && (
+                    <span className="text-xs whitespace-nowrap ml-2">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                  )}
                 </div>
               ) : (
                 <span>-</span>
@@ -1421,10 +1461,8 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const pos = (e.clientX - rect.left) / rect.width;
 
-                      // Get the effective duration
-                      // duration property removed
-                      const audioDuration = audioRef.current.duration || 0;
-                      const effectiveDuration = audioDuration;
+                      // Use the duration state for seeking
+                      const effectiveDuration = duration;
 
                       // Only set currentTime if we have a valid duration
                       if (effectiveDuration && isFinite(effectiveDuration) && effectiveDuration > 0) {
@@ -1486,7 +1524,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
                       }}
                     >
-                      {/* No duration logic */}
+                      {formatTime(hoverPosition * duration)}
                     </div>
                   )}
                 </div>
@@ -1505,10 +1543,8 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const pos = (e.clientX - rect.left) / rect.width;
 
-                      // Get the effective duration
-                      // duration property removed
-                      const audioDuration = audioRef.current.duration || 0;
-                      const effectiveDuration = audioDuration;
+                      // Use the duration state for seeking
+                      const effectiveDuration = duration;
 
                       // Only set currentTime if we have a valid duration
                       if (effectiveDuration && isFinite(effectiveDuration) && effectiveDuration > 0) {
@@ -1558,7 +1594,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
                       }}
                     >
-                      {/* No duration logic */}
+                      {formatTime(hoverPosition * duration)}
                     </div>
                   )}
                 </div>
@@ -1600,10 +1636,12 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
           }}
           onLoadedMetadata={() => {
             if (isMountedRef.current && audioRef.current) {
-              // If we don't have a duration from the playlist item, use the audio element's duration
-              const audioDuration = audioRef.current.duration;
-              if (!isNaN(audioDuration) && isFinite(audioDuration) && audioDuration > 0) {
-                // setDuration(audioDuration); (removed duration logic)
+              // Only set duration from audio element if we don't already have it from playlist item data
+              if (duration === 0) {
+                const audioDuration = audioRef.current.duration;
+                if (!isNaN(audioDuration) && isFinite(audioDuration) && audioDuration > 0) {
+                  setDuration(audioDuration);
+                }
               }
             }
           }}

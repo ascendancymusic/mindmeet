@@ -132,6 +132,7 @@ interface HistoryAction {
     replacedEdgeId?: string
     drawingData?: DrawingData
     strokeId?: string
+    trackIds?: string[]
   }
   previousState?: {
     nodes: Node[]
@@ -320,6 +321,7 @@ export default function MindMap() {
   const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
   const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [isHoveringPlaylist, setIsHoveringPlaylist] = useState(false);
+  const lastPlaylistEditorScrollTimeRef = useRef<number>(0);
   const setIsAnimatingGeneration: React.Dispatch<React.SetStateAction<boolean>> = useState(false)[1];
   const [isFullscreen, setIsFullscreen] = useState(false);
   // AI Fill state
@@ -461,6 +463,31 @@ export default function MindMap() {
       isVisible: false,
       position: { x: 0, y: 0 }
     });
+  }, []);
+
+  // Handle wheel events for smooth playlist editor scrolling with throttling
+  const handlePlaylistEditorWheel = useCallback((e: WheelEvent, element: HTMLElement) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastPlaylistEditorScrollTimeRef.current;
+    
+    // Throttle wheel events to prevent acceleration (16ms = ~60fps)
+    if (timeDiff < 16) {
+      return;
+    }
+    
+    if (!element) return;
+    
+    // Use small incremental scroll steps (20px) instead of raw deltaY
+    const scrollStep = 20;
+    const scrollDirection = e.deltaY > 0 ? 1 : -1;
+    const newScrollTop = element.scrollTop + (scrollDirection * scrollStep);
+    
+    element.scrollTop = Math.max(0, Math.min(newScrollTop, element.scrollHeight - element.clientHeight));
+    
+    lastPlaylistEditorScrollTimeRef.current = currentTime;
   }, []);
 
   // Calculate search bar position relative to NodeTypesMenu
@@ -2935,11 +2962,10 @@ export default function MindMap() {
     trackId: string; // The actual audio node ID
     index: number; // The index of this track in the playlist
     label: string;
-    duration: number;
     onRemove: (trackId: string, index: number) => void;
   }
 
-  function SortableTrackItem({ id, trackId, index, label, duration, onRemove }: SortableTrackItemProps) {
+  function SortableTrackItem({ id, trackId, index, label, onRemove }: SortableTrackItemProps) {
     const {
       attributes,
       listeners,
@@ -2968,9 +2994,6 @@ export default function MindMap() {
           {index + 1}.
         </div>
         <div className="flex-1 truncate">{label || "Audio"}</div>
-        <div className="text-gray-500 ml-1 flex-shrink-0">
-          {formatTime(duration || 0)}
-        </div>
         <button
           className="ml-1 p-1 text-gray-500 hover:text-red-500 rounded-full"
           onClick={(e) => {
@@ -2992,6 +3015,12 @@ export default function MindMap() {
       setStagedPlaylistTrackIds([...stagedPlaylistTrackIds, audioNode.id]);
       return;
     }
+
+    // Store the original state for history
+    const originalNodes = nodes;
+    const playlistNode = nodes.find(node => node.id === playlistNodeId);
+    if (!playlistNode) return;
+
     setNodes(nds => {
       return nds.map(node => {
         if (node.id === playlistNodeId) {
@@ -3008,11 +3037,45 @@ export default function MindMap() {
         return node;
       });
     });
+
+    // Add to history for undo/redo functionality
     if (!isInitialLoad) {
+      const finalTrackIds = playlistNode.data.trackIds ? [...playlistNode.data.trackIds, audioNode.id] : [audioNode.id];
+      const action = createHistoryAction(
+        "update_node",
+        {
+          nodeId: playlistNodeId,
+          trackIds: finalTrackIds
+        },
+        originalNodes,
+        edges
+      );
+      addToHistory(action);
+
+      // Broadcast the change to collaborators
+      if (currentMindMapId) {
+        const updatedNode = nodes.find(n => n.id === playlistNodeId);
+        if (updatedNode) {
+          const finalNode = {
+            ...updatedNode,
+            data: {
+              ...updatedNode.data,
+              trackIds: updatedNode.data.trackIds ? [...updatedNode.data.trackIds, audioNode.id] : [audioNode.id]
+            }
+          };
+          broadcastLiveChange({
+            id: playlistNodeId,
+            type: 'node',
+            action: 'update',
+            data: finalNode
+          });
+        }
+      }
+
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds]);
+  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds, nodes, edges, createHistoryAction, addToHistory, currentMindMapId, broadcastLiveChange]);
 
   // Toggle "add to playlist" mode
   const toggleAddToPlaylistMode = useCallback((playlistNodeId: string | null) => {
@@ -3039,6 +3102,12 @@ export default function MindMap() {
       setStagedPlaylistTrackIds(updated);
       return;
     }
+
+    // Store the original state for history
+    const originalNodes = nodes;
+    const playlistNode = nodes.find(node => node.id === playlistNodeId);
+    if (!playlistNode || !playlistNode.data.trackIds) return;
+
     setNodes(nds => {
       return nds.map(node => {
         if (node.id === playlistNodeId && node.data.trackIds) {
@@ -3057,11 +3126,52 @@ export default function MindMap() {
         return node;
       });
     });
+
+    // Add to history for undo/redo functionality
     if (!isInitialLoad) {
+      const updatedTrackIds = playlistNode.data.trackIds ? [...playlistNode.data.trackIds] : [];
+      if (trackIndex >= 0 && trackIndex < updatedTrackIds.length) {
+        updatedTrackIds.splice(trackIndex, 1);
+      }
+      const action = createHistoryAction(
+        "update_node",
+        {
+          nodeId: playlistNodeId,
+          trackIds: updatedTrackIds
+        },
+        originalNodes,
+        edges
+      );
+      addToHistory(action);
+
+      // Broadcast the change to collaborators
+      if (currentMindMapId) {
+        const updatedNode = nodes.find(n => n.id === playlistNodeId);
+        if (updatedNode && updatedNode.data.trackIds) {
+          const updatedTrackIds = [...updatedNode.data.trackIds];
+          if (trackIndex >= 0 && trackIndex < updatedTrackIds.length) {
+            updatedTrackIds.splice(trackIndex, 1);
+          }
+          const finalNode = {
+            ...updatedNode,
+            data: {
+              ...updatedNode.data,
+              trackIds: updatedTrackIds
+            }
+          };
+          broadcastLiveChange({
+            id: playlistNodeId,
+            type: 'node',
+            action: 'update',
+            data: finalNode
+          });
+        }
+      }
+
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds]);
+  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds, nodes, edges, createHistoryAction, addToHistory, currentMindMapId, broadcastLiveChange]);
 
   // Helper function to reorder tracks in a playlist
   const handleReorderPlaylistTracks = useCallback((playlistNodeId: string, oldIndex: number, newIndex: number) => {
@@ -3072,6 +3182,12 @@ export default function MindMap() {
       setStagedPlaylistTrackIds(updated);
       return;
     }
+
+    // Store the original state for history
+    const originalNodes = nodes;
+    const playlistNode = nodes.find(node => node.id === playlistNodeId);
+    if (!playlistNode || !playlistNode.data.trackIds) return;
+
     setNodes(nds => {
       return nds.map(node => {
         if (node.id === playlistNodeId && node.data.trackIds) {
@@ -3089,11 +3205,50 @@ export default function MindMap() {
         return node;
       });
     });
+
+    // Add to history for undo/redo functionality
     if (!isInitialLoad) {
+      const reorderedTrackIds = [...playlistNode.data.trackIds];
+      const [movedItem] = reorderedTrackIds.splice(oldIndex, 1);
+      reorderedTrackIds.splice(newIndex, 0, movedItem);
+      const action = createHistoryAction(
+        "update_node",
+        {
+          nodeId: playlistNodeId,
+          trackIds: reorderedTrackIds
+        },
+        originalNodes,
+        edges
+      );
+      addToHistory(action);
+
+      // Broadcast the change to collaborators
+      if (currentMindMapId) {
+        const updatedNode = nodes.find(n => n.id === playlistNodeId);
+        if (updatedNode && updatedNode.data.trackIds) {
+          const trackIds = [...updatedNode.data.trackIds];
+          const [movedItem] = trackIds.splice(oldIndex, 1);
+          trackIds.splice(newIndex, 0, movedItem);
+          const finalNode = {
+            ...updatedNode,
+            data: {
+              ...updatedNode.data,
+              trackIds
+            }
+          };
+          broadcastLiveChange({
+            id: playlistNodeId,
+            type: 'node',
+            action: 'update',
+            data: finalNode
+          });
+        }
+      }
+
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds]);
+  }, [isInitialLoad, isAddingToPlaylist, activePlaylistNodeId, stagedPlaylistTrackIds, nodes, edges, createHistoryAction, addToHistory, currentMindMapId, broadcastLiveChange]);
 
   // Helper function to handle clipboard operations (copy/cut)
   const handleClipboardOperation = useCallback(
@@ -3950,6 +4105,7 @@ export default function MindMap() {
                     soundCloudUrl: previousNode.data?.soundCloudUrl,
                     url: previousNode.data?.url,
                     mapId: previousNode.data?.mapId || previousNode.data?.MapId, // Support both mapId and legacy MapId
+                    trackIds: previousNode.data?.trackIds, // Handle playlist track changes
                   },
                 }
               }
@@ -4216,6 +4372,7 @@ export default function MindMap() {
           }
           break
         case "update_node":
+          console.log('Redo update_node:', nextAction.data); // Debug log
           setNodes((nodes) =>
             nodes.map((node) => {
               if (
@@ -4238,7 +4395,7 @@ export default function MindMap() {
                 }
 
                 // Handle data changes (label, etc.) - but not if this is just a color change
-                if ((nextAction.data.label !== undefined || nextAction.data.displayText !== undefined) && !nextAction.data.color) {
+                if ((nextAction.data.label !== undefined || nextAction.data.displayText !== undefined || nextAction.data.trackIds !== undefined) && !nextAction.data.color) {
                   const updatedData = {
                     ...updatedNode.data,
                   };
@@ -4270,10 +4427,17 @@ export default function MindMap() {
                     updatedData.displayText = nextAction.data.displayText;
                   }
 
+                  // Handle playlist track changes
+                  if (nextAction.data.trackIds !== undefined) {
+                    console.log('Applying trackIds in redo:', nextAction.data.trackIds); // Debug log
+                    updatedData.trackIds = nextAction.data.trackIds;
+                  }
+
                   updatedNode = {
                     ...updatedNode,
                     data: updatedData,
                   };
+                  console.log('Updated node data in redo (trackIds only):', updatedNode.data); // Debug log
                 }
 
                 // Handle combined color + label changes (like mark as done)
@@ -4301,6 +4465,12 @@ export default function MindMap() {
                       const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
                       updatedData.mapId = selectedMap?.id; // Use mapId instead of MapId
                     }
+                  }
+
+                  // Handle playlist track changes for combined updates
+                  if (nextAction.data.trackIds !== undefined) {
+                    console.log('Applying trackIds in combined redo:', nextAction.data.trackIds); // Debug log
+                    updatedData.trackIds = nextAction.data.trackIds;
                   }
 
                   updatedNode = {
@@ -6768,11 +6938,7 @@ export default function MindMap() {
                           const wheelHandler = (e: WheelEvent) => {
                             // When hovering over tracks, we want to scroll the tracks, not zoom the mindmap
                             if (isHoveringPlaylist) {
-                              e.preventDefault();
-                              e.stopPropagation();
-
-                              // Manually handle scrolling
-                              el.scrollTop += e.deltaY;
+                              handlePlaylistEditorWheel(e, el);
                             }
                           };
 
@@ -6834,8 +7000,7 @@ export default function MindMap() {
                                   displayLabel = `${displayLabel} (${trackOccurrences + 1})`;
                                 }
 
-                                // Determine duration based on node type
-                                const duration = trackNode.data.duration || 0;
+                                // Determine duration based on node type - no longer needed for display
 
                                 return (
                                   <SortableTrackItem
@@ -6844,7 +7009,6 @@ export default function MindMap() {
                                     trackId={trackId}
                                     index={index}
                                     label={displayLabel}
-                                    duration={duration}
                                     onRemove={(trackId, index) => handleRemoveTrackFromPlaylist(selectedNodeId, trackId, index)}
                                   />
                                 );
@@ -6882,11 +7046,48 @@ export default function MindMap() {
                             onClick={() => {
                               // Commit staged trackIds to the node
                               if (activePlaylistNodeId && stagedPlaylistTrackIds) {
+                                // Store the original state for history
+                                const originalNodes = nodes;
+                                const playlistNode = nodes.find(node => node.id === activePlaylistNodeId);
+                                
                                 setNodes(nds => nds.map(node =>
                                   node.id === activePlaylistNodeId
                                     ? { ...node, data: { ...node.data, trackIds: [...stagedPlaylistTrackIds] } }
                                     : node
                                 ));
+
+                                // Add to history for undo/redo functionality
+                                if (!isInitialLoad && playlistNode) {
+                                  const action = createHistoryAction(
+                                    "update_node",
+                                    {
+                                      nodeId: activePlaylistNodeId,
+                                      trackIds: [...stagedPlaylistTrackIds]
+                                    },
+                                    originalNodes,
+                                    edges
+                                  );
+                                  addToHistory(action);
+
+                                  // Broadcast the change to collaborators
+                                  if (currentMindMapId) {
+                                    const finalNode = {
+                                      ...playlistNode,
+                                      data: {
+                                        ...playlistNode.data,
+                                        trackIds: [...stagedPlaylistTrackIds]
+                                      }
+                                    };
+                                    broadcastLiveChange({
+                                      id: activePlaylistNodeId,
+                                      type: 'node',
+                                      action: 'update',
+                                      data: finalNode
+                                    });
+                                  }
+
+                                  setHasUnsavedChanges(true);
+                                }
                               }
                               setIsAddingToPlaylist(false);
                               setActivePlaylistNodeId(null);
