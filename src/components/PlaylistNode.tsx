@@ -31,6 +31,7 @@ interface PlaylistNodeProps {
   style?: {
     background?: string;
   };
+  onContextMenu?: (event: React.MouseEvent, nodeId: string) => void;
 }
 
 // Helper function to format time in MM:SS format
@@ -66,7 +67,7 @@ const formatSoundCloudUrl = (url?: string, fallbackLabel: string = 'SoundCloud T
   }
 };
 
-export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
+export function PlaylistNode({ id, data, isConnectable, onContextMenu }: PlaylistNodeProps) {
   // Extract collapse data
   const hasChildren = data?.hasChildren || false;
   const isCollapsed = data?.isCollapsed || false;
@@ -100,7 +101,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   const [youtubePlayerReady, setYoutubePlayerReady] = useState(false);
   const youtubePlayerReadyRef = useRef(false);
   const youtubeIframeRef = useRef<HTMLIFrameElement>(null);
-  const [currentYoutubeTrackId, setCurrentYoutubeTrackId] = useState<string | null>(null);
+  // const [currentYoutubeTrackId, setCurrentYoutubeTrackId] = useState<string | null>(null); // Unused variable
 
   // Track when mouse is hovering over the playlist tracks area
   const [isHoveringTracks, setIsHoveringTracks] = useState(false);
@@ -142,6 +143,13 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
 
   // Always load content to prevent audio culling when out of view
   const shouldLoadContent = true;
+
+  // Handle context menu
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(event, id);
+    }
+  };
 
   // Build playlist from track IDs
   useEffect(() => {
@@ -494,7 +502,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   const [soundCloudPlayerReady, setSoundCloudPlayerReady] = useState(false);
   const soundCloudPlayerReadyRef = useRef(false);
   // Add state to track the current loaded SoundCloud track URL
-  const [currentSoundCloudTrackUrl, setCurrentSoundCloudTrackUrl] = useState<string | null>(null);
+  // const [currentSoundCloudTrackUrl, setCurrentSoundCloudTrackUrl] = useState<string | null>(null); // Unused variable
 
   // Function to create SoundCloud embed URL - fix URL formatting issues
   const createSoundCloudEmbedUrl = useCallback((soundCloudUrl: string): string => {
@@ -507,7 +515,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
     }
     
     // Update the current SoundCloud track URL
-    setCurrentSoundCloudTrackUrl(formattedUrl);
+    // setCurrentSoundCloudTrackUrl(formattedUrl); // Commented out as variable is unused
     
     // Create embed URL for SoundCloud Widget API with improved parameters
     // visual=true for artwork, but hide user info and controls where possible
@@ -1106,8 +1114,8 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
         setSpotifyEmbedUrl(null);
         
         // Extract video ID and set current track ID
-        const videoId = extractYouTubeVideoId(selectedTrack.videoUrl);
-        setCurrentYoutubeTrackId(videoId);
+        // const videoId = extractYouTubeVideoId(selectedTrack.videoUrl);
+        // setCurrentYoutubeTrackId(videoId); // Commented out as variable is unused
         
         // Reset YouTube player ready state since we're loading a new track
         setYoutubePlayerReady(false);
@@ -1214,7 +1222,7 @@ export function PlaylistNode({ id, data, isConnectable }: PlaylistNodeProps) {
   };
 
   return (
-    <div ref={nodeRef} className="group relative overflow-visible" style={{ width: '300px' }}>
+    <div ref={nodeRef} className="group relative overflow-visible" style={{ width: '300px' }} onContextMenu={handleContextMenu}>
       <CollapseChevron 
         hasChildren={hasChildren}
         isCollapsed={isCollapsed}
