@@ -9,6 +9,7 @@ import social_links_mindmap from "../examples/social_links_mindmap.json"
 import Math_Course_mindmap from "../examples/Math_Course_mindmap.json"
 import All_Containing_Map from "../examples/All_Containing_Map.json"
 import { getPublicMindmaps } from "./publicMindmapsCache"
+import { autoLayoutNode } from "../utils/autoLayout"
 
 class AIService {
   private apiKey: string
@@ -25,6 +26,50 @@ class AIService {
     }
     this.apiKey = apiKey
     this.config.apiKey = apiKey
+  }
+
+  /**
+   * Apply auto-layout to a mindmap starting from the root node
+   * @param nodes Array of mindmap nodes
+   * @param edges Array of mindmap edges
+   * @returns Object containing the updated nodes with new positions
+   */
+  private applyAutoLayout(nodes: any[], edges: any[]): { updatedNodes: any[] } {
+    try {
+      // Find the root node (usually has ID "1" or no incoming edges)
+      let rootNodeId = "1"; // Default assumption
+      
+      // Try to find the actual root node by checking for a node with no incoming edges
+      const targetIds = new Set(edges.map(edge => edge.target));
+      const potentialRoots = nodes.filter(node => !targetIds.has(node.id));
+      
+      if (potentialRoots.length > 0) {
+        // Use the first node that has no incoming edges as root
+        rootNodeId = potentialRoots[0].id;
+      } else if (!nodes.find(node => node.id === "1")) {
+        // If no clear root and no node with ID "1", use the first node
+        rootNodeId = nodes[0]?.id;
+      }
+
+      console.log(`[AI Service] Applying auto-layout starting from root node: ${rootNodeId}`);
+
+      // Apply auto-layout using the autoLayoutNode function
+      const layoutResult = autoLayoutNode(nodes, edges, rootNodeId, {
+        nodeSpacing: 20,
+        subtreeSpacing: 60,
+        levelSpacing: 120,
+        childrenPerRow: 3,
+        minRowSpacing: 60
+      });
+
+      console.log(`[AI Service] Auto-layout completed for ${layoutResult.updatedNodes.length} nodes`);
+      return { updatedNodes: layoutResult.updatedNodes };
+
+    } catch (error) {
+      console.error("Failed to apply auto-layout:", error);
+      // Return original nodes if layout fails
+      return { updatedNodes: nodes };
+    }
   }
 
   private async ensurePublicMindmapsLoaded() {
@@ -407,6 +452,10 @@ class AIService {
                 }
               }
             }
+
+            // Apply auto-layout before saving the changes
+            const layoutResult = this.applyAutoLayout(validJson.nodes, validJson.edges);
+            validJson.nodes = layoutResult.updatedNodes;
 
             // Apply AI-suggested changes to the mindmap
             store.proposeAIChanges(
@@ -1037,6 +1086,10 @@ class AIService {
           }
           
           console.log("✓ FINAL VALIDATION PASSED: All IDs are unique")
+
+          // Apply auto-layout before saving the changes
+          const layoutResult = this.applyAutoLayout(validJson.nodes, validJson.edges);
+          validJson.nodes = layoutResult.updatedNodes;
 
           // Apply AI-suggested changes to the mindmap
           store.proposeAIChanges(
