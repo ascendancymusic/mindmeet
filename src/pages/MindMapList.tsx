@@ -44,6 +44,7 @@ import { useToastStore } from "../store/toastStore"
 import EditDetailsModal from "../components/EditDetailsModal"
 import PublishSuccessModal from "../components/PublishSuccessModal"
 import CloneSuccessModal from "../components/CloneSuccessModal"
+import CreateMindmapModal from "../components/CreateMindmapModal"
 import { supabase } from "../supabaseClient"
 import { useNotificationStore } from '../store/notificationStore';
 import InfoModal from "../components/InfoModal"
@@ -710,7 +711,6 @@ export default function MindMapList() {
   const [mapToDelete, setMapToDelete] = useState<string | null>(null)
   const [mapToEdit, setMapToEdit] = useState<string | null>(null)
   const [collaborationToLeave, setCollaborationToLeave] = useState<string | null>(null)
-  const [newMapTitle, setNewMapTitle] = useState("")
   const [viewMode, setViewMode] = useState<"owned" | "collaboration">("owned")
   // Sub-tab state for collaboration view (accepted vs pending invites)
   const [collaborationSubtab, setCollaborationSubtab] = useState<'all' | 'pending'>('all')
@@ -1210,9 +1210,8 @@ export default function MindMapList() {
     }
   }, [maps.length, groups.length])
 
-  const handleCreateMap = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMapTitle.trim() || !isValidUserId) {
+  const handleCreateMap = async (title: string) => {
+    if (!isValidUserId) {
       console.error("Invalid or undefined userId. Cannot create map.")
       return
     }
@@ -1220,14 +1219,13 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-  const newPermalink = await addMap(newMapTitle.trim().substring(0, 20), userId)
-      setNewMapTitle("")
-      setIsCreating(false)
+      const newPermalink = await addMap(title, userId)
       showToast("Mindmap created successfully!", "success")
-  navigate(`/${user.username}/${newPermalink}/edit`)
+      navigate(`/${user.username}/${newPermalink}/edit`)
     } catch (error) {
       console.error("Error creating mindmap:", error)
       showToast("Failed to create mindmap. Please try again.", "error")
+      throw error
     }
   }
 
@@ -2159,42 +2157,11 @@ export default function MindMapList() {
   </>
       )}
 
-      {isCreating && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6">
-              Create a new mindmap
-            </h2>
-            <form onSubmit={handleCreateMap} className="space-y-6">
-              <input
-                type="text"
-                value={newMapTitle}
-                onChange={(e) => setNewMapTitle(e.target.value)}
-                placeholder="Enter map title..."
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
-                autoFocus
-                maxLength={20}
-              />
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsCreating(false)}
-                  className="px-6 py-3 text-slate-400 hover:text-slate-300 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newMapTitle.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-medium transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateMindmapModal
+        isOpen={isCreating}
+        onClose={() => setIsCreating(false)}
+        onCreateMap={handleCreateMap}
+      />
 
       <GroupMenu
         isOpen={openGroupMenuId !== null}

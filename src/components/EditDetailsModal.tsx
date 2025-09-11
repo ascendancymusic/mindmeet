@@ -478,9 +478,10 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               value={editDetails.title}
               onChange={(e) => setEditDetails({ ...editDetails, title: e.target.value })}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 text-base md:text-sm sm:text-xs"
-              maxLength={20}
+              maxLength={50}
               required
             />
+            <p className="text-xs text-slate-500 mt-1">{editDetails.title.length}/50</p>
           </div>
 
           <div className="space-y-3">
