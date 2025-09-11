@@ -584,6 +584,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       visibility: 'private',
       description: '',
       collaborators: [],
+      creator: userId, // Set the creator field immediately
     };
 
     set((state) => ({ maps: [...state.maps, newMap] }));

@@ -6,6 +6,26 @@ import { useParams, useNavigate } from "react-router-dom"
 import ReactFlow, { Background, Controls, ReactFlowProvider, type ReactFlowInstance } from "reactflow"
 import "reactflow/dist/style.css"
 import { supabase } from "../supabaseClient"
+import { decompressDrawingData } from "../utils/drawingDataCompression"
+
+const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
+  if (backgroundColor) {
+    return (
+      <>
+        {/* Base background color */}
+        <div className="absolute inset-0" style={{ backgroundColor, zIndex: -2 }} />
+        {/* Subtle gradient overlay for better visual appeal */}
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20"
+          style={{ zIndex: -1 }}
+        />
+      </>
+    )
+  }
+
+  // Default ReactFlow background when no custom background
+  return <Background color="#475569" gap={20} />
+}
 import { useAuthStore } from "../store/authStore"
 import { usePageTitle } from "../hooks/usePageTitle"
 import { formatDateWithPreference } from "../utils/dateUtils"
@@ -49,6 +69,7 @@ import EditDetailsModal from "../components/EditDetailsModal"
 import PublishSuccessModal from "../components/PublishSuccessModal"
 import { useNotificationStore } from "../store/notificationStore"
 import { useMindMapActions } from "../hooks/useMindMapActions"
+import DrawingPreview from "../components/DrawingPreview"
 import { useMindMapStore } from "../store/mindMapStore"
 import eventEmitter from "../services/eventService"
 import defaultNodeStyles from "../config/defaultNodeStyles"
@@ -458,7 +479,7 @@ const ViewMindMap: React.FC = () => {
       const { data: map, error: mapError } = await supabase
         .from("mindmaps")
         .select(`
-          id, permalink, title, json_data, updated_at, visibility, description, is_main, published_at,
+          id, permalink, title, json_data, drawing_data, updated_at, visibility, description, is_main, published_at,
           mindmap_like_counts (like_count),
           mindmap_save_counts (save_count)
         `)
@@ -528,6 +549,8 @@ const ViewMindMap: React.FC = () => {
           nodes: processedNodes,
           edges: processedEdges,
           edgeType: map.json_data?.edgeType || 'default',
+          backgroundColor: map.json_data?.backgroundColor,
+          drawingData: decompressDrawingData(map.drawing_data) || undefined,
           likes,
           likedBy,
           saves,
@@ -1599,8 +1622,11 @@ const ViewMindMap: React.FC = () => {
                     maxZoom={2}
                     proOptions={{ hideAttribution: true }}
                   >
-                    <Background color="#475569" gap={20} />
+                    <CustomBackground backgroundColor={currentMap.backgroundColor} />
                     <Controls />
+                    {currentMap.drawingData && (
+                      <DrawingPreview drawingData={currentMap.drawingData} />
+                    )}
                   </ReactFlow>
                   <button
                     onClick={handleFullscreen}

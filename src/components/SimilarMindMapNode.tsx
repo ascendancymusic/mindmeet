@@ -1,25 +1,14 @@
-import React, { useEffect, useCallback, useState, useMemo } from "react";
-import ReactFlow, { ReactFlowProvider, ReactFlowInstance, NodeTypes } from "reactflow";
+import React, { useEffect, useCallback, useState } from "react";
+import { ReactFlowProvider, ReactFlowInstance } from "reactflow";
 import "reactflow/dist/style.css";
 import { supabase } from "../supabaseClient";
-import { prepareNodesForRendering } from "../utils/reactFlowUtils";
-import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { formatDateWithPreference } from "../utils/dateUtils";
-import { nodeTypes } from "../config/nodeTypes";
 import { Info, Heart, MessageCircle, Bookmark, Share2, MoreHorizontal } from "lucide-react";
 import InfoModal from "./InfoModal";
 import ShareModal from "./ShareModal";
 import { useAuthStore } from "../store/authStore";
 import { useMindMapActions } from "../hooks/useMindMapActions";
-
-const CustomBackground = () => {
-  return (
-    <div
-      className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-slate-900/60 rounded-lg backdrop-blur-sm"
-      style={{ zIndex: -1 }}
-    />
-  )
-}
+import MindMapRenderer from "./MindMapRenderer";
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -129,7 +118,10 @@ interface SimilarMindMapNodeProps {
     json_data: {
       nodes: any[];
       edges: any[];
+      backgroundColor?: string;
+      edgeType?: string;
     };
+    drawing_data?: string; // Compressed drawing data from database
     creator: string; // Use creator ID to fetch the username and avatar
     updated_at?: string; // Add updated_at field
     saves?: number;
@@ -179,9 +171,6 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
     },
     sendNotifications: true
   });
-
-  // Memoize nodeTypes to prevent recreation on each render
-  const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []); 
 
   // Initialize user interaction states
   useEffect(() => {
@@ -382,47 +371,25 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
               backgroundSize: '20px 20px'
             }}></div>
 
-            <ReactFlow
-              nodes={processNodesForTextRendering(prepareNodesForRendering(mindmap.json_data.nodes))}
-              edges={mindmap.json_data.edges.map((edge: any) => {
-                // Find the source node to get its color
-                const sourceNode = mindmap.json_data.nodes.find((node: any) => node.id === edge.source);
-                const sourceNodeColor = sourceNode
-                  ? (sourceNode.background || sourceNode.style?.background || "#374151")
-                  : "#374151";
-
-                // Get edgeType from mindmap data, default to 'default' if not valid
-                const edgeType = ['default', 'straight', 'smoothstep'].includes((mindmap as any).json_data?.edgeType)
-                  ? (mindmap as any).json_data?.edgeType
-                  : 'default';
-
-                return {
-                  ...edge,
-                  type: edgeType === 'default' ? 'default' : edgeType,
-                  style: {
-                    ...edge.style,
-                    strokeWidth: 2,
-                    stroke: sourceNodeColor,
-                  },
-                };
-              })}
-              nodeTypes={memoizedNodeTypes}
-              fitView
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={false}
-              zoomOnScroll={!isSmallScreen}
-              panOnScroll={false}
-              zoomOnDoubleClick={false}
+            <MindMapRenderer
+              mindMapData={{
+                nodes: mindmap.json_data.nodes,
+                edges: mindmap.json_data.edges,
+                backgroundColor: mindmap.json_data?.backgroundColor,
+                edgeType: mindmap.json_data?.edgeType as 'default' | 'straight' | 'smoothstep' | undefined,
+              }}
+              drawingData={mindmap.drawing_data}
+              interactive={false}
+              zoomable={!isSmallScreen}
+              pannable={!isSmallScreen}
+              doubleClickZoom={false}
+              selectable={false}
               preventScrolling={isSmallScreen}
               minZoom={0.1}
               maxZoom={2}
               onInit={onInit}
-              proOptions={{ hideAttribution: true }}
               className="react-flow-instance"
-            >
-              <CustomBackground />
-            </ReactFlow>
+            />
 
             {/* Hover overlay */}
             <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>

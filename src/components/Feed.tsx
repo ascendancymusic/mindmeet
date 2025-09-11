@@ -92,7 +92,7 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
       let query = supabase
         .from("mindmaps")
         .select(`
-          permalink, id, title, json_data, creator, created_at, description, visibility, is_main, published_at, updated_at,
+          permalink, id, title, json_data, drawing_data, creator, created_at, description, visibility, is_main, published_at, updated_at,
           mindmap_like_counts (like_count),
           mindmap_save_counts (save_count),
           mindmap_comment_counts (comment_count)

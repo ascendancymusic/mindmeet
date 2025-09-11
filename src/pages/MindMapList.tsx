@@ -35,11 +35,9 @@ import {
   Search,
   Info,
 } from "lucide-react"
-import ReactFlow, { type ReactFlowInstance, type NodeTypes } from "reactflow"
+import { type ReactFlowInstance } from "reactflow"
 import "reactflow/dist/style.css"
 import { useMindMapStore } from "../store/mindMapStore"
-import { nodeTypes } from "../config/nodeTypes"
-import { prepareNodesForRendering } from "../utils/reactFlowUtils"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import { useAuthStore } from "../store/authStore"
 import { useToastStore } from "../store/toastStore"
@@ -48,8 +46,8 @@ import PublishSuccessModal from "../components/PublishSuccessModal"
 import CloneSuccessModal from "../components/CloneSuccessModal"
 import { supabase } from "../supabaseClient"
 import { useNotificationStore } from '../store/notificationStore';
-import { processNodesForTextRendering } from "../utils/textNodeUtils"
 import InfoModal from "../components/InfoModal"
+import MindMapRenderer from "../components/MindMapRenderer"
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -79,67 +77,12 @@ interface Group {
   color?: string // legacy optional color support for existing styling
 }
 
-const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
-  if (backgroundColor) {
-    return (
-      <>
-        {/* Base background color */}
-        <div className="absolute inset-0 rounded-lg" style={{ backgroundColor, zIndex: -2 }} />
-        {/* Subtle gradient overlay for better visual appeal */}
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
-          style={{ zIndex: -1 }}
-        />
-      </>
-    )
-  }
-
-  // Default gradient when no custom background
-  return (
-    <div
-      className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-slate-900/60 rounded-lg backdrop-blur-sm"
-      style={{ zIndex: -1 }}
-    />
-  )
-}
-
 // Memoized ReactFlow preview component to prevent unnecessary re-renders
 const MindMapPreview = React.memo(({ map, isSmallScreen, onInit }: {
   map: any,
   isSmallScreen: boolean,
   onInit: (instance: any) => void
 }) => {
-  // Memoize the expensive node and edge processing
-  const { processedNodes, processedEdges } = useMemo(() => {
-    if (!map.nodes?.length) return { processedNodes: [], processedEdges: [] }
-
-    const nodes = processNodesForTextRendering(prepareNodesForRendering(map.nodes))
-    const edges = map.edges.map((edge: any) => {
-      // Find the source node to get its color
-      const sourceNode = map.nodes.find((node: any) => node.id === edge.source)
-      const sourceNodeColor = sourceNode
-        ? sourceNode.background || sourceNode.style?.background || "#374151"
-        : "#374151"
-
-      // Get edgeType from map, default to 'default' if not valid
-      const edgeType = ["default", "straight", "smoothstep"].includes(map.edgeType || "")
-        ? map.edgeType
-        : "default"
-
-      return {
-        ...edge,
-        type: edgeType === "default" ? "default" : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      }
-    })
-
-    return { processedNodes: nodes, processedEdges: edges }
-  }, [map.nodes, map.edges, map.edgeType])
-
   if (!map.nodes?.length) {
     return (
       <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
@@ -158,24 +101,26 @@ const MindMapPreview = React.memo(({ map, isSmallScreen, onInit }: {
   }
 
   return (
-    <ReactFlow
-      nodes={processedNodes}
-      edges={processedEdges}
-      nodeTypes={nodeTypes as unknown as NodeTypes}
-      fitView
-      nodesDraggable={false}
-      nodesConnectable={false}
-      elementsSelectable={false}
-      zoomOnScroll={!isSmallScreen}
-      zoomOnDoubleClick={false}
-      panOnDrag={!isSmallScreen}
+    <MindMapRenderer
+      mindMapData={{
+        nodes: map.nodes || [],
+        edges: map.edges || [],
+        backgroundColor: map.backgroundColor,
+        fontFamily: map.fontFamily,
+        edgeType: map.edgeType as 'default' | 'straight' | 'smoothstep' | undefined,
+      }}
+      drawingData={map.drawingData}
+      interactive={false}
+      zoomable={!isSmallScreen}
+      pannable={!isSmallScreen}
+      doubleClickZoom={false}
+      selectable={false}
+      preventScrolling={isSmallScreen}
       minZoom={0.1}
       maxZoom={2}
       onInit={onInit}
-      proOptions={{ hideAttribution: true }}
-    >
-      <CustomBackground backgroundColor={map.backgroundColor} />
-    </ReactFlow>
+      className="react-flow-instance"
+    />
   )
 }, (prevProps, nextProps) => {
   // Custom comparison function for React.memo
@@ -186,7 +131,8 @@ const MindMapPreview = React.memo(({ map, isSmallScreen, onInit }: {
     JSON.stringify(prevProps.map.nodes) === JSON.stringify(nextProps.map.nodes) &&
     JSON.stringify(prevProps.map.edges) === JSON.stringify(nextProps.map.edges) &&
     prevProps.map.backgroundColor === nextProps.map.backgroundColor &&
-    prevProps.map.edgeType === nextProps.map.edgeType
+    prevProps.map.edgeType === nextProps.map.edgeType &&
+    JSON.stringify(prevProps.map.drawingData) === JSON.stringify(nextProps.map.drawingData)
   )
 })
 

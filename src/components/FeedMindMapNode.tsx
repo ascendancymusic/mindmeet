@@ -1,9 +1,6 @@
-import React, { useEffect, useCallback, useState, useMemo } from "react";
-import ReactFlow, { ReactFlowProvider, ReactFlowInstance, NodeTypes } from "reactflow";
+import React, { useEffect, useCallback, useState } from "react";
 import "reactflow/dist/style.css";
 import { supabase } from "../supabaseClient";
-import { prepareNodesForRendering } from "../utils/reactFlowUtils";
-import { nodeTypes } from "../config/nodeTypes";
 import { Heart, MessageCircle, Bookmark, Share2, MoreVertical, Info, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useMindMapActions } from '../hooks/useMindMapActions';
@@ -12,7 +9,7 @@ import InfoModal from './InfoModal';
 import EditDetailsModal from './EditDetailsModal';
 import { formatDateWithPreference } from "../utils/dateUtils";
 import { useMindMapStore } from '../store/mindMapStore';
-import { processNodesForTextRendering } from '../utils/textNodeUtils';
+import MindMapRenderer from './MindMapRenderer';
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -33,12 +30,6 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleSheet)
 }
 
-const CustomBackground = () => {
-  return (
-    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-slate-900/60 rounded-lg backdrop-blur-sm" style={{ zIndex: -1 }}></div>
-  );
-};
-
 interface Profile {
   username: string;
   full_name: string;
@@ -54,7 +45,10 @@ interface FeedMindMapNodeProps {
       nodes: any[];
       edges: any[];
       edgeType?: string;
+      backgroundColor?: string;
+      fontFamily?: string;
     };
+    drawing_data?: string;
     creator: string;
     created_at?: string;
     likes?: number;
@@ -72,7 +66,6 @@ interface FeedMindMapNodeProps {
 
 const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, onDelete }) => {
   const { user } = useAuthStore();
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [localMindmap, setLocalMindmap] = useState<any>(mindmap);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -98,36 +91,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
 
   const { deleteMap } = useMindMapStore();
 
-  // Memoize nodeTypes to prevent recreation on each render
-  const memoizedNodeTypes = useMemo(() => nodeTypes as unknown as NodeTypes, []);
-
-  const { processedNodes, processedEdges } = useMemo(() => {
-    if (!localMindmap?.json_data?.nodes?.length) return { processedNodes: [], processedEdges: [] };
-
-    const nodes = processNodesForTextRendering(prepareNodesForRendering(localMindmap.json_data.nodes));
-    const edges = localMindmap.json_data.edges.map((edge: any) => {
-      const sourceNode = localMindmap.json_data.nodes.find((node: any) => node.id === edge.source);
-      const sourceNodeColor = sourceNode
-        ? (sourceNode.background || sourceNode.style?.background || "#374151")
-        : "#374151";
-
-      const edgeType = ['default', 'straight', 'smoothstep'].includes(localMindmap.json_data.edgeType)
-        ? localMindmap.json_data.edgeType
-        : 'default';
-
-      return {
-        ...edge,
-        type: edgeType === 'default' ? 'default' : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      };
-    });
-
-    return { processedNodes: nodes, processedEdges: edges };
-  }, [localMindmap?.json_data]);
+  // Handle window resize for responsive behavior
 
   // If mindmap is null, show skeleton immediately
   if (!mindmap) {
@@ -217,28 +181,13 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
   }, [mindmap]);
 
   const handleResize = useCallback(() => {
-    if (reactFlowInstance) reactFlowInstance.fitView();
     setIsSmallScreen(window.innerWidth < 1080);
-  }, [reactFlowInstance]);
+  }, []);
 
   useEffect(() => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [handleResize]);
-
-  const onInit = useCallback((instance: ReactFlowInstance) => {
-    setReactFlowInstance(instance);
-    if (localMindmap?.json_data?.nodes?.length > 0) {
-      instance.fitView();
-    }
-  }, [localMindmap]);
-
-  // Fit view when nodes are available
-  useEffect(() => {
-    if (reactFlowInstance && localMindmap?.json_data?.nodes?.length > 0) {
-      reactFlowInstance.fitView();
-    }
-  }, [localMindmap, reactFlowInstance]);
 
 
 
@@ -453,7 +402,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
 
             <div className="flex items-center gap-3">
               <p className="text-xs text-slate-400">
-                {formatDateWithPreference(mindmap?.created_at)}
+                {formatDateWithPreference(mindmap?.created_at || '')}
               </p>
             </div>
           </div>
@@ -503,7 +452,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
   }
 
   return (
-    <ReactFlowProvider>
+    <>
       <div className="relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl overflow-hidden border border-slate-700/30 shadow-2xl transition-all duration-300 hover:shadow-3xl hover:border-slate-600/50">
         {/* Header with creator info */}
         <div className="p-6 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/30">
@@ -621,24 +570,25 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
                 backgroundSize: '20px 20px'
               }}></div>
 
-              <ReactFlow
-                nodes={processedNodes}
-                edges={processedEdges}
-                nodeTypes={memoizedNodeTypes}
-                fitView
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={false}
-                zoomOnScroll={!isSmallScreen}
-                zoomOnDoubleClick={false}
-                panOnDrag={!isSmallScreen}
-                minZoom={0.1}
-                maxZoom={2}
-                onInit={onInit}
-                proOptions={{ hideAttribution: true }}
-              >
-                <CustomBackground />
-              </ReactFlow>
+            <MindMapRenderer
+              mindMapData={{
+                nodes: localMindmap.json_data?.nodes || [],
+                edges: localMindmap.json_data?.edges || [],
+                backgroundColor: localMindmap.json_data?.backgroundColor,
+                fontFamily: localMindmap.json_data?.fontFamily,
+                edgeType: localMindmap.json_data?.edgeType as 'default' | 'straight' | 'smoothstep' | undefined,
+              }}
+              drawingData={localMindmap.drawing_data}
+              interactive={false}
+              zoomable={!isSmallScreen}
+              pannable={!isSmallScreen}
+              doubleClickZoom={false}
+              selectable={false}
+              preventScrolling={isSmallScreen}
+              minZoom={0.1}
+              maxZoom={2}
+              className="react-flow-instance"
+            />
 
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover/preview:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
@@ -795,7 +745,7 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
           </div>
         </div>
       )}
-    </ReactFlowProvider>
+    </>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison function for React.memo
