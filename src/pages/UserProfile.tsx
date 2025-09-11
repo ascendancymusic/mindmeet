@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useMemo } from "react"
+import React, { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { supabase } from "../supabaseClient"
 import {
@@ -52,11 +52,7 @@ import { format } from "date-fns"
 import { useAuthStore } from "../store/authStore"
 import { useNotificationStore } from "../store/notificationStore"
 import { useMindMapActions } from "../hooks/useMindMapActions"
-import ReactFlow, { type NodeTypes } from "reactflow"
-import "reactflow/dist/style.css"
-import { nodeTypes } from "../config/nodeTypes"
-import { prepareNodesForRendering } from "../utils/reactFlowUtils"
-import { processNodesForTextRendering } from "../utils/textNodeUtils"
+import MindMapRenderer from "../components/MindMapRenderer"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import UserListModal from "../components/UserListModal"
 import ShareModal from "../components/ShareModal"
@@ -64,98 +60,26 @@ import InfoModal from "../components/InfoModal"
 import { usePageTitle } from "../hooks/usePageTitle"
 import eventEmitter from "../services/eventService"
 
-const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
-  const bgColor = backgroundColor || '#11192C';
-
-  return (
-    <>
-      {/* Base background color */}
-      <div
-        className="absolute inset-0 rounded-lg"
-        style={{ backgroundColor: bgColor, zIndex: -2 }}
-      />
-      {/* Subtle gradient overlay for better visual appeal */}
-      {backgroundColor && (
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
-          style={{ zIndex: -1 }}
-        />
-      )}
-    </>
-  )
-}
-
 // Memoized ReactFlow preview component to prevent unnecessary re-renders
 const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
-  // Memoize the expensive node and edge processing
-  const { processedNodes, processedEdges } = useMemo(() => {
-    if (!map.json_data?.nodes?.length) return { processedNodes: [], processedEdges: [] }
-
-    const nodes = processNodesForTextRendering(prepareNodesForRendering(map.json_data.nodes))
-    const edges = map.json_data.edges.map((edge: any) => {
-      // Find the source node to get its color
-      const sourceNode = map.json_data.nodes.find((node: any) => node.id === edge.source)
-      const sourceNodeColor = sourceNode
-        ? sourceNode.background || sourceNode.style?.background || "#374151"
-        : "#374151"
-
-      // Get edgeType from map data, default to 'default' if not valid
-      const edgeType = ["default", "straight", "smoothstep"].includes(map.json_data.edgeType)
-        ? map.json_data.edgeType
-        : "default"
-
-      return {
-        ...edge,
-        type: edgeType === "default" ? "default" : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      }
-    })
-
-    return { processedNodes: nodes, processedEdges: edges }
-  }, [map.json_data?.nodes, map.json_data?.edges, map.json_data?.edgeType])
-
-  if (!map.json_data?.nodes?.length) {
-    return (
-      <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundColor: map.json_data?.backgroundColor || '#11192C'
-          }}
-        />
-        {map.json_data?.backgroundColor && (
-          <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
-        )}
-        <div className="text-center text-slate-500 relative z-10">
-          <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Empty mindmap</p>
-          <p className="text-xs opacity-75">Click to view</p>
-        </div>
-      </div>
-    )
+  // Parse the mindmap data for the renderer
+  const mindMapData = {
+    nodes: map.json_data?.nodes || [],
+    edges: map.json_data?.edges || [],
+    backgroundColor: map.json_data?.backgroundColor,
+    fontFamily: map.json_data?.fontFamily,
+    edgeType: map.json_data?.edgeType
   }
 
   return (
-    <ReactFlow
-      nodes={processedNodes}
-      edges={processedEdges}
-      nodeTypes={nodeTypes as unknown as NodeTypes}
-      fitView
-      nodesDraggable={false}
-      nodesConnectable={false}
-      elementsSelectable={false}
-      zoomOnScroll={true}
-      zoomOnDoubleClick={false}
+    <MindMapRenderer
+      mindMapData={mindMapData}
+      drawingData={map.drawing_data}
+      interactive={false}
+      zoomable={true}
       minZoom={0.1}
       maxZoom={2}
-      proOptions={{ hideAttribution: true }}
-    >
-      <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-    </ReactFlow>
+    />
   )
 }, (prevProps, nextProps) => {
   // Custom comparison function for React.memo
@@ -165,7 +89,9 @@ const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
     JSON.stringify(prevProps.map.json_data?.nodes) === JSON.stringify(nextProps.map.json_data?.nodes) &&
     JSON.stringify(prevProps.map.json_data?.edges) === JSON.stringify(nextProps.map.json_data?.edges) &&
     prevProps.map.json_data?.backgroundColor === nextProps.map.json_data?.backgroundColor &&
-    prevProps.map.json_data?.edgeType === nextProps.map.json_data?.edgeType
+    prevProps.map.json_data?.fontFamily === nextProps.map.json_data?.fontFamily &&
+    prevProps.map.json_data?.edgeType === nextProps.map.json_data?.edgeType &&
+    prevProps.map.drawing_data === nextProps.map.drawing_data
   )
 })
 
@@ -483,7 +409,7 @@ const UserProfile: React.FC = () => {
       const { data, error } = await supabase
         .from("mindmaps")
         .select(
-          "permalink, id, title, json_data, updated_at, comment_count, visibility, is_main, creator, published_at",
+          "permalink, id, title, json_data, drawing_data, updated_at, comment_count, visibility, is_main, creator, published_at",
         )
         .eq("creator", creatorId)
         .eq("visibility", "public")
@@ -589,7 +515,7 @@ const UserProfile: React.FC = () => {
         const { data: collabData, error: mindmapsError } = await supabase
           .from("mindmaps")
           .select(
-            "permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, creator",
+            "permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, creator",
           )
           .in("id", collaborationMapIds)
           .eq("visibility", "public")
@@ -730,7 +656,7 @@ const UserProfile: React.FC = () => {
         const { data: savedMapsData, error: savedMapsError } = await supabase
           .from("mindmaps")
           .select(
-            "permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, creator",
+            "permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, creator",
           )
           .in("id", savedMapIds)
           .eq("visibility", "public")

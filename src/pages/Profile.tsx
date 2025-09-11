@@ -19,8 +19,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react"
 import { supabase } from "../supabaseClient"
 import { useAuthStore } from "../store/authStore"
 import { usePageTitle } from '../hooks/usePageTitle'
-import { prepareNodesForRendering } from "../utils/reactFlowUtils"
-import { processNodesForTextRendering } from "../utils/textNodeUtils"
+import MindMapRenderer from "../components/MindMapRenderer"
 import { formatDateWithPreference } from "../utils/dateUtils"
 import eventEmitter from "../services/eventService"
 import {
@@ -78,9 +77,6 @@ if (typeof document !== 'undefined') {
 import { format } from "date-fns"
 import { useMindMapStore } from "../store/mindMapStore"
 import { useMindMapActions } from "../hooks/useMindMapActions"
-import ReactFlow, { type NodeTypes } from "reactflow"
-import "reactflow/dist/style.css"
-import { nodeTypes } from "../config/nodeTypes"
 import AvatarEditor from "react-avatar-editor"
 import UserListModal from '../components/UserListModal'
 import EditDetailsModal from '../components/EditDetailsModal'
@@ -91,98 +87,26 @@ import { Toast } from '../components/Toast'
 import { useToastStore } from '../store/toastStore'
 import { useNotificationStore } from '../store/notificationStore';
 
-const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
-  const bgColor = backgroundColor || '#11192C';
-
-  return (
-    <>
-      {/* Base background color */}
-      <div
-        className="absolute inset-0 rounded-lg"
-        style={{ backgroundColor: bgColor, zIndex: -2 }}
-      />
-      {/* Subtle gradient overlay for better visual appeal */}
-      {backgroundColor && (
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20 rounded-lg"
-          style={{ zIndex: -1 }}
-        />
-      )}
-    </>
-  )
-}
-
 // Memoized ReactFlow preview component to prevent unnecessary re-renders
 const ProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
-  // Memoize the expensive node and edge processing
-  const { processedNodes, processedEdges } = useMemo(() => {
-    if (!map.nodes?.length) return { processedNodes: [], processedEdges: [] }
-
-    const nodes = processNodesForTextRendering(prepareNodesForRendering(map.nodes))
-    const edges = map.edges.map((edge: any) => {
-      // Find the source node to get its color
-      const sourceNode = map.nodes.find((node: any) => node.id === edge.source)
-      const sourceNodeColor = sourceNode
-        ? sourceNode.background || sourceNode.style?.background || "#374151"
-        : "#374151"
-
-      // Get edgeType from map, default to 'default' if not valid
-      const edgeType = ["default", "straight", "smoothstep"].includes(map.edgeType || "")
-        ? map.edgeType
-        : "default"
-
-      return {
-        ...edge,
-        type: edgeType === "default" ? "default" : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      }
-    })
-
-    return { processedNodes: nodes, processedEdges: edges }
-  }, [map.nodes, map.edges, map.edgeType])
-
-  if (!map.nodes?.length) {
-    return (
-      <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundColor: map.json_data?.backgroundColor || '#11192C'
-          }}
-        />
-        {map.json_data?.backgroundColor && (
-          <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
-        )}
-        <div className="text-center text-slate-500 relative z-10">
-          <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Empty mindmap</p>
-          <p className="text-xs opacity-75">Click to start editing</p>
-        </div>
-      </div>
-    )
+  // Parse the mindmap data for the renderer
+  const mindMapData = {
+    nodes: map.nodes || [],
+    edges: map.edges || [],
+    backgroundColor: map.json_data?.backgroundColor,
+    fontFamily: map.json_data?.fontFamily,
+    edgeType: map.edgeType
   }
 
   return (
-    <ReactFlow
-      nodes={processedNodes}
-      edges={processedEdges}
-      nodeTypes={nodeTypes as unknown as NodeTypes}
-      fitView
-      nodesDraggable={false}
-      nodesConnectable={false}
-      elementsSelectable={false}
-      zoomOnScroll={true}
-      zoomOnDoubleClick={false}
+    <MindMapRenderer
+      mindMapData={mindMapData}
+      drawingData={map.drawing_data}
+      interactive={false}
+      zoomable={true}
       minZoom={0.1}
       maxZoom={2}
-      proOptions={{ hideAttribution: true }}
-    >
-      <CustomBackground backgroundColor={map.json_data?.backgroundColor} />
-    </ReactFlow>
+    />
   )
 }, (prevProps, nextProps) => {
   // Custom comparison function for React.memo
@@ -192,7 +116,9 @@ const ProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
     JSON.stringify(prevProps.map.nodes) === JSON.stringify(nextProps.map.nodes) &&
     JSON.stringify(prevProps.map.edges) === JSON.stringify(nextProps.map.edges) &&
     prevProps.map.json_data?.backgroundColor === nextProps.map.json_data?.backgroundColor &&
-    prevProps.map.edgeType === nextProps.map.edgeType
+    prevProps.map.json_data?.fontFamily === nextProps.map.json_data?.fontFamily &&
+    prevProps.map.edgeType === nextProps.map.edgeType &&
+    prevProps.map.drawing_data === nextProps.map.drawing_data
   )
 })
 
@@ -640,7 +566,7 @@ export default function Profile() {
       try {
         const { data: mapsData, error: mapsError } = await supabase
           .from("mindmaps")
-          .select("permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, published_at")
+          .select("permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, published_at")
           .eq("creator", user.id)
 
         if (mapsError) {
@@ -748,7 +674,7 @@ export default function Profile() {
           // Fetch the actual mindmap data for collaborated maps
           const { data: collabData, error: collabError } = await supabase
             .from("mindmaps")
-            .select("permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, creator, published_at")
+            .select("permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, creator, published_at")
             .in("id", collaborationMapIds)
             .eq("visibility", "public");
 
@@ -877,7 +803,7 @@ export default function Profile() {
           // Fetch the actual mindmap data for saved maps
           const { data: savedMapsData, error: savedMapsError } = await supabase
             .from("mindmaps")
-            .select("permalink, id, title, json_data, updated_at, visibility, comment_count, description, is_main, creator")
+            .select("permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, creator")
             .in("id", savedMapIds)
             .eq("visibility", "public");
 
