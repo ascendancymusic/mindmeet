@@ -1870,11 +1870,11 @@ export default function MindMapList() {
                         <div
                           className="absolute inset-0"
                           style={{
-                            backgroundColor: map.backgroundColor || "rgba(30, 41, 59, 0.3)", // fallback to bg-slate-800/30
+                            backgroundColor: invite.backgroundColor || "rgba(30, 41, 59, 0.3)", // fallback to bg-slate-800/30
                           }}
                         />
                         {/* Gradient overlay for better visual appeal */}
-                        {map.backgroundColor && (
+                        {invite.backgroundColor && (
                           <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
                         )}
                         {/* Content */}
