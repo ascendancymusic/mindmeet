@@ -314,7 +314,13 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         error = updateError;
       } else {
         // Original logic for creators
-  console.log('[saveMapToSupabase] Creator save start', { id, permalink, title, is_main, visibility });
+  // Clarified logging for mindmap creation vs update
+  if (!id) {
+    console.log('[saveMapToSupabase] Creating new mindmap (id will be assigned by Supabase)', { permalink, title, is_main, visibility });
+  } else {
+    console.log('[saveMapToSupabase] Updating existing mindmap', { id, permalink, title, is_main, visibility });
+  }
+
         const validCreatedAt = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
         const validUpdatedAt = updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString();
 
