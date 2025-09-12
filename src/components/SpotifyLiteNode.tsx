@@ -13,7 +13,7 @@ interface SpotifyLiteNodeProps {
 
 const SpotifyLiteNode: React.FC<SpotifyLiteNodeProps> = ({ id, data, isConnectable }) => {
   return (
-    <div className="relative w-[200px] bg-gray-800/50 rounded-lg overflow-visible">
+  <div className="relative w-[320px] h-[100px] bg-gray-800/50 rounded-lg overflow-visible">
       <Handle
         type="target"
         position={Position.Top}
@@ -21,10 +21,10 @@ const SpotifyLiteNode: React.FC<SpotifyLiteNodeProps> = ({ id, data, isConnectab
         id={`${id}-target`}
         className="!top-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-3 !h-3"
       />
-      <div className="p-2">
-        <div className="flex items-center space-x-2 mb-1">
-          <SpotifyIcon className="w-5 h-5 flex-shrink-0 text-[#1DB954]" />
-          <span className="text-sm font-medium text-gray-200 truncate">
+      <div className="p-2 flex flex-col items-center justify-center w-full h-full">
+        <div className="flex items-center space-x-3 mb-1 w-full">
+          <SpotifyIcon className="w-8 h-8 flex-shrink-0 text-[#1DB954]" />
+          <span className="text-lg font-semibold text-gray-200 truncate w-full">
             {data.label || 'Select a song...'}
           </span>
         </div>
