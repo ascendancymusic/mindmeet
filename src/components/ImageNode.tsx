@@ -228,8 +228,8 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
           nodeId={id}
           minWidth={100}
           minHeight={50}
-          maxWidth={400}
-          maxHeight={300}
+          maxWidth={1200}
+          maxHeight={900}
           style={{
             background: 'transparent',
             border: 'none',
@@ -323,8 +323,8 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
               }`}
               style={{
                 filter: !isLoading ? 'blur(0)' : 'blur(5px)',
-                maxWidth: '800px',
-                maxHeight: '600px',
+                maxWidth: '1200px',
+                maxHeight: '900px',
                 display: 'block',
               }}
             />
