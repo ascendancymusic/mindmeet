@@ -48,7 +48,7 @@ interface MindMapState {
   currentMapId: string | null;
   aiProposedChanges: { id: string; nodes: Node[]; edges: Edge[]; title: string } | null;
   mapBackup: MindMap | null;
-  addMap: (title: string, userId: string) => Promise<string>;
+  addMap: (title: string, userId: string, customPermalink?: string) => Promise<string>;
   cloneMap: (mapPermalink: string, userId: string) => Promise<string>;
   // First arg can be a UUID mindmap id (preferred) or legacy permalink
   updateMap: (idOrPermalink: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData; fontFamily?: string; }) => Promise<void>;
@@ -546,15 +546,27 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       console.error("Unexpected error in deleteMapFromSupabase:", err);
     }
   },
-  addMap: async (title, userId) => {
+  addMap: async (title, userId, customPermalink) => {
     const sanitizedTitle = sanitizeTitle(title);
     const existingPermalinks = get().maps.map((map) => map.permalink);
-    let permalink = sanitizedTitle;
-    let counter = 1;
-
-    while (existingPermalinks.includes(permalink)) {
-      permalink = `${sanitizedTitle}-${counter}`;
-      counter++;
+    
+    let permalink: string;
+    
+    if (customPermalink) {
+      // Use custom permalink if provided and not in use
+      if (existingPermalinks.includes(customPermalink)) {
+        throw new Error(`Permalink "${customPermalink}" is already in use`);
+      }
+      permalink = customPermalink;
+    } else {
+      // Auto-generate permalink from title
+      permalink = sanitizedTitle;
+      let counter = 1;
+      
+      while (existingPermalinks.includes(permalink)) {
+        permalink = `${sanitizedTitle}-${counter}`;
+        counter++;
+      }
     }
 
     const newMap: MindMap = {

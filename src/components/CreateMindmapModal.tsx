@@ -1,20 +1,178 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { X, Network, GitBranch, Workflow } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { X, Network, GitBranch, Workflow, Folder, Briefcase, Music, Heart, Lightbulb, Target, Zap, Coffee, Book, Palette, Users } from "lucide-react"
+import { supabase } from "../supabaseClient"
+import { useAuthStore } from "../store/authStore"
+
+interface Group {
+  id: string
+  name: string
+  icon: string
+  createdAt: number
+}
 
 interface CreateMindmapModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreateMap: (title: string) => Promise<void>
+  onCreateMap: (title: string, customPermalink?: string, selectedGroupIds?: string[]) => Promise<void>
+  groups: Group[]
 }
 
-export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: CreateMindmapModalProps) {
+export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, groups }: CreateMindmapModalProps) {
   const [newMapTitle, setNewMapTitle] = useState("")
+  const [customPermalink, setCustomPermalink] = useState("")
+  const [isPermalinkCustomized, setIsPermalinkCustomized] = useState(false)
+  const [permalinkError, setPermalinkError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [selectedType, setSelectedType] = useState<"mindmap" | "decision" | "flowchart">("mindmap")
   const [selectedTemplate, setSelectedTemplate] = useState("empty")
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
+  
+  const { user } = useAuthStore()
+
+  // Helper function to sanitize title into permalink
+  const sanitizeTitle = (title: string): string => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+  }
+
+  // Group icon mapping
+  const groupIconComponents = {
+    Folder,
+    Briefcase,
+    Music,
+    Heart,
+    Lightbulb,
+    Target,
+    Zap,
+    Coffee,
+    Book,
+    Palette,
+    Users,
+    Network, // fallback
+  }
+
+  // Auto-generate permalink from title with conflict resolution
+  const autoPermalink = useMemo(() => {
+    if (!newMapTitle.trim()) return ""
+    
+    const basePermalink = sanitizeTitle(newMapTitle)
+    if (!basePermalink) return ""
+    
+    // We'll use a simple approach - check for conflicts and increment
+    // This mirrors the logic in mindMapStore but for preview purposes
+    return basePermalink
+  }, [newMapTitle])
+
+  // Get available permalink (handles conflicts automatically)
+  const [availablePermalink, setAvailablePermalink] = useState("")
+  
+  // Check and set available permalink
+  useEffect(() => {
+    const getAvailablePermalink = async () => {
+      if (!autoPermalink || !user?.id) {
+        setAvailablePermalink("")
+        return
+      }
+
+      try {
+        const { data: existingMaps, error } = await supabase
+          .from("mindmaps")
+          .select("permalink")
+          .eq("creator", user.id)
+
+        if (error) throw error
+
+        const existingPermalinks = existingMaps?.map(m => m.permalink) || []
+        
+        // Find available permalink using same logic as addMap
+        let permalink = autoPermalink
+        let counter = 1
+        
+        while (existingPermalinks.includes(permalink)) {
+          permalink = `${autoPermalink}-${counter}`
+          counter++
+        }
+        
+        setAvailablePermalink(permalink)
+      } catch (error) {
+        console.error("Error checking permalink availability:", error)
+        setAvailablePermalink(autoPermalink)
+      }
+    }
+
+    const timeoutId = setTimeout(getAvailablePermalink, 300)
+    return () => clearTimeout(timeoutId)
+  }, [autoPermalink, user?.id])
+
+  // Current permalink to display (custom or available auto-generated)
+  const currentPermalink = isPermalinkCustomized ? customPermalink : availablePermalink
+
+  // Get base URL for permalink display
+  const baseUrl = useMemo(() => {
+    const url = window.location.origin
+    return url.endsWith('/') ? url.slice(0, -1) : url
+  }, [])
+
+  // Check for permalink conflicts in real-time (only for custom permalinks)
+  useEffect(() => {
+    const checkPermalinkConflict = async () => {
+      // Only check conflicts for custom permalinks
+      if (!isPermalinkCustomized || !customPermalink.trim() || !user?.id) {
+        setPermalinkError(null)
+        return
+      }
+
+      try {
+        const { data: existingMaps, error } = await supabase
+          .from("mindmaps")
+          .select("permalink, title")
+          .eq("creator", user.id)
+          .eq("permalink", customPermalink)
+
+        if (error) throw error
+
+        if (existingMaps && existingMaps.length > 0) {
+          setPermalinkError(`Permalink already in use in your mindmap "${existingMaps[0].title}"`)
+        } else {
+          setPermalinkError(null)
+        }
+      } catch (error) {
+        console.error("Error checking permalink:", error)
+      }
+    }
+
+    // Debounce the check to avoid too many database calls
+    const timeoutId = setTimeout(checkPermalinkConflict, 500)
+    return () => clearTimeout(timeoutId)
+  }, [isPermalinkCustomized, customPermalink, user?.id])
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMapTitle(e.target.value)
+    // Reset customization when title changes (unless user has explicitly customized)
+    if (!isPermalinkCustomized) {
+      setCustomPermalink("")
+    }
+  }
+
+  const handlePermalinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitizedValue = e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '')
+    setCustomPermalink(sanitizedValue)
+    setIsPermalinkCustomized(sanitizedValue.length > 0)
+  }
+
+  const toggleGroupSelection = (groupId: string) => {
+    setSelectedGroupIds(prev => 
+      prev.includes(groupId) 
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    )
+  }
 
   const diagramTypes = [
     {
@@ -54,12 +212,18 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: Cre
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMapTitle.trim() || isCreating) return
+    if (!newMapTitle.trim() || isCreating || permalinkError) return
 
     setIsCreating(true)
     try {
-      await onCreateMap(newMapTitle.trim())
+      const finalPermalink = isPermalinkCustomized && customPermalink ? customPermalink : undefined
+      await onCreateMap(newMapTitle.trim(), finalPermalink, selectedGroupIds.length > 0 ? selectedGroupIds : undefined)
       setNewMapTitle("")
+      setCustomPermalink("")
+      setIsPermalinkCustomized(false)
+      setPermalinkError(null)
+      setAvailablePermalink("")
+      setSelectedGroupIds([])
       onClose()
     } catch (error) {
       console.error("Error creating mindmap:", error)
@@ -71,6 +235,11 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: Cre
   const handleClose = () => {
     if (!isCreating) {
       setNewMapTitle("")
+      setCustomPermalink("")
+      setIsPermalinkCustomized(false)
+      setPermalinkError(null)
+      setAvailablePermalink("")
+      setSelectedGroupIds([])
       onClose()
     }
   }
@@ -109,7 +278,7 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: Cre
             <input
               type="text"
               value={newMapTitle}
-              onChange={(e) => setNewMapTitle(e.target.value)}
+              onChange={handleTitleChange}
               placeholder="Enter a descriptive title for your diagram..."
               className="w-full px-4 py-3 bg-slate-800 border border-purple-900/20 rounded-2xl text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400/20 transition-all duration-200 backdrop-blur-sm shadow-[0_0_0_2px_rgba(128,90,213,0.04)]"
               autoFocus
@@ -119,6 +288,53 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: Cre
             <div className="flex justify-between items-center mt-2">
               <p className="text-xs text-slate-400">Give your diagram a clear, descriptive name</p>
               <p className="text-xs text-slate-300 font-mono">{newMapTitle.length}/50</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-200 mb-3">Permalink</label>
+            <div className="flex items-center min-w-0 overflow-hidden rounded-2xl border border-purple-900/20 focus-within:border-purple-400/20 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all duration-200">
+              <span className="bg-slate-700/50 px-3 py-3 text-slate-400 text-xs whitespace-nowrap flex-shrink-0 max-w-[70%] overflow-hidden text-ellipsis">
+                {baseUrl}/{user?.username}/
+              </span>
+              <input
+                type="text"
+                value={currentPermalink}
+                onChange={handlePermalinkChange}
+                placeholder={availablePermalink || "auto-generated"}
+                className={`w-0 flex-grow min-w-[80px] px-3 py-3 bg-slate-800 ${
+                  permalinkError ? "border-l border-red-500/50" : "border-l border-slate-700/30"
+                } text-slate-100 placeholder-slate-400 focus:outline-none text-sm backdrop-blur-sm`}
+                disabled={isCreating}
+              />
+            </div>
+            {permalinkError && (
+              <p className="text-red-400 text-sm mt-2 flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-red-400"></span>
+                {permalinkError}
+              </p>
+            )}
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-xs text-slate-400">
+                {isPermalinkCustomized 
+                  ? "Custom permalink - only lowercase letters, numbers, hyphens, and underscores"
+                  : "Auto-generated from title - edit to customize"
+                }
+              </p>
+              {isPermalinkCustomized && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomPermalink("")
+                    setIsPermalinkCustomized(false)
+                    setPermalinkError(null)
+                  }}
+                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                  disabled={isCreating}
+                >
+                  Reset to auto
+                </button>
+              )}
             </div>
           </div>
 
@@ -193,6 +409,53 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: Cre
             </div>
           </div>
 
+          {groups.length > 0 && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-200 mb-3">
+                Add to Groups
+                <span className="text-slate-400 text-xs font-normal ml-2">(optional)</span>
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto">
+                {groups.map((group) => {
+                  const IconComponent = groupIconComponents[group.icon as keyof typeof groupIconComponents] || Network
+                  const isSelected = selectedGroupIds.includes(group.id)
+                  
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => toggleGroupSelection(group.id)}
+                      className={`flex items-center space-x-3 p-4 rounded-xl border transition-all duration-200 text-left backdrop-blur-sm ${
+                        isSelected
+                          ? "border-purple-400/50 bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-200 shadow-lg shadow-purple-500/20"
+                          : "border-white/10 bg-gradient-to-br from-slate-800/90 to-purple-900/90 text-slate-300 hover:border-white/20 hover:bg-gradient-to-br hover:from-slate-700/90 hover:to-purple-800/90"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                        isSelected 
+                          ? "border-purple-400 bg-purple-500" 
+                          : "border-slate-400"
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <IconComponent className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-medium truncate">{group.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedGroupIds.length > 0 && (
+                <p className="text-xs text-slate-400 mt-2">
+                  {selectedGroupIds.length} group{selectedGroupIds.length === 1 ? '' : 's'} selected
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700/50">
             <button
               type="button"
@@ -204,7 +467,7 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap }: Cre
             </button>
             <button
               type="submit"
-              disabled={!newMapTitle.trim() || isCreating || selectedType !== "mindmap" || selectedTemplate !== "empty"}
+              disabled={!newMapTitle.trim() || isCreating || selectedType !== "mindmap" || selectedTemplate !== "empty" || !!permalinkError}
               className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-semibold transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
             >
               {isCreating ? "Creating..." : "Create Diagram"}

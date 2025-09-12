@@ -1210,7 +1210,7 @@ export default function MindMapList() {
     }
   }, [maps.length, groups.length])
 
-  const handleCreateMap = async (title: string) => {
+  const handleCreateMap = async (title: string, customPermalink?: string, selectedGroupIds?: string[]) => {
     if (!isValidUserId) {
       console.error("Invalid or undefined userId. Cannot create map.")
       return
@@ -1219,7 +1219,26 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-      const newPermalink = await addMap(title, userId)
+      const newPermalink = await addMap(title, userId, customPermalink)
+      // Fetch the new mindmap directly from Supabase to get its id
+      const { data: newMapData, error: fetchError } = await supabase
+        .from("mindmaps")
+        .select("id, permalink")
+        .eq("permalink", newPermalink)
+        .eq("creator", userId)
+        .single()
+      if (fetchError || !newMapData) {
+        console.error("Could not fetch new mindmap from Supabase:", fetchError)
+      }
+      if (selectedGroupIds && selectedGroupIds.length > 0 && newMapData?.id) {
+        console.log("Adding mindmap to groups:", { mindmapId: newMapData.id, groupIds: selectedGroupIds })
+        for (const groupId of selectedGroupIds) {
+          console.log(`Adding mindmap ${newMapData.id} to group ${groupId}`)
+          await addMapToGroup(newMapData.id, groupId)
+        }
+      } else {
+        console.log("No group assignment: newMapData", newMapData, "selectedGroupIds", selectedGroupIds)
+      }
       showToast("Mindmap created successfully!", "success")
       navigate(`/${user.username}/${newPermalink}/edit`)
     } catch (error) {
@@ -1717,7 +1736,7 @@ export default function MindMapList() {
                       }`}
                     style={{ border: 'none', outline: 'none' }}
                   >
-                    {(() => {
+                  {(() => {
                       const IconComponent = groupIcons.find(i => i.name === group.icon)?.component || FolderOpen
                       return <IconComponent className="w-[1.4vh] h-[1.4vh]" />
                     })()}
@@ -1846,8 +1865,24 @@ export default function MindMapList() {
                     {invite.nodes && invite.nodes.length > 0 ? (
                       <MindMapPreview map={invite as any} isSmallScreen={isSmallScreen} onInit={onInit} />
                     ) : (
-                      <div className="h-full flex items-center justify-center text-slate-500 text-xs">
-                        Empty mindmap
+                      <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
+                        {/* Base background */}
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundColor: map.backgroundColor || "rgba(30, 41, 59, 0.3)", // fallback to bg-slate-800/30
+                          }}
+                        />
+                        {/* Gradient overlay for better visual appeal */}
+                        {map.backgroundColor && (
+                          <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
+                        )}
+                        {/* Content */}
+                        <div className="text-center text-slate-500 relative z-10">
+                          <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">Empty mindmap</p>
+                          <p className="text-xs opacity-75">Click to start editing</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1903,7 +1938,7 @@ export default function MindMapList() {
                             className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-600/30"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center ring-2 ring-blue-500/40">
                             <span className="text-xs font-bold text-slate-300">
                               {map.creatorUsername?.charAt(0)?.toUpperCase() || "?"}
                             </span>
@@ -1998,6 +2033,7 @@ export default function MindMapList() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                   handleCloneMap(map.permalink)
+                  toggleMenu(map.permalink)
                                 }}
                                 className="w-full text-left px-4 py-3 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white flex items-center gap-3 transition-all duration-200"
                               >
@@ -2161,6 +2197,7 @@ export default function MindMapList() {
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
         onCreateMap={handleCreateMap}
+        groups={groups}
       />
 
       <GroupMenu
