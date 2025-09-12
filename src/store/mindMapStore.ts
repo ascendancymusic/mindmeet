@@ -40,6 +40,7 @@ export interface MindMap {
   creatorAvatar?: string | null;
   published_at?: string | null;
   drawingData?: DrawingData;
+  json_data?: any; // Add this to preserve all json_data fields for merging
 }
 
 interface MindMapState {
@@ -242,7 +243,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-    const { id, permalink, title, nodes, edges, edgeType = 'default', backgroundColor = '#11192C', dotColor = '#81818a', fontFamily = 'Aspekta', createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData } = map;
+  const { id, permalink, title, nodes, edges, edgeType, backgroundColor, dotColor, fontFamily, createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData, json_data } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -253,11 +254,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       }
 
       // Clean edges by removing unwanted properties including style and type (since edgeType is stored globally)
-      const cleanedEdges = edges.map(edge => {
-        // Create a new edge object without the unwanted properties
+      const cleanedEdges = edges ? edges.map(edge => {
         const { selected, sourceHandle, targetHandle, style, type, ...cleanEdge } = edge;
         return cleanEdge;
-      });
+      }) : (json_data?.edges || []);
 
       let error;
 
@@ -269,7 +269,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         if (isUUID(id)) {
           const { data: record, error: fetchErr } = await supabase
             .from('mindmaps')
-            .select('id, creator')
+            .select('id, creator, json_data, drawing_data')
             .eq('id', id)
             .single();
           if (fetchErr || !record) { console.error('Error fetching mindmap by id for collaborator edit:', fetchErr); return; }
@@ -282,10 +282,31 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
             .maybeSingle();
           if (collabErr || !collab) { console.error('Not an accepted collaborator for this id'); return; }
           mindmapId = record.id; targetCreator = record.creator;
+          // Merge json_data and drawing_data
+          const mergedJsonData = {
+            ...record.json_data,
+            ...(nodes ? { nodes } : {}),
+            ...(edges ? { edges: cleanedEdges } : {}),
+            ...(edgeType ? { edgeType } : {}),
+            ...(backgroundColor ? { backgroundColor } : {}),
+            ...(dotColor ? { dotColor } : {}),
+            ...(fontFamily ? { fontFamily } : {}),
+          };
+          const mergedDrawingData = drawingData ? compressDrawingData(drawingData) : record.drawing_data;
+          const { error: updateError } = await supabase
+            .from('mindmaps')
+            .update({
+              json_data: mergedJsonData,
+              drawing_data: mergedDrawingData,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', mindmapId!)
+            .eq('creator', targetCreator!);
+          error = updateError;
         } else if (permalink) {
           const { data: candidates, error: fetchErr } = await supabase
             .from('mindmaps')
-            .select('id, creator')
+            .select('id, creator, json_data, drawing_data')
             .eq('permalink', permalink);
           if (fetchErr || !candidates || candidates.length === 0) { console.error('Error finding mindmap(s) via permalink:', fetchErr); return; }
             const ids = candidates.map(m=>m.id);
@@ -301,35 +322,55 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
             const target = candidates.find(m=>m.id===authId);
             if (!target) { console.error('Authorized mindmap not found in candidates'); return; }
             mindmapId = target.id; targetCreator = target.creator;
+            // Merge json_data and drawing_data
+            const mergedJsonData = {
+              ...target.json_data,
+              ...(nodes ? { nodes } : {}),
+              ...(edges ? { edges: cleanedEdges } : {}),
+              ...(edgeType ? { edgeType } : {}),
+              ...(backgroundColor ? { backgroundColor } : {}),
+              ...(dotColor ? { dotColor } : {}),
+              ...(fontFamily ? { fontFamily } : {}),
+            };
+            const mergedDrawingData = drawingData ? compressDrawingData(drawingData) : target.drawing_data;
+            const { error: updateError } = await supabase
+              .from('mindmaps')
+              .update({
+                json_data: mergedJsonData,
+                drawing_data: mergedDrawingData,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', mindmapId!)
+              .eq('creator', targetCreator!);
+            error = updateError;
         } else { console.error('No identifier provided for collaborator edit'); return; }
-        const { error: updateError } = await supabase
-          .from('mindmaps')
-          .update({
-            json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor, fontFamily },
-            drawing_data: compressDrawingData(drawingData),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', mindmapId!)
-          .eq('creator', targetCreator!);
-        error = updateError;
       } else {
         // Original logic for creators
-  // Clarified logging for mindmap creation vs update
-  if (!id) {
-    console.log('[saveMapToSupabase] Creating new mindmap (id will be assigned by Supabase)', { permalink, title, is_main, visibility });
-  } else {
-    console.log('[saveMapToSupabase] Updating existing mindmap', { id, permalink, title, is_main, visibility });
-  }
+        if (!id) {
+          console.log('[saveMapToSupabase] Creating new mindmap (id will be assigned by Supabase)', { permalink, title, is_main, visibility });
+        } else {
+          console.log('[saveMapToSupabase] Updating existing mindmap', { id, permalink, title, is_main, visibility });
+        }
 
         const validCreatedAt = createdAt ? new Date(createdAt).toISOString() : new Date().toISOString();
         const validUpdatedAt = updatedAt ? new Date(updatedAt).toISOString() : new Date().toISOString();
 
-        // Create the data object with proper typing (no longer storing likes, saves, liked_by, collaborators in main table)
+        // Merge json_data and drawing_data with existing values if present
+        let mergedJsonData = json_data ? { ...json_data } : {};
+        if (nodes) mergedJsonData.nodes = nodes;
+        if (edges) mergedJsonData.edges = cleanedEdges;
+        if (edgeType) mergedJsonData.edgeType = edgeType;
+        if (backgroundColor) mergedJsonData.backgroundColor = backgroundColor;
+        if (dotColor) mergedJsonData.dotColor = dotColor;
+        if (fontFamily) mergedJsonData.fontFamily = fontFamily;
+
+  let mergedDrawingData = drawingData ? compressDrawingData(drawingData) : undefined;
+
         const mapData = {
           permalink: permalink,
           title,
-          json_data: { nodes, edges: cleanedEdges, edgeType, backgroundColor, dotColor, fontFamily },
-          drawing_data: compressDrawingData(drawingData),
+          json_data: mergedJsonData,
+          drawing_data: mergedDrawingData,
           created_at: validCreatedAt,
           updated_at: validUpdatedAt,
           visibility,

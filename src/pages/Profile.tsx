@@ -1297,130 +1297,83 @@ export default function Profile() {
       if (currentMap) {
         const conflictingMap = userMaps.find(
           (map) => map.permalink === details.permalink && map.permalink !== currentMap.permalink
-        )
-
+        );
         if (conflictingMap) {
-          throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`)
+          throw new Error(`Permalink already in use in your mindmap "${conflictingMap.title}"`);
         }
-
         try {
-          const isPermalinkChanged = currentMap.permalink !== details.permalink
-
-          // Prepare the update data
-          const updatedMapData = {
+          const isPermalinkChanged = currentMap.permalink !== details.permalink;
+          // Only update modal fields, never touch drawing_data or json_data
+          // Always send the full map object, only overwrite modal fields
+          const updatedMap = {
+            ...currentMap,
             title: details.title,
             visibility: details.visibility,
             description: details.description,
             is_main: details.is_main,
             collaborators: details.collaborators,
-            published_at: details.published_at
-            // Not updating updated_at to preserve the original timestamp
-          }
-
-          // Note: The logic for handling main maps is now in the mindMapStore.saveMapToSupabase function
-          // We don't need to unset other main maps here anymore
-
-          // Use the mindMapStore to handle the update, which will properly handle main maps
-          if (isPermalinkChanged) {
-            // First update the map data with the old ID
-            const updatedMap = {
-              ...currentMap,
-              ...updatedMapData
-            };
-
-            // Save the map with updated details
-            await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
-
-            // Then update the permalink
-            await useMindMapStore.getState().updateMapPermalink(currentMap.permalink, details.permalink);
-          } else {
-            // Just update the map data
-            const updatedMap = {
-              ...currentMap,
-              ...updatedMapData
-            };
-
-            // Save the map with updated details
-            await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
-          }
-
-          // Update local state to reflect changes immediately
-          const updatedMap = {
-            ...currentMap,
-            ...updatedMapData,
+            published_at: details.published_at,
             permalink: isPermalinkChanged ? details.permalink : currentMap.permalink,
           };
-
+          // Defensive: ensure drawing_data and json_data are present
+          if (!updatedMap.hasOwnProperty('drawing_data')) {
+            updatedMap.drawing_data = currentMap.drawing_data;
+          }
+          if (!updatedMap.hasOwnProperty('json_data')) {
+            updatedMap.json_data = currentMap.json_data;
+          }
+          await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
+          if (isPermalinkChanged) {
+            await useMindMapStore.getState().updateMapPermalink(currentMap.permalink, details.permalink);
+          }
           // Update the maps array in state, ensuring only one map is set as main
           const updatedMapsArray = userMaps.map((map) => {
-            // If this is the map we're updating, return the updated map
             if (map.permalink === currentMap.permalink) {
               return updatedMap;
             }
-            // If we're setting a new main map, unset any other main maps
             if (details.is_main && map.is_main) {
               return { ...map, is_main: false };
             }
-            // Otherwise, return the map unchanged
             return map;
           });
-
           setUserMaps(updatedMapsArray);
-
           // If this is a publish/republish action, notify followers
-          // Only send notifications if published_at was just set (not if it already existed)
           const wasJustPublished =
-            details.published_at && details.visibility === "public" && details.published_at !== currentMap.published_at
+            details.published_at && details.visibility === "public" && details.published_at !== currentMap.published_at;
           if (wasJustPublished && currentMap.id && user?.username) {
             try {
-              console.log("Sending notifications to followers for published mindmap:", {
-                creator_id: user.id,
-                mindmap_id: currentMap.id,
-                mindmap_title: details.title,
-                creator_username: user.username,
-              })
-
               const { data: profile, error: profileError } = await supabase
                 .from('profiles')
                 .select('username')
                 .eq('id', user.id)
                 .single();
               if (profileError) throw profileError;
-                      
-              const username = profile?.username
-
+              const username = profile?.username;
               try {
                 await useNotificationStore.getState().addNotification({
-                  user_id: user.id, // sender (publisher)
+                  user_id: user.id,
                   type: 'publish',
                   title: 'Mindmap Published',
                   message: `@${username} published a new mindmap: ${details.title}`,
                   mindmap_id: currentMap.id,
-                })
-                console.log("Successfully sent notifications to followers via notificationStore");
+                });
               } catch (notificationError) {
                 console.error("Error sending follower notifications:", notificationError);
               }
-
             } catch (notifyError) {
-              console.error("Failed to notify followers:", notifyError)
-              // Don't throw here - we don't want to fail the publish because notifications failed
+              console.error("Failed to notify followers:", notifyError);
             }
           }
-
-          // Show success popup if publishing/republishing
           if (wasJustPublished) {
             setShowSuccessPopup(true);
-            // Hide the popup after 3 seconds
             setTimeout(() => {
               setShowSuccessPopup(false);
             }, 3000);
           }
-
-          setMapToEdit(null)
+          setMapToEdit(null);
         } catch (error) {
-          console.error("Error saving map details:", error)
-          throw error
+          console.error("Error saving map details:", error);
+          throw error;
         }
       }
     }
