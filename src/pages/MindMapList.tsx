@@ -1672,48 +1672,50 @@ export default function MindMapList() {
           </div>
 
           <div className="flex items-center space-x-[1vh]">
-            {/* Compact Searchbar */}
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Search maps..."
-                  className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 px-3 py-1 text-sm w-[120px] sm:w-[160px] lg:w-[180px] pl-8`}
-                  style={{ minWidth: isSmallScreen ? 80 : 120 }}
-                />
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                  <Search className="w-4 h-4" />
-                </span>
+            {/* Sort dropdown and Create New Map button side by side, searchbar below and centered */}
+            <div className="flex flex-col items-center w-full">
+              <div className="flex items-center gap-4 w-full mb-2">
+                <div className="flex flex-col gap-2">
+                  <select
+                    value={sortOption}
+                    onChange={(e) =>
+                      setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
+                    }
+                    className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 h-[40px] w-[220px] sm:w-[160px] xs:w-[110px]`}
+                    style={{ height: "40px", fontSize: "1rem", width: isSmallScreen ? "110px" : (window.innerWidth < 640 ? "160px" : "220px") }}
+                  >
+                    <option value="newest">{isSmallScreen ? "Newest" : "Newest First"}</option>
+                    <option value="oldest">{isSmallScreen ? "Oldest" : "Oldest First"}</option>
+                    <option value="alphabeticalAsc">{isSmallScreen ? "A-Z" : "Alphabetical (A-Z)"}</option>
+                    <option value="alphabeticalDesc">{isSmallScreen ? "Z-A" : "Alphabetical (Z-A)"}</option>
+                  </select>
+                  <div className={`relative mt-0 w-[220px] sm:w-[160px] xs:w-[110px]`} style={{ width: isSmallScreen ? "110px" : (window.innerWidth < 640 ? "160px" : "220px") }}>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      placeholder="Search maps..."
+                      className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 px-3 py-1 text-sm pl-8 w-full h-[40px]`}
+                      style={{ height: "40px", width: isSmallScreen ? "110px" : (window.innerWidth < 640 ? "160px" : "220px") }}
+                    />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Search className="w-5 h-5" />
+                    </span>
+                  </div>
+                </div>
+                {viewMode === "owned" && (
+                  <div className="flex flex-col justify-center h-[84px]">
+                    <button
+                      onClick={() => setIsCreating(true)}
+                      className="group flex items-center justify-center space-x-2 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
+                      style={{ height: "84px", minHeight: "84px", fontSize: "1.25rem" }}
+                    >
+                      <Plus className="w-6 h-6 transition-transform group-hover:scale-110" />
+                      {!isSmallScreen && <span className="font-semibold">New Map</span>}
+                    </button>
+                  </div>
+                )}
               </div>
-              <select
-                value={sortOption}
-                onChange={(e) =>
-                  setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
-                }
-                className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? "px-[1vh] py-[0.8vh] text-[1.2vh]" : "px-[1.5vh] py-[0.8vh] text-[1.4vh]"} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
-              >
-                <option value="newest">{isSmallScreen ? "Newest" : "Newest First"}</option>
-                <option value="oldest">{isSmallScreen ? "Oldest" : "Oldest First"}</option>
-                <option value="alphabeticalAsc">{isSmallScreen ? "A-Z" : "Alphabetical (A-Z)"}</option>
-                <option value="alphabeticalDesc">{isSmallScreen ? "Z-A" : "Alphabetical (Z-A)"}</option>
-              </select>
-              {viewMode === "owned" && (
-                <button
-                  onClick={() => setIsCreating(true)}
-                  className="group flex items-center space-x-[0.8vh] px-[1.5vh] py-[0.8vh] bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
-                >
-                  {isSmallScreen ? (
-                    <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
-                  ) : (
-                    <>
-                      <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
-                      <span className="font-medium text-[1.4vh]">Create New Map</span>
-                    </>
-                  )}
-                </button>
-              )}
             </div>
           </div>
         </div>
