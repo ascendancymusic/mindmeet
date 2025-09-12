@@ -706,6 +706,7 @@ export default function MindMapList() {
   const location = useLocation()
   const [isCreating, setIsCreating] = useState(false)
   const [sortOption, setSortOption] = useState("newest")
+  const [searchTerm, setSearchTerm] = useState("")
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [mapToDelete, setMapToDelete] = useState<string | null>(null)
@@ -1273,8 +1274,14 @@ export default function MindMapList() {
     if (viewMode === "owned" && selectedGroupId) {
       const selectedGroup = groups.find((group) => group.id === selectedGroupId)
       if (selectedGroup) {
-  filteredMaps = currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.permalink))
+        filteredMaps = currentMaps.filter((map) => selectedGroup.mindmapIds.includes(map.permalink))
       }
+    }
+
+    // Filter by search term (title)
+    if (searchTerm.trim()) {
+      const lowerSearch = searchTerm.trim().toLowerCase()
+      filteredMaps = filteredMaps.filter(map => map.title?.toLowerCase().includes(lowerSearch))
     }
 
     // Sort the filtered maps
@@ -1297,7 +1304,7 @@ export default function MindMapList() {
           return b.updatedAt - a.updatedAt // Default to newest
       }
     })
-  }, [maps, collaborationMaps, viewMode, selectedGroupId, groups, sortOption])
+  }, [maps, collaborationMaps, viewMode, selectedGroupId, groups, sortOption, searchTerm])
 
   /**
    * Toggles the dropdown menu for a specific map
@@ -1665,34 +1672,49 @@ export default function MindMapList() {
           </div>
 
           <div className="flex items-center space-x-[1vh]">
-            {/* Enhanced Sort Dropdown */}
-            <select
-              value={sortOption}
-              onChange={(e) =>
-                setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
-              }
-              className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? "px-[1vh] py-[0.8vh] text-[1.2vh]" : "px-[1.5vh] py-[0.8vh] text-[1.4vh]"} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
-            >
-              <option value="newest">{isSmallScreen ? "Newest" : "Newest First"}</option>
-              <option value="oldest">{isSmallScreen ? "Oldest" : "Oldest First"}</option>
-              <option value="alphabeticalAsc">{isSmallScreen ? "A-Z" : "Alphabetical (A-Z)"}</option>
-              <option value="alphabeticalDesc">{isSmallScreen ? "Z-A" : "Alphabetical (Z-A)"}</option>
-            </select>
-            {viewMode === "owned" && (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="group flex items-center space-x-[0.8vh] px-[1.5vh] py-[0.8vh] bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
+            {/* Compact Searchbar */}
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Search maps..."
+                  className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 px-3 py-1 text-sm w-[120px] sm:w-[160px] lg:w-[180px] pl-8`}
+                  style={{ minWidth: isSmallScreen ? 80 : 120 }}
+                />
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <Search className="w-4 h-4" />
+                </span>
+              </div>
+              <select
+                value={sortOption}
+                onChange={(e) =>
+                  setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
+                }
+                className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl ${isSmallScreen ? "px-[1vh] py-[0.8vh] text-[1.2vh]" : "px-[1.5vh] py-[0.8vh] text-[1.4vh]"} focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200`}
               >
-                {isSmallScreen ? (
-                  <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
-                ) : (
-                  <>
+                <option value="newest">{isSmallScreen ? "Newest" : "Newest First"}</option>
+                <option value="oldest">{isSmallScreen ? "Oldest" : "Oldest First"}</option>
+                <option value="alphabeticalAsc">{isSmallScreen ? "A-Z" : "Alphabetical (A-Z)"}</option>
+                <option value="alphabeticalDesc">{isSmallScreen ? "Z-A" : "Alphabetical (Z-A)"}</option>
+              </select>
+              {viewMode === "owned" && (
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="group flex items-center space-x-[0.8vh] px-[1.5vh] py-[0.8vh] bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
+                >
+                  {isSmallScreen ? (
                     <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
-                    <span className="font-medium text-[1.4vh]">Create New Map</span>
-                  </>
-                )}
-              </button>
-            )}
+                  ) : (
+                    <>
+                      <Plus className="w-[2vh] h-[2vh] transition-transform group-hover:scale-110" />
+                      <span className="font-medium text-[1.4vh]">Create New Map</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1971,7 +1993,25 @@ export default function MindMapList() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-bold text-white truncate">{map.title}</h3>
+                      <h3 className="text-base font-bold text-white truncate">
+                        {(() => {
+                          if (searchTerm.trim()) {
+                            const lowerSearch = searchTerm.trim().toLowerCase();
+                            const title = map.title || "";
+                            const idx = title.toLowerCase().indexOf(lowerSearch);
+                            if (idx !== -1) {
+                              return <>
+                                {title.slice(0, idx)}
+                                <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded px-1 py-0.5 font-semibold shadow-sm">
+                                  {title.slice(idx, idx + lowerSearch.length)}
+                                </span>
+                                {title.slice(idx + lowerSearch.length)}
+                              </>;
+                            }
+                          }
+                          return map.title;
+                        })()}
+                      </h3>
                       {viewMode === "collaboration" && map.creatorUsername && (
                         <p className="text-xs text-blue-400 mt-1 font-medium">@{map.creatorUsername}</p>
                       )}
