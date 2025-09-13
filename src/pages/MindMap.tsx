@@ -831,10 +831,17 @@ export default function MindMap() {
   // Handles authentication, error states, and data processing
   const fetchMindMapFromSupabase = useCallback(async () => {
     if (!username || !MapId || !isLoggedIn) return;
+    
     // If we already have it in memory with matching id, skip fetch
     const cached = maps.find((m: any) => m.id === MapId) || collaborationMaps.find((m: any) => m.id === MapId);
     if (cached) {
       console.log('[MindMap] Skip fetch – using cached map for id', MapId);
+      return;
+    }
+
+    // Also check if currentMap is already available (derived from the store)
+    if (currentMap && (currentMap.id === MapId || currentMap.permalink === MapId)) {
+      console.log('[MindMap] Skip fetch – currentMap already available for', MapId);
       return;
     }
 
@@ -866,6 +873,7 @@ export default function MindMap() {
         .single();
 
       if (mapError || !map) {
+        console.log('[MindMap] No mindmap data found. It may not exist or you may not have permission to view it.');
         setLoadError("Could not find the requested mind map.");
         setIsLoading(false);
         return;
@@ -877,6 +885,7 @@ export default function MindMap() {
         map.mindmap_collaborations.some((collab: any) => collab.user_id === user.id && collab.status === 'accepted');
 
       if (!isCreator && !isCollaborator) {
+        console.log('[MindMap] No permission to edit this mindmap. Redirecting to view-only mode.');
         // Redirect to view-only mode if user is neither creator nor collaborator
         navigate(`/${username}/${map.permalink}`);
         return;
@@ -977,6 +986,17 @@ export default function MindMap() {
 
       setDetailedMap(processedMap);
 
+      // Log mindmap details when successfully loaded from database
+      console.log('[MindMap] Details:', {
+        title: processedMap.title,
+        id: processedMap.id,
+        permalink: processedMap.permalink,
+        nodes: Array.isArray(processedMap.nodes) ? processedMap.nodes.length : undefined,
+        edges: Array.isArray(processedMap.edges) ? processedMap.edges.length : undefined,
+        created_at: processedMap.createdAt,
+        updated_at: processedMap.updatedAt
+      });
+
       // Don't modify the global maps store here - let fetchMaps handle that
       // This function is only responsible for loading the current map's content
       // The global maps store should be managed by fetchMaps for consistency
@@ -1023,7 +1043,7 @@ export default function MindMap() {
     } finally {
       setIsLoading(false);
     }
-  }, [username, MapId, isLoggedIn, maps, collaborationMaps]);
+  }, [username, MapId, isLoggedIn, maps, collaborationMaps, currentMap]);
 
   // Initializes mindmap data when component mounts or URL parameters change
   // Uses cached data from store when available or fetches from database
@@ -1050,6 +1070,17 @@ export default function MindMap() {
 
     if (currentMap) {
       console.log('🗃️ [MindMap] Using cached data, skipping database fetch');
+       // Log mindmap details
+      console.log('[MindMap] Details:', {
+        title: currentMap.title,
+        id: currentMap.id,
+        permalink: currentMap.permalink,
+        fontFamily: currentMap.fontFamily,
+        nodes: Array.isArray(currentMap.nodes) ? currentMap.nodes.length : undefined,
+        edges: Array.isArray(currentMap.edges) ? currentMap.edges.length : undefined,
+        created_at: (currentMap as any).created_at,
+        updated_at: (currentMap as any).updated_at
+      });
 
       // Ensure collaborators data is available from the cache
       const collaborators = (currentMap as any).collaborators || [];
@@ -1061,7 +1092,6 @@ export default function MindMap() {
 
       // Load drawing data from cached data
       const drawingDataToSet = (currentMap as any).drawingData || { strokes: [] };
-
       if ((currentMap as any).drawingData) {
         console.log('🗃️ [MindMap] Loading drawing data from cache:', {
           strokeCount: drawingDataToSet.strokes?.length || 0,
@@ -3053,7 +3083,7 @@ export default function MindMap() {
       addToHistory(action);
 
       // Broadcast the change to collaborators
-      if (currentMindMapId) {
+      if (currentMap) {
         const updatedNode = nodes.find(n => n.id === playlistNodeId);
         if (updatedNode) {
           const finalNode = {
@@ -3072,6 +3102,9 @@ export default function MindMap() {
         }
       }
 
+      } else {
+        // If currentMap is still null after initialization, log missing or permission issue
+        console.log('[MindMap] No mindmap data found. It may not exist or you may not have permission to view it.');
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);

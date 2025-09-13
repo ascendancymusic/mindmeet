@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useCallback } from "react"
 import { useParams } from "react-router-dom"
 import { supabase } from "../supabaseClient"
 import {
@@ -61,7 +61,7 @@ import { usePageTitle } from "../hooks/usePageTitle"
 import eventEmitter from "../services/eventService"
 
 // Memoized ReactFlow preview component to prevent unnecessary re-renders
-const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
+const UserProfileMindMapPreview = React.memo(({ map, isSmallScreen }: { map: any, isSmallScreen: boolean }) => {
   // Parse the mindmap data for the renderer
   const mindMapData = {
     nodes: map.json_data?.nodes || [],
@@ -76,7 +76,11 @@ const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
       mindMapData={mindMapData}
       drawingData={map.drawing_data}
       interactive={false}
-      zoomable={true}
+      zoomable={!isSmallScreen}
+      pannable={!isSmallScreen}
+      doubleClickZoom={false}
+      selectable={false}
+      preventScrolling={!isSmallScreen}
       minZoom={0.1}
       maxZoom={2}
     />
@@ -91,7 +95,8 @@ const UserProfileMindMapPreview = React.memo(({ map }: { map: any }) => {
     prevProps.map.json_data?.backgroundColor === nextProps.map.json_data?.backgroundColor &&
     prevProps.map.json_data?.fontFamily === nextProps.map.json_data?.fontFamily &&
     prevProps.map.json_data?.edgeType === nextProps.map.json_data?.edgeType &&
-    prevProps.map.drawing_data === nextProps.map.drawing_data
+    prevProps.map.drawing_data === nextProps.map.drawing_data &&
+    prevProps.isSmallScreen === nextProps.isSmallScreen
   )
 })
 
@@ -206,6 +211,16 @@ const UserProfile: React.FC = () => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
   const [infoMapData, setInfoMapData] = useState<any>(null)
+
+  // Track screen size to control preview interactions
+  const [isSmallScreen, setIsSmallScreen] = useState(typeof window !== 'undefined' ? window.innerWidth < 1080 : false)
+  const handleResize = useCallback(() => {
+    setIsSmallScreen(window.innerWidth < 1080)
+  }, [])
+  useEffect(() => {
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [handleResize])
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
@@ -1202,7 +1217,7 @@ const UserProfile: React.FC = () => {
                         href={`/${username}/${map.permalink}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
-                        <UserProfileMindMapPreview map={map} />
+                        <UserProfileMindMapPreview map={map} isSmallScreen={isSmallScreen} />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                       </a>
                     )}
@@ -1355,7 +1370,7 @@ const UserProfile: React.FC = () => {
                           href={`/${username}/${map.permalink}`}
                           className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                         >
-                          <UserProfileMindMapPreview map={map} />
+                          <UserProfileMindMapPreview map={map} isSmallScreen={isSmallScreen} />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>
                         </a>
                       )}
@@ -1508,7 +1523,7 @@ const UserProfile: React.FC = () => {
                         href={`/${username}/${map.permalink}`}
                         className="block mb-5 compact-preview h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview"
                       >
-                        <UserProfileMindMapPreview map={map} />
+                        <UserProfileMindMapPreview map={map} isSmallScreen={isSmallScreen} />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent opacity-0 group-hover/preview:opacity-100 transition-opacity duration-50"></div>                        </a>
                     )}
 

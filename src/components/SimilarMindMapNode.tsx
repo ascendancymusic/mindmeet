@@ -384,7 +384,7 @@ const SimilarMindMapNode: React.FC<SimilarMindMapNodeProps> = ({ mindmap }) => {
               pannable={!isSmallScreen}
               doubleClickZoom={false}
               selectable={false}
-              preventScrolling={isSmallScreen}
+              preventScrolling={!isSmallScreen}
               minZoom={0.1}
               maxZoom={2}
               onInit={onInit}
