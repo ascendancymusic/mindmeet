@@ -117,29 +117,29 @@ const nodeTypes: NodeTypes = {
 const SkeletonLoader = () => {
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-auto">
-      <div className="w-[90vw] max-w-none mx-auto pb-6 pt-[calc(5rem+0.5rem)] min-h-full">
+      <div className="w-full max-w-none mx-auto pb-6 pt-16 min-h-full px-4">
         {/* Header Skeleton */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl mb-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="w-16 h-16 rounded-2xl bg-slate-700/50 animate-pulse"></div>
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-3 border border-slate-700/30 shadow-2xl mb-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-12 h-12 rounded-xl bg-slate-700/50 animate-pulse"></div>
               <div className="flex-1 min-w-0">
-                <div className="h-8 bg-slate-700/50 rounded-lg w-3/4 mb-2 animate-pulse"></div>
+                <div className="h-6 bg-slate-700/50 rounded-lg w-3/4 mb-1 animate-pulse"></div>
                 <div className="flex items-center gap-3">
-                  <div className="h-5 bg-slate-700/30 rounded w-32 animate-pulse"></div>
-                  <div className="h-5 bg-slate-700/30 rounded w-24 animate-pulse"></div>
+                  <div className="h-4 bg-slate-700/30 rounded w-32 animate-pulse"></div>
+                  <div className="h-4 bg-slate-700/30 rounded w-24 animate-pulse"></div>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-24 bg-slate-700/50 rounded-xl animate-pulse"></div>
-              <div className="h-11 w-28 bg-slate-700/50 rounded-xl animate-pulse"></div>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-20 bg-slate-700/50 rounded-lg animate-pulse"></div>
+              <div className="h-9 w-24 bg-slate-700/50 rounded-lg animate-pulse"></div>
             </div>
           </div>
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-2 mb-2">
           {/* Mind Map Skeleton - 3 columns */}
           <div className="xl:col-span-3">
             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 shadow-2xl overflow-hidden">
@@ -185,7 +185,7 @@ const SkeletonLoader = () => {
         </div>
 
         {/* Action Bar Skeleton */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 p-4 mb-3 shadow-2xl">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 p-4 mb-2 shadow-2xl">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4 flex-wrap">
               {[...Array(4)].map((_, i) => (
@@ -203,7 +203,7 @@ const SkeletonLoader = () => {
         </div>
 
         {/* Mobile Suggested Section Skeleton */}
-        <div className="xl:hidden mb-3">
+        <div className="xl:hidden mb-2">
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50 flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -277,6 +277,12 @@ const ViewMindMap: React.FC = () => {
   const { user } = useAuthStore()
   const [userProfile, setUserProfile] = useState<{ avatar_url: string | null; username?: string } | null>(null)
   const [currentMap, setCurrentMap] = useState<any>(null)
+  const [mindmapInteractions, setMindmapInteractions] = useState<{
+    likes: number
+    likedBy: string[]
+    saves: number
+    savedBy: string[]
+  }>({ likes: 0, likedBy: [], saves: 0, savedBy: [] })
   const [loading, setLoading] = useState(true)
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
   const reactFlowWrapperRef = useRef<HTMLDivElement>(null)
@@ -340,12 +346,11 @@ const ViewMindMap: React.FC = () => {
         published_at: details.published_at,
       };
 
-      if (isPermalinkChanged) {
-        await useMindMapStore.getState().saveMapToSupabase(updatedMapData, user.id);
-        await useMindMapStore.getState().updateMapPermalink(currentMap.permalink, details.permalink);
-      } else {
-        await useMindMapStore.getState().saveMapToSupabase(updatedMapData, user.id);
-      }
+      // Always save the map with the new permalink directly
+      await useMindMapStore.getState().saveMapToSupabase({
+        ...updatedMapData,
+        permalink: details.permalink,
+      }, user.id);
 
       // Update local state
       setCurrentMap((prev: any) => ({
@@ -353,6 +358,11 @@ const ViewMindMap: React.FC = () => {
         ...updatedMapData,
         permalink: isPermalinkChanged ? details.permalink : prev.permalink,
       }));
+
+      // If permalink changed, update the URL
+      if (isPermalinkChanged) {
+        navigate(`/${username}/${details.permalink}`);
+      }
 
       // If this is a publish/republish action, notify followers
       const wasJustPublished =
@@ -405,19 +415,19 @@ const ViewMindMap: React.FC = () => {
 
   // Add mindmap actions hook
   const { handleLike: hookHandleLike, handleSave: hookHandleSave } = useMindMapActions({
-    onLikeUpdate: (mapPermalink, newLikes, newLikedBy) => {
-      setCurrentMap((prev: any) =>
-        prev && (prev.permalink === mapPermalink || prev.id === mapPermalink)
-          ? { ...prev, likes: newLikes, liked_by: newLikedBy, likedBy: newLikedBy }
-          : prev,
-      )
+    onLikeUpdate: (_, newLikes, newLikedBy) => {
+      setMindmapInteractions((prev) => ({
+        ...prev,
+        likes: newLikes,
+        likedBy: newLikedBy
+      }))
     },
-    onSaveUpdate: (mapPermalink, newSaves, newSavedBy) => {
-      setCurrentMap((prev: any) =>
-        prev && (prev.permalink === mapPermalink || prev.id === mapPermalink)
-          ? { ...prev, saves: newSaves, saved_by: newSavedBy, savedBy: newSavedBy }
-          : prev,
-      )
+    onSaveUpdate: (_, newSaves, newSavedBy) => {
+      setMindmapInteractions((prev) => ({
+        ...prev,
+        saves: newSaves,
+        savedBy: newSavedBy
+      }))
     },
   })
 
@@ -551,12 +561,16 @@ const ViewMindMap: React.FC = () => {
           edgeType: map.json_data?.edgeType || 'default',
           backgroundColor: map.json_data?.backgroundColor,
           drawingData: decompressDrawingData(map.drawing_data) || undefined,
+          collaborators,
+          creator: profile.id,
+        })
+
+        // Set interactions separately to prevent ReactFlow re-renders
+        setMindmapInteractions({
           likes,
           likedBy,
           saves,
-          savedBy,
-          collaborators,
-          creator: profile.id,
+          savedBy
         })
 
         // Check for Spotify nodes and show modal if needed
@@ -1378,9 +1392,9 @@ const ViewMindMap: React.FC = () => {
           stats: {
             nodes: currentMap.nodes?.length || 0,
             edges: currentMap.edges?.length || 0,
-            likes: currentMap.likes || 0,
+            likes: mindmapInteractions.likes || 0,
             comments: totalCommentsCount || 0,
-            saves: currentMap.saves || 0,
+            saves: mindmapInteractions.saves || 0,
           },
         }}
         onClose={() => setIsInfoModalOpen(false)}
@@ -1397,6 +1411,7 @@ const ViewMindMap: React.FC = () => {
         />)}
       {isEditDetailsModalOpen && editMindMapData && (
         <EditDetailsModal
+          isOpen={isEditDetailsModalOpen}
           mapData={editMindMapData}
           username={username || ""}
           onClose={() => setIsEditDetailsModalOpen(false)}
@@ -1418,16 +1433,16 @@ const ViewMindMap: React.FC = () => {
           creatorUsername={username || ""}
         />
       )}
-      <div className="w-[90vw] max-w-none mx-auto pb-6 pt-[calc(5rem+0.5rem)] min-h-full">
+      <div className="w-full max-w-none mx-auto pb-6 pt-16 min-h-full px-4">
         {" "}        {/* Enhanced Header Section */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl mb-3">
-          <div className="flex items-center justify-between gap-4">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-3 border border-slate-700/30 shadow-2xl mb-2">
+          <div className="flex items-center justify-between gap-3">
             {/* Creator info and title */}
-            <div className="flex items-center gap-4 min-w-0 flex-1">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="relative group">
                 <a
                   href={`/${username}`}
-                  className="block w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 flex-shrink-0 transition-all duration-300 hover:scale-105 ring-4 ring-slate-600/20 group-hover:ring-slate-500/30"
+                  className="block w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 flex-shrink-0 transition-all duration-300 hover:scale-105 ring-2 ring-slate-600/20 group-hover:ring-slate-500/30"
                 >
                   {creatorProfile?.avatar_url ? (
                     <img
@@ -1436,13 +1451,13 @@ const ViewMindMap: React.FC = () => {
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 font-bold text-xl">
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 font-bold text-lg">
                       {username?.charAt(0).toUpperCase() || "C"}
                     </div>
                   )}
                 </a>
               </div>{" "}              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 truncate">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 truncate">
                   {currentMap.title}
                 </h1>
                 <div className="flex items-center gap-3 text-sm">
@@ -1469,10 +1484,10 @@ const ViewMindMap: React.FC = () => {
             </div>
 
             {/* Enhanced Action buttons */}
-            <div className="flex items-center gap-3 flex-shrink-0">              {(isCreator || isCollaborator) && (
+            <div className="flex items-center gap-2 flex-shrink-0">              {(isCreator || isCollaborator) && (
               <a
                 href={`/${username}/${permalink}/edit`}
-                className="group inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
+                className="group inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
               >
                 <Network className="w-4 h-4 transition-transform group-hover:scale-110" />
                 <span className="hidden sm:inline">Edit</span>
@@ -1480,7 +1495,7 @@ const ViewMindMap: React.FC = () => {
             )}              {!isCreator && user?.id && (
               <button
                 onClick={handleFollow}
-                className={`group inline-flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:scale-105 ${isFollowing
+                className={`group inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:scale-105 ${isFollowing
                     ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:shadow-red-500/25"
                     : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/25"
                   }`}
@@ -1501,7 +1516,7 @@ const ViewMindMap: React.FC = () => {
             </div>
           </div>
         </div>        {/* Enhanced Main content area with full-width layout */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-2 mb-2">
           {/* Mind map visualization - spans 3 columns on xl screens */}
           <div className="xl:col-span-3">
             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 overflow-hidden shadow-2xl">
@@ -1676,26 +1691,26 @@ const ViewMindMap: React.FC = () => {
             </div>
           </div>
         </div>{" "}        {/* Enhanced Action buttons and stats */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 p-4 mb-3 shadow-2xl">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 p-4 mb-2 shadow-2xl">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4 flex-wrap">
               {" "}
               <button
-                onClick={(e) => hookHandleLike(e, currentMap)}
+                onClick={(e) => hookHandleLike(e, { ...currentMap, ...mindmapInteractions })}
                 className="group flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-700/50 hover:bg-sky-400/20 border border-slate-600/50 hover:border-sky-400/50 transition-all duration-200 hover:scale-105"
               >
                 <Heart
-                  className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${user?.id && currentMap.likedBy?.includes(user.id)
+                  className={`w-5 h-5 transition-all duration-200 group-hover:scale-110 ${user?.id && mindmapInteractions.likedBy?.includes(user.id)
                       ? "fill-current text-sky-400"
                       : "text-slate-300 group-hover:text-sky-400"
                     }`}
                 />
                 <span className="text-sm font-medium text-slate-200">
-                  {currentMap.likes > 0 ? currentMap.likes : "Like"}
+                  {mindmapInteractions.likes > 0 ? mindmapInteractions.likes : "Like"}
                 </span>
               </button>{" "}
               <button
-                onClick={(e) => hookHandleSave(e, currentMap)}
+                onClick={(e) => hookHandleSave(e, { ...currentMap, ...mindmapInteractions })}
                 className="group flex items-center gap-3 px-6 py-3 rounded-xl bg-slate-700/50 hover:bg-blue-400/20 border border-slate-600/50 hover:border-blue-400/50 transition-all duration-200 hover:scale-105"
               >
                 <svg
@@ -1703,12 +1718,12 @@ const ViewMindMap: React.FC = () => {
                   width="20"
                   height="20"
                   viewBox="0 0 24 24"
-                  fill={user?.id && currentMap.savedBy?.includes(user.id) ? "currentColor" : "none"}
+                  fill={user?.id && mindmapInteractions.savedBy?.includes(user.id) ? "currentColor" : "none"}
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className={`transition-all duration-200 group-hover:scale-110 ${user?.id && currentMap.savedBy?.includes(user.id)
+                  className={`transition-all duration-200 group-hover:scale-110 ${user?.id && mindmapInteractions.savedBy?.includes(user.id)
                       ? "text-blue-400"
                       : "text-slate-300 group-hover:text-blue-400"
                     }`}
@@ -1716,7 +1731,7 @@ const ViewMindMap: React.FC = () => {
                   <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
                 </svg>
                 <span className="text-sm font-medium text-slate-200">
-                  {currentMap.saves > 0 ? currentMap.saves : "Save"}
+                  {mindmapInteractions.saves > 0 ? mindmapInteractions.saves : "Save"}
                 </span>
               </button>{" "}
               <button
@@ -1782,7 +1797,7 @@ const ViewMindMap: React.FC = () => {
             )}
           </div>
         </div>{" "}        {/* Mobile similar mindmaps with improved design */}
-        <div className="xl:hidden mb-3">
+        <div className="xl:hidden mb-2">
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/30 overflow-hidden shadow-2xl">
             <div
               className="p-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50 flex justify-between items-center cursor-pointer hover:bg-slate-700/30 transition-colors duration-200"

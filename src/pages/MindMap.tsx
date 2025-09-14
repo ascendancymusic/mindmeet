@@ -83,6 +83,7 @@ import MindMapSelector from "../components/MindMapSelector"
 import { ConditionalLoginPrompt } from "../components/LoginPrompt";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
+import { useClipboardStore } from "../store/clipboardStore";
 import { Toast } from "../components/Toast";
 import defaultNodeStyles from "../config/defaultNodeStyles";
 import { supabase } from "../supabaseClient";
@@ -313,8 +314,7 @@ export default function MindMap() {
   // State for playlist song selection mode
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false);
   const [activePlaylistNodeId, setActivePlaylistNodeId] = useState<string | null>(null);
-  const [clipboardNodes, setClipboardNodes] = useState<Node[]>([]);
-  const [clipboardEdges, setClipboardEdges] = useState<Edge[]>([]);
+  const { clipboardNodes, clipboardEdges, setClipboard, hasClipboard } = useClipboardStore();
   const [selectionBounds, setSelectionBounds] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
   // Removed floating paste toolbox; paste now handled exclusively via PaneContextMenu
   const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 }); // retained only for legacy calls
@@ -3297,8 +3297,7 @@ export default function MindMap() {
       );
 
       // Store in clipboard state
-      setClipboardNodes(selectedNodes);
-      setClipboardEdges(selectedEdges);
+      setClipboard(selectedNodes, selectedEdges);
 
       // (Removed) legacy paste toolbox activation
 
@@ -3369,8 +3368,7 @@ export default function MindMap() {
       return;
     }
     // For single-node copy there are no internal edges
-    setClipboardNodes([{ ...node, selected: false }]);
-    setClipboardEdges([]);
+    setClipboard([{ ...node, selected: false }], []);
     // Initialize paste toolbox position at current mouse location (last tracked)
     setPasteToolboxPosition({ x: lastMousePosition.x, y: lastMousePosition.y });
     // Do not show legacy paste toolbox; user will invoke paste via pane context menu
@@ -5651,7 +5649,7 @@ export default function MindMap() {
           }
 
           // If no image found, check for node clipboard data
-          if (clipboardNodes.length > 0) {
+          if (hasClipboard()) {
             // Validate clipboard and instance availability
             if (!reactFlowInstance) {
               return;
@@ -5715,9 +5713,9 @@ export default function MindMap() {
             }
             setIsInitialLoad(false);
 
-            // Clear clipboard after successful native paste
-            setClipboardNodes([]);
-            setClipboardEdges([]);
+            // DO NOT clear clipboard after successful native paste - allow multiple pastes
+            // setClipboardNodes([]);
+            // setClipboardEdges([]);
 
             // Deselect any selection box to prevent frozen selection after paste
             setSelectedNodeId(null);
@@ -5728,7 +5726,7 @@ export default function MindMap() {
           console.error('Error reading clipboard:', err);
 
           // Fallback to node clipboard if clipboard API fails
-          if (clipboardNodes.length > 0 && reactFlowInstance) {
+          if (hasClipboard() && reactFlowInstance) {
             const { newNodes, newEdges } = createPasteAction(
               clipboardNodes,
               clipboardEdges,
@@ -5742,8 +5740,9 @@ export default function MindMap() {
             if (!isInitialLoad) setHasUnsavedChanges(true);
             setIsInitialLoad(false);
 
-            setClipboardNodes([]);
-            setClipboardEdges([]);
+            // DO NOT clear clipboard after fallback paste - allow multiple pastes
+            // setClipboardNodes([]);
+            // setClipboardEdges([]);
 
             // Deselect selection state after fallback paste
             setSelectedNodeId(null);
@@ -7849,7 +7848,7 @@ export default function MindMap() {
           isVisible={paneContextMenu.isVisible}
           position={paneContextMenu.position}
           onClose={handleClosePaneContextMenu}
-          hasClipboard={clipboardNodes.length > 0}
+          hasClipboard={hasClipboard()}
           onPasteAt={(screenPos) => {
             if (!reactFlowInstance || clipboardNodes.length === 0) return;
             // Use createPasteAction with current clipboard and screen position
@@ -7882,9 +7881,9 @@ export default function MindMap() {
             });
             if (!isInitialLoad) setHasUnsavedChanges(true);
             setIsInitialLoad(false);
-            // Clear clipboard after paste (optional; comment out if you want multi-paste)
-            setClipboardNodes([]);
-            setClipboardEdges([]);
+            // DO NOT clear clipboard after paste - allow multiple pastes of same nodes
+            // setClipboardNodes([]);
+            // setClipboardEdges([]);
 
             // Clear selection to avoid issues moving selection box after pasting
             setSelectedNodeId(null);
