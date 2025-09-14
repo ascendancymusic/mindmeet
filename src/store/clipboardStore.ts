@@ -16,20 +16,35 @@ interface ClipboardState {
 
 export const useClipboardStore = create<ClipboardState>()(
   persist(
-    (set, get) => ({
-      clipboardNodes: [],
-      clipboardEdges: [],
-      setClipboard: (nodes: Node[], edges: Edge[]) => {
-        set({ clipboardNodes: nodes, clipboardEdges: edges });
-      },
-      clearClipboard: () => {
-        set({ clipboardNodes: [], clipboardEdges: [] });
-      },
-      hasClipboard: () => {
-        const { clipboardNodes } = get();
-        return clipboardNodes.length > 0;
-      },
-    }),
+    (set, get) => {
+      // Timer reference
+      let clearTimer: ReturnType<typeof setTimeout> | null = null;
+
+      // Helper to start/reset the timer
+      const startClearTimer = () => {
+        if (clearTimer) clearTimeout(clearTimer);
+        clearTimer = setTimeout(() => {
+          set({ clipboardNodes: [], clipboardEdges: [] });
+        }, 30 * 60 * 1000); // 30 minutes
+      };
+
+      return {
+        clipboardNodes: [],
+        clipboardEdges: [],
+        setClipboard: (nodes: Node[], edges: Edge[]) => {
+          set({ clipboardNodes: nodes, clipboardEdges: edges });
+          startClearTimer();
+        },
+        clearClipboard: () => {
+          set({ clipboardNodes: [], clipboardEdges: [] });
+          if (clearTimer) clearTimeout(clearTimer);
+        },
+        hasClipboard: () => {
+          const { clipboardNodes } = get();
+          return clipboardNodes.length > 0;
+        },
+      };
+    },
     {
       name: "mindmeet-clipboard", // unique name for localStorage key
       // Only persist the clipboard data, not functions

@@ -74,7 +74,7 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
                 height="166"
                 scrolling="no"
                 frameBorder="no"
-                src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(data.soundCloudUrl)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`}
+                src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(data.soundCloudUrl)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true&show_playcount=true&buying=false&sharing=false&download=false`}
                 className="rounded-lg"
                 style={{ pointerEvents: isAddingToPlaylist ? 'none' : 'auto' }}
               />
