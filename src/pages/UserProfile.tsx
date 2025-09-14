@@ -296,7 +296,13 @@ const UserProfile: React.FC = () => {
     sendNotifications: true,
   })
 
-  usePageTitle(profile ? `${profile.full_name || profile.username}` : "Loading...")
+  if (loading) {
+    usePageTitle("Loading...");
+  } else if (!profile) {
+    usePageTitle("Not Found");
+  } else {
+    usePageTitle(`${profile.full_name || profile.username}`);
+  }
 
   // Listen for follow/unfollow events from UserListModal
   useEffect(() => {
@@ -977,10 +983,10 @@ const UserProfile: React.FC = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-6">
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 shadow-2xl max-w-lg w-full text-center">
+      <div className="fixed inset-0 h-screen w-screen flex items-center justify-center bg-transparent z-50">
+        <div className="rounded-2xl p-12 border border-slate-700/30 shadow-2xl max-w-lg w-full text-center bg-slate-900/90">
           <div className="mb-8">
-            <div className="w-24 h-24 mx-auto bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl flex items-center justify-center">
+            <div className="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center bg-slate-800">
               <Network className="w-12 h-12 text-slate-400" />
             </div>
           </div>
