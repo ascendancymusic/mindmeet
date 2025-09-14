@@ -1211,7 +1211,7 @@ export default function MindMapList() {
     }
   }, [maps.length, groups.length])
 
-  const handleCreateMap = async (title: string, customPermalink?: string, selectedGroupIds?: string[]) => {
+  const handleCreateMap = async (title: string, customPermalink?: string, selectedGroupIds?: string[], templateId?: string) => {
     if (!isValidUserId) {
       console.error("Invalid or undefined userId. Cannot create map.")
       return
@@ -1220,7 +1220,7 @@ export default function MindMapList() {
     const { showToast } = useToastStore.getState()
 
     try {
-      const newPermalink = await addMap(title, userId, customPermalink)
+      const newPermalink = await addMap(title, userId, customPermalink, templateId)
       // Fetch the new mindmap directly from Supabase to get its id
       const { data: newMapData, error: fetchError } = await supabase
         .from("mindmaps")

@@ -1118,6 +1118,11 @@ export default function MindMap() {
 
       initializeCommonState();
       setIsLoading(false);
+      
+      // Set isInitialLoad to false after a brief delay to allow state to settle
+      setTimeout(() => {
+        setIsInitialLoad(false);
+      }, 100);
 
       initializationKeyRef.current = initKey;
       hasInitializedRef.current = true;
@@ -1439,8 +1444,12 @@ export default function MindMap() {
         return;
       }
 
-      if (!action.previousState || !action.previousState.nodes) {
-        console.warn('Invalid action - missing previousState or nodes');
+      if (!action.previousState || !Array.isArray(action.previousState.nodes)) {
+        console.warn('Invalid action - missing previousState or nodes array', {
+          hasPreviousState: !!action.previousState,
+          nodesType: typeof action.previousState?.nodes,
+          nodesValue: action.previousState?.nodes
+        });
         return;
       }
 

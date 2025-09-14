@@ -49,7 +49,7 @@ interface MindMapState {
   currentMapId: string | null;
   aiProposedChanges: { id: string; nodes: Node[]; edges: Edge[]; title: string } | null;
   mapBackup: MindMap | null;
-  addMap: (title: string, userId: string, customPermalink?: string) => Promise<string>;
+  addMap: (title: string, userId: string, customPermalink?: string, templateId?: string) => Promise<string>;
   cloneMap: (mapPermalink: string, userId: string) => Promise<string>;
   // First arg can be a UUID mindmap id (preferred) or legacy permalink
   updateMap: (idOrPermalink: string, nodes: Node[], edges: Edge[], title: string, userId: string, customization?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; drawingData?: DrawingData; fontFamily?: string; }) => Promise<void>;
@@ -593,7 +593,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       console.error("Unexpected error in deleteMapFromSupabase:", err);
     }
   },
-  addMap: async (title, userId, customPermalink) => {
+  addMap: async (title, userId, customPermalink, templateId) => {
     const sanitizedTitle = sanitizeTitle(title);
     const existingPermalinks = get().maps.map((map) => map.permalink);
     
@@ -616,10 +616,15 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       }
     }
 
+    // Set template-specific properties
+    const isWhiteboardTemplate = templateId === 'whiteboard';
+    const backgroundColor = isWhiteboardTemplate ? '#ffffff' : '#11192C';
+    const dotColor = isWhiteboardTemplate ? '#ffffff' : '#81818a';
+
     const newMap: MindMap = {
       permalink,
       title,
-      nodes: [
+      nodes: isWhiteboardTemplate ? [] : [
         {
           id: "1",
           type: "input",
@@ -631,6 +636,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       ],
       edges: [],
       edgeType: 'default',
+      backgroundColor,
+      dotColor,
       fontFamily: 'Aspekta',
       createdAt: Date.now(),
       updatedAt: Date.now(),

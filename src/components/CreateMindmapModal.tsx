@@ -16,7 +16,7 @@ interface Group {
 interface CreateMindmapModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreateMap: (title: string, customPermalink?: string, selectedGroupIds?: string[]) => Promise<void>
+  onCreateMap: (title: string, customPermalink?: string, selectedGroupIds?: string[], templateId?: string) => Promise<void>
   groups: Group[]
 }
 
@@ -174,6 +174,13 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
     )
   }
 
+  type Template = {
+    id: string;
+    name: string;
+    enabled: boolean;
+    icon?: typeof Palette;
+  };
+
   const diagramTypes = [
     {
       id: "mindmap" as const,
@@ -182,9 +189,9 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
       enabled: true,
       templates: [
         { id: "empty", name: "Empty", enabled: true },
-        { id: "brainstorm", name: "Brainstorming", enabled: false },
+        { id: "whiteboard", name: "Whiteboard", enabled: true, icon: Palette },
         { id: "project", name: "Project Planning", enabled: false },
-      ],
+      ] as Template[],
     },
     {
       id: "decision" as const,
@@ -192,10 +199,10 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
       icon: GitBranch,
       enabled: false,
       templates: [
-        { id: "empty", name: "Empty", enabled: false },
-        { id: "business", name: "Business Decision", enabled: false },
-        { id: "personal", name: "Personal Choice", enabled: false },
-      ],
+        { id: "empty", name: "Empty", enabled: false, icon: undefined },
+        { id: "business", name: "Business Decision", enabled: false, icon: undefined },
+        { id: "personal", name: "Personal Choice", enabled: false, icon: undefined },
+      ] as Template[],
     },
     {
       id: "flowchart" as const,
@@ -203,10 +210,10 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
       icon: Workflow,
       enabled: false,
       templates: [
-        { id: "empty", name: "Empty", enabled: false },
-        { id: "process", name: "Process Flow", enabled: false },
-        { id: "algorithm", name: "Algorithm", enabled: false },
-      ],
+        { id: "empty", name: "Empty", enabled: false, icon: undefined },
+        { id: "process", name: "Process Flow", enabled: false, icon: undefined },
+        { id: "algorithm", name: "Algorithm", enabled: false, icon: undefined },
+      ] as Template[],
     },
   ]
 
@@ -217,7 +224,7 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
     setIsCreating(true)
     try {
       const finalPermalink = isPermalinkCustomized && customPermalink ? customPermalink : undefined
-      await onCreateMap(newMapTitle.trim(), finalPermalink, selectedGroupIds.length > 0 ? selectedGroupIds : undefined)
+      await onCreateMap(newMapTitle.trim(), finalPermalink, selectedGroupIds.length > 0 ? selectedGroupIds : undefined, selectedTemplate)
       setNewMapTitle("")
       setCustomPermalink("")
       setIsPermalinkCustomized(false)
@@ -379,33 +386,42 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {diagramTypes
                 .find((type) => type.id === selectedType)
-                ?.templates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => template.enabled && setSelectedTemplate(template.id)}
-                    disabled={!template.enabled}
-                    className={`p-5 rounded-2xl border transition-all duration-200 text-left relative backdrop-blur-sm ${
-                      selectedTemplate === template.id
-                        ? "border-purple-400/50 bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-200 shadow-lg shadow-purple-500/20"
-                        : template.enabled
-                          ? "border-white/10 bg-gradient-to-br from-slate-800/90 to-purple-900/90 text-slate-300 hover:border-white/20 hover:bg-gradient-to-br hover:from-slate-700/90 hover:to-purple-800/90"
-                          : "border-white/5 bg-gradient-to-br from-slate-800/50 to-slate-900/50 text-slate-500 cursor-not-allowed"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{template.name}</span>
-                      {!template.enabled && template.id !== "empty" && (
-                        <span className="text-xs bg-slate-700/80 text-slate-300 px-2 py-1 rounded-full border border-white/10">
-                          Soon
+                ?.templates.map((template) => {
+                  // Palette icon for Whiteboard
+                  const Icon = template.id === "whiteboard" && template.icon ? template.icon : null
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => template.enabled && setSelectedTemplate(template.id)}
+                      disabled={!template.enabled}
+                      className={`p-5 rounded-2xl border transition-all duration-200 text-left relative backdrop-blur-sm ${
+                        selectedTemplate === template.id
+                          ? "border-purple-400/50 bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-200 shadow-lg shadow-purple-500/20"
+                          : template.enabled
+                            ? "border-white/10 bg-gradient-to-br from-slate-900/90 to-slate-800/90 text-white hover:border-white/20 hover:bg-gradient-to-br hover:from-slate-800/90 hover:to-purple-800/90"
+                            : "border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-900/50 text-slate-600 cursor-not-allowed"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium flex items-center gap-2">
+                          {Icon && <Icon className="w-4 h-4 text-purple-300" />} {template.name}
                         </span>
+                        {!template.enabled && template.id !== "empty" && (
+                          <span className="text-xs bg-slate-700/80 text-slate-300 px-2 py-1 rounded-full border border-white/10">
+                            Soon
+                          </span>
+                        )}
+                      </div>
+                      {template.id === "empty" && (
+                        <p className="text-xs text-slate-400 mt-2">Start with a blank canvas</p>
                       )}
-                    </div>
-                    {template.id === "empty" && (
-                      <p className="text-xs text-slate-400 mt-2">Start with a blank canvas</p>
-                    )}
-                  </button>
-                ))}
+                      {template.id === "whiteboard" && (
+                        <p className="text-xs text-slate-400 mt-2">For drawing and sketching on a white background</p>
+                      )}
+                    </button>
+                  )
+                })}
             </div>
           </div>
 
@@ -467,7 +483,7 @@ export default function CreateMindmapModal({ isOpen, onClose, onCreateMap, group
             </button>
             <button
               type="submit"
-              disabled={!newMapTitle.trim() || isCreating || selectedType !== "mindmap" || selectedTemplate !== "empty" || !!permalinkError}
+              disabled={!newMapTitle.trim() || isCreating || selectedType !== "mindmap" || (selectedTemplate !== "empty" && selectedTemplate !== "whiteboard") || !!permalinkError}
               className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-500 hover:to-purple-500 transition-all duration-200 font-semibold transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
             >
               {isCreating ? "Creating..." : "Create Diagram"}

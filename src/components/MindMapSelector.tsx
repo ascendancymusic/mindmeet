@@ -165,7 +165,7 @@ const MindMapSelector: React.FC<MindMapSelectorProps> = ({
     
     if (userId) {
       try {
-  const newMapId = await addMap(newMapTitle.trim(), userId);
+  const newMapId = await addMap(newMapTitle.trim(), userId, undefined, undefined);
   console.log("Created mindmap with id:", newMapId, "and title:", newMapTitle.trim());
         
         // Select the newly created mindmap
