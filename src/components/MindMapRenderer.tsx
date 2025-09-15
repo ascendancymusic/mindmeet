@@ -1,18 +1,18 @@
-import React, { useRef, useEffect, useCallback } from 'react';
-import ReactFlow, { ReactFlowInstance, NodeTypes, Background } from 'reactflow';
+import React, { useRef, useCallback, useMemo } from 'react';
+import ReactFlow, { ReactFlowInstance, NodeTypes } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { prepareNodesForRendering } from '../utils/reactFlowUtils';
 import { processNodesForTextRendering } from '../utils/textNodeUtils';
 import { nodeTypes } from '../config/nodeTypes';
 import DrawingPreview from './DrawingPreview';
 import { decompressDrawingData } from '../utils/drawingDataCompression';
-import { DrawingData } from './DrawingCanvas';
+import { DrawingData, getDrawingBounds } from './DrawingCanvas';
 
 interface CustomBackgroundProps {
   backgroundColor?: string;
 }
 
-const CustomBackground: React.FC<CustomBackgroundProps> = ({ backgroundColor }) => {
+const CustomBackground: React.FC<CustomBackgroundProps> = React.memo(({ backgroundColor }) => {
   if (backgroundColor) {
     return (
       <>
@@ -34,7 +34,7 @@ const CustomBackground: React.FC<CustomBackgroundProps> = ({ backgroundColor }) 
       style={{ zIndex: -1 }}
     />
   );
-};
+});
 
 interface MindMapData {
   nodes: any[];
@@ -83,8 +83,9 @@ interface MindMapRendererProps {
  * - Supports custom backgrounds and drawing overlays
  * - Configurable interaction modes (preview vs editing)
  * - Consistent styling and behavior across the app
+ * - Optimized with React.memo to prevent unnecessary re-renders
  */
-const MindMapRenderer: React.FC<MindMapRendererProps> = ({
+const MindMapRenderer: React.FC<MindMapRendererProps> = React.memo(({
   mindMapData,
   drawingData,
   interactive = false,
@@ -101,21 +102,16 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = ({
   customNodeTypes,
 }) => {
   const instanceRef = useRef<ReactFlowInstance | null>(null);
-  const [processedDrawingData, setProcessedDrawingData] = React.useState<DrawingData | null>(null);
-
-  // Process drawing data
-  useEffect(() => {
-    if (drawingData) {
-      if (typeof drawingData === 'string') {
-        // Decompress if it's a string from database
-        const decompressed = decompressDrawingData(drawingData);
-        setProcessedDrawingData(decompressed || null);
-      } else {
-        // Already processed DrawingData object
-        setProcessedDrawingData(drawingData);
-      }
+  // Process drawing data with stable memoization
+  const processedDrawingData = useMemo(() => {
+    if (!drawingData) return null;
+    
+    if (typeof drawingData === 'string') {
+      // Decompress if it's a string from database
+      return decompressDrawingData(drawingData) || null;
     } else {
-      setProcessedDrawingData(null);
+      // Already processed DrawingData object
+      return drawingData;
     }
   }, [drawingData]);
 
@@ -129,9 +125,56 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = ({
 
   // Process nodes for rendering
   const processedNodes = React.useMemo(() => {
-    if (!mindMapData.nodes?.length) return [];
-    return processNodesForTextRendering(prepareNodesForRendering(mindMapData.nodes));
-  }, [mindMapData.nodes]);
+    const regularNodes = mindMapData.nodes?.length 
+      ? processNodesForTextRendering(prepareNodesForRendering(mindMapData.nodes))
+      : [];
+
+    // If there are regular nodes, use them
+    if (regularNodes.length > 0) {
+      return regularNodes;
+    }
+
+    // If no regular nodes but there's drawing data, create invisible helper nodes for proper viewport fitting
+    if (processedDrawingData) {
+      const bounds = getDrawingBounds(processedDrawingData);
+      if (bounds) {
+        // Add some padding around the drawing bounds
+        const padding = 100;
+        return [
+          {
+            id: 'drawing-helper-1',
+            position: { x: bounds.x - padding, y: bounds.y - padding },
+            data: { label: '' },
+            type: 'default',
+            style: { 
+              opacity: 0, 
+              pointerEvents: 'none',
+              width: 1,
+              height: 1,
+              background: 'transparent',
+              border: 'none'
+            },
+          },
+          {
+            id: 'drawing-helper-2',
+            position: { x: bounds.x + bounds.width + padding, y: bounds.y + bounds.height + padding },
+            data: { label: '' },
+            type: 'default',
+            style: { 
+              opacity: 0, 
+              pointerEvents: 'none',
+              width: 1,
+              height: 1,
+              background: 'transparent',
+              border: 'none'
+            },
+          },
+        ];
+      }
+    }
+
+    return [];
+  }, [mindMapData.nodes, processedDrawingData]);
 
   // Process edges for rendering
   const processedEdges = React.useMemo(() => {
@@ -161,29 +204,40 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = ({
     });
   }, [mindMapData.edges, mindMapData.nodes, mindMapData.edgeType]);
 
+  // Memoize ReactFlow style to prevent unnecessary re-renders
+  const reactFlowStyle = useMemo(() => {
+    return mindMapData.fontFamily ? { fontFamily: mindMapData.fontFamily } : undefined;
+  }, [mindMapData.fontFamily]);
+
+  // Memoize proOptions to prevent object recreation
+  const proOptions = useMemo(() => ({ hideAttribution: true }), []);
+
   // Use custom node types or fall back to default
-  const memoizedNodeTypes = React.useMemo(() => {
+  const memoizedNodeTypes = useMemo(() => {
     return customNodeTypes || (nodeTypes as unknown as NodeTypes);
   }, [customNodeTypes]);
 
-  // Don't render if no nodes
-  if (!processedNodes.length) {
-    return (
-      <div className={`h-full flex items-center justify-center rounded-xl relative overflow-hidden ${className}`}>
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundColor: mindMapData.backgroundColor || 'rgba(30, 41, 59, 0.3)',
-          }}
-        />
-        <div className="relative z-10 text-slate-400 text-center">
-          <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-          <p className="text-sm">Empty mindmap</p>
-        </div>
+  // Memoize empty state component to prevent re-renders
+  const emptyState = useMemo(() => (
+    <div className={`h-full flex items-center justify-center rounded-xl relative overflow-hidden ${className}`}>
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundColor: mindMapData.backgroundColor || 'rgba(30, 41, 59, 0.3)',
+        }}
+      />
+      <div className="relative z-10 text-slate-400 text-center">
+        <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+        <p className="text-sm">Empty mindmap</p>
       </div>
-    );
+    </div>
+  ), [className, mindMapData.backgroundColor]);
+
+  // Show empty state only if there are no nodes AND no drawing data
+  if (!processedNodes.length && !processedDrawingData) {
+    return emptyState;
   }
 
   return (
@@ -202,9 +256,9 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = ({
       minZoom={minZoom}
       maxZoom={maxZoom}
       onInit={handleInit}
-      proOptions={{ hideAttribution: true }}
+      proOptions={proOptions}
       className={className}
-      style={mindMapData.fontFamily ? { fontFamily: mindMapData.fontFamily } : undefined}
+      style={reactFlowStyle}
     >
       <CustomBackground backgroundColor={mindMapData.backgroundColor} />
       {processedDrawingData && (
@@ -212,6 +266,36 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = ({
       )}
     </ReactFlow>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  // Only re-render if the data actually changed
+  
+  // Compare mindMapData properties
+  const mindMapDataEqual = 
+    JSON.stringify(prevProps.mindMapData.nodes) === JSON.stringify(nextProps.mindMapData.nodes) &&
+    JSON.stringify(prevProps.mindMapData.edges) === JSON.stringify(nextProps.mindMapData.edges) &&
+    prevProps.mindMapData.backgroundColor === nextProps.mindMapData.backgroundColor &&
+    prevProps.mindMapData.fontFamily === nextProps.mindMapData.fontFamily &&
+    prevProps.mindMapData.edgeType === nextProps.mindMapData.edgeType;
+
+  // Compare drawing data
+  const drawingDataEqual = prevProps.drawingData === nextProps.drawingData;
+
+  // Compare other props
+  const otherPropsEqual = 
+    prevProps.interactive === nextProps.interactive &&
+    prevProps.zoomable === nextProps.zoomable &&
+    prevProps.pannable === nextProps.pannable &&
+    prevProps.doubleClickZoom === nextProps.doubleClickZoom &&
+    prevProps.selectable === nextProps.selectable &&
+    prevProps.className === nextProps.className &&
+    prevProps.minZoom === nextProps.minZoom &&
+    prevProps.maxZoom === nextProps.maxZoom &&
+    prevProps.fitView === nextProps.fitView &&
+    prevProps.preventScrolling === nextProps.preventScrolling &&
+    prevProps.customNodeTypes === nextProps.customNodeTypes;
+
+  return mindMapDataEqual && drawingDataEqual && otherPropsEqual;
+});
 
 export default MindMapRenderer;

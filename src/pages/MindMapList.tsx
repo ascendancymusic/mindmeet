@@ -49,6 +49,8 @@ import { supabase } from "../supabaseClient"
 import { useNotificationStore } from '../store/notificationStore';
 import InfoModal from "../components/InfoModal"
 import MindMapRenderer from "../components/MindMapRenderer"
+import { decompressDrawingData } from "../utils/drawingDataCompression"
+import { DrawingData } from "../components/DrawingCanvas"
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -84,7 +86,7 @@ const MindMapPreview = React.memo(({ map, isSmallScreen, onInit }: {
   isSmallScreen: boolean,
   onInit: (instance: any) => void
 }) => {
-  if (!map.nodes?.length) {
+  if (!map.nodes?.length && !map.drawingData) {
     return (
       <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
         <div
@@ -738,6 +740,7 @@ export default function MindMapList() {
   edgeType?: string
   backgroundColor?: string
   updatedAt?: number
+  drawingData?: DrawingData
   }
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [isLoadingPendingInvites, setIsLoadingPendingInvites] = useState(false)
@@ -765,7 +768,7 @@ export default function MindMapList() {
       if (mindmapIds.length > 0) {
         const { data: mindmapsData, error: mindmapsError } = await supabase
           .from('mindmaps')
-          .select('id,permalink,title,visibility,json_data,updated_at')
+          .select('id,permalink,title,visibility,json_data,drawing_data,updated_at')
           .in('id', mindmapIds)
         if (mindmapsError) throw mindmapsError
         mindmapsData?.forEach(m => { mindmapsById[m.id] = m })
@@ -812,6 +815,7 @@ export default function MindMapList() {
             edgeType,
             backgroundColor,
             updatedAt: mm?.updated_at ? new Date(mm.updated_at).getTime() : undefined,
+          drawingData: decompressDrawingData(mm?.drawing_data) || undefined,
           createdAt: r.created_at,
         }
       })
@@ -1886,7 +1890,7 @@ export default function MindMapList() {
                     )}
                   </div>
                   <div className="mb-4 h-40 border border-slate-700/50 rounded-lg overflow-hidden relative">
-                    {invite.nodes && invite.nodes.length > 0 ? (
+                    {(invite.nodes && invite.nodes.length > 0) || invite.drawingData ? (
                       <MindMapPreview map={invite as any} isSmallScreen={isSmallScreen} onInit={onInit} />
                     ) : (
                       <div className="h-full flex items-center justify-center rounded-xl relative overflow-hidden">
@@ -2199,7 +2203,7 @@ export default function MindMapList() {
                   className={`block h-56 border border-slate-700/50 hover:border-blue-500/50 rounded-xl overflow-hidden transition-all duration-50 hover:shadow-lg hover:shadow-blue-500/10 relative group/preview cursor-pointer ${isSmallScreen ? "pointer-events-auto" : ""}`}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {map.nodes?.length > 0 ? (
+                  {(map.nodes?.length > 0) || map.drawingData ? (
                     <MindMapPreview
                       map={map}
                       isSmallScreen={isSmallScreen}
