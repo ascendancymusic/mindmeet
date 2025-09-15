@@ -95,7 +95,7 @@ const MindMapPreview = React.memo(({ map, isSmallScreen, onInit }: {
             backgroundColor: map.backgroundColor || "rgba(30, 41, 59, 0.3)",
           }}
         />
-        <div className="relative z-10 text-slate-400 text-center">
+        <div className="relative z-0 text-slate-400 text-center">
           <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Empty mindmap</p>
         </div>
@@ -1906,7 +1906,7 @@ export default function MindMapList() {
                           <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
                         )}
                         {/* Content */}
-                        <div className="text-center text-slate-500 relative z-10">
+                        <div className="text-center text-slate-500 relative z-0">
                           <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
                           <p className="text-sm">Empty mindmap</p>
                           <p className="text-xs opacity-75">Click to start editing</p>
@@ -2223,7 +2223,7 @@ export default function MindMapList() {
                         <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" />
                       )}
                       {/* Content */}
-                      <div className="text-center text-slate-500 relative z-10">
+                      <div className="text-center text-slate-500 relative z-0">
                         <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p className="text-sm">Empty mindmap</p>
                         <p className="text-xs opacity-75">Click to start editing</p>
