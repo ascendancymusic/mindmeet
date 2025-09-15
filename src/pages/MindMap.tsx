@@ -1116,6 +1116,22 @@ export default function MindMap() {
         setDotColor((currentMap as any).dotColor);
       }
 
+      // Check if this is a whiteboard template and auto-activate pen mode
+      const isWhiteboardTemplate = (
+        (currentMap as any).backgroundColor === '#ffffff' && 
+        (!currentMap.nodes || currentMap.nodes.length === 0)
+      );
+      
+      if (isWhiteboardTemplate) {
+        // Auto-activate pen mode for whiteboard templates
+        setTimeout(() => {
+          const event = new CustomEvent('pen-mode-changed', {
+            detail: { isPenMode: true }
+          });
+          document.dispatchEvent(event);
+        }, 200); // Small delay to ensure the UI is ready
+      }
+
       initializeCommonState();
       setIsLoading(false);
       
@@ -7983,6 +7999,7 @@ export default function MindMap() {
         {/* Draw Modal - Shows at bottom when pen mode is active */}
         <DrawModal
           isOpen={showDrawModal}
+          backgroundColor={backgroundColor}
           onClose={() => {
             setShowDrawModal(false);
             setIsPenModeActive(false);

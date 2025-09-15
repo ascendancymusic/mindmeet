@@ -1,23 +1,38 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Eraser, Check, Edit3, Square, Circle, Triangle, Minus } from "lucide-react"
 import { HexColorPicker } from "react-colorful"
 
 interface DrawModalProps {
   isOpen: boolean
   onClose: () => void
+  backgroundColor?: string | null
 }
 
 type DrawingTool = "pen" | "eraser" | "rectangle" | "circle" | "triangle" | "line"
 
-export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose }) => {
-  const [selectedColor, setSelectedColor] = useState("#ffffff")
-  const [tempColor, setTempColor] = useState("#ffffff")
+export const DrawModal: React.FC<DrawModalProps> = ({ isOpen, onClose, backgroundColor }) => {
+  // Set default color based on background - black for white backgrounds, white for others
+  const getDefaultColor = () => {
+    return backgroundColor === '#ffffff' ? '#000000' : '#ffffff'
+  }
+  
+  const [selectedColor, setSelectedColor] = useState(() => getDefaultColor())
+  const [tempColor, setTempColor] = useState(() => getDefaultColor())
   const [lineWidth, setLineWidth] = useState(3)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [selectedTool, setSelectedTool] = useState<DrawingTool>("pen")
+
+  // Update colors when backgroundColor changes
+  useEffect(() => {
+    const newDefaultColor = getDefaultColor()
+    setSelectedColor(newDefaultColor)
+    setTempColor(newDefaultColor)
+    // Dispatch the color change event so the drawing system uses the new color
+    document.dispatchEvent(new CustomEvent("drawing-settings-changed", { detail: { color: newDefaultColor } }))
+  }, [backgroundColor])
 
   if (!isOpen) return null
 
