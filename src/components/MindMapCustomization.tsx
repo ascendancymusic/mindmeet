@@ -26,26 +26,25 @@ interface MindMapCustomizationProps {
   isOpen: boolean
   onClose: () => void
   edgeType: "default" | "straight" | "smoothstep"
-  onEdgeTypeChange: (newEdgeType: "default" | "straight" | "smoothstep") => void
   backgroundColor: string | null
-  onBackgroundColorChange: (color: string) => void
   dotColor: string | null
-  onDotColorChange: (color: string) => void
   fontFamily: string | null
-  onFontFamilyChange: (font: string) => void
+  onCustomizationChanges: (changes: {
+    edgeType?: "default" | "straight" | "smoothstep";
+    backgroundColor?: string;
+    dotColor?: string;
+    fontFamily?: string;
+  }) => void
 }
 
 export default function MindMapCustomization({
   isOpen,
   onClose,
   edgeType,
-  onEdgeTypeChange,
   backgroundColor,
-  onBackgroundColorChange,
   dotColor,
-  onDotColorChange,
   fontFamily,
-  onFontFamilyChange,
+  onCustomizationChanges,
 }: MindMapCustomizationProps) {
   const fontOptions = [
     { value: 'Aspekta', label: 'Standard', font: 'Aspekta, sans-serif' },
@@ -214,17 +213,14 @@ export default function MindMapCustomization({
     const backgroundChanged = backgroundColorConfirmed && tempBackgroundColor !== originalBackgroundColor
     const dotChanged = dotColorConfirmed && tempDotColor !== originalDotColor
 
-    if (edgeChanged) {
-      onEdgeTypeChange(pendingEdgeType)
-    }
-    if (fontChanged) {
-      onFontFamilyChange(pendingFontFamily)
-    }
-    if (backgroundChanged) {
-      onBackgroundColorChange(tempBackgroundColor)
-    }
-    if (dotChanged) {
-      onDotColorChange(tempDotColor)
+    const changes: any = {};
+    if (edgeChanged) changes.edgeType = pendingEdgeType;
+    if (fontChanged) changes.fontFamily = pendingFontFamily;
+    if (backgroundChanged) changes.backgroundColor = tempBackgroundColor;
+    if (dotChanged) changes.dotColor = tempDotColor;
+    
+    if (Object.keys(changes).length > 0) {
+      onCustomizationChanges(changes);
     }
 
     setShowBackgroundColorPicker(false)

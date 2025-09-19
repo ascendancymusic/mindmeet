@@ -110,7 +110,7 @@ import BrainstormChat from "../components/BrainstormChat";
 
 
 interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke"
+  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "update_customization" | "drawing_change" | "move_stroke"
   timestamp?: string;
   data: {
     nodes?: Node[]
@@ -134,6 +134,7 @@ interface HistoryAction {
     drawingData?: DrawingData
     strokeId?: string
     trackIds?: string[]
+    fontFamily?: string
   }
   previousState?: {
     nodes: Node[]
@@ -143,6 +144,7 @@ interface HistoryAction {
     backgroundColor?: string
     dotColor?: string
     drawingData?: DrawingData
+    fontFamily?: string
   }
 }
 
@@ -1432,7 +1434,7 @@ export default function MindMap() {
       actionData: Partial<HistoryAction['data']>,
       previousNodes: Node[] = nodes,
       previousEdges: Edge[] = edges,
-      previousState?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; title?: string; drawingData?: DrawingData }
+      previousState?: { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; title?: string; drawingData?: DrawingData; fontFamily?: string }
     ): HistoryAction => {
       return {
         type,
@@ -1445,6 +1447,7 @@ export default function MindMap() {
           dotColor: previousState?.dotColor,
           title: previousState?.title,
           drawingData: previousState?.drawingData,
+          fontFamily: previousState?.fontFamily,
         },
         timestamp: new Date().toISOString(),
       };
@@ -1485,100 +1488,70 @@ export default function MindMap() {
     [currentHistoryIndex, lastSavedHistoryIndex],
   )
 
-  // Handle font family changes with history tracking
-  const handleFontFamilyChange = useCallback(
-    (newFont: string) => {
-      // Use 'update_node' as the action type for font family changes
-      // If you want to track font family in history, you could add a custom property to previousState, but for now, just update the state
-      setFontFamily(newFont);
-      if (!isInitialLoad) {
-        setHasUnsavedChanges(true);
-      }
-    },
-    [fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
-  );
+  // Handle all customization changes as a single batch operation
+  const handleCustomizationChanges = useCallback(
+    (changes: {
+      edgeType?: 'default' | 'straight' | 'smoothstep';
+      backgroundColor?: string;
+      dotColor?: string;
+      fontFamily?: string;
+    }) => {
+      const previousState = {
+        edgeType,
+        backgroundColor: backgroundColor || undefined,
+        dotColor: dotColor || undefined,
+        fontFamily: fontFamily || undefined
+      };
 
-  // Handle edge type changes with history tracking
-  const handleEdgeTypeChange = useCallback(
-    (newEdgeType: 'default' | 'straight' | 'smoothstep') => {
-      const previousEdgeType = edgeType;
+      // Only create history action if there are actual changes and not initial load
+      const hasChanges = 
+        (changes.edgeType && changes.edgeType !== edgeType) ||
+        (changes.backgroundColor && changes.backgroundColor !== backgroundColor) ||
+        (changes.dotColor && changes.dotColor !== dotColor) ||
+        (changes.fontFamily && changes.fontFamily !== fontFamily);
 
-      // Create history action for edge type change
-      const action = createHistoryAction(
-        "change_edge_type",
-        { edgeType: newEdgeType },
-        nodes,
-        edges,
-        { edgeType: previousEdgeType }
-      );
-
-      addToHistory(action);
-      setEdgeType(newEdgeType);
-
-      // Update all existing edges to use the new edge type
-      setEdges(edges =>
-        edges.map(edge => ({
-          ...edge,
-          type: newEdgeType === 'default' ? 'default' : newEdgeType
-        }))
-      );
-
-      if (!isInitialLoad) {
-        setHasUnsavedChanges(true);
-      }
-    },
-    [edgeType, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
-  );
-
-  // Handle background color changes with history tracking
-  const handleBackgroundColorChange = useCallback(
-    (newColor: string) => {
-      const previousBackgroundColor = backgroundColor;
-
-      // Always apply the change, even if it appears to be the same as the current effective color
-      // This handles the case where user explicitly selects the default color
-      const action = createHistoryAction(
-        "change_background_color",
-        { backgroundColor: newColor },
-        nodes,
-        edges,
-        { backgroundColor: previousBackgroundColor || undefined }
-      );
-
-      addToHistory(action);
-      setBackgroundColor(newColor);
-
-      if (!isInitialLoad) {
+      if (hasChanges && !isInitialLoad) {
+        const action = createHistoryAction(
+          "update_customization",
+          {
+            edgeType: changes.edgeType,
+            backgroundColor: changes.backgroundColor,
+            dotColor: changes.dotColor,
+            fontFamily: changes.fontFamily
+          },
+          nodes,
+          edges,
+          previousState
+        );
+        addToHistory(action);
         setHasUnsavedChanges(true);
       }
 
-      setIsInitialLoad(false);
-    },
-    [backgroundColor, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
-  );
-
-  // Handle dot color changes with history tracking
-  const handleDotColorChange = useCallback(
-    (newColor: string) => {
-      const previousDotColor = dotColor;
-
-      // Create history action for dot color change
-      const action = createHistoryAction(
-        "change_dot_color",
-        { dotColor: newColor },
-        nodes,
-        edges,
-        { dotColor: previousDotColor || undefined }
-      );
-
-      addToHistory(action);
-      setDotColor(newColor);
-
-      if (!isInitialLoad) {
-        setHasUnsavedChanges(true);
+      // Apply all changes
+      if (changes.edgeType && changes.edgeType !== edgeType) {
+        setEdgeType(changes.edgeType);
+        // Update all existing edges to use the new edge type
+        setEdges(edges =>
+          edges.map(edge => ({
+            ...edge,
+            type: changes.edgeType === 'default' ? 'default' : changes.edgeType
+          }))
+        );
+      }
+      
+      if (changes.backgroundColor && changes.backgroundColor !== backgroundColor) {
+        setBackgroundColor(changes.backgroundColor);
+      }
+      
+      if (changes.dotColor && changes.dotColor !== dotColor) {
+        setDotColor(changes.dotColor);
+      }
+      
+      if (changes.fontFamily && changes.fontFamily !== fontFamily) {
+        setFontFamily(changes.fontFamily);
       }
     },
-    [dotColor, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+    [edgeType, backgroundColor, dotColor, fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
   );
 
   // Handle drawing changes with history tracking
@@ -4176,27 +4149,36 @@ export default function MindMap() {
           }
         } else if (action.type === "update_title" && action.previousState && 'title' in action.previousState) {
           setEditedTitle(action.previousState.title || '')
-        } else if (action.type === "change_edge_type" && action.previousState && 'edgeType' in action.previousState) {
-          const restoredEdgeType = action.previousState.edgeType || 'default';
-          setEdgeType(restoredEdgeType);
-          // Update all existing edges to use the restored edge type AND restore original edges
-          if (action.previousState.edges) {
-            setEdges(action.previousState.edges.map(edge => ({
-              ...edge,
-              type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
-            })));
-          } else {
-            setEdges(edges =>
-              edges.map(edge => ({
+        } else if (action.type === "update_customization" && action.previousState) {
+          // Handle batched customization changes
+          if ('edgeType' in action.previousState) {
+            const restoredEdgeType = action.previousState.edgeType || 'default';
+            setEdgeType(restoredEdgeType);
+            // Update all existing edges to use the restored edge type
+            if (action.previousState.edges) {
+              setEdges(action.previousState.edges.map(edge => ({
                 ...edge,
                 type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
-              }))
-            );
+              })));
+            } else {
+              setEdges(edges =>
+                edges.map(edge => ({
+                  ...edge,
+                  type: restoredEdgeType === 'default' ? 'default' : restoredEdgeType
+                }))
+              );
+            }
           }
-        } else if (action.type === "change_background_color" && action.previousState && 'backgroundColor' in action.previousState) {
-          setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#11192C')
-        } else if (action.type === "change_dot_color" && action.previousState && 'dotColor' in action.previousState) {
-          setDotColor(action.previousState.dotColor || dotColor || '#81818a')
+          if ('backgroundColor' in action.previousState) {
+            setBackgroundColor(action.previousState.backgroundColor || backgroundColor || '#11192C')
+          }
+          if ('dotColor' in action.previousState) {
+            setDotColor(action.previousState.dotColor || dotColor || '#81818a')
+          }
+          if ('fontFamily' in action.previousState) {
+            const restoredFont = action.previousState.fontFamily || fontFamily || 'Aspekta';
+            setFontFamily(restoredFont);
+          }
         } else if ((action.type === "drawing_change" || action.type === "move_stroke") && action.previousState && 'drawingData' in action.previousState) {
           const previousDrawingData = action.previousState.drawingData || { strokes: [] };
           setDrawingData(previousDrawingData);
@@ -4204,7 +4186,7 @@ export default function MindMap() {
           setNodes(action.previousState.nodes)
         }
 
-        if (action.previousState?.edges && action.type !== "change_edge_type") {
+        if (action.previousState?.edges && action.type !== "update_customization") {
           setEdges(action.previousState.edges)
         } const newHistoryIndex = currentHistoryIndex - 1
         setCurrentHistoryIndex(newHistoryIndex)
@@ -4554,22 +4536,28 @@ export default function MindMap() {
         case "update_title":
           setEditedTitle(nextAction.data.label || "")
           break
-        case "change_edge_type":
-          const newEdgeType = nextAction.data.edgeType || 'default';
-          setEdgeType(newEdgeType);
-          // Update all existing edges to use the new edge type
-          setEdges(edges =>
-            edges.map(edge => ({
-              ...edge,
-              type: newEdgeType === 'default' ? 'default' : newEdgeType
-            }))
-          );
-          break
-        case "change_background_color":
-          setBackgroundColor(nextAction.data.backgroundColor || backgroundColor || '#11192C')
-          break
-        case "change_dot_color":
-          setDotColor(nextAction.data.dotColor || dotColor || '#81818a')
+        case "update_customization":
+          // Handle batched customization changes for redo
+          if (nextAction.data.edgeType) {
+            const newEdgeType = nextAction.data.edgeType;
+            setEdgeType(newEdgeType);
+            // Update all existing edges to use the new edge type
+            setEdges(edges =>
+              edges.map(edge => ({
+                ...edge,
+                type: newEdgeType === 'default' ? 'default' : newEdgeType
+              }))
+            );
+          }
+          if (nextAction.data.backgroundColor) {
+            setBackgroundColor(nextAction.data.backgroundColor)
+          }
+          if (nextAction.data.dotColor) {
+            setDotColor(nextAction.data.dotColor)
+          }
+          if (nextAction.data.fontFamily) {
+            setFontFamily(nextAction.data.fontFamily);
+          }
           break
         case "drawing_change":
         case "move_stroke":
@@ -6101,6 +6089,11 @@ export default function MindMap() {
         ><ReactFlowProvider>
             <ReactFlow
               key={`reactflow-${(currentMap as any)?.id || currentMap?.permalink || 'default'}`}
+              style={useMemo(() => {
+                return fontFamily ? { 
+                  fontFamily: fontFamily
+                } : undefined;
+              }, [fontFamily])}
               nodes={useMemo(() => {
                 // Pre-compute expensive lookups once for all nodes
                 const hasChildrenMap = new Map<string, boolean>();
@@ -7836,13 +7829,10 @@ export default function MindMap() {
           isOpen={showCustomizationModal}
           onClose={() => setShowCustomizationModal(false)}
           edgeType={edgeType}
-          onEdgeTypeChange={handleEdgeTypeChange}
           backgroundColor={backgroundColor}
-          onBackgroundColorChange={handleBackgroundColorChange}
           dotColor={dotColor}
-          onDotColorChange={handleDotColorChange}
           fontFamily={fontFamily}
-          onFontFamilyChange={handleFontFamilyChange}
+          onCustomizationChanges={handleCustomizationChanges}
         />
 
         {/* Toast Notification */}
