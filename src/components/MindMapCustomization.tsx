@@ -69,10 +69,11 @@ export default function MindMapCustomization({
     return normalized;
   });
 
-  const [hasBackgroundColorChanged, setHasBackgroundColorChanged] = useState(false)
-  const [hasDotColorChanged, setHasDotColorChanged] = useState(false)
   const [hasEdgeTypeChanged, setHasEdgeTypeChanged] = useState(false)
   const [hasFontFamilyChanged, setHasFontFamilyChanged] = useState(false)
+  
+  const [backgroundColorConfirmed, setBackgroundColorConfirmed] = useState(false)
+  const [dotColorConfirmed, setDotColorConfirmed] = useState(false)
 
   const backgroundColorPickerRef = useRef<HTMLDivElement>(null)
   const dotColorPickerRef = useRef<HTMLDivElement>(null)
@@ -90,23 +91,21 @@ export default function MindMapCustomization({
       setTempDotColor(dotColor || "#81818a")
       setPendingFontFamily(normalized)
 
-      setHasBackgroundColorChanged(false)
-      setHasDotColorChanged(false)
       setHasEdgeTypeChanged(false)
       setHasFontFamilyChanged(false)
+      setBackgroundColorConfirmed(false)
+      setDotColorConfirmed(false)
     }
   }, [isOpen, edgeType, backgroundColor, dotColor, fontFamily])
 
   const handleBackgroundHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setTempBackgroundColor(value)
-    setHasBackgroundColorChanged(true)
   }
 
   const handleDotHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setTempDotColor(value)
-    setHasDotColorChanged(true)
   }
 
   const validateHexColor = (color: string): string => {
@@ -134,49 +133,53 @@ export default function MindMapCustomization({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (backgroundColorPickerRef.current && !backgroundColorPickerRef.current.contains(event.target as Element)) {
+        if (!backgroundColorConfirmed) {
+          // Only reset if not confirmed - clicking outside cancels unconfirmed changes
+          setTempBackgroundColor(backgroundColor || "#11192C")
+        }
         setShowBackgroundColorPicker(false)
       }
       if (dotColorPickerRef.current && !dotColorPickerRef.current.contains(event.target as Element)) {
+        if (!dotColorConfirmed) {
+          // Only reset if not confirmed - clicking outside cancels unconfirmed changes
+          setTempDotColor(dotColor || "#81818a")
+        }
         setShowDotColorPicker(false)
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+  }, [backgroundColor, dotColor, backgroundColorConfirmed, dotColorConfirmed])
 
   const handleBackgroundColorConfirm = () => {
+    setBackgroundColorConfirmed(true)
     setShowBackgroundColorPicker(false)
   }
 
   const handleBackgroundColorCancel = () => {
     setTempBackgroundColor(backgroundColor || "#11192C")
+    setBackgroundColorConfirmed(false)
     setShowBackgroundColorPicker(false)
   }
 
   const handleDotColorConfirm = () => {
+    setDotColorConfirmed(true)
     setShowDotColorPicker(false)
   }
 
   const handleDotColorCancel = () => {
     setTempDotColor(dotColor || "#81818a")
+    setDotColorConfirmed(false)
     setShowDotColorPicker(false)
   }
 
   const handleBackgroundColorChange = (color: string) => {
     setTempBackgroundColor(color)
-    setHasBackgroundColorChanged(true)
-    if (color !== backgroundColor) {
-      onBackgroundColorChange(color)
-    }
   }
 
   const handleDotColorChange = (color: string) => {
     setTempDotColor(color)
-    setHasDotColorChanged(true)
-    if (color !== dotColor) {
-      onDotColorChange(color)
-    }
   }
 
   const handleFontFamilyChange = (font: string) => {
@@ -187,12 +190,10 @@ export default function MindMapCustomization({
 
   const handleBackgroundColorDefault = () => {
     setTempBackgroundColor("#11192C")
-    setHasBackgroundColorChanged(true)
   }
 
   const handleDotColorDefault = () => {
     setTempDotColor("#81818a")
-    setHasDotColorChanged(true)
   }
 
   const handleCancel = () => {
@@ -200,28 +201,30 @@ export default function MindMapCustomization({
     setTempBackgroundColor(originalBackgroundColor)
     setTempDotColor(originalDotColor)
     setPendingFontFamily(originalFontFamily)
+    setBackgroundColorConfirmed(false)
+    setDotColorConfirmed(false)
     setShowBackgroundColorPicker(false)
     setShowDotColorPicker(false)
     onClose()
   }
 
   const handleDone = () => {
-    const backgroundChanged = hasBackgroundColorChanged || tempBackgroundColor !== originalBackgroundColor
-    const dotChanged = hasDotColorChanged || tempDotColor !== originalDotColor
     const edgeChanged = hasEdgeTypeChanged || pendingEdgeType !== originalEdgeType
     const fontChanged = hasFontFamilyChanged || pendingFontFamily !== originalFontFamily
+    const backgroundChanged = backgroundColorConfirmed && tempBackgroundColor !== originalBackgroundColor
+    const dotChanged = dotColorConfirmed && tempDotColor !== originalDotColor
 
     if (edgeChanged) {
       onEdgeTypeChange(pendingEdgeType)
+    }
+    if (fontChanged) {
+      onFontFamilyChange(pendingFontFamily)
     }
     if (backgroundChanged) {
       onBackgroundColorChange(tempBackgroundColor)
     }
     if (dotChanged) {
       onDotColorChange(tempDotColor)
-    }
-    if (fontChanged) {
-      onFontFamilyChange(pendingFontFamily)
     }
 
     setShowBackgroundColorPicker(false)
