@@ -4072,6 +4072,25 @@ export default function MindMap() {
           )
         } else if (action.type === "resize_node") {
           // Handle undo for resize actions
+          // Compute previous/current sizes for event dispatch
+          const targetId = action.data.nodeId;
+          const currentNodeBefore = nodes.find(n => n.id === targetId);
+          const previousNode = action.previousState?.nodes?.find((n) => n.id === targetId);
+
+          const toNumber = (v: any): number | undefined => {
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            if (typeof v === 'string') {
+              const parsed = parseFloat(v);
+              return Number.isFinite(parsed) ? parsed : undefined;
+            }
+            return undefined;
+          };
+
+          const prevWidth = toNumber(currentNodeBefore?.width) ?? toNumber(currentNodeBefore?.style?.width);
+          const prevHeight = toNumber(currentNodeBefore?.height) ?? toNumber(currentNodeBefore?.style?.height);
+          const newWidth = toNumber(previousNode?.width) ?? toNumber(previousNode?.style?.width);
+          const newHeight = toNumber(previousNode?.height) ?? toNumber(previousNode?.style?.height);
+
           setNodes((nodes) =>
             nodes.map((node) => {
               const previousNode = action.previousState?.nodes?.find((n) => n.id === node.id)
@@ -4105,6 +4124,21 @@ export default function MindMap() {
               return node
             }),
           )
+
+          // Dispatch resized event so TextNoBgNode updates container immediately
+          if (targetId && typeof newWidth === 'number' && typeof newHeight === 'number' && (prevWidth !== undefined || prevHeight !== undefined)) {
+            const targetType = previousNode?.type || currentNodeBefore?.type;
+            if (targetType === 'default' || targetType === 'text-no-bg') {
+              const detail = {
+                nodeId: targetId,
+                previousWidth: prevWidth ?? newWidth,
+                previousHeight: prevHeight ?? newHeight,
+                width: newWidth,
+                height: newHeight,
+              };
+              document.dispatchEvent(new CustomEvent('text-node-resized', { detail, bubbles: true }));
+            }
+          }
         } else if (action.type === "update_node") {
           // Reset preview color when undoing a color change
           if (action.data.color) {
@@ -4334,6 +4368,16 @@ export default function MindMap() {
           break
         case "resize_node":
           // Handle redo for resize actions
+          const targetIdR = nextAction.data.nodeId;
+          const currentNodeBeforeR = nodes.find(n => n.id === targetIdR);
+          const toNumberR = (v: any): number | undefined => {
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            if (typeof v === 'string') { const p = parseFloat(v); return Number.isFinite(p) ? p : undefined; }
+            return undefined;
+          };
+          const prevWidthR = toNumberR(currentNodeBeforeR?.width) ?? toNumberR(currentNodeBeforeR?.style?.width);
+          const prevHeightR = toNumberR(currentNodeBeforeR?.height) ?? toNumberR(currentNodeBeforeR?.style?.height);
+
           const updatedNodesForResize = nodes.map((node) => {
             if (node.id === nextAction.data.nodeId) {
               // For image nodes, handle width/height properly
@@ -4366,6 +4410,24 @@ export default function MindMap() {
           });
 
           setNodes(updatedNodesForResize);
+
+          // Dispatch resized event so TextNoBgNode updates container immediately
+          if (targetIdR) {
+            const updatedNodeR = updatedNodesForResize.find(n => n.id === targetIdR);
+            const newWidthR = toNumberR(nextAction.data.width) ?? toNumberR(updatedNodeR?.width) ?? toNumberR(updatedNodeR?.style?.width);
+            const newHeightR = toNumberR(nextAction.data.height) ?? toNumberR(updatedNodeR?.height) ?? toNumberR(updatedNodeR?.style?.height);
+            const targetTypeR = updatedNodeR?.type || currentNodeBeforeR?.type;
+            if (typeof newWidthR === 'number' && typeof newHeightR === 'number' && (targetTypeR === 'default' || targetTypeR === 'text-no-bg')) {
+              const detailR = {
+                nodeId: targetIdR,
+                previousWidth: prevWidthR ?? newWidthR,
+                previousHeight: prevHeightR ?? newHeightR,
+                width: newWidthR,
+                height: newHeightR,
+              };
+              document.dispatchEvent(new CustomEvent('text-node-resized', { detail: detailR, bubbles: true }));
+            }
+          }
 
           // Broadcast live changes to collaborators if we're in a collaborative session
           if (currentMindMapId && broadcastLiveChange && nextAction.data.nodeId) {

@@ -1,7 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useLayoutEffect, useMemo } from 'react';
 import { NodeProps, NodeResizeControl, useReactFlow } from 'reactflow';
 import CollapseChevron from './CollapseChevron';
 import { getNodeWidth, getNodeHeight } from '../utils/nodeUtils';
+import { calculateTextNodeMinHeight } from '../utils/textNodeUtils';
 
 const ResizeIcon = () => (
     <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-400 hover:text-slate-300 transition-colors">
@@ -21,211 +22,173 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
     id,
     data,
     selected,
-    onContextMenu
+    onContextMenu,
 }) => {
     const reactFlowInstance = useReactFlow();
     const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
+    const [containerSize, setContainerSize] = useState<{ width: number; height: number }>(() => ({
+        width: 240,
+        height: 80,
+    }));
 
     // Extract collapse data
     const hasChildren = data?.hasChildren || false;
     const isCollapsed = data?.isCollapsed || false;
     const onToggleCollapse = data?.onToggleCollapse;
 
-    // Ensure the outer React Flow node wrapper has the correct classes/styles to disable overlays globally
+    // Keep overlay minimal; do not alter layout or border externally
     useEffect(() => {
         const wrapper = rootRef.current?.closest('.react-flow__node') as HTMLElement | null;
         if (wrapper) {
             wrapper.classList.add('text-no-bg-node', 'no-node-overlay');
-            wrapper.style.background = 'transparent';
-            wrapper.style.border = 'none';
-            wrapper.style.boxShadow = 'none';
         }
-
         return () => {
             if (wrapper) {
-                wrapper.classList.remove('text-no-bg-node', 'no-node-overlay', 'text-no-bg-editing');
-                wrapper.style.background = '';
-                wrapper.style.border = '';
-                wrapper.style.boxShadow = '';
+                wrapper.classList.remove('text-no-bg-node', 'no-node-overlay');
             }
         };
     }, [id]);
 
-
-    // Get the text content from data.label
-    const textContent = typeof data?.label === 'string' ? data.label : '';
-
+    const label = data?.label;
+    const textContent = typeof label === 'string' ? label : '';
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(textContent);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [containerSize, setContainerSize] = useState({ width: 160, height: 40 });
-    const CONTENT_PADDING = 8; // px padding on each side
+    const autoResizeStartSizeRef = useRef<{ width: number; height: number } | null>(null);
 
-    // Update edit value when data.label changes
     useEffect(() => {
         setEditValue(textContent);
     }, [textContent]);
 
-    // Recalculate height when width changes or text content changes
     useEffect(() => {
-        if (textContent && containerSize.width > 0) {
-            const newHeight = calculateTextNoBgHeight(textContent, containerSize.width);
-
-            if (newHeight !== containerSize.height) {
-                setContainerSize(prev => ({ ...prev, height: newHeight }));
-            }
-        }
-    }, [textContent, containerSize.width]);
-
-    // Custom height calculation for TextNoBgNode with correct font sizing
-    const calculateTextNoBgHeight = (text: string, width: number): number => {
-        if (!text || text.trim() === '') return 40;
-
-        const tempDiv = document.createElement('div');
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.visibility = 'hidden';
-    // Account for inner padding on both sides
-    const contentWidth = Math.max(0, width - CONTENT_PADDING * 2);
-    tempDiv.style.width = `${contentWidth}px`;
-        tempDiv.style.fontSize = '16px'; // Match actual TextNoBgNode font size
-        tempDiv.style.lineHeight = '1.625'; // Match leading-relaxed
-        tempDiv.style.fontFamily = 'inherit';
-        tempDiv.style.wordWrap = 'break-word';
-        tempDiv.style.whiteSpace = 'pre-wrap';
-        tempDiv.innerHTML = text.replace(/\n/g, '<br>');
-
-        document.body.appendChild(tempDiv);
-        const textHeight = tempDiv.offsetHeight;
-        document.body.removeChild(tempDiv);
-
-    // Add vertical padding top+bottom
-    return Math.max(40, textHeight + CONTENT_PADDING * 2);
-    };
-
-    // Update height in real-time while typing
-    useEffect(() => {
-        if (isEditing && editValue && containerSize.width > 0) {
-            const newHeight = calculateTextNoBgHeight(editValue, containerSize.width);
-
-            if (newHeight !== containerSize.height) {
-                setContainerSize(prev => ({ ...prev, height: newHeight }));
-            }
-        }
-    }, [editValue, containerSize.width, isEditing]);
-
-    // Focus textarea when editing starts and auto-resize
-    useEffect(() => {
-        // Toggle an additional editing class while editing to leverage CSS that isolates layout
-        const wrapper = rootRef.current?.closest('.react-flow__node') as HTMLElement | null;
-        if (wrapper) {
-            if (isEditing) wrapper.classList.add('text-no-bg-editing');
-            else wrapper.classList.remove('text-no-bg-editing');
-        }
-
         if (isEditing && textareaRef.current) {
-            textareaRef.current.focus();
-            // Place caret at end without selecting all text
-            const len = textareaRef.current.value.length;
-            textareaRef.current.setSelectionRange(len, len);
-
-            // Auto-resize textarea to fit content
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = `${Math.max(40, textareaRef.current.scrollHeight)}px`;
+            const ta = textareaRef.current;
+            ta.focus();
+            const len = ta.value.length;
+            ta.setSelectionRange(len, len);
+            // Record starting size for history
+            autoResizeStartSizeRef.current = { ...containerSize };
+            // Do not change height on edit start; keep exactly current node height
+            ta.style.height = '100%';
         }
-    }, [id, isEditing]);
-
-    // Start editing on single click of displayed text
-    const handleStartEditing = () => {
-        // Allow selection to occur; don't stop propagation here
-        setIsEditing(true);
-    };
-
-    const handleSave = () => {
-        // Calculate proper height using custom calculation
-        const newHeight = calculateTextNoBgHeight(editValue, containerSize.width);
-
-        // Update container size
-        setContainerSize(prev => ({ ...prev, height: newHeight }));
-
-        // No need to dispatch event here since we're already doing it on every character change
-        setIsEditing(false);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') {
-            setEditValue(textContent); // Reset to current data.label value
-            setIsEditing(false);
-            return;
-        }
-
-        if (e.key === 'Enter') {
-            // Let textarea insert a newline, but stop propagation so it doesn't affect React Flow
-            e.stopPropagation();
-            return; // don't preventDefault so newline is inserted
-        }
-    };
-
-    const handleBlur = () => {
-        handleSave();
-    };
-
-    // Close editing when node becomes deselected
-    useEffect(() => {
-        if (!selected && isEditing) {
-            handleSave();
+        if (!isEditing) {
+            // On edit end, if size changed, dispatch one resize event for history
+            const start = autoResizeStartSizeRef.current;
+            if (start && (start.height !== containerSize.height || start.width !== containerSize.width)) {
+                const customEvent = new CustomEvent('text-node-resized', {
+                    detail: {
+                        nodeId: id,
+                        previousWidth: start.width,
+                        previousHeight: start.height,
+                        width: containerSize.width,
+                        height: containerSize.height,
+                    },
+                    bubbles: true,
+                });
+                document.dispatchEvent(customEvent);
+            }
+            autoResizeStartSizeRef.current = null;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selected]);
+    }, [isEditing]);
 
-    // Optional: start editing when requested externally (e.g., right after drop)
+    // Auto-expand height live while typing; shrink when lines are removed
     useEffect(() => {
-        const handleStartEditEvent = (event: Event) => {
-            const e = event as CustomEvent<{ nodeId: string }>; 
+        if (!isEditing || !textareaRef.current) return;
+        const ta = textareaRef.current;
+        const prevHeight = ta.style.height;
+        ta.style.height = 'auto';
+        const measured = Math.max(40, ta.scrollHeight);
+        const newHeight = Math.max(containerSize.height, measured);
+        if (newHeight !== containerSize.height) {
+            setContainerSize((prev) => ({ ...prev, height: newHeight }));
+        }
+        // Reset height to fill container after measurement
+        ta.style.height = prevHeight || '100%';
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editValue]);
+
+    // Fit height to text lines in display mode when text or width changes
+    useLayoutEffect(() => {
+        if (isEditing) return;
+        const minHStr = calculateTextNodeMinHeight(textContent || '', containerSize.width);
+        const measured = Math.max(40, parseInt(minHStr, 10) || 40);
+        const newHeight = Math.max(containerSize.height, measured);
+        if (newHeight !== containerSize.height) {
+            setContainerSize((prev) => ({ ...prev, height: newHeight }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [textContent, containerSize.width, isEditing]);
+
+    // Initialize/sync container size from React Flow node before paint
+    useLayoutEffect(() => {
+        const node = reactFlowInstance.getNode(id);
+        if (node) {
+            const width = getNodeWidth(node, 120);
+            const height = getNodeHeight(node, 40);
+            const w = typeof width === 'string' ? parseFloat(width) : width;
+            const h = typeof height === 'string' ? parseFloat(height) : height;
+            setContainerSize((prev) => (prev.width !== w || prev.height !== h ? { width: w, height: h } : prev));
+        } else {
+            setContainerSize((prev) => prev);
+        }
+    }, [id, reactFlowInstance]);
+
+    // Listen for external resize events to keep in sync
+    useEffect(() => {
+        const handler = (event: Event) => {
+            const e = event as CustomEvent<{
+                nodeId: string;
+                width: number;
+                height: number;
+                previousWidth: number;
+                previousHeight: number;
+            }>;
             if (e.detail?.nodeId === id) {
-                setIsEditing(true);
-                // focus happens via the isEditing effect
+                setContainerSize({ width: e.detail.width, height: e.detail.height });
             }
         };
-
-        document.addEventListener('text-no-bg-start-edit', handleStartEditEvent as EventListener);
-        return () => {
-            document.removeEventListener('text-no-bg-start-edit', handleStartEditEvent as EventListener);
-        };
+        document.addEventListener('text-node-resized', handler as EventListener);
+        return () => document.removeEventListener('text-node-resized', handler as EventListener);
     }, [id]);
 
     const handleContextMenu = (event: React.MouseEvent) => {
-        if (onContextMenu) {
-            onContextMenu(event, id);
-        }
+        if (onContextMenu) onContextMenu(event, id);
     };
+
+    // Always apply width/height so the node isn't autowidth on first render
+    const containerStyle: React.CSSProperties = {
+        minWidth: '120px',
+        minHeight: '40px',
+        width: containerSize.width,
+        height: containerSize.height,
+    };
+
+    // Dynamic minimum height based on text lines and current width
+    const dynamicMinHeight = useMemo(() => {
+        const content = (isEditing ? editValue : textContent) || '';
+        const minHStr = calculateTextNodeMinHeight(content, containerSize.width);
+        const minH = parseInt(minHStr, 10);
+        return Number.isFinite(minH) ? Math.max(40, minH) : 40;
+    }, [isEditing, editValue, textContent, containerSize.width]);
 
     return (
         <div
             ref={rootRef}
             className={`relative overflow-visible no-node-overlay group ${selected
                 ? 'border border-blue-400/50 rounded-md'
-                : 'border border-transparent rounded-md hover:border-gray-500/30'
-                }`}
-            style={{
-                minWidth: '120px',
-                minHeight: '40px',
-                width: `${containerSize.width}px`,
-                height: `${containerSize.height}px`,
-            }}
+                : 'border border-transparent rounded-md hover:border-gray-500/30'}`}
+            style={containerStyle}
             onContextMenu={handleContextMenu}
         >
-            {/* Collapse button overlay */}
             <CollapseChevron
                 hasChildren={hasChildren}
                 isCollapsed={isCollapsed}
                 onToggleCollapse={onToggleCollapse}
             />
 
-            {/* No handles - this is a comment node, not connectable */}
-
-            {/* Simple text content */}
-            <div className="w-full relative">
+            <div className="w-full h-full relative" style={{ boxSizing: 'border-box', overflow: 'hidden' }}>
                 {isEditing ? (
                     <textarea
                         ref={textareaRef}
@@ -233,76 +196,83 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
                         onChange={(e) => {
                             const newValue = e.target.value;
                             setEditValue(newValue);
-
-                            // Dispatch event for every character change (like TextNode does)
                             const customEvent = new CustomEvent('text-node-label-changed', {
-                                detail: {
-                                    nodeId: id,
-                                    newLabel: newValue
-                                },
-                                bubbles: true
+                                detail: { nodeId: id, newLabel: newValue },
+                                bubbles: true,
                             });
                             document.dispatchEvent(customEvent);
                         }}
-                        onKeyDown={handleKeyDown}
-                        onBlur={handleBlur}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                                setEditValue(textContent);
+                                setIsEditing(false);
+                                return;
+                            }
+                            if (e.key === 'Enter') {
+                                e.stopPropagation();
+                            }
+                        }}
+                        onBlur={() => setIsEditing(false)}
                         onMouseDown={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
-                        onInput={(e) => {
-                            // Auto-resize textarea based on content like TextNode
-                            const target = e.target as HTMLTextAreaElement;
-                            target.style.height = 'auto';
-                            target.style.height = `${Math.max(40, target.scrollHeight)}px`;
-                        }}
-                        className="w-full bg-transparent text-white border-none outline-none resize-none nodrag overflow-hidden"
+                        className="w-full h-full bg-transparent text-white border-none outline-none resize-none nodrag"
                         style={{
                             minHeight: '40px',
-                            height: 'auto',
+                            height: '100%',
                             fontFamily: 'inherit',
-                            fontSize: '16px',
-                            lineHeight: '1.625', // Match leading-relaxed
+                            fontSize: '14px',
+                            lineHeight: '20px',
                             pointerEvents: 'auto',
                             textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,1), -1px -1px 0 rgba(0,0,0,1), 1px -1px 0 rgba(0,0,0,1), -1px 1px 0 rgba(0,0,0,1)',
-                            padding: `${CONTENT_PADDING}px`,
+                            padding: '8px',
                             margin: '0',
-                            wordWrap: 'break-word',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
                             whiteSpace: 'pre-wrap',
                             width: '100%',
                             maxWidth: '100%',
                             boxSizing: 'border-box',
+                            overflow: 'hidden',
                         }}
                         placeholder="Add comment..."
                     />
-        ) : (
+                ) : (
                     <div
-                        className="w-full break-words whitespace-pre-wrap leading-relaxed text-white cursor-text"
-            onClick={handleStartEditing}
+                        className="w-full h-full whitespace-pre-wrap text-white cursor-text"
+                        onClick={() => setIsEditing(true)}
                         style={{
                             width: '100%',
+                            height: '100%',
                             maxWidth: '100%',
                             boxSizing: 'border-box',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'break-word',
-                            padding: `${CONTENT_PADDING}px`,
+                            fontSize: '14px',
+                            lineHeight: '20px',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            padding: '8px',
+                            textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,1), -1px -1px 0 rgba(0,0,0,1), 1px -1px 0 rgba(0,0,0,1), -1px 1px 0 rgba(0,0,0,1)',
+                            overflow: 'hidden',
                         }}
                     >
-                        {!textContent || textContent === '' ? (
-                            <span className="text-gray-400" style={{ textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,1), -1px -1px 0 rgba(0,0,0,1), 1px -1px 0 rgba(0,0,0,1), -1px 1px 0 rgba(0,0,0,1)' }}>Add comment...</span>
+                        {React.isValidElement(label) ? (
+                            label
+                        ) : !textContent || textContent === '' ? (
+                            <span className="text-gray-300">Add comment...</span>
                         ) : (
-                            <span className="text-white" style={{ textShadow: '0 0 3px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,1), -1px -1px 0 rgba(0,0,0,1), 1px -1px 0 rgba(0,0,0,1), -1px 1px 0 rgba(0,0,0,1)' }}>{textContent}</span>
+                            // Render plain text to ensure identical line spacing with textarea
+                            <span>{textContent}</span>
                         )}
                     </div>
                 )}
             </div>
 
-            {/* NodeResizeControl for resizing functionality */}
             {selected && (
                 <NodeResizeControl
                     nodeId={id}
                     minWidth={120}
-                    minHeight={40}
+                    minHeight={dynamicMinHeight}
                     maxWidth={600}
-                    maxHeight={400}
+                    maxHeight={1200}
                     style={{
                         background: 'transparent',
                         border: 'none',
@@ -312,59 +282,67 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
                         position: 'absolute',
                         right: 0,
                         bottom: 0,
-                        zIndex: 10,
+                        zIndex: 1000,
                         boxShadow: 'none',
+                        pointerEvents: 'auto',
                     }}
                     keepAspectRatio={false}
                     onResizeStart={() => {
-                        const node = reactFlowInstance.getNode(id);
-                        if (node) {
-                            const width = getNodeWidth(node, 120);
-                            const height = getNodeHeight(node, 40);
-                            initialSizeRef.current = {
-                                width: typeof width === 'string' ? parseFloat(width) : width,
-                                height: typeof height === 'string' ? parseFloat(height) : height
-                            };
-                        }
+                        // Use current state as the most reliable starting size
+                        initialSizeRef.current = { ...containerSize };
                     }}
                     onResize={(_event, params) => {
-                        // Update container size during resize for smooth visual feedback
-                        setContainerSize({
-                            width: params.width,
-                            height: params.height
-                        });
+                        const nextWidth = Number.isFinite(params.width) ? params.width : containerSize.width;
+                        const nextHeightRaw = Number.isFinite(params.height) ? params.height : containerSize.height;
+                        const clampedHeight = Math.max(dynamicMinHeight, nextHeightRaw);
+                        setContainerSize({ width: nextWidth, height: clampedHeight });
                     }}
                     onResizeEnd={(_event, params) => {
-                        // Update container size when resize ends
-                        setContainerSize({
-                            width: params.width,
-                            height: params.height
-                        });
-
                         let currentInitialSize = initialSizeRef.current;
                         if (!currentInitialSize) {
+                            // Fallback to measured or state
                             const node = reactFlowInstance.getNode(id);
-                            if (node) {
-                                const width = getNodeWidth(node, 120);
-                                const height = getNodeHeight(node, 40);
-                                currentInitialSize = {
-                                    width: typeof width === 'string' ? parseFloat(width) : width,
-                                    height: typeof height === 'string' ? parseFloat(height) : height
-                                };
-                            }
+                            const width = node ? getNodeWidth(node, containerSize.width) : containerSize.width;
+                            const height = node ? getNodeHeight(node, containerSize.height) : containerSize.height;
+                            const w = typeof width === 'string' ? parseFloat(width) : width;
+                            const h = typeof height === 'string' ? parseFloat(height) : height;
+                            currentInitialSize = {
+                                width: Number.isFinite(w) ? w : containerSize.width,
+                                height: Number.isFinite(h) ? h : containerSize.height,
+                            };
                         }
 
                         if (currentInitialSize) {
-                            if (currentInitialSize.width !== params.width || currentInitialSize.height !== params.height) {
+                            // Build safe final sizes using params with fallbacks
+                            const measuredNode = reactFlowInstance.getNode(id);
+                            const measuredWRaw = measuredNode ? getNodeWidth(measuredNode, containerSize.width) : containerSize.width;
+                            const measuredHRaw = measuredNode ? getNodeHeight(measuredNode, containerSize.height) : containerSize.height;
+                            const measuredW = typeof measuredWRaw === 'string' ? parseFloat(measuredWRaw) : measuredWRaw;
+                            const measuredH = typeof measuredHRaw === 'string' ? parseFloat(measuredHRaw) : measuredHRaw;
+
+                            const finalWidth = Number.isFinite(params.width)
+                                ? params.width
+                                : Number.isFinite(measuredW)
+                                    ? measuredW
+                                    : containerSize.width;
+                            const finalHeight = Math.max(
+                                dynamicMinHeight,
+                                Number.isFinite(params.height)
+                                    ? params.height
+                                    : Number.isFinite(measuredH)
+                                        ? measuredH
+                                        : containerSize.height
+                            );
+                            if (currentInitialSize.width !== finalWidth || currentInitialSize.height !== finalHeight) {
                                 const customEvent = new CustomEvent('text-node-resized', {
                                     detail: {
                                         nodeId: id,
                                         previousWidth: currentInitialSize.width,
                                         previousHeight: currentInitialSize.height,
-                                        width: params.width,
-                                        height: params.height
+                                        width: finalWidth,
+                                        height: finalHeight,
                                     },
-                                    bubbles: true
+                                    bubbles: true,
                                 });
                                 document.dispatchEvent(customEvent);
                             }
@@ -376,9 +354,8 @@ export const TextNoBgNode: React.FC<NodeProps & { onContextMenu?: (event: React.
                         <ResizeIcon />
                     </div>
                 </NodeResizeControl>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 };
 

@@ -1056,8 +1056,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         };
       }
 
-      // For text nodes (default type), save width and height if they exist
-      if (node.type === 'default') {
+      // For text nodes (default) and text-no-bg, save width and height if they exist
+      if (node.type === 'default' || node.type === 'text-no-bg') {
         const preparedNode = prepareNodeForSaving(node);
         return {
           id: preparedNode.id,

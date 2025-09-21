@@ -7,28 +7,24 @@ import type { Node } from 'reactflow';
  * @returns The width value
  */
 export const getNodeWidth = (node: Node, defaultWidth: number | string = 'auto'): number | string => {
-  // For image, audio, and default text nodes, width is stored directly on the node
-  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
-    // First check if width is directly on the node (saved format)
-    if (typeof node.width === 'number') {
-      return node.width;
-    }
-
-    // Then check if it's in style
-    if (node.style?.width) {
-      return typeof node.style.width === 'string'
-        ? node.style.width
-        : parseFloat(node.style.width.toString());
-    }
+  if (typeof (node as any).width === 'number') {
+    return (node as any).width as number;
   }
 
-  // For link nodes and other auto-width nodes, return 'auto'
+  const styleWidth = node.style?.width;
+  if (typeof styleWidth === 'number') return styleWidth;
+  if (typeof styleWidth === 'string') {
+    const trimmed = styleWidth.trim();
+    if (trimmed === 'auto') return defaultWidth;
+    const parsed = parseFloat(trimmed);
+    return Number.isFinite(parsed) ? parsed : defaultWidth;
+  }
+
   if (['link', 'mindmap', 'spotify', 'soundcloud', 'instagram', 'twitter', 'facebook', 'youtube', 'tiktok', 'mindmeet', 'playlist'].includes(node.type || '')) {
     return 'auto';
   }
 
-  // For other nodes, check style first, then default
-  return node.style?.width || defaultWidth;
+  return defaultWidth;
 };
 
 /**
@@ -38,23 +34,20 @@ export const getNodeWidth = (node: Node, defaultWidth: number | string = 'auto')
  * @returns The height value
  */
 export const getNodeHeight = (node: Node, defaultHeight: number | string = 'auto'): number | string => {
-  // For image, audio, and default text nodes, height is stored directly on the node
-  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
-    // First check if height is directly on the node (saved format)
-    if (typeof node.height === 'number') {
-      return node.height;
-    }
-
-    // Then check if it's in style
-    if (node.style?.height) {
-      return typeof node.style.height === 'string'
-        ? node.style.height
-        : parseFloat(node.style.height.toString());
-    }
+  if (typeof (node as any).height === 'number') {
+    return (node as any).height as number;
   }
 
-  // For other nodes, check style first, then default
-  return node.style?.height || defaultHeight;
+  const styleHeight = node.style?.height;
+  if (typeof styleHeight === 'number') return styleHeight;
+  if (typeof styleHeight === 'string') {
+    const trimmed = styleHeight.trim();
+    if (trimmed === 'auto') return defaultHeight;
+    const parsed = parseFloat(trimmed);
+    return Number.isFinite(parsed) ? parsed : defaultHeight;
+  }
+
+  return defaultHeight;
 };
 
 /**
@@ -85,18 +78,21 @@ export const prepareNodeForRendering = (node: Node, defaultStyles: any = {}): No
     const width = getNodeWidth(node);
     const height = getNodeHeight(node);
 
+    const baseStyle = preparedNode.style || {};
     preparedNode.style = {
-      ...preparedNode.style,
+      ...baseStyle,
       width: width,
       height: height,
-      padding: node.type === 'image' ? '0' : preparedNode.style.padding,
-    };
+      padding: node.type === 'image' ? '0' : (baseStyle as any).padding,
+    } as any;
   }
 
   // Ensure background is set correctly
-  preparedNode.style.background =
-    node.background ||
-    node.style?.background ||
+  const nodeAny = node as any;
+  preparedNode.style = preparedNode.style || {};
+  (preparedNode.style as any).background =
+    nodeAny.background ??
+    (node.style as any)?.background ??
     (defaultStyles[node.type || 'default']?.background);
 
   return preparedNode;
@@ -111,8 +107,8 @@ export const prepareNodeForSaving = (node: Node): Node => {
   // Create a copy of the node to avoid mutating the original
   const preparedNode = { ...node };
 
-  // For image, audio, and default text nodes, extract width and height from style and save directly on the node
-  if (node.type === 'image' || node.type === 'audio' || node.type === 'default') {
+  // For image, audio, default text, and text-no-bg nodes, extract width and height from style and save directly on the node
+  if (node.type === 'image' || node.type === 'audio' || node.type === 'default' || node.type === 'text-no-bg') {
     const width = node.style?.width
       ? typeof node.style.width === 'string'
         ? parseFloat(node.style.width)
