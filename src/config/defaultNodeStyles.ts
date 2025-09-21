@@ -5,7 +5,7 @@ const defaultNodeStyles = {
     border: "4px solid transparent",
     borderRadius: "8px",
     padding: "8px",
-    width: "160px",
+    width: "auto",
     transition: "border-color 0.2s ease-in-out",
     wordWrap: "break-word",
     whiteSpace: "pre-wrap",
