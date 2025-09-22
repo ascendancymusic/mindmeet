@@ -95,7 +95,6 @@ import { aiService } from "../services/aiService";
 import { useCollaborationStore } from "../store/collaborationStore";
 import { CollaboratorCursors } from "../components/CollaboratorCursors";
 import { CollaboratorsList } from "../components/CollaboratorsList";
-import { CollaborationChat } from "../components/CollaborationChat";
 import EditDetailsModal from "../components/EditDetailsModal";
 import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
@@ -157,6 +156,7 @@ export interface YouTubeVideo {
 export default function MindMap() {
   // Brainstorm Chat modal state
   const [showBrainstormChat, setShowBrainstormChat] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   // Treat route param 'id' as the internal mindmap id now (previously legacy id/permalink)
   const { username, id: MapId } = useParams() // 'MapId' corresponds to Supabase mindmaps.id
   const navigate = useNavigate()
@@ -378,7 +378,6 @@ export default function MindMap() {
   }, [currentMap?.fontFamily]);
 
   // Collaboration chat state
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -6537,19 +6536,9 @@ export default function MindMap() {
                   collaboratorIds={(detailedMap || currentMap).collaborators || []}
                   creatorId={(detailedMap || currentMap).creator}
                   className="max-w-xs"
-                  onChatToggle={currentMindMapId ? () => setIsChatOpen(prev => !prev) : undefined}
-                  isChatOpen={isChatOpen}
                 />
 
-                {/* Collaboration Chat - positioned under the collaborators menu */}
-                {currentMindMapId && user && (
-                  <CollaborationChat
-                    isOpen={isChatOpen}
-                    onClose={() => setIsChatOpen(false)}
-                    currentUserName={user.username || user.email || 'Anonymous'}
-                    mindMapId={currentMindMapId}
-                  />
-                )}
+                {/* Collaboration Chat removed: BrainstormChat handles collaboration now */}
               </div>
             )}
 
@@ -6828,6 +6817,9 @@ export default function MindMap() {
             username={user?.username}
             userId={user?.id}
             mindMapId={currentMap?.id || MapId}
+            onIncomingCollabMessage={() => {
+              if (!showBrainstormChat) setUnreadChatCount((c) => c + 1);
+            }}
             collaborators={
               (currentMap?.collaborators || [])
                 .filter((c: any) => c && c.id !== user?.id)
@@ -6851,14 +6843,22 @@ export default function MindMap() {
 
           {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
           <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
-            <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
+            <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10 relative">
               <button
-                onClick={() => setShowBrainstormChat(true)}
+                onClick={() => { setShowBrainstormChat(true); setUnreadChatCount(0); }}
                 className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
                 title="AI Chat"
               >
                 <FiMessageSquare className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
               </button>
+              {unreadChatCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] leading-[18px] rounded-full ring-1 ring-white/20 flex items-center justify-center shadow-lg shadow-purple-500/30"
+                  aria-label={`${unreadChatCount} unread messages`}
+                >
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
             </div>
 
             <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">

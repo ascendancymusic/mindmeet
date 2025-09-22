@@ -37,6 +37,7 @@ interface BrainstormChatProps {
   mindMapData?: any
   onGiveMindmapContext?: (mindMapData: any) => void
   mindMapId?: string
+  onIncomingCollabMessage?: (msg: { id: string; user: string; message: string; timestamp: Date }) => void
 }
 
 const BrainstormChat: React.FC<BrainstormChatProps> = ({
@@ -48,6 +49,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
   mindMapData,
   onGiveMindmapContext,
   mindMapId,
+  onIncomingCollabMessage,
 }) => {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const hasCollab = Array.isArray(collaborators) && collaborators.length > 0
@@ -86,6 +88,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
   const [aiInput, setAiInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiStreamingText, setAiStreamingText] = useState<string | null>(null)
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | undefined>(undefined)
 
   // Panel UI state
   const panelRef = useRef<HTMLDivElement>(null)
@@ -120,6 +123,18 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+
+  // Prefetch current user's avatar for AI tab using the same cached fetch as collab
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!username) return
+      const avatar = await getUserAvatar(username)
+      if (!cancelled) setCurrentUserAvatar(avatar)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [username])
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
@@ -217,8 +232,9 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
   }, [])
 
   // Realtime channel
+  // Subscribe regardless of panel visibility so messages arrive even when closed
   useEffect(() => {
-    if (!isOpen || !resolvedMindMapId) return
+    if (!resolvedMindMapId) return
     const channel = supabase.channel(`chat:${resolvedMindMapId}`, { config: { broadcast: { self: false } } })
     chatChannelRef.current = channel
 
@@ -230,6 +246,17 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
         ...prev,
         { id: incoming.id, user: incoming.user, message: incoming.message, timestamp: new Date(incoming.timestamp), avatar },
       ])
+      // Notify parent about incoming collaborator message (for unread badge)
+      try {
+        onIncomingCollabMessage?.({
+          id: incoming.id,
+          user: incoming.user,
+          message: incoming.message,
+          timestamp: new Date(incoming.timestamp),
+        })
+      } catch {
+        // no-op
+      }
     })
 
     // Handle read receipts: other users broadcast their last read timestamp
@@ -256,7 +283,7 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
       chatChannelRef.current = null
       supabase.removeChannel(channel)
     }
-  }, [isOpen, resolvedMindMapId, currentUserName])
+  }, [resolvedMindMapId, currentUserName])
 
   // Broadcast our last read time when we view new messages
   useEffect(() => {
@@ -545,7 +572,13 @@ const BrainstormChat: React.FC<BrainstormChatProps> = ({
                       <div key={idx} className="group">
                         <div className="flex items-start gap-3 py-2 hover:bg-white/5 rounded-xl transition-all">
                           {isAI ? (
-                            <img src={aiBots.find((b) => b.id === "mnp")?.avatar || "/assets/avatars/mnp2.webp"} alt="Mystical nordic prophet" className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500 mt-1.5" />
+                            <img src={aiBots.find((b) => b.id === "mnp")?.avatar || "/assets/avatars/mnp.webp"} alt="Mystical nordic prophet" className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-purple-400 to-blue-500 mt-1.5" />
+                          ) : currentUserAvatar ? (
+                            <img
+                              src={currentUserAvatar}
+                              alt={msg.user}
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gradient-to-br from-cyan-400 to-blue-500 mt-1.5"
+                            />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-1.5">
                               {(msg.user[0] || "U").toUpperCase()}

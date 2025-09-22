@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCollaborationStore } from '../store/collaborationStore';
 import { supabase } from '../supabaseClient';
-import { Users, ChevronUp, MessageCircle } from 'lucide-react';
+import { Users, ChevronUp } from 'lucide-react';
 
 interface CollaboratorProfile {
   id: string;
@@ -15,8 +15,6 @@ interface CollaboratorsListProps {
   collaboratorIds: string[];
   creatorId: string;
   className?: string;
-  onChatToggle?: () => void;
-  isChatOpen?: boolean;
 }
 
 export const CollaboratorsList: React.FC<CollaboratorsListProps> = ({
@@ -24,8 +22,7 @@ export const CollaboratorsList: React.FC<CollaboratorsListProps> = ({
   collaboratorIds,
   creatorId,
   className = "",
-  onChatToggle,
-  isChatOpen = false
+  
 }) => {
   const { connectedUsers } = useCollaborationStore();
   const [collaboratorProfiles, setCollaboratorProfiles] = useState<CollaboratorProfile[]>([]);
@@ -151,10 +148,6 @@ export const CollaboratorsList: React.FC<CollaboratorsListProps> = ({
             className="p-3 cursor-pointer hover:bg-gray-700/30 transition-colors border-b border-gray-700"
             onClick={() => {
               setIsExpanded(false);
-              // Close chat when minimizing collaborators list
-              if (isChatOpen && onChatToggle) {
-                onChatToggle();
-              }
             }}
           >
             <div className="flex items-center justify-between">
@@ -251,22 +244,7 @@ export const CollaboratorsList: React.FC<CollaboratorsListProps> = ({
             ))}
           </div>
 
-          {/* Chat toggle button */}
-          {onChatToggle && (
-            <div className="p-3 border-t border-gray-700">
-              <button
-                onClick={onChatToggle}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isChatOpen 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
-                }`}
-              >
-                <MessageCircle className="w-4 h-4" />
-                {isChatOpen ? 'Close Chat' : 'Open Chat'}
-              </button>
-            </div>
-          )}
+          {/* Chat toggle removed: BrainstormChat now handles collaboration chat */}
         </div>
       )}
     </div>
