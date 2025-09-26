@@ -17,6 +17,7 @@ import {
   Star,
   Clock,
   Users,
+  Lock,
 } from "lucide-react"
 
 // Add shimmer animation styles and responsive height classes
@@ -339,6 +340,107 @@ const UserProfile: React.FC = () => {
     };
   }, [user?.id, profile]);
 
+  // Reusable function to fetch saved maps (needed for followers-only post-follow fetch)
+  const fetchSavedMaps = useCallback(async (userId: string) => {
+    try {
+      // Get saved map IDs
+      const { data: userSaves, error: savesError } = await supabase
+        .from("mindmap_saves")
+        .select("mindmap_id")
+        .eq("user_id", userId)
+
+      if (savesError) {
+        console.error("Error fetching user saves:", savesError)
+        setSavedMaps([])
+        return
+      }
+
+      const savedMapIds = userSaves?.map(save => save.mindmap_id) || []
+      if (savedMapIds.length === 0) {
+        setSavedMaps([])
+        return
+      }
+
+      // Fetch full map data
+      const { data: savedMapsData, error: savedMapsError } = await supabase
+        .from("mindmaps")
+        .select("permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, creator")
+        .in("id", savedMapIds)
+        .eq("visibility", "public")
+
+      if (savedMapsError) {
+        console.error("Error fetching saved maps:", savedMapsError)
+        setSavedMaps([])
+        return
+      }
+
+      if (!savedMapsData || savedMapsData.length === 0) {
+        setSavedMaps([])
+        return
+      }
+
+      const mapIds = savedMapsData.map(m => m.id)
+      const [likeCountsResult, userLikesResult, saveCountsResult, userSavesResult, collaborationsResult] = await Promise.all([
+        supabase.from("mindmap_like_counts").select("mindmap_id, like_count").in("mindmap_id", mapIds),
+        user?.id ? supabase.from("mindmap_likes").select("mindmap_id").eq("user_id", user.id).in("mindmap_id", mapIds) : Promise.resolve({ data: [], error: null }),
+        supabase.from("mindmap_save_counts").select("mindmap_id, save_count").in("mindmap_id", mapIds),
+        user?.id ? supabase.from("mindmap_saves").select("mindmap_id").eq("user_id", user.id).in("mindmap_id", mapIds) : Promise.resolve({ data: [], error: null }),
+        supabase.from("mindmap_collaborations").select("mindmap_id, collaborator_id, status").in("mindmap_id", mapIds).eq("status", "accepted")
+      ])
+
+      const likeCountMap = new Map(likeCountsResult.data?.map(i => [i.mindmap_id, i.like_count]) || [])
+      const userLikedSet = new Set(userLikesResult.data?.map(i => i.mindmap_id) || [])
+      const saveCountMap = new Map(saveCountsResult.data?.map(i => [i.mindmap_id, i.save_count]) || [])
+      const userSavedSet = new Set(userSavesResult.data?.map(i => i.mindmap_id) || [])
+      const collaboratorsMap = new Map()
+      collaborationsResult.data?.forEach(collab => {
+        if (!collaboratorsMap.has(collab.mindmap_id)) collaboratorsMap.set(collab.mindmap_id, [])
+        collaboratorsMap.get(collab.mindmap_id).push(collab.collaborator_id)
+      })
+
+      // Creator profiles
+      const creatorIds = [...new Set(savedMapsData.map(m => m.creator))]
+      const { data: savedProfilesData } = await supabase
+        .from("profiles")
+        .select("id, avatar_url, username, full_name")
+        .in("id", creatorIds)
+
+      const creatorAvatars = new Map()
+      const creatorUsernames = new Map()
+      const creatorFullNames = new Map()
+      savedProfilesData?.forEach(p => {
+        creatorAvatars.set(p.id, p.avatar_url)
+        creatorUsernames.set(p.id, p.username)
+        creatorFullNames.set(p.id, p.full_name)
+      })
+
+      const processed = savedMapsData.map(map => ({
+        ...map,
+        nodes: map.json_data?.nodes || [],
+        edges: map.json_data?.edges || [],
+        edgeType: map.json_data?.edgeType || 'default',
+        updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
+        description: map.description || "",
+        comment_count: map.comment_count || 0,
+        createdAt: Date.now(),
+        is_main: map.is_main || false,
+        creatorUsername: creatorUsernames.get(map.creator) || "Unknown",
+        creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
+        creatorAvatar: creatorAvatars.get(map.creator) || null,
+        likes: likeCountMap.get(map.id) || 0,
+        liked_by: userLikedSet.has(map.id) ? [user?.id] : [],
+        saves: saveCountMap.get(map.id) || 0,
+        saved_by: userSavedSet.has(map.id) ? [user?.id] : [],
+        collaborators: collaboratorsMap.get(map.id) || []
+      })).sort((a, b) => b.updatedAt - a.updatedAt)
+
+      setSavedMaps(processed)
+    } catch (err) {
+      console.error('Error fetching saved maps (reusable):', err)
+      setSavedMaps([])
+    }
+  }, [user?.id])
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       setLoading(true)
@@ -376,7 +478,7 @@ const UserProfile: React.FC = () => {
       // Fetch basic profile data
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, username, full_name, join_date, avatar_url, description")
+        .select("id, username, full_name, join_date, avatar_url, description, save_visibility")
         .eq("username", username?.replace("@", ""))
         .single()
 
@@ -421,7 +523,15 @@ const UserProfile: React.FC = () => {
         setIsFollowing(isCurrentlyFollowing)
         fetchPublicMaps(data.id)
         fetchCollaborationMaps(data.id)
-        fetchSavedMaps(data.id)
+        const isOwner = user?.id === data.id
+        if (isOwner) {
+          fetchSavedMaps(data.id)
+        } else if (data.save_visibility === 'followers') {
+          if (isCurrentlyFollowing) fetchSavedMaps(data.id)
+        } else if (data.save_visibility !== 'private') {
+          // public or undefined
+          fetchSavedMaps(data.id)
+        }
       }
       setLoading(false)
     }
@@ -647,155 +757,18 @@ const UserProfile: React.FC = () => {
       }
     }
 
-    const fetchSavedMaps = async (userId: string) => {
-      try {
-        console.log("Fetching saved maps for user ID:", userId)
-        
-        // Get saved map IDs from the new mindmap_saves table
-        const { data: userSaves, error: savesError } = await supabase
-          .from("mindmap_saves")
-          .select("mindmap_id")
-          .eq("user_id", userId)
-
-        console.log("User saves data:", userSaves)
-        console.log("Saves error:", savesError)
-
-        if (savesError) {
-          console.error("Error fetching user saves:", savesError)
-          setSavedMaps([])
-          return
-        }
-
-        const savedMapIds = userSaves?.map(save => save.mindmap_id) || []
-        if (savedMapIds.length === 0) {
-          console.log("No saves found for user")
-          setSavedMaps([])
-          return
-        }
-
-        // Get the actual mindmap data for the saved maps
-        const { data: savedMapsData, error: savedMapsError } = await supabase
-          .from("mindmaps")
-          .select(
-            "permalink, id, title, json_data, drawing_data, updated_at, visibility, comment_count, description, is_main, creator",
-          )
-          .in("id", savedMapIds)
-          .eq("visibility", "public")
-
-        console.log("Saved maps data:", savedMapsData)
-        console.log("Saved maps error:", savedMapsError)
-
-        if (savedMapsError) {
-          console.error("Error fetching saved maps:", savedMapsError)
-          setSavedMaps([])
-        } else if (savedMapsData && savedMapsData.length > 0) {
-          console.log("Found mindmaps for saves:", savedMapsData.length)
-          
-          const mapIds = savedMapsData.map(map => map.id)
-          
-          // Fetch like counts, user likes, save counts, user saves, and collaborations for these maps
-          const [likeCountsResult, userLikesResult, saveCountsResult, userSavesResult, collaborationsResult] = await Promise.all([
-            // Get like counts
-            supabase
-              .from("mindmap_like_counts")
-              .select("mindmap_id, like_count")
-              .in("mindmap_id", mapIds),
-            // Get user likes (if user is logged in)
-            user?.id ? supabase
-              .from("mindmap_likes")
-              .select("mindmap_id")
-              .eq("user_id", user.id)
-              .in("mindmap_id", mapIds) : Promise.resolve({ data: [], error: null }),
-            // Get save counts
-            supabase
-              .from("mindmap_save_counts")
-              .select("mindmap_id, save_count")
-              .in("mindmap_id", mapIds),
-            // Get user saves (if user is logged in)
-            user?.id ? supabase
-              .from("mindmap_saves")
-              .select("mindmap_id")
-              .eq("user_id", user.id)
-              .in("mindmap_id", mapIds) : Promise.resolve({ data: [], error: null }),
-            // Get collaborations
-            supabase
-              .from("mindmap_collaborations")
-              .select("mindmap_id, collaborator_id, status")
-              .in("mindmap_id", mapIds)
-              .eq("status", "accepted")
-          ])
-
-          // Create lookup maps
-          const likeCountMap = new Map(likeCountsResult.data?.map(item => [item.mindmap_id, item.like_count]) || [])
-          const userLikedSet = new Set(userLikesResult.data?.map(item => item.mindmap_id) || [])
-          const saveCountMap = new Map(saveCountsResult.data?.map(item => [item.mindmap_id, item.save_count]) || [])
-          const userSavedSet = new Set(userSavesResult.data?.map(item => item.mindmap_id) || [])
-          const collaboratorsMap = new Map()
-          collaborationsResult.data?.forEach(collab => {
-            if (!collaboratorsMap.has(collab.mindmap_id)) {
-              collaboratorsMap.set(collab.mindmap_id, [])
-            }
-            collaboratorsMap.get(collab.mindmap_id).push(collab.collaborator_id)
-          })
-
-          // Get creator profiles
-          const creatorIds = [...new Set(savedMapsData.map((map) => map.creator))]
-          const { data: savedProfilesData, error: savedProfilesError } = await supabase
-            .from("profiles")
-            .select("id, avatar_url, username, full_name")
-            .in("id", creatorIds)
-
-          if (savedProfilesError) {
-            console.error("Error fetching saved map creator profiles:", savedProfilesError)
-          }
-
-          const creatorAvatars = new Map()
-          const creatorUsernames = new Map()
-          const creatorFullNames = new Map()
-          savedProfilesData?.forEach((profile) => {
-            creatorAvatars.set(profile.id, profile.avatar_url)
-            creatorUsernames.set(profile.id, profile.username)
-            creatorFullNames.set(profile.id, profile.full_name)
-          })
-
-          const processedSavedMaps = savedMapsData
-            .map((map) => ({
-              ...map,
-              nodes: map.json_data?.nodes || [],
-              edges: map.json_data?.edges || [],
-              edgeType: map.json_data?.edgeType || 'default',
-              updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
-              description: map.description || "",
-              comment_count: map.comment_count || 0,
-              createdAt: Date.now(),
-              is_main: map.is_main || false,
-              creatorUsername: creatorUsernames.get(map.creator) || "Unknown",
-              creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
-              creatorAvatar: creatorAvatars.get(map.creator) || null,
-              // Use new optimized data
-              likes: likeCountMap.get(map.id) || 0,
-              liked_by: userLikedSet.has(map.id) ? [user?.id] : [],
-              saves: saveCountMap.get(map.id) || 0,
-              saved_by: userSavedSet.has(map.id) ? [user?.id] : [],
-              collaborators: collaboratorsMap.get(map.id) || []
-            }))
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-          console.log("Processed saved maps:", processedSavedMaps)
-          setSavedMaps(processedSavedMaps)
-        } else {
-          console.log("No mindmaps found for the saved IDs")
-          setSavedMaps([])
-        }
-      } catch (error) {
-        console.error("Error in saved maps fetch:", error)
-        setSavedMaps([])
-      }
-    }
-
     if (username) {
       fetchUserProfile()
     }
   }, [username, user?.id])
+
+  // Secondary effect: when user follows a followers-only profile, fetch saves once
+  useEffect(() => {
+    if (!profile?.id) return
+    if (profile.save_visibility === 'followers' && user?.id !== profile.id && isFollowing && savedMaps.length === 0) {
+      fetchSavedMaps(profile.id)
+    }
+  }, [isFollowing, profile?.id, profile?.save_visibility, fetchSavedMaps, user?.id, savedMaps.length])
 
   const handleFollow = async () => {
     if (!user?.id || !profile?.id) return
@@ -1007,6 +980,10 @@ const UserProfile: React.FC = () => {
   }
 
   const joinDate = profile?.join_date ? new Date(profile.join_date) : new Date()
+  const isOwnProfile = user?.id === profile?.id
+  const isSavesPrivate = profile?.save_visibility === 'private' && !isOwnProfile
+  const isSavesFollowersRestricted = profile?.save_visibility === 'followers' && !isOwnProfile
+  const isSavesLocked = (isSavesPrivate) || (isSavesFollowersRestricted && !isFollowing)
 
   return (
     <div className="min-h-screen">
@@ -1108,8 +1085,8 @@ const UserProfile: React.FC = () => {
               {[
                 { key: "mindmaps", icon: Network, label: "Mindmaps", count: publicMaps.length },
                 { key: "collaborations", icon: Users, label: "Collaborations", count: collaborationMaps.length },
-                { key: "saves", icon: Bookmark, label: "Saves", count: savedMaps.length },
-              ].map((tab, index) => (
+                { key: "saves", icon: Bookmark, label: "Saves", count: isSavesLocked ? 0 : savedMaps.length, private: isSavesLocked },
+              ].map((tab: any, index) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
@@ -1117,11 +1094,23 @@ const UserProfile: React.FC = () => {
                       ? "text-blue-400 bg-slate-700/50"
                       : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/30"
                     } ${index === 0 ? "rounded-l-2xl" : ""} ${index === 2 ? "rounded-r-2xl" : ""}`}
-                >                  <tab.icon
-                    className={`w-5 h-5 transition-all duration-300 ${activeTab === tab.key ? "scale-110" : "group-hover:scale-105"}`}
-                  />
+                >
+                  <span className="relative inline-flex items-center">
+                    <tab.icon
+                      className={`w-5 h-5 transition-all duration-300 ${activeTab === tab.key ? "scale-110" : "group-hover:scale-105"}`}
+                    />
+                    {tab.private && (
+                      <>
+                        <Lock
+                          className="w-3 h-3 text-slate-400 absolute -top-1 -right-1"
+                          aria-label="Private saves"
+                        />
+                        <span className="sr-only">Saves are private</span>
+                      </>
+                    )}
+                  </span>
                   <span className="font-medium hidden sm:inline text-sm">{tab.label}</span>
-                  {tab.count > 0 && (
+                  {!tab.private && tab.count > 0 && (
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${activeTab === tab.key ? "bg-blue-500/20 text-blue-300" : "bg-slate-600/50 text-slate-300"
                         }`}
@@ -1440,7 +1429,29 @@ const UserProfile: React.FC = () => {
 
           {/* Saves Tab */}
           {activeTab === "saves" && (
-            <>              {savedMaps.length > 0 ? (
+            <>
+              {isSavesLocked ? (
+                <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="relative">
+                      <Bookmark className="w-16 h-16 text-slate-600" />
+                      <Lock className="w-8 h-8 text-slate-400 absolute -top-2 -right-2" />
+                    </div>
+                  </div>
+                  {profile?.save_visibility === 'private' && (
+                    <>
+                      <h3 className="text-xl font-semibold text-slate-300 mb-2">Saves are private</h3>
+                      <p className="text-slate-400">This user has chosen to keep their saved mindmaps hidden.</p>
+                    </>
+                  )}
+                  {profile?.save_visibility === 'followers' && (
+                    <>
+                      <h3 className="text-xl font-semibold text-slate-300 mb-2">Followers-only saves</h3>
+                      <p className="text-slate-400">Follow this user to view the mindmaps they've saved.</p>
+                    </>
+                  )}
+                </div>
+              ) : savedMaps.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                 {savedMaps.map((map, index) => (
                   <div
@@ -1582,13 +1593,13 @@ const UserProfile: React.FC = () => {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
-                <Bookmark className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-300 mb-2">No saved mindmaps yet</h3>
-                <p className="text-slate-400">This user hasn't saved any mindmaps.</p>
-              </div>
-            )}
+              ) : (
+                <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-2xl p-12 border border-slate-700/30 text-center">
+                  <Bookmark className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-300 mb-2">No saved mindmaps yet</h3>
+                  <p className="text-slate-400">This user hasn't saved any mindmaps.</p>
+                </div>
+              )}
             </>
           )}
         </div>
