@@ -1,0 +1,196 @@
+{
+  "hash": "c1d38779",
+  "configHash": "ab1c5f01",
+  "lockfileHash": "ba4e69a8",
+  "browserHash": "827d2c92",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "c3248ac4",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "abd75216",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "4b84c73f",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "f1aa51cc",
+      "needsInterop": false
+    },
+    "@supabase/supabase-js": {
+      "src": "../../node_modules/@supabase/supabase-js/dist/module/index.js",
+      "file": "@supabase_supabase-js.js",
+      "fileHash": "2076a0ab",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "5d1578c3",
+      "needsInterop": false
+    },
+    "date-fns": {
+      "src": "../../node_modules/date-fns/index.mjs",
+      "file": "date-fns.js",
+      "fileHash": "1e1e450f",
+      "needsInterop": false
+    },
+    "zustand": {
+      "src": "../../node_modules/zustand/esm/index.mjs",
+      "file": "zustand.js",
+      "fileHash": "c34cd04d",
+      "needsInterop": false
+    },
+    "zustand/middleware": {
+      "src": "../../node_modules/zustand/esm/middleware.mjs",
+      "file": "zustand_middleware.js",
+      "fileHash": "78030b27",
+      "needsInterop": false
+    },
+    "react-dom": {
+      "src": "../../node_modules/react-dom/index.js",
+      "file": "react-dom.js",
+      "fileHash": "6a7f4d0b",
+      "needsInterop": true
+    },
+    "react-avatar-editor": {
+      "src": "../../node_modules/react-avatar-editor/dist/index.js",
+      "file": "react-avatar-editor.js",
+      "fileHash": "8d4c5304",
+      "needsInterop": true
+    },
+    "reactflow": {
+      "src": "../../node_modules/reactflow/dist/esm/index.mjs",
+      "file": "reactflow.js",
+      "fileHash": "32ca6d00",
+      "needsInterop": false
+    },
+    "emoji-picker-react": {
+      "src": "../../node_modules/emoji-picker-react/dist/emoji-picker-react.esm.js",
+      "file": "emoji-picker-react.js",
+      "fileHash": "e0e7bed6",
+      "needsInterop": false
+    },
+    "emoji-regex": {
+      "src": "../../node_modules/emoji-regex/index.js",
+      "file": "emoji-regex.js",
+      "fileHash": "c523dc2c",
+      "needsInterop": true
+    },
+    "react-markdown": {
+      "src": "../../node_modules/react-markdown/index.js",
+      "file": "react-markdown.js",
+      "fileHash": "6115caeb",
+      "needsInterop": false
+    },
+    "react-icons/md": {
+      "src": "../../node_modules/react-icons/md/index.mjs",
+      "file": "react-icons_md.js",
+      "fileHash": "734ff75b",
+      "needsInterop": false
+    },
+    "react-icons/fi": {
+      "src": "../../node_modules/react-icons/fi/index.mjs",
+      "file": "react-icons_fi.js",
+      "fileHash": "cf817823",
+      "needsInterop": false
+    },
+    "@dnd-kit/core": {
+      "src": "../../node_modules/@dnd-kit/core/dist/core.esm.js",
+      "file": "@dnd-kit_core.js",
+      "fileHash": "39e59e8a",
+      "needsInterop": false
+    },
+    "@dnd-kit/sortable": {
+      "src": "../../node_modules/@dnd-kit/sortable/dist/sortable.esm.js",
+      "file": "@dnd-kit_sortable.js",
+      "fileHash": "7243da2c",
+      "needsInterop": false
+    },
+    "@dnd-kit/utilities": {
+      "src": "../../node_modules/@dnd-kit/utilities/dist/utilities.esm.js",
+      "file": "@dnd-kit_utilities.js",
+      "fileHash": "73573f8b",
+      "needsInterop": false
+    },
+    "react-colorful": {
+      "src": "../../node_modules/react-colorful/dist/index.mjs",
+      "file": "react-colorful.js",
+      "fileHash": "32e15cb9",
+      "needsInterop": false
+    },
+    "react-intersection-observer": {
+      "src": "../../node_modules/react-intersection-observer/dist/index.mjs",
+      "file": "react-intersection-observer.js",
+      "fileHash": "e6039349",
+      "needsInterop": false
+    },
+    "react-spotify-embed": {
+      "src": "../../node_modules/react-spotify-embed/dist/index.js",
+      "file": "react-spotify-embed.js",
+      "fileHash": "4b239b84",
+      "needsInterop": false
+    },
+    "rehype-raw": {
+      "src": "../../node_modules/rehype-raw/index.js",
+      "file": "rehype-raw.js",
+      "fileHash": "251ca397",
+      "needsInterop": false
+    },
+    "react-audio-visualize": {
+      "src": "../../node_modules/react-audio-visualize/dist/react-audio-visualize.es.js",
+      "file": "react-audio-visualize.js",
+      "fileHash": "4a38385c",
+      "needsInterop": false
+    },
+    "opus-recorder": {
+      "src": "../../node_modules/opus-recorder/dist/recorder.min.js",
+      "file": "opus-recorder.js",
+      "fileHash": "12aace4d",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "browser-J6IYAAS7": {
+      "file": "browser-J6IYAAS7.js"
+    },
+    "chunk-SD42HLFO": {
+      "file": "chunk-SD42HLFO.js"
+    },
+    "chunk-BZRSNRS6": {
+      "file": "chunk-BZRSNRS6.js"
+    },
+    "chunk-U3FKXVFY": {
+      "file": "chunk-U3FKXVFY.js"
+    },
+    "chunk-7W32CK3N": {
+      "file": "chunk-7W32CK3N.js"
+    },
+    "chunk-UUOJ4KBZ": {
+      "file": "chunk-UUOJ4KBZ.js"
+    },
+    "chunk-4NECXOBO": {
+      "file": "chunk-4NECXOBO.js"
+    },
+    "chunk-IWR3JDVG": {
+      "file": "chunk-IWR3JDVG.js"
+    },
+    "chunk-W4EHDCLL": {
+      "file": "chunk-W4EHDCLL.js"
+    },
+    "chunk-EWTE5DHJ": {
+      "file": "chunk-EWTE5DHJ.js"
+    }
+  }
+}

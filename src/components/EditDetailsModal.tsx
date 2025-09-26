@@ -460,15 +460,15 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 pt-8 sm:pt-12"
     >
       <div
-        className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700/30"
-        style={{ maxHeight: '90vh' }}
+        className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-6 w-full max-w-xs sm:max-w-md shadow-2xl border border-slate-700/30"
+        style={{ maxHeight: '85vh' }}
       >
-        <h2 className="text-xl md:text-lg sm:text-base font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-6">Edit Map Details</h2>
-        <div className="space-y-6 overflow-y-auto" style={{ maxHeight: '65vh' }}>
-          <div className="space-y-3">
+        <h2 className="text-base sm:text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-3 sm:mb-6">Edit Map Details</h2>
+        <div className="space-y-3 sm:space-y-6 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+          <div className="space-y-2">
             <label htmlFor="map-title" className="block text-sm font-medium text-slate-300">
               Title<span className="text-red-400">*</span>
             </label>
@@ -477,19 +477,19 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               type="text"
               value={editDetails.title}
               onChange={(e) => setEditDetails({ ...editDetails, title: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 text-base md:text-sm sm:text-xs"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg sm:rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 text-sm"
               maxLength={50}
               required
             />
             <p className="text-xs text-slate-500 mt-1">{editDetails.title.length}/50</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <label htmlFor="map-permalink" className="block text-sm font-medium text-slate-300">
               Permalink<span className="text-red-400">*</span>
             </label>
-            <div className="flex items-center min-w-0 overflow-hidden rounded-xl border border-slate-700/50 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all duration-200">
-              <span className="bg-slate-700/50 px-3 py-3 text-slate-400 text-xs whitespace-nowrap flex-shrink-0 max-w-[70%] overflow-hidden text-ellipsis">
+            <div className="flex items-center min-w-0 overflow-hidden rounded-lg sm:rounded-xl border border-slate-700/50 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all duration-200">
+              <span className="bg-slate-700/50 px-2 sm:px-3 py-2 sm:py-3 text-slate-400 text-xs whitespace-nowrap flex-shrink-0 max-w-[60%] sm:max-w-[70%] overflow-hidden text-ellipsis">
                 {baseUrl}/{username}/
               </span>
               <input
@@ -501,26 +501,26 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                   const sanitizedValue = e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '');
                   setEditDetails({ ...editDetails, permalink: sanitizedValue });
                 }}
-                className={`w-0 flex-grow min-w-[80px] px-3 py-3 bg-slate-800/50 ${editError ? "border-l border-red-500/50" : "border-l border-slate-700/30"
-                  } text-slate-100 focus:outline-none text-sm md:text-xs sm:text-xs`}
+                className={`w-0 flex-grow min-w-[60px] px-2 sm:px-3 py-2 sm:py-3 bg-slate-800/50 ${editError ? "border-l border-red-500/50" : "border-l border-slate-700/30"
+                  } text-slate-100 focus:outline-none text-xs sm:text-sm`}
                 required
               />
             </div>
-            {editError && <p className="text-red-400 text-sm mt-2 flex items-center gap-2">
+            {editError && <p className="text-red-400 text-sm mt-1 flex items-center gap-2">
               <span className="w-1 h-1 rounded-full bg-red-400"></span>
               {editError}
             </p>}
-            <p className="text-xs text-slate-500 mt-2">Only lowercase letters, numbers, hyphens, and underscores are allowed.</p>
+            <p className="text-xs text-slate-500 mt-1">Only lowercase letters, numbers, hyphens, and underscores are allowed.</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <label className="block text-sm font-medium text-slate-300">Description</label>
             <div className="flex items-center">
               <textarea
                 value={editDetails.description}
                 onChange={(e) => setEditDetails({ ...editDetails, description: e.target.value.substring(0, 200) })}
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none text-base md:text-sm sm:text-xs"
-                rows={3}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg sm:rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 resize-none text-sm"
+                rows={2}
                 maxLength={200}
                 placeholder="Add a description for your mind map..."
               />
@@ -530,38 +530,38 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-slate-300 mb-3">Visibility</label>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">Visibility</label>
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setEditDetails({ ...editDetails, visibility: "public" })}
-                className={`flex items-center justify-center px-3 py-3 rounded-xl transition-all duration-200 border ${editDetails.visibility === "public"
+                className={`flex items-center justify-center px-2 sm:px-3 py-2 sm:py-3 rounded-lg sm:rounded-xl transition-all duration-200 border ${editDetails.visibility === "public"
                   ? "bg-blue-600/80 text-white border-blue-500/50 shadow-lg shadow-blue-500/25"
                   : "bg-slate-800/50 text-slate-300 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"}`}
               >
-                <Eye className={`w-4 h-4 mr-2 ${editDetails.visibility === "public" ? "text-white" : "text-slate-400"}`} />
-                <span className="text-sm font-medium">Public</span>
+                <Eye className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${editDetails.visibility === "public" ? "text-white" : "text-slate-400"}`} />
+                <span className="text-xs sm:text-sm font-medium">Public</span>
               </button>
               <button
                 type="button"
                 onClick={() => setEditDetails({ ...editDetails, visibility: "private" })}
-                className={`flex items-center justify-center px-3 py-3 rounded-xl transition-all duration-200 border ${editDetails.visibility === "private"
+                className={`flex items-center justify-center px-2 sm:px-3 py-2 sm:py-3 rounded-lg sm:rounded-xl transition-all duration-200 border ${editDetails.visibility === "private"
                   ? "bg-blue-600/80 text-white border-blue-500/50 shadow-lg shadow-blue-500/25"
                   : "bg-slate-800/50 text-slate-300 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"}`}
               >
-                <EyeOff className={`w-4 h-4 mr-2 ${editDetails.visibility === "private" ? "text-white" : "text-slate-400"}`} />
-                <span className="text-sm font-medium">Private</span>
+                <EyeOff className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${editDetails.visibility === "private" ? "text-white" : "text-slate-400"}`} />
+                <span className="text-xs sm:text-sm font-medium">Private</span>
               </button>
               <button
                 type="button"
                 onClick={() => setEditDetails({ ...editDetails, visibility: "linkOnly" })}
-                className={`flex items-center justify-center px-3 py-3 rounded-xl transition-all duration-200 border ${editDetails.visibility === "linkOnly"
+                className={`flex items-center justify-center px-2 sm:px-3 py-2 sm:py-3 rounded-lg sm:rounded-xl transition-all duration-200 border ${editDetails.visibility === "linkOnly"
                   ? "bg-blue-600/80 text-white border-blue-500/50 shadow-lg shadow-blue-500/25"
                   : "bg-slate-800/50 text-slate-300 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"}`}
               >
-                <Link className={`w-4 h-4 mr-2 ${editDetails.visibility === "linkOnly" ? "text-white" : "text-slate-400"}`} />
-                <span className="text-sm font-medium">Link Only</span>
+                <Link className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${editDetails.visibility === "linkOnly" ? "text-white" : "text-slate-400"}`} />
+                <span className="text-xs sm:text-sm font-medium">Link Only</span>
               </button>
             </div>
           </div>
@@ -584,38 +584,38 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
           )}
 
           {/* Collaborators Section */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <label className="block text-sm font-medium text-slate-300">Collaborators</label>
 
             {/* Add Collaborators Button */}
             <button
               type="button"
               onClick={() => setIsUserSelectModalOpen(true)}
-              className="flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 w-full bg-slate-800/50 text-slate-300 border border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"
+              className="flex items-center justify-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl transition-all duration-200 w-full bg-slate-800/50 text-slate-300 border border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50"
             >
-              <UserPlus className="w-4 h-4 mr-2 text-slate-400" />
-              <span className="font-medium">Invite collaborators</span>
+              <UserPlus className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-slate-400" />
+              <span className="text-sm sm:text-base font-medium">Invite collaborators</span>
             </button>
 
             {/* Display Current Collaborators and Pending Changes */}
             {(collaboratorProfiles.length > 0 || pendingCollaboratorChanges.toAdd.length > 0) && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <p className="text-xs text-slate-500 font-medium">Collaborators & invitations:</p>
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {/* Existing collaborators (show as pending removal if marked for deletion) */}
                   {collaboratorProfiles
                     .filter(collaborator => !pendingCollaboratorChanges.toRemove.includes(collaborator.id))
                     .map((collaborator) => (
                     <div
                       key={collaborator.id}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-200 ${
+                      className={`flex items-center justify-between p-2 sm:p-3 rounded-lg sm:rounded-xl border transition-all duration-200 ${
                         collaborator.status === 'pending' 
                           ? 'bg-orange-500/5 border-orange-500/30 hover:bg-orange-500/10' 
                           : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/30'
                       }`}
                     >
                       <div className="flex items-center">
-                        <div className={`w-8 h-8 rounded-full flex-shrink-0 overflow-hidden mr-3 ring-2 ${
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0 overflow-hidden mr-2 sm:mr-3 ring-2 ${
                           collaborator.status === 'pending' 
                             ? 'ring-orange-400/50 bg-orange-600/20' 
                             : 'ring-slate-700/30 bg-slate-600/50'
@@ -668,10 +668,10 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveCollaborator(collaborator.id)}
-                        className="p-1.5 rounded-lg transition-all duration-200 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                        className="p-1 sm:p-1.5 rounded-md sm:rounded-lg transition-all duration-200 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
                         title={collaborator.status === 'pending' ? 'Cancel invitation' : 'Remove collaborator'}
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   ))}
@@ -680,10 +680,10 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                   {pendingCollaboratorChanges.toAdd.map((user) => (
                     <div
                       key={`pending-${user.id}`}
-                      className="flex items-center justify-between p-3 rounded-xl border transition-all duration-200 bg-blue-500/5 border-blue-500/30 hover:bg-blue-500/10"
+                      className="flex items-center justify-between p-2 sm:p-3 rounded-lg sm:rounded-xl border transition-all duration-200 bg-blue-500/5 border-blue-500/30 hover:bg-blue-500/10"
                     >
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden mr-3 ring-2 ring-blue-400/50 bg-blue-600/20">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0 overflow-hidden mr-2 sm:mr-3 ring-2 ring-blue-400/50 bg-blue-600/20">
                           {user.avatar_url ? (
                             <img
                               src={user.avatar_url}
@@ -718,10 +718,10 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveCollaborator(user.id)}
-                        className="p-1.5 rounded-lg transition-all duration-200 text-blue-400 hover:text-red-400 hover:bg-red-500/10"
+                        className="p-1 sm:p-1.5 rounded-md sm:rounded-lg transition-all duration-200 text-blue-400 hover:text-red-400 hover:bg-red-500/10"
                         title="Remove from pending invitations"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                   ))}
@@ -732,10 +732,10 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                     .map((collaborator) => (
                     <div
                       key={`removing-${collaborator.id}`}
-                      className="flex items-center justify-between p-3 rounded-xl border transition-all duration-200 bg-red-500/5 border-red-500/30 hover:bg-red-500/10 opacity-75"
+                      className="flex items-center justify-between p-2 sm:p-3 rounded-lg sm:rounded-xl border transition-all duration-200 bg-red-500/5 border-red-500/30 hover:bg-red-500/10 opacity-75"
                     >
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden mr-3 ring-2 ring-red-400/50 bg-red-600/20">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0 overflow-hidden mr-2 sm:mr-3 ring-2 ring-red-400/50 bg-red-600/20">
                           {collaborator.avatar_url ? (
                             <img
                               src={collaborator.avatar_url}
@@ -792,26 +792,26 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
             </p>
           </div>
         </div>
-        <div className="flex justify-end items-center space-x-3 mt-8">
+        <div className="flex justify-end items-center space-x-2 sm:space-x-3 mt-4 sm:mt-8">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 text-slate-400 hover:text-slate-100 transition-colors font-medium"
+            className="px-4 sm:px-6 py-2 sm:py-2.5 text-slate-400 hover:text-slate-100 transition-colors text-sm sm:text-base font-medium"
           >
             Cancel
           </button>
 
           {editDetails.visibility === "public" ? (
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               {/* Help icon */}
               <div className="relative help-tooltip-container">
                 <button
                   type="button"
                   onClick={() => setShowHelpTooltip(!showHelpTooltip)}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 border border-slate-600/50 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-slate-600/50 transition-all duration-200"
+                  className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-slate-700/50 border border-slate-600/50 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-slate-600/50 transition-all duration-200"
                   title="Learn about publishing options"
                 >
-                  <HelpCircle className="w-4 h-4" />
+                  <HelpCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                 </button>
 
                 {/* Help tooltip/modal */}
@@ -873,7 +873,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                     type="button"
                     onClick={() => handleSave()}
                     disabled={!editDetails.title.trim() || !editDetails.permalink.trim() || isSaving || !!editError}
-                    className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-l-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg ${isSaving ? "animate-pulse" : ""
+                    className={`px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-l-lg sm:rounded-l-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base font-medium shadow-lg ${isSaving ? "animate-pulse" : ""
                       }`}
                   >
                     {getButtonText()}
@@ -884,9 +884,9 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     disabled={!editDetails.title.trim() || !editDetails.permalink.trim() || isSaving || !!editError}
-                    className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 border-l border-blue-500/30 rounded-r-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 border-l border-blue-500/30 rounded-r-lg sm:rounded-r-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronDown className={`w-4 h-4 text-white transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-white transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
                   </button>
                 </div>
 
@@ -933,7 +933,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
               type="button"
               onClick={() => handleSave()}
               disabled={!editDetails.title.trim() || !editDetails.permalink.trim() || isSaving || !!editError}
-              className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg ${isSaving ? "animate-pulse" : ""
+              className={`px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base font-medium shadow-lg ${isSaving ? "animate-pulse" : ""
                 }`}
             >
               {isSaving ? "Saving..." : "Save changes"}

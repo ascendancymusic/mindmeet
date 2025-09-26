@@ -1678,44 +1678,41 @@ export default function MindMapList() {
           <div className="flex items-center space-x-[1vh]">
             {/* Sort dropdown and Create New Map button side by side, searchbar below and centered */}
             <div className="flex flex-col items-center w-full">
-              <div className="flex items-center gap-4 w-full mb-2">
-                <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3 w-full mb-2">
+                <div className="flex flex-col gap-1.5">
                   <select
                     value={sortOption}
                     onChange={(e) =>
                       setSortOption(e.target.value as "newest" | "oldest" | "alphabeticalAsc" | "alphabeticalDesc")
                     }
-                    className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 h-[40px] w-[220px] sm:w-[160px] xs:w-[110px]`}
-                    style={{ height: "40px", fontSize: "1rem", width: isSmallScreen ? "110px" : (window.innerWidth < 640 ? "160px" : "220px") }}
+                    className="bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 h-8 w-32 sm:w-36 lg:w-40"
                   >
                     <option value="newest">{isSmallScreen ? "Newest" : "Newest First"}</option>
                     <option value="oldest">{isSmallScreen ? "Oldest" : "Oldest First"}</option>
                     <option value="alphabeticalAsc">{isSmallScreen ? "A-Z" : "Alphabetical (A-Z)"}</option>
                     <option value="alphabeticalDesc">{isSmallScreen ? "Z-A" : "Alphabetical (Z-A)"}</option>
                   </select>
-                  <div className={`relative mt-0 w-[220px] sm:w-[160px] xs:w-[110px]`} style={{ width: isSmallScreen ? "110px" : (window.innerWidth < 640 ? "160px" : "220px") }}>
+                  <div className="relative mt-0 w-32 sm:w-36 lg:w-40">
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
                       placeholder="Search maps..."
-                      className={`bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 px-3 py-1 text-sm pl-8 w-full h-[40px]`}
-                      style={{ height: "40px", width: isSmallScreen ? "110px" : (window.innerWidth < 640 ? "160px" : "220px") }}
+                      className="bg-slate-900 text-slate-100 border border-slate-700/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 px-3 py-1.5 text-sm pl-8 w-full h-8"
                     />
                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                      <Search className="w-5 h-5" />
+                      <Search className="w-4 h-4" />
                     </span>
                   </div>
                 </div>
                 {viewMode === "owned" && (
-                  <div className="flex flex-col justify-center h-[84px]">
+                  <div className="flex flex-col justify-center h-16">
                     <button
                       onClick={() => setIsCreating(true)}
-                      className="group flex items-center justify-center space-x-2 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25"
-                      style={{ height: "84px", minHeight: "84px", fontSize: "1.25rem" }}
+                      className="group flex items-center justify-center space-x-2 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-500/25 h-16 text-sm font-semibold"
                     >
-                      <Plus className="w-6 h-6 transition-transform group-hover:scale-110" />
-                      {!isSmallScreen && <span className="font-semibold">New Map</span>}
+                      <Plus className="w-5 h-5 transition-transform group-hover:scale-110" />
+                      {!isSmallScreen && <span>New Map</span>}
                     </button>
                   </div>
                 )}
