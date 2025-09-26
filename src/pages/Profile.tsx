@@ -43,6 +43,8 @@ import {
   Star,
   Users,
   Info,
+  Lock,
+  Eye,
 } from "lucide-react"
 
 // Add shimmer animation styles and responsive height classes
@@ -224,6 +226,7 @@ interface ProfileData {
   avatar_url?: string
   followers: number // Fetched from user_followers_count table
   following_count: number // Fetched from user_following_count table
+  save_visibility?: 'public' | 'private' | 'followers'
 }
 
 // Username availability status
@@ -380,6 +383,7 @@ export default function Profile() {
     username: "",
     full_name: "",
     description: "",
+    save_visibility: 'public' as 'public' | 'private' | 'followers'
   })
 
   const [profile, setProfile] = useState<ProfileData | null>(null)
@@ -523,7 +527,7 @@ export default function Profile() {
         const [profileResult, followerCountResult, followingCountResult] = await Promise.all([
           supabase
             .from("profiles")
-            .select("username, full_name, join_date, description, avatar_url")
+            .select("username, full_name, join_date, description, avatar_url, save_visibility")
             .eq("id", user.id)
             .single(),
           supabase
@@ -563,15 +567,17 @@ export default function Profile() {
           description: data.description,
           avatar_url: data.avatar_url,
           followers: followersCount, // Always use count from user_followers_count table
-          following_count: followingCount // Always use count from user_following_count table
+          following_count: followingCount, // Always use count from user_following_count table
+          save_visibility: data.save_visibility || 'public'
         }
 
         setProfile(profileData)
         setCountsLoaded(true)
         setEditProfileData({
           username: data.username || "",
-          full_name: data.full_name || "",
-          description: data.description || "",
+            full_name: data.full_name || "",
+            description: data.description || "",
+            save_visibility: data.save_visibility || 'public'
         })
       } catch (error) {
         console.error("Error in profile fetch:", error)
@@ -1053,6 +1059,7 @@ export default function Profile() {
       join_date: profile?.join_date || new Date().toISOString().split('T')[0], // Ensure join_date is set
       followers: profile?.followers || 0, // Ensure followers is set
       following_count: profile?.following_count || 0, // Ensure following_count is set
+      save_visibility: editProfileData.save_visibility || 'public'
     }
 
     // Optimistically update UI
@@ -1067,6 +1074,7 @@ export default function Profile() {
         username: editProfileData.username,
         full_name: editProfileData.full_name,
         description: editProfileData.description,
+        save_visibility: editProfileData.save_visibility
       };
 
       // Only update username_updated_at if the username has actually changed
@@ -1592,6 +1600,7 @@ export default function Profile() {
                         username: profile.username || "",
                         full_name: profile.full_name || "",
                         description: profile.description || "",
+                        save_visibility: profile.save_visibility || 'public'
                       })
                     }
                     setIsEditProfileOpen(true)
@@ -1682,6 +1691,12 @@ export default function Profile() {
                         }`}
                     >
                       {tab.count}
+                    </span>
+                  )}
+                  {/* Lock indicator specifically for Saves tab when visibility restricted */}
+                  {tab.key === 'saves' && profile?.save_visibility && profile.save_visibility !== 'public' && (
+                    <span className="absolute top-2 right-2 flex items-center" aria-label={profile.save_visibility === 'private' ? 'Private saves' : 'Followers-only saves'}>
+                      <Lock className="w-3.5 h-3.5 text-slate-500 opacity-70" />
                     </span>
                   )}
                   {activeTab === tab.key && (
@@ -2023,6 +2038,21 @@ export default function Profile() {
           {/* Saves Tab */}
           {activeTab === "saves" && (
             <>
+              {profile?.save_visibility && profile.save_visibility !== 'public' && (
+                <div className="mb-6 flex items-start gap-3 p-4 rounded-xl border border-slate-700/50 bg-slate-800/60">
+                  <div className="mt-0.5">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    {profile.save_visibility === 'private' && (
+                      <span>Your saves are set to <strong className="text-slate-100">Private</strong>. Only you can see this list.</span>
+                    )}
+                    {profile.save_visibility === 'followers' && (
+                      <span>Your saves are visible to <strong className="text-slate-100">followers only</strong>. Other users must follow you to view them.</span>
+                    )}
+                  </div>
+                </div>
+              )}
               {savedMaps.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 compact-gap">
                   {savedMaps.map((map, index) => (
@@ -2247,6 +2277,49 @@ export default function Profile() {
                     placeholder="Tell us about yourself..."
                   />
                 </div>
+                {/* Save Visibility Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Saved Maps Visibility</label>
+                  <p className="text-xs text-slate-500 mb-3">Controls who can view your list of saved mindmaps on your public profile.</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditProfileData(prev => ({ ...prev, save_visibility: 'public' }))}
+                      className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl text-center border transition-all duration-200 group ${editProfileData.save_visibility === 'public'
+                        ? 'bg-blue-600/80 border-blue-500/50 shadow-lg shadow-blue-500/25 text-white'
+                        : 'bg-slate-800/50 border-slate-600/50 hover:bg-slate-700/50 text-slate-300'} `}
+                    >
+                      <Eye className={`w-4 h-4 mb-1 ${editProfileData.save_visibility === 'public' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                      <span className="text-xs font-medium">Public</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditProfileData(prev => ({ ...prev, save_visibility: 'followers' }))}
+                      className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl text-center border transition-all duration-200 group ${editProfileData.save_visibility === 'followers'
+                        ? 'bg-blue-600/80 border-blue-500/50 shadow-lg shadow-blue-500/25 text-white'
+                        : 'bg-slate-800/50 border-slate-600/50 hover:bg-slate-700/50 text-slate-300'} `}
+                    >
+                      <Users className={`w-4 h-4 mb-1 ${editProfileData.save_visibility === 'followers' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                      <span className="text-xs font-medium">Followers</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditProfileData(prev => ({ ...prev, save_visibility: 'private' }))}
+                      className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl text-center border transition-all duration-200 group ${editProfileData.save_visibility === 'private'
+                        ? 'bg-blue-600/80 border-blue-500/50 shadow-lg shadow-blue-500/25 text-white'
+                        : 'bg-slate-800/50 border-slate-600/50 hover:bg-slate-700/50 text-slate-300'} `}
+                    >
+                      <Lock className={`w-4 h-4 mb-1 ${editProfileData.save_visibility === 'private' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                      <span className="text-xs font-medium">Private</span>
+                    </button>
+                  </div>
+                  {editProfileData.save_visibility === 'followers' && (
+                    <p className="text-[10px] mt-2 text-slate-500">Only users who follow you can see which mindmaps you saved.</p>
+                  )}
+                  {editProfileData.save_visibility === 'private' && (
+                    <p className="text-[10px] mt-2 text-slate-500">Only you can see your saved mindmaps list.</p>
+                  )}
+                </div>
               </div>
               <div className="flex justify-end space-x-3 mt-8">
                 <button
@@ -2257,6 +2330,7 @@ export default function Profile() {
                         username: profile.username || "",
                         full_name: profile.full_name || "",
                         description: profile.description || "",
+                        save_visibility: profile.save_visibility || 'public'
                       })
                     }
                     setIsEditProfileOpen(false)
