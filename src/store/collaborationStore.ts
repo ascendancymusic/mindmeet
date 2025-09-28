@@ -26,6 +26,9 @@ interface CollaborationState {
   collaboratorCursors: Record<string, CollaboratorCursor>;
   isTrackingCursor: boolean;
   currentCursorPosition: XYPosition | null;
+  // Current user identity (cached to avoid race conditions with presence state lookups)
+  currentUserName: string | null;
+  currentUserAvatar: string | null;
   
   // Live changes
   pendingChanges: LiveChange[];
@@ -54,6 +57,8 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
   collaboratorCursors: {},
   isTrackingCursor: false,
   currentCursorPosition: null,
+  currentUserName: null,
+  currentUserAvatar: null,
   pendingChanges: [],
   isReceivingChanges: false,
   collaborationChannel: null,
@@ -139,6 +144,8 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
       presenceChannel: presenceChannel,
       currentMindMapId: mindMapId,
       currentUserId: userId,
+      currentUserName: userName || null,
+      currentUserAvatar: userAvatar || null,
     });
   },  cleanupCollaboration: async () => {
     const state = get();
@@ -160,6 +167,8 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
       connectedUsers: [],
       currentMindMapId: null,
       currentUserId: null,
+      currentUserName: null,
+      currentUserAvatar: null,
       pendingChanges: [],
       isReceivingChanges: false,
     });
@@ -238,16 +247,11 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
     });    // Subscribe to the collaboration channel
     await channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        // Get user info from presence channel
-        const presenceState = state.presenceChannel?.presenceState();
-        const currentUserData = (presenceState && state.currentUserId) ? 
-          presenceState[state.currentUserId]?.[0] as any : null;
-        
-        // Track presence with user info
+        // Track presence with stored user info (avoids race condition where presenceState may not yet include user metadata)
         await channel.track({
           user_id: state.currentUserId,
-          user_name: currentUserData?.user_name || 'Unknown User',
-          user_avatar: currentUserData?.user_avatar,
+          user_name: state.currentUserName || 'Unknown User',
+          user_avatar: state.currentUserAvatar || undefined,
           online_at: new Date().toISOString(),
         });
       }
@@ -262,48 +266,34 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
   updateCursorPosition: (position: XYPosition) => {
     set({ currentCursorPosition: position });
   },  broadcastCursorPosition: (position: XYPosition) => {
-    const state = get();
-    
-    if (!state.collaborationChannel || !state.isTrackingCursor || !state.currentUserId) {
-      return;
-    }
-
-    // Get current user info from presence state
-    const presenceState = state.collaborationChannel.presenceState();
-    const currentUserData = presenceState[state.currentUserId]?.[0] as any;
+    const { collaborationChannel, isTrackingCursor, currentUserId, currentUserName, currentUserAvatar } = get();
+    if (!collaborationChannel || !isTrackingCursor || !currentUserId) return;
 
     const payload = {
       position,
       timestamp: new Date().toISOString(),
-      user_id: state.currentUserId,
-      user_name: currentUserData?.user_name || 'Unknown User',
-      user_avatar: currentUserData?.user_avatar,
+      user_id: currentUserId,
+      user_name: currentUserName || 'Unknown User',
+      user_avatar: currentUserAvatar || undefined,
     };
 
-    state.collaborationChannel.send({
+    collaborationChannel.send({
       type: 'broadcast',
       event: 'cursor_position',
       payload
     });
   },broadcastLiveChange: (change: Omit<LiveChange, 'timestamp' | 'user_id' | 'user_name'>) => {
-    const state = get();
-    
-    if (!state.collaborationChannel || !state.currentUserId) {
-      return;
-    }
-
-    // Get current user info from presence state
-    const presenceState = state.collaborationChannel.presenceState();
-    const currentUserData = presenceState[state.currentUserId]?.[0] as any;
+    const { collaborationChannel, currentUserId, currentUserName } = get();
+    if (!collaborationChannel || !currentUserId) return;
 
     const fullChange: LiveChange = {
       ...change,
-      user_id: state.currentUserId,
-      user_name: currentUserData?.user_name || 'Unknown User',
+      user_id: currentUserId,
+      user_name: currentUserName || 'Unknown User',
       timestamp: new Date().toISOString(),
     };
 
-    state.collaborationChannel.send({
+    collaborationChannel.send({
       type: 'broadcast',
       event: 'live_change',
       payload: fullChange

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useCollaborationStore } from '../store/collaborationStore';
-import { useReactFlow } from 'reactflow';
+import { useViewport } from 'reactflow';
 
 // Memoized cursor component to prevent unnecessary re-renders
 const CollaboratorCursor = React.memo(({ cursor, viewport }: { 
@@ -34,25 +34,14 @@ const CollaboratorCursor = React.memo(({ cursor, viewport }: {
     >
       {/* Cursor pointer */}
       <div className="relative">
-        <svg
-          width="20"
-          height="24"
-          viewBox="0 0 20 24"
-          fill="none"
-          className="drop-shadow-md"
-        >
+        <svg width="20" height="24" viewBox="0 0 20 24" fill="none" className="drop-shadow-md">
           <path
             d="M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z"
-            fill="#3B82F6"
-            stroke="white"
-            strokeWidth="1"
+            fill="#3B82F6" stroke="white" strokeWidth="1"
           />
         </svg>
-          {/* User name label */}
-        <div className="absolute top-5 left-2.5 whitespace-nowrap">
-          <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded-md shadow-lg border border-gray-700">
-            <span>{cursor.user_name}</span>
-          </div>
+        <div className="absolute top-5 left-2.5 whitespace-nowrap bg-gray-900 text-white text-[11px] leading-none px-2 py-1 rounded border border-gray-700 font-sans select-none">
+          {cursor.user_name}
         </div>
       </div>
     </div>
@@ -61,31 +50,19 @@ const CollaboratorCursor = React.memo(({ cursor, viewport }: {
 
 export const CollaboratorCursors: React.FC = React.memo(() => {
   const { collaboratorCursors } = useCollaborationStore();
-  const reactFlowInstance = useReactFlow();
+  // Reactive viewport hook ensures rerender on pan / zoom
+  const { x, y, zoom } = useViewport();
+  const viewport = { x, y, zoom };
 
-  // Memoize viewport to prevent unnecessary recalculations
-  const viewport = useMemo(() => reactFlowInstance.getViewport(), [
-    reactFlowInstance.getViewport().x,
-    reactFlowInstance.getViewport().y, 
-    reactFlowInstance.getViewport().zoom
-  ]);
-
-  // Memoize cursor list to prevent unnecessary re-renders
   const cursorList = useMemo(() => Object.values(collaboratorCursors), [collaboratorCursors]);
 
   return (
     <>
-      {cursorList.map((cursor) => {
-        if (!cursor.position) return null;
-        
-        return (
-          <CollaboratorCursor 
-            key={cursor.user_id} 
-            cursor={cursor} 
-            viewport={viewport}
-          />
-        );
-      })}
+      {cursorList.map(cursor => (
+        cursor.position ? (
+          <CollaboratorCursor key={cursor.user_id} cursor={cursor} viewport={viewport} />
+        ) : null
+      ))}
     </>
   );
 });
