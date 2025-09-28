@@ -46,6 +46,7 @@ import PublishSuccessModal from "../components/PublishSuccessModal"
 import CloneSuccessModal from "../components/CloneSuccessModal"
 import CreateMindmapModal from "../components/CreateMindmapModal"
 import { supabase } from "../supabaseClient"
+// Added notification store import for collaboration notifications
 import { useNotificationStore } from '../store/notificationStore';
 import InfoModal from "../components/InfoModal"
 import MindMapRenderer from "../components/MindMapRenderer"
@@ -744,6 +745,8 @@ export default function MindMapList() {
   }
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [isLoadingPendingInvites, setIsLoadingPendingInvites] = useState(false)
+  // Notification store action
+  const addNotification = useNotificationStore(state => state.addNotification)
 
   const fetchPendingInvites = useCallback(async () => {
     if (!isValidUserId) return
@@ -839,6 +842,18 @@ export default function MindMapList() {
       await fetchCollaborationMaps(userId!)
       setPendingInvites(prev => prev.filter(p => p.inviteId !== invite.inviteId))
       showToast('Invitation accepted', 'success')
+      // Send notification to inviter that their invite was accepted
+      if (invite.inviterId && userId) {
+        // Use 'mindmap: ' pattern so NotificationsDropdown formatter links the title
+        addNotification({
+          user_id: invite.inviterId, // recipient: inviter
+          title: 'Collaboration Accepted',
+          message: `@${user?.username || 'Someone'} accepted your collaboration invite mindmap: ${invite.mindmapTitle || 'a mindmap'}`,
+          type: 'collaboration_accept',
+          related_user: userId,
+          mindmap_id: invite.mindmapId
+        })
+      }
     } catch (e) {
       console.error('Error accepting invite:', e)
       showToast('Failed to accept invitation', 'error')
@@ -855,11 +870,22 @@ export default function MindMapList() {
       if (error) throw error
       setPendingInvites(prev => prev.filter(p => p.inviteId !== invite.inviteId))
       showToast('Invitation rejected', 'info')
+      // Send notification to inviter that their invite was rejected
+      if (invite.inviterId && userId) {
+        addNotification({
+          user_id: invite.inviterId, // recipient: inviter
+          title: 'Collaboration Rejected',
+          message: `@${user?.username || 'Someone'} declined your collaboration invite mindmap: ${invite.mindmapTitle || 'a mindmap'}`,
+          type: 'collaboration_reject',
+          related_user: userId,
+          mindmap_id: invite.mindmapId
+        })
+      }
     } catch (e) {
       console.error('Error rejecting invite:', e)
       showToast('Failed to reject invitation', 'error')
     }
-  }, [])
+  }, [userId, user?.username, addNotification])
 
   const createGroup = async (name: string, mindmapIds: string[], icon: string) => {
     if (!isValidUserId) return

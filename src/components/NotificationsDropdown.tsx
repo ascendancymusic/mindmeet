@@ -75,6 +75,8 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
 
       case 'like':
       case 'comment':
+      case 'collaboration_accept':
+      case 'collaboration_reject':
         // Handle mindmap like and comment notifications
         if (notification.mindmap_id) {
           console.log(`Navigating to mindmap with key (${notification.type}):`, notification.mindmap_id);
@@ -208,14 +210,26 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     // Check if this is a negative notification
     const isNegative = title.includes('Lost Follower') || title.includes('Like Removed');
 
-    if (type === 'like' || type === 'comment' || type === 'publish') {
+    if (type === 'like' || type === 'comment' || type === 'publish' || type === 'collaboration_accept' || type === 'collaboration_reject') {
       // Split the message into three parts: before mindmap:, mindmap: itself, and the title
       const [mainPart, mindmapTitle] = message.split('mindmap: ');
 
       if (!mindmapTitle) return formatUsername(message, isNegative);      return (
         <>
           {formatUsername(mainPart, isNegative)}
-          mindmap: <span className="text-white font-medium hover:text-blue-400 hover:underline transition-colors cursor-pointer">{mindmapTitle}</span>
+          mindmap: <span
+            className="text-white font-medium hover:text-blue-400 hover:underline transition-colors cursor-pointer"
+            onClick={async (e) => {
+              e.stopPropagation();
+              // Attempt to find the matching notification to reuse existing navigation logic
+              // We derive mindmap id by searching notifications with same message (fallback) or just trigger parent click.
+              // Parent already handles navigation if mindmap_id exists, so we can simulate click.
+              const parent = (e.currentTarget as HTMLElement).closest('[data-notification-id]') as HTMLElement | null;
+              if (parent) {
+                parent.click();
+              }
+            }}
+          >{mindmapTitle}</span>
         </>
       );
     }
@@ -284,6 +298,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
             .map((notification) => (
             <div
               key={notification.id}
+              data-notification-id={notification.id}
               onClick={() => handleNotificationClick(notification)}
               className={`px-4 py-3 hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-purple-500/10 transition-all duration-200 cursor-pointer border-b border-slate-700/30 last:border-b-0 ${
                 !notification.read ? 'bg-gradient-to-r from-blue-500/5 to-purple-500/5' : ''

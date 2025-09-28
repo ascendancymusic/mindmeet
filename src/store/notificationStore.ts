@@ -9,7 +9,7 @@ export interface Notification {
   message: string;
   timestamp: Date;
   read: boolean;
-  type: 'follow' | 'like' | 'comment' | 'publish';
+  type: 'follow' | 'like' | 'comment' | 'publish' | 'collaboration_accept' | 'collaboration_reject';
   related_user?: string;
   mindmap_id?: string;
   comment_id?: string;
@@ -136,6 +136,31 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
             notifications: [data[0], ...state.notifications],
           }));
         }        return;
+      }
+
+      // Collaboration acceptance / rejection notifications WITH mindmap id so the client can navigate.
+      if (updatedNotification.type === 'collaboration_accept' || updatedNotification.type === 'collaboration_reject') {
+        const { data, error } = await supabase.rpc('create_notification_with_mindmap_id', {
+          p_user_id: updatedNotification.user_id,
+          p_type: updatedNotification.type,
+          p_title: updatedNotification.title,
+          p_message: updatedNotification.message,
+          p_related_user: updatedNotification.related_user,
+          p_mindmap_id: updatedNotification.mindmap_id,
+          p_comment_id: updatedNotification.comment_id || null
+        });
+
+        if (error) {
+          console.error('Collaboration notification creation failed:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          set((state) => ({
+            notifications: [data[0], ...state.notifications],
+          }));
+        }
+        return;
       }
 
       // For other notification types (comment), use the server-side function
