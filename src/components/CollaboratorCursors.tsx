@@ -3,9 +3,9 @@ import { useCollaborationStore } from '../store/collaborationStore';
 import { useViewport } from 'reactflow';
 
 // Memoized cursor component to prevent unnecessary re-renders
-const CollaboratorCursor = React.memo(({ cursor, viewport }: { 
-  cursor: any, 
-  viewport: { x: number, y: number, zoom: number } 
+const CollaboratorCursor = React.memo(({ cursor, viewport }: {
+  cursor: any,
+  viewport: { x: number, y: number, zoom: number }
 }) => {
   const screenPosition = useMemo(() => {
     // Convert world coordinates back to screen coordinates for this user's viewport
@@ -22,25 +22,40 @@ const CollaboratorCursor = React.memo(({ cursor, viewport }: {
 
   if (!isVisible) return null;
 
+  const isDragging = !!cursor.isDragging;
+
   return (
     <div
-      className="absolute pointer-events-none z-50 transition-all duration-25"
+      className="absolute pointer-events-none z-50"
       style={{
         left: screenPosition.x,
         top: screenPosition.y,
         transform: 'translate(-2px, -2px)',
-        willChange: 'transform', // Optimize for frequent position changes
+        willChange: 'transform'
       }}
     >
-      {/* Cursor pointer */}
       <div className="relative">
-        <svg width="20" height="24" viewBox="0 0 20 24" fill="none" className="drop-shadow-md">
-          <path
-            d="M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z"
-            fill="#3B82F6" stroke="white" strokeWidth="1"
-          />
-        </svg>
-        <div className="absolute top-5 left-2.5 whitespace-nowrap bg-gray-900 text-white text-[11px] leading-none px-2 py-1 rounded border border-gray-700 font-sans select-none">
+        {isDragging ? (
+          // Drag (move) icon
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            className="drop-shadow-md"
+          >
+            <path d="M12 2l3 3h-2v4h4V7l3 3-3 3v-2h-4v4h2l-3 3-3-3h2v-4H8v2l-3-3 3-3v2h4V5H9l3-3z" fill="#3B82F6" stroke="white" strokeWidth="1" />
+          </svg>
+        ) : (
+          // Regular pointer arrow
+          <svg width="20" height="24" viewBox="0 0 20 24" fill="none" className="drop-shadow-md">
+            <path
+              d="M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z"
+              fill="#3B82F6" stroke="white" strokeWidth="1"
+            />
+          </svg>
+        )}
+        <div className="absolute top-5 left-2.5 whitespace-nowrap text-[11px] leading-none px-2 py-1 rounded border font-sans select-none shadow-md backdrop-blur-sm bg-gray-900/90 border-gray-700 text-white">
           {cursor.user_name}
         </div>
       </div>

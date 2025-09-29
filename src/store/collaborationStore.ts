@@ -9,6 +9,7 @@ interface CollaboratorCursor {
   user_avatar?: string;
   position: XYPosition;
   last_seen: string;
+  isDragging?: boolean;
 }
 
 interface LiveChange {
@@ -45,7 +46,7 @@ interface CollaborationState {
   initializeCollaboration: (mindMapId: string, userId: string, userName: string, userAvatar?: string) => Promise<void>;
   cleanupCollaboration: () => void;
   updateCursorPosition: (position: XYPosition) => void;
-  broadcastCursorPosition: (position: XYPosition) => void;
+  broadcastCursorPosition: (position: XYPosition, meta?: { isDragging?: boolean }) => void;
   broadcastLiveChange: (change: Omit<LiveChange, 'timestamp' | 'user_id' | 'user_name'>) => void;
   removeCursor: (userId: string) => void;
   clearPendingChanges: () => void;
@@ -192,7 +193,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
 
     // Set up cursor tracking subscription
     channel.on('broadcast', { event: 'cursor_position' }, (payload) => {
-      const { position, timestamp, user_id, user_name, user_avatar } = payload.payload;
+      const { position, timestamp, user_id, user_name, user_avatar, isDragging } = payload.payload;
       
       // Only show cursors from other users
       if (user_id && user_id !== state.currentUserId) {
@@ -202,6 +203,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
           user_avatar,
           position,
           last_seen: timestamp,
+          isDragging,
         };
 
         set(currentState => ({
@@ -265,7 +267,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
 
   updateCursorPosition: (position: XYPosition) => {
     set({ currentCursorPosition: position });
-  },  broadcastCursorPosition: (position: XYPosition) => {
+  },  broadcastCursorPosition: (position: XYPosition, meta?: { isDragging?: boolean }) => {
     const { collaborationChannel, isTrackingCursor, currentUserId, currentUserName, currentUserAvatar } = get();
     if (!collaborationChannel || !isTrackingCursor || !currentUserId) return;
 
@@ -275,6 +277,7 @@ export const useCollaborationStore = create<CollaborationState>((set, get) => ({
       user_id: currentUserId,
       user_name: currentUserName || 'Unknown User',
       user_avatar: currentUserAvatar || undefined,
+      isDragging: meta?.isDragging || false,
     };
 
     collaborationChannel.send({

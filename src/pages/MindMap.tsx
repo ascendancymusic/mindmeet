@@ -279,6 +279,28 @@ export default function MindMap() {
     currentMindMapId,
   } = useCollaborationStore();
 
+  // Throttle drag cursor broadcasts (placed after store destructure so dependencies exist)
+  const dragCursorBroadcastRaf = useRef<number | null>(null);
+  const lastDragCursor = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const scheduleDragCursorBroadcast = useCallback((pos: { x: number; y: number }) => {
+    lastDragCursor.current = pos;
+    if (dragCursorBroadcastRaf.current) return;
+    dragCursorBroadcastRaf.current = requestAnimationFrame(() => {
+      dragCursorBroadcastRaf.current = null;
+      updateCursorPosition(lastDragCursor.current);
+      broadcastCursorPosition(lastDragCursor.current, { isDragging: true });
+    });
+  }, [broadcastCursorPosition, updateCursorPosition]);
+
+  // Cleanup any pending rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (dragCursorBroadcastRaf.current) {
+        cancelAnimationFrame(dragCursorBroadcastRaf.current);
+      }
+    };
+  }, []);
+
   // Throttled broadcast for position changes to reduce network traffic
   const throttledBroadcastLiveChange = useMemo(() => {
     const pendingBroadcasts = new Map<string, any>();
@@ -6339,7 +6361,17 @@ export default function MindMap() {
                 drawingCanvasRef.current?.clearStrokeSelection();
                 onNodeDragStart(event, node);
               }}
-              onNodeDragStop={onNodeDragStop}
+              onNodeDrag={(event, node) => {
+                // Convert node position (already world coordinates) to broadcast cursor near its top-left
+                // Optionally offset to pointer location if available
+                const worldPos = { x: node.position.x, y: node.position.y };
+                scheduleDragCursorBroadcast(worldPos);
+              }}
+              onNodeDragStop={(event, node) => {
+                onNodeDragStop(event, node);
+                // Broadcast final non-dragging cursor position
+                broadcastCursorPosition({ x: node.position.x, y: node.position.y }, { isDragging: false });
+              }}
               onPaneContextMenu={(event) => {
                 event.preventDefault()
                 setSelectedNodeId(null)
