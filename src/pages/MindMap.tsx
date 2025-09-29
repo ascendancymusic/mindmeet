@@ -4370,7 +4370,8 @@ export default function MindMap() {
       if (!nextAction || !nextAction.data) {
         return;
       }
-
+      // Will hold updated nodes for broadcasting after switch (especially for update_node)
+      let updatedNodesAfterAction: Node[] | null = null;
       switch (nextAction.type) {
         case "move_node":
           if (nextAction.data.position && typeof nextAction.data.position === "object") {
@@ -4492,125 +4493,87 @@ export default function MindMap() {
             setEdges(edges => edges.filter(edge => !allNodesToDelete.includes(edge.source) && !allNodesToDelete.includes(edge.target)));
           }
           break
-        case "update_node":
-          console.log('Redo update_node:', nextAction.data); // Debug log
-          setNodes((nodes) =>
-            nodes.map((node) => {
-              if (
-                nextAction.data.nodeId === node.id ||
-                (nextAction.data.affectedNodes && nextAction.data.affectedNodes.includes(node.id))
-              ) {
-                // Handle both color and data changes
-                let updatedNode = { ...node };
+        case "update_node": {
+          // Redo node update (color / label / track list etc.)
+          const recalculated = nodes.map((node) => {
+            if (
+              nextAction.data.nodeId === node.id ||
+              (nextAction.data.affectedNodes && nextAction.data.affectedNodes.includes(node.id))
+            ) {
+              // Handle both color and data changes
+              let updatedNode: any = { ...node };
 
-                // Handle color changes
-                if (nextAction.data.color) {
-                  updatedNode = {
-                    ...updatedNode,
-                    // background: nextAction.data.color, // Removed: 'background' does not exist in type
-                    style: {
-                      ...updatedNode.style,
-                      background: nextAction.data.color,
-                    },
-                  };
-                }
+              // Handle color changes (ensure both top-level background and style.background for consistency with initial apply)
+              if (nextAction.data.color) {
+                const newColor = nextAction.data.color;
+                updatedNode.background = newColor; // stored for custom logic elsewhere
+                updatedNode.style = {
+                  ...updatedNode.style,
+                  background: newColor,
+                  textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+                };
+              }
 
-                // Handle data changes (label, etc.) - but not if this is just a color change
-                if ((nextAction.data.label !== undefined || nextAction.data.displayText !== undefined || nextAction.data.trackIds !== undefined) && !nextAction.data.color) {
-                  const updatedData = {
-                    ...updatedNode.data,
-                  };
+              // Data changes only (when no color, or color+label handled separately below)
+              if ((nextAction.data.label !== undefined || nextAction.data.displayText !== undefined || nextAction.data.trackIds !== undefined) && !nextAction.data.color) {
+                const updatedData: any = { ...updatedNode.data };
 
-                  if (nextAction.data.label !== undefined) {
-                    // For social media nodes, update username property
-                    if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type || '')) {
-                      updatedData.username = nextAction.data.label;
-                    } else {
-                      // For other node types, update label as before
-                      updatedData.label = nextAction.data.label;
-                      if (node.type === "youtube-video") {
-                        updatedData.videoUrl = nextAction.data.label;
-                      } else if (node.type === "spotify") {
-                        updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label;
-                      } else if (node.type === "soundcloud") {
-                        updatedData.soundCloudUrl = nextAction.data.label;
-                      } else if (node.type === "link") {
-                        updatedData.url = nextAction.data.label;
-                      } else if (node.type === "mindmap") {
-                        // Find the map to get its id
-                        const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
-                        updatedData.mapId = selectedMap?.id; // Use mapId instead of MapId
-                      }
-                    }
-                  }
-
-                  if (nextAction.data.displayText !== undefined) {
-                    updatedData.displayText = nextAction.data.displayText;
-                  }
-
-                  // Handle playlist track changes
-                  if (nextAction.data.trackIds !== undefined) {
-                    console.log('Applying trackIds in redo:', nextAction.data.trackIds); // Debug log
-                    updatedData.trackIds = nextAction.data.trackIds;
-                  }
-
-                  updatedNode = {
-                    ...updatedNode,
-                    data: updatedData,
-                  };
-                  console.log('Updated node data in redo (trackIds only):', updatedNode.data); // Debug log
-                }
-
-                // Handle combined color + label changes (like mark as done)
-                else if (nextAction.data.color && nextAction.data.label !== undefined) {
-                  const updatedData = {
-                    ...updatedNode.data,
-                  };
-
-                  // For social media nodes, update username property
+                if (nextAction.data.label !== undefined) {
                   if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type || '')) {
                     updatedData.username = nextAction.data.label;
                   } else {
-                    // For other node types, update label
                     updatedData.label = nextAction.data.label;
-                    if (node.type === "youtube-video") {
-                      updatedData.videoUrl = nextAction.data.label;
-                    } else if (node.type === "spotify") {
-                      updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label;
-                    } else if (node.type === "soundcloud") {
-                      updatedData.soundCloudUrl = nextAction.data.label;
-                    } else if (node.type === "link") {
-                      updatedData.url = nextAction.data.label;
-                    } else if (node.type === "mindmap") {
-                      // Find the map to get its id
+                    if (node.type === "youtube-video") updatedData.videoUrl = nextAction.data.label;
+                    else if (node.type === "spotify") updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label;
+                    else if (node.type === "soundcloud") updatedData.soundCloudUrl = nextAction.data.label;
+                    else if (node.type === "link") updatedData.url = nextAction.data.label;
+                    else if (node.type === "mindmap") {
                       const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
-                      updatedData.mapId = selectedMap?.id; // Use mapId instead of MapId
+                      updatedData.mapId = selectedMap?.id;
                     }
                   }
-
-                  // Handle playlist track changes for combined updates
-                  if (nextAction.data.trackIds !== undefined) {
-                    console.log('Applying trackIds in combined redo:', nextAction.data.trackIds); // Debug log
-                    updatedData.trackIds = nextAction.data.trackIds;
-                  }
-
-                  updatedNode = {
-                    ...updatedNode,
-                    data: updatedData,
-                  };
                 }
 
-                return updatedNode;
+                if (nextAction.data.displayText !== undefined) {
+                  updatedData.displayText = nextAction.data.displayText;
+                }
+                if (nextAction.data.trackIds !== undefined) {
+                  updatedData.trackIds = nextAction.data.trackIds;
+                }
+                updatedNode = { ...updatedNode, data: updatedData };
+              } else if (nextAction.data.color && nextAction.data.label !== undefined) {
+                // Combined color + label case
+                const updatedData: any = { ...updatedNode.data };
+                if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes(node.type || '')) {
+                  updatedData.username = nextAction.data.label;
+                } else {
+                  updatedData.label = nextAction.data.label;
+                  if (node.type === "youtube-video") updatedData.videoUrl = nextAction.data.label;
+                  else if (node.type === "spotify") updatedData.spotifyUrl = nextAction.data.spotifyUrl || nextAction.data.label;
+                  else if (node.type === "soundcloud") updatedData.soundCloudUrl = nextAction.data.label;
+                  else if (node.type === "link") updatedData.url = nextAction.data.label;
+                  else if (node.type === "mindmap") {
+                    const selectedMap = maps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label) || collaborationMaps.find(map => (map as any).id === nextAction.data.label || map.permalink === nextAction.data.label);
+                    updatedData.mapId = selectedMap?.id;
+                  }
+                }
+                if (nextAction.data.trackIds !== undefined) {
+                  updatedData.trackIds = nextAction.data.trackIds;
+                }
+                updatedNode = { ...updatedNode, data: updatedData };
               }
-              return node;
-            }),
-          )
+              return updatedNode as Node;
+            }
+            return node;
+          });
+          updatedNodesAfterAction = recalculated;
+          setNodes(recalculated);
           if (selectedNodeId && nextAction.data.color) {
-            setSelectedColor(String(nextAction.data.color))
-            // Reset preview color when redoing a color change
-            setPreviewColor(null);
+            setSelectedColor(String(nextAction.data.color));
+            setPreviewColor(null); // clear preview on redo color
           }
-          break
+          break;
+        }
         case "add_node":
           if (nextAction.data.nodes) {
             setNodes(nextAction.data.nodes)
@@ -4662,7 +4625,7 @@ export default function MindMap() {
         // For node-based actions, broadcast the current state of affected nodes
         if (nextAction.type === "move_node" || nextAction.type === "update_node") {
           // Get current nodes state and broadcast affected nodes
-          const currentNodes = nodes;
+          const currentNodes = nextAction.type === 'update_node' && updatedNodesAfterAction ? updatedNodesAfterAction : nodes;
           if (nextAction.type === "move_node" && nextAction.data.position) {
             const positionMap = nextAction.data.position as Record<string, { x: number, y: number }>;
             Object.keys(positionMap).forEach(nodeId => {
@@ -4676,17 +4639,24 @@ export default function MindMap() {
                 });
               }
             });
-          } else if (nextAction.type === "update_node" && nextAction.data.nodeId) {
-            const nodeId = nextAction.data.nodeId;
-            const node = currentNodes.find(n => n.id === nodeId);
-            if (node) {
-              broadcastLiveChange({
-                id: nodeId,
-                type: 'node',
-                action: 'update',
-                data: node
-              });
+          } else if (nextAction.type === "update_node") {
+            // Broadcast each affected node (single nodeId or affectedNodes array)
+            const affectedIds: string[] = [];
+            if (nextAction.data.nodeId) affectedIds.push(nextAction.data.nodeId);
+            if (Array.isArray(nextAction.data.affectedNodes)) {
+              nextAction.data.affectedNodes.forEach((id: string) => { if (!affectedIds.includes(id)) affectedIds.push(id); });
             }
+            affectedIds.forEach(nodeId => {
+              const node = currentNodes.find(n => n.id === nodeId);
+              if (node) {
+                broadcastLiveChange({
+                  id: nodeId,
+                  type: 'node',
+                  action: 'update',
+                  data: node
+                });
+              }
+            });
           }
         } else if (nextAction.type === "add_node" && nextAction.data.nodes) {
           // Broadcast new nodes from add_node actions
@@ -5493,6 +5463,24 @@ export default function MindMap() {
     if (selectedNode) {
       // Reset color picker to the node's current color
       setSelectedColor(String((selectedNode as any).background || selectedNode.style?.background || "#4c5b6f"))
+    }
+
+    // Re-broadcast the original (non-preview) colors to collaborators to undo any live preview updates
+    if (currentMindMapId && broadcastLiveChange) {
+      const descendantIds = autocolorSubnodes ? getNodeDescendants(nodeId) : []
+      const allNodesToRevert = [nodeId, ...descendantIds]
+
+      allNodesToRevert.forEach((affectedNodeId) => {
+        const originalNode = nodes.find(n => n.id === affectedNodeId)
+        if (originalNode) {
+          broadcastLiveChange({
+            id: affectedNodeId,
+            type: 'node',
+            action: 'update',
+            data: originalNode
+          })
+        }
+      })
     }
 
     setPreviewColor(null)
