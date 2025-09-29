@@ -14,9 +14,11 @@ interface CollaboratorCursor {
 
 interface LiveChange {
   id: string;
-  type: 'node' | 'edge';
+  // 'customization' used for global mind map style changes (edgeType, colors, font)
+  type: 'node' | 'edge' | 'customization';
   action: 'create' | 'update' | 'delete';
-  data: Node | Edge | { id: string };
+  // For customization: partial style object with any of these keys
+  data: Node | Edge | { id: string } | { edgeType?: 'default' | 'straight' | 'smoothstep'; backgroundColor?: string; dotColor?: string; fontFamily?: string };
   user_id: string;
   user_name: string;
   timestamp: string;

@@ -1283,6 +1283,21 @@ export default function MindMap() {
             currentEdges.filter(edge => edge.id !== changeId)
           );
         }
+      } else if (type === 'customization' && action === 'update') {
+        const customData: any = data;
+        if (customData.edgeType && customData.edgeType !== edgeType) {
+          setEdgeType(customData.edgeType);
+          setEdges(edges => edges.map(e => ({ ...e, type: customData.edgeType === 'default' ? 'default' : customData.edgeType })));
+        }
+        if (customData.backgroundColor && customData.backgroundColor !== backgroundColor) {
+          setBackgroundColor(customData.backgroundColor);
+        }
+        if (customData.dotColor && customData.dotColor !== dotColor) {
+          setDotColor(customData.dotColor);
+        }
+        if (customData.fontFamily && customData.fontFamily !== fontFamily) {
+          setFontFamily(customData.fontFamily);
+        }
       }
     };
 
@@ -1292,7 +1307,7 @@ export default function MindMap() {
     return () => {
       window.removeEventListener('collaboration-live-change', handleLiveChange as EventListener);
     };
-  }, [currentMindMapId, user?.id]);
+  }, [currentMindMapId, user?.id, edgeType, backgroundColor, dotColor, fontFamily]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -1571,8 +1586,25 @@ export default function MindMap() {
       if (changes.fontFamily && changes.fontFamily !== fontFamily) {
         setFontFamily(changes.fontFamily);
       }
+
+      // Broadcast customization changes to collaborators as one payload
+      if (currentMindMapId && broadcastLiveChange) {
+        const broadcastPayload: any = {};
+        if (changes.edgeType && changes.edgeType !== previousState.edgeType) broadcastPayload.edgeType = changes.edgeType;
+        if (changes.backgroundColor && changes.backgroundColor !== previousState.backgroundColor) broadcastPayload.backgroundColor = changes.backgroundColor;
+        if (changes.dotColor && changes.dotColor !== previousState.dotColor) broadcastPayload.dotColor = changes.dotColor;
+        if (changes.fontFamily && changes.fontFamily !== previousState.fontFamily) broadcastPayload.fontFamily = changes.fontFamily;
+        if (Object.keys(broadcastPayload).length > 0) {
+          broadcastLiveChange({
+            id: `customization-${currentMindMapId}`,
+            type: 'customization',
+            action: 'update',
+            data: broadcastPayload,
+          });
+        }
+      }
     },
-    [edgeType, backgroundColor, dotColor, fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad]
+    [edgeType, backgroundColor, dotColor, fontFamily, nodes, edges, createHistoryAction, addToHistory, isInitialLoad, currentMindMapId, broadcastLiveChange]
   );
 
   // Handle drawing changes with history tracking
@@ -4252,6 +4284,22 @@ export default function MindMap() {
         setCanUndo(newHistoryIndex > lastSavedHistoryIndex)        // Broadcast undo changes to collaborators
         // This allows other users to see the mindmap changes without affecting their own undo/redo history
         if (broadcastLiveChange && action.previousState) {
+          // Broadcast customization revert if undoing customization
+          if (action.type === 'update_customization') {
+            const customizationPayload: any = {};
+            if (action.previousState.edgeType !== undefined) customizationPayload.edgeType = action.previousState.edgeType;
+            if (action.previousState.backgroundColor !== undefined) customizationPayload.backgroundColor = action.previousState.backgroundColor;
+            if (action.previousState.dotColor !== undefined) customizationPayload.dotColor = action.previousState.dotColor;
+            if ((action.previousState as any).fontFamily !== undefined) customizationPayload.fontFamily = (action.previousState as any).fontFamily;
+            if (Object.keys(customizationPayload).length > 0) {
+              broadcastLiveChange({
+                id: `customization-${currentMindMapId}`,
+                type: 'customization',
+                action: 'update',
+                data: customizationPayload
+              });
+            }
+          }
           // Handle different action types during undo
           if (action.type === "delete_node" && action.previousState.nodes) {
             // For delete operations, when undoing we're restoring nodes, so broadcast 'create' actions
@@ -4622,6 +4670,22 @@ export default function MindMap() {
       setCanRedo(newHistoryIndex + 1 < history.length)      // Broadcast redo changes to collaborators
       // This allows other users to see the mindmap changes without affecting their own undo/redo history
       if (broadcastLiveChange && nextAction) {
+        // Broadcast customization apply if redoing customization
+        if (nextAction.type === 'update_customization') {
+          const customizationPayload: any = {};
+          if (nextAction.data.edgeType) customizationPayload.edgeType = nextAction.data.edgeType;
+          if (nextAction.data.backgroundColor) customizationPayload.backgroundColor = nextAction.data.backgroundColor;
+          if (nextAction.data.dotColor) customizationPayload.dotColor = nextAction.data.dotColor;
+          if ((nextAction as any).data.fontFamily) customizationPayload.fontFamily = (nextAction as any).data.fontFamily;
+          if (Object.keys(customizationPayload).length > 0) {
+            broadcastLiveChange({
+              id: `customization-${currentMindMapId}`,
+              type: 'customization',
+              action: 'update',
+              data: customizationPayload
+            });
+          }
+        }
         // For node-based actions, broadcast the current state of affected nodes
         if (nextAction.type === "move_node" || nextAction.type === "update_node") {
           // Get current nodes state and broadcast affected nodes
@@ -4701,19 +4765,24 @@ export default function MindMap() {
               data: { id: edge.id }
             });
           });
-        } else if (nextAction.type === "delete_node" && nextAction.data.nodeId) {
-          // Broadcast node deletion for both the main node and its children
-          const nodeId = nextAction.data.nodeId;
-          const allNodesToDelete = [nodeId, ...getNodeDescendants(nodeId)];
-
-          allNodesToDelete.forEach(deletedNodeId => {
-            broadcastLiveChange({
-              id: deletedNodeId,
-              type: 'node',
-              action: 'delete',
-              data: { id: deletedNodeId }
+        } else if (nextAction.type === "delete_node") {
+          // Distinguish between non-cascading (explicit list) and cascading (implicit descendants) deletions
+            let nodesToDelete: string[] = [];
+            if (Array.isArray(nextAction.data.affectedNodes) && nextAction.data.affectedNodes.length > 0) {
+              // Non-cascading: only delete the explicitly affected nodes
+              nodesToDelete = [...nextAction.data.affectedNodes];
+            } else if (nextAction.data.nodeId) {
+              // Cascading: delete node and all descendants
+              nodesToDelete = [nextAction.data.nodeId, ...getNodeDescendants(nextAction.data.nodeId)];
+            }
+            nodesToDelete.forEach(deletedNodeId => {
+              broadcastLiveChange({
+                id: deletedNodeId,
+                type: 'node',
+                action: 'delete',
+                data: { id: deletedNodeId }
+              });
             });
-          });
         }
       }
     }
@@ -4782,6 +4851,22 @@ export default function MindMap() {
     
     // Update history index
     setCurrentHistoryIndex(targetIndex);
+    // Broadcast customization if changed due to jump
+    if (broadcastLiveChange) {
+      const customizationPayload: any = {};
+      if (targetState.edgeType !== undefined && targetState.edgeType !== edgeType) customizationPayload.edgeType = targetState.edgeType;
+      if (targetState.backgroundColor !== undefined && targetState.backgroundColor !== backgroundColor) customizationPayload.backgroundColor = targetState.backgroundColor;
+      if (targetState.dotColor !== undefined && targetState.dotColor !== dotColor) customizationPayload.dotColor = targetState.dotColor;
+      if ((targetState as any).fontFamily && (targetState as any).fontFamily !== fontFamily) customizationPayload.fontFamily = (targetState as any).fontFamily;
+      if (Object.keys(customizationPayload).length > 0) {
+        broadcastLiveChange({
+          id: `customization-${currentMindMapId}`,
+          type: 'customization',
+          action: 'update',
+          data: customizationPayload
+        });
+      }
+    }
     
     // Update undo/redo state
     const reachedSavePoint = targetIndex === lastSavedHistoryIndex;
@@ -4793,7 +4878,7 @@ export default function MindMap() {
     setSelectedNodeId(null);
     setVisuallySelectedNodeId(null);
     
-  }, [currentHistoryIndex, history, lastSavedHistoryIndex, nodes, edges, editedTitle, edgeType, backgroundColor, dotColor, drawingData]);
+  }, [currentHistoryIndex, history, lastSavedHistoryIndex, nodes, edges, editedTitle, edgeType, backgroundColor, dotColor, drawingData, broadcastLiveChange, currentMindMapId, fontFamily]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {

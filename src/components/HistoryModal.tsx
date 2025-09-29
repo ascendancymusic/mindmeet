@@ -16,7 +16,7 @@ import { createPortal } from "react-dom"
 import { Clock, X, ChevronDown, ChevronRight } from "lucide-react"
 
 interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke"
+  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke" | "update_customization"
   data: {
     nodes?: any[]
     edges?: any[]
@@ -80,7 +80,8 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
       change_background_color: "Changed Background",
       change_dot_color: "Changed Dot Color",
       drawing_change: "Drawing Change",
-      move_stroke: "Moved Stroke"
+      move_stroke: "Moved Stroke",
+      update_customization: "Updated Customization"
     }
     return actionMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
