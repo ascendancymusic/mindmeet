@@ -1922,6 +1922,9 @@ export default function MindMap() {
         return;
       }
 
+      // Prepare a mutable reference for what we'll broadcast (defaults to raw changes)
+      let broadcastSource: (NodeChange | { type: string; id: string; position?: { x: number; y: number }; dragging?: boolean } )[] = changes as any[];
+
       // Handle position changes
       if (positionChanges.length > 0) {
         // Get all selected nodes before applying changes
@@ -1954,7 +1957,7 @@ export default function MindMap() {
         }
 
         // Apply changes to nodes
-        if (effectiveMoveWithChildren && !isMultiSelectionDrag) {
+  if (effectiveMoveWithChildren && !isMultiSelectionDrag) {
           // This is a single node with children being moved
           let hasActualMovement = false;
           const updatedChanges = positionChanges.flatMap((change) => {
@@ -2001,6 +2004,9 @@ export default function MindMap() {
                 .filter(Boolean),
             ]
           })
+
+          // Use the synthesized list (parent + descendants) for broadcasting later
+          broadcastSource = updatedChanges as any[];
 
 
           setNodes((nds) => {
@@ -2105,9 +2111,21 @@ export default function MindMap() {
         }
       } setIsInitialLoad(false);
 
-      // Broadcast changes to collaborators if we're in a collaborative session
-      if (currentMindMapId && changes.length > 0) {
-        changes.forEach(change => {
+      // Broadcast changes (including synthesized descendant movements) to collaborators
+      if (currentMindMapId && (broadcastSource?.length || 0) > 0) {
+        // Only keep unique position changes by node id (last one wins) to reduce noise
+        const latestById = new Map<string, any>();
+        broadcastSource.forEach((c: any) => {
+          if (c.type === 'position') {
+            latestById.set(c.id, c);
+          } else {
+            // Keep non-position changes as-is
+            const key = `${c.type}:${c.id}:${Math.random()}`;
+            latestById.set(key, c);
+          }
+        });
+
+        Array.from(latestById.values()).forEach(change => {
           if (change.type === 'position') {
             const positionChange = change as any;
             const nodeData = nodes.find(n => n.id === change.id);

@@ -30,7 +30,7 @@ const CollaboratorCursor = React.memo(({ cursor, viewport }: {
       style={{
         left: screenPosition.x,
         top: screenPosition.y,
-        transform: 'translate(-2px, -2px)',
+        transform: 'translate(-2px, -50px)',
         willChange: 'transform'
       }}
     >
