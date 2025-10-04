@@ -103,6 +103,10 @@ import { NodeContextMenu } from "../components/NodeContextMenu";
 import { PaneContextMenu } from "../components/PaneContextMenu";
 import { DrawModal } from "../components/DrawModal";
 import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
+// import removed: broadcastStateDiff no longer used directly in this file
+import { validateAndFixEdgeIds as validateAndFixEdgeIdsUtil } from "../utils/graphUtils";
+import { useCollaborationSync } from "../hooks/useCollaboration";
+import { useHistoryControls } from "../hooks/useHistory";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 import BrainstormChat from "../components/BrainstormChat";
 
@@ -742,21 +746,7 @@ export default function MindMap() {
   }, [searchResults, searchTerm, navigateToSearchResult, nodes]);
 
   // Function to ensure all edges have valid IDs
-  const validateAndFixEdgeIds = useCallback((edges: Edge[]): Edge[] => {
-    return edges.map((edge, index) => {
-      // Check if edge has a valid ID
-      if (!edge.id || edge.id.trim() === '' || edge.id === '011' || /^\d+$/.test(edge.id)) {
-        // Generate a new valid ID
-        const newId = `edge-${edge.source}-${edge.target}-${Date.now()}-${index}`;
-        console.warn(`Fixed invalid edge ID '${edge.id}' to '${newId}'`);
-        return {
-          ...edge,
-          id: newId
-        };
-      }
-      return edge;
-    });
-  }, []);
+  const validateAndFixEdgeIds = useCallback((edges: Edge[]): Edge[] => validateAndFixEdgeIdsUtil(edges), []);
 
   // Memoized node types for ReactFlow with stable references
   const nodeTypes = useMemo(() => {
@@ -1234,80 +1224,21 @@ export default function MindMap() {
     };
   }, []);
 
-  // Handle receiving live changes from other collaborators
-  useEffect(() => {
-    if (!currentMindMapId) return; const handleLiveChange = (event: CustomEvent) => {
-      const { id: changeId, type, action, data, user_id } = event.detail;
-
-      // Don't apply changes if we're the one who made them
-      if (user_id === user?.id) return;
-
-      if (type === 'node') {
-        if (action === 'update') {
-          setNodes(currentNodes =>
-            currentNodes.map(node =>
-              node.id === changeId ? { ...node, ...data } : node
-            )
-          );
-        } else if (action === 'create') {
-          setNodes(currentNodes => {
-            // Check if node already exists to prevent duplicates
-            const nodeExists = currentNodes.some(node => node.id === changeId);
-            if (!nodeExists) {
-              return [...currentNodes, data];
-            }
-            return currentNodes;
-          });
-        } else if (action === 'delete') {
-          setNodes(currentNodes =>
-            currentNodes.filter(node => node.id !== changeId)
-          );
-          setEdges(currentEdges =>
-            currentEdges.filter(edge =>
-              edge.source !== changeId && edge.target !== changeId
-            )
-          );
-        }
-      } else if (type === 'edge') {
-        if (action === 'create') {
-          setEdges(currentEdges => {
-            // Check if edge already exists to prevent duplicates
-            const edgeExists = currentEdges.some(edge => edge.id === data.id);
-            if (!edgeExists) {
-              return [...currentEdges, data];
-            }
-            return currentEdges;
-          });
-        } else if (action === 'delete') {
-          setEdges(currentEdges =>
-            currentEdges.filter(edge => edge.id !== changeId)
-          );
-        }
-      } else if (type === 'customization' && action === 'update') {
-        const customData: any = data;
-        if (customData.edgeType && customData.edgeType !== edgeType) {
-          setEdgeType(customData.edgeType);
-          setEdges(edges => edges.map(e => ({ ...e, type: customData.edgeType === 'default' ? 'default' : customData.edgeType })));
-        }
-        if (customData.backgroundColor && customData.backgroundColor !== backgroundColor) {
-          setBackgroundColor(customData.backgroundColor);
-        }
-        if (customData.dotColor && customData.dotColor !== dotColor) {
-          setDotColor(customData.dotColor);
-        }
-        if (customData.fontFamily && customData.fontFamily !== fontFamily) {
-          setFontFamily(customData.fontFamily);
-        }
-      }
-    };
-
-    // Subscribe to live change events
-    window.addEventListener('collaboration-live-change', handleLiveChange as EventListener);
-
-    return () => {
-      window.removeEventListener('collaboration-live-change', handleLiveChange as EventListener);
-    };
-  }, [currentMindMapId, user?.id, edgeType, backgroundColor, dotColor, fontFamily]);
+  // Handle receiving live changes from other collaborators via hook
+  useCollaborationSync({
+    currentMindMapId,
+    userId: user?.id || null,
+    edgeType,
+    backgroundColor,
+    dotColor,
+    fontFamily,
+    setNodes,
+    setEdges,
+    setEdgeType,
+    setBackgroundColor: (c: string) => setBackgroundColor(c),
+    setDotColor: (c: string) => setDotColor(c),
+    setFontFamily: (f: string) => setFontFamily(f),
+  });
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -2649,13 +2580,7 @@ export default function MindMap() {
       }
     },
     [nodes, edges, selectedNodeId, visuallySelectedNodeId, isInitialLoad, addToHistory, getNodeDescendants, currentMindMapId, broadcastLiveChange],
-  )// Helper function to format time in MM:SS format
-  const formatTime = (timeInSeconds: number): string => {
-    if (isNaN(timeInSeconds) || !isFinite(timeInSeconds) || timeInSeconds < 0) return '00:00';
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };  // Simple AI Generation Animation Function
+  )// Simple AI Generation Animation Function
   const createGenerationAnimation = async (
     existingNodes: Node[],
     newNodes: Node[],
@@ -4807,357 +4732,33 @@ export default function MindMap() {
   }, [history, currentHistoryIndex, getNodeDescendants, selectedNodeId, canRedo, lastSavedHistoryIndex, broadcastLiveChange, nodes, edges, currentMindMapId])
 
   // Jump to a specific point in history
-  const jumpToHistory = useCallback((targetIndex: number) => {
-    if (history.length === 0) return;
-    if (targetIndex < -1 || targetIndex >= history.length) return;
-    
-    // If target is current position, do nothing
-    if (targetIndex === currentHistoryIndex) return;
-    
-    // Don't allow jumping to before the last saved point
-    if (targetIndex < lastSavedHistoryIndex) return;
-    
-    // To get the state after the target action, we look at the next action's previousState
-    // If there's no next action, we use the current state (since target is the latest action)
-    let targetState;
-    
-    if (targetIndex === -1) {
-      // Initial state: use the previousState of the first action
-      const firstAction = history[0];
-      if (!firstAction?.previousState) return;
-      targetState = {
-        nodes: firstAction.previousState.nodes,
-        edges: firstAction.previousState.edges,
-        title: firstAction.previousState.title,
-        edgeType: firstAction.previousState.edgeType,
-        backgroundColor: firstAction.previousState.backgroundColor,
-        dotColor: firstAction.previousState.dotColor,
-        drawingData: firstAction.previousState.drawingData
-      };
-    } else if (targetIndex === history.length - 1) {
-      // Target is the latest action; compute state by applying that action to its previousState
-      const lastAction = history[targetIndex];
-      if (!lastAction?.previousState) return;
-
-      const prev = lastAction.previousState;
-      // Clone previous state as a base
-      let simNodes: Node[] = prev.nodes ? prev.nodes.map(n => ({ ...n, data: { ...n.data }, style: { ...n.style } })) : [];
-      let simEdges: Edge[] = prev.edges ? prev.edges.map(e => ({ ...e })) : [];
-      let simTitle = prev.title;
-      let simEdgeType = prev.edgeType;
-      let simBackgroundColor = prev.backgroundColor;
-      let simDotColor = prev.dotColor;
-      let simDrawingData = prev.drawingData;
-      let simFontFamily = (prev as any).fontFamily;
-
-      const applyUpdateNode = (n: Node): Node => {
-        let updated: any = { ...n };
-        const d = lastAction.data as any;
-        if (d.color) {
-          const newColor = d.color;
-          updated.background = newColor;
-          updated.style = { ...updated.style, background: newColor, textShadow: "0 1px 2px rgba(0, 0, 0, 1)" };
-        }
-        if (d.label !== undefined || d.displayText !== undefined || d.trackIds !== undefined || d.spotifyUrl !== undefined) {
-          const ud: any = { ...updated.data };
-          if (d.label !== undefined) {
-            if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes((updated.type as any) || '')) {
-              ud.username = d.label;
-            } else {
-              ud.label = d.label;
-              if (updated.type === "youtube-video") ud.videoUrl = d.label;
-              else if (updated.type === "spotify") ud.spotifyUrl = d.spotifyUrl || d.label;
-              else if (updated.type === "soundcloud") ud.soundCloudUrl = d.label;
-              else if (updated.type === "link") ud.url = d.label;
-              // mindmap mapId resolution skipped in simulation
-            }
-          }
-          if (d.displayText !== undefined) ud.displayText = d.displayText;
-          if (d.trackIds !== undefined) ud.trackIds = d.trackIds;
-          updated.data = ud;
-        }
-        return updated as Node;
-      };
-
-      switch (lastAction.type) {
-        case 'move_node': {
-          const positionMap = lastAction.data.position as Record<string, { x: number; y: number }>;
-          if (positionMap) {
-            simNodes = simNodes.map(n => positionMap[n.id] ? ({ ...n, position: positionMap[n.id] }) : n);
-          }
-          break;
-        }
-        case 'resize_node': {
-          const id = lastAction.data.nodeId;
-          if (id) {
-            simNodes = simNodes.map(n => n.id === id ? ({
-              ...n,
-              width: typeof lastAction.data.width === 'number' ? lastAction.data.width : undefined,
-              height: typeof lastAction.data.height === 'number' ? lastAction.data.height : undefined,
-              style: {
-                ...n.style,
-                width: typeof lastAction.data.width === 'number' ? `${lastAction.data.width}px` : lastAction.data.width,
-                height: typeof lastAction.data.height === 'number' ? `${lastAction.data.height}px` : lastAction.data.height,
-              }
-            }) : n);
-          }
-          break;
-        }
-        case 'connect_nodes': {
-          const conn = (lastAction.data as any).connection;
-          const replacedId = (lastAction.data as any).replacedEdgeId;
-          if (replacedId) simEdges = simEdges.filter(e => e.id !== replacedId);
-          if (conn) {
-            simEdges = [...simEdges, { id: conn.id || `${conn.source}-${conn.target}`, ...conn } as Edge];
-            if (simEdgeType) {
-              simEdges = simEdges.map(e => ({ ...e, type: simEdgeType === 'default' ? 'default' : simEdgeType }));
-            }
-          }
-          break;
-        }
-        case 'disconnect_nodes': {
-          const nodeId = (lastAction.data as any).nodeId;
-          if (nodeId) {
-            simEdges = simEdges.filter(e => e.source !== nodeId && e.target !== nodeId);
-          }
-          break;
-        }
-        case 'delete_node': {
-          const data: any = lastAction.data;
-          let idsToDelete: string[] = [];
-          if (Array.isArray(data.affectedNodes) && data.affectedNodes.length > 0) {
-            idsToDelete = [...data.affectedNodes];
-          } else if (data.nodeId) {
-            // compute descendants via edges
-            const graph = new Map<string, string[]>();
-            simEdges.forEach(e => {
-              if (!graph.has(e.source)) graph.set(e.source, []);
-              graph.get(e.source)!.push(e.target);
-            });
-            const queue = [data.nodeId];
-            const seen = new Set(queue);
-            const descendants: string[] = [];
-            while (queue.length) {
-              const cur = queue.shift()!;
-              const children = graph.get(cur) || [];
-              for (const ch of children) if (!seen.has(ch)) { seen.add(ch); queue.push(ch); descendants.push(ch); }
-            }
-            idsToDelete = [data.nodeId, ...descendants];
-          }
-          if (idsToDelete.length) {
-            simNodes = simNodes.filter(n => !idsToDelete.includes(n.id));
-            simEdges = simEdges.filter(e => !idsToDelete.includes(e.source) && !idsToDelete.includes(e.target));
-          }
-          break;
-        }
-        case 'update_node': {
-          const d: any = lastAction.data;
-          const targets: string[] = [];
-          if (d.nodeId) targets.push(d.nodeId);
-          if (Array.isArray(d.affectedNodes)) d.affectedNodes.forEach((id: string) => { if (!targets.includes(id)) targets.push(id); });
-          if (targets.length) {
-            simNodes = simNodes.map(n => targets.includes(n.id) ? applyUpdateNode(n) : n);
-          }
-          break;
-        }
-        case 'add_node': {
-          const d: any = lastAction.data;
-          if (Array.isArray(d.nodes)) {
-            simNodes = d.nodes as Node[];
-          }
-          break;
-        }
-        case 'update_title': {
-          simTitle = lastAction.data.label || '';
-          break;
-        }
-        case 'update_customization': {
-          const d: any = lastAction.data;
-          if (d.edgeType) {
-            simEdgeType = d.edgeType;
-            simEdges = simEdges.map(e => ({ ...e, type: simEdgeType === 'default' ? 'default' : simEdgeType }));
-          }
-          if (d.backgroundColor) simBackgroundColor = d.backgroundColor;
-          if (d.dotColor) simDotColor = d.dotColor;
-          if (d.fontFamily) simFontFamily = d.fontFamily;
-          break;
-        }
-        case 'drawing_change':
-        case 'move_stroke': {
-          const d: any = lastAction.data;
-          if (d.drawingData) simDrawingData = d.drawingData;
-          break;
-        }
-        default:
-          break;
-      }
-
-      targetState = {
-        nodes: simNodes,
-        edges: simEdges,
-        title: simTitle,
-        edgeType: simEdgeType,
-        backgroundColor: simBackgroundColor,
-        dotColor: simDotColor,
-        drawingData: simDrawingData,
-        fontFamily: simFontFamily,
-      } as any;
-    } else {
-      // Use the next action's previousState (which is the state after the target action)
-      const nextAction = history[targetIndex + 1];
-      if (!nextAction || !nextAction.previousState) return;
-      
-      targetState = {
-        nodes: nextAction.previousState.nodes,
-        edges: nextAction.previousState.edges,
-        title: nextAction.previousState.title,
-        edgeType: nextAction.previousState.edgeType,
-        backgroundColor: nextAction.previousState.backgroundColor,
-        dotColor: nextAction.previousState.dotColor,
-        drawingData: nextAction.previousState.drawingData
-      };
-    }
-    
-    // Before applying, compute and broadcast diffs so collaborators stay in sync
-    if (currentMindMapId && broadcastLiveChange) {
-      try {
-        const prevNodes = nodes;
-        const prevEdges = edges;
-        const nextNodes = (targetState as any).nodes as Node[];
-        const nextEdges = (targetState as any).edges as Edge[];
-
-        // Helpers
-        const sanitizeNode = (n: any) => {
-          if (!n) return n;
-          // Exclude ephemeral fields like selection/dragging when comparing
-          const { selected, dragging, positionAbsolute, ...rest } = n;
-          return rest;
-        };
-
-        // Build maps for quick lookup
-        const prevNodeMap = new Map<string, Node>((prevNodes || []).map(n => [n.id, n]));
-        const nextNodeMap = new Map<string, Node>((nextNodes || []).map(n => [n.id, n]));
-
-        // Node deletions
-        for (const id of prevNodeMap.keys()) {
-          if (!nextNodeMap.has(id)) {
-            broadcastLiveChange({
-              id,
-              type: 'node',
-              action: 'delete',
-              data: { id }
-            });
-          }
-        }
-
-        // Node creations and updates
-        for (const [id, nextNode] of nextNodeMap.entries()) {
-          const prevNode = prevNodeMap.get(id);
-          if (!prevNode) {
-            // New node
-            broadcastLiveChange({
-              id,
-              type: 'node',
-              action: 'create',
-              data: nextNode
-            });
-          } else {
-            // Compare meaningful fields to decide if update is needed
-            const changed = JSON.stringify(sanitizeNode(prevNode)) !== JSON.stringify(sanitizeNode(nextNode));
-            if (changed) {
-              broadcastLiveChange({
-                id,
-                type: 'node',
-                action: 'update',
-                data: nextNode
-              });
-            }
-          }
-        }
-
-        // Edge diffs: only create/delete (no update semantics used elsewhere)
-        const prevEdgeIds = new Set((prevEdges || []).map(e => e.id));
-        const nextEdgeIds = new Set((nextEdges || []).map(e => e.id));
-
-        // Deleted edges
-        for (const id of prevEdgeIds) {
-          if (!nextEdgeIds.has(id)) {
-            broadcastLiveChange({
-              id,
-              type: 'edge',
-              action: 'delete',
-              data: { id }
-            });
-          }
-        }
-
-        // Created edges
-        for (const e of nextEdges || []) {
-          if (!prevEdgeIds.has(e.id)) {
-            broadcastLiveChange({
-              id: e.id,
-              type: 'edge',
-              action: 'create',
-              data: e
-            });
-          }
-        }
-      } catch (e) {
-        // Fail-safe: avoid breaking jump flow on broadcast issues
-        // console.error('Broadcast diff during jump failed', e);
-      }
-    }
-
-    // Apply the target state
-    setNodes(targetState.nodes);
-    setEdges(targetState.edges);
-    
-    if (targetState.title !== undefined) {
-      setEditedTitle(targetState.title);
-    }
-    if (targetState.edgeType !== undefined) {
-      setEdgeType(targetState.edgeType);
-    }
-    if (targetState.backgroundColor !== undefined) {
-      setBackgroundColor(targetState.backgroundColor);
-    }
-    if (targetState.dotColor !== undefined) {
-      setDotColor(targetState.dotColor);
-    }
-    if (targetState.drawingData !== undefined) {
-      setDrawingData(targetState.drawingData);
-    }
-    
-    // Update history index
-  setCurrentHistoryIndex(targetIndex);
-    // Broadcast customization if changed due to jump
-    if (currentMindMapId && broadcastLiveChange) {
-      const customizationPayload: any = {};
-      if (targetState.edgeType !== undefined && targetState.edgeType !== edgeType) customizationPayload.edgeType = targetState.edgeType;
-      if (targetState.backgroundColor !== undefined && targetState.backgroundColor !== backgroundColor) customizationPayload.backgroundColor = targetState.backgroundColor;
-      if (targetState.dotColor !== undefined && targetState.dotColor !== dotColor) customizationPayload.dotColor = targetState.dotColor;
-      if ((targetState as any).fontFamily && (targetState as any).fontFamily !== fontFamily) customizationPayload.fontFamily = (targetState as any).fontFamily;
-      if (Object.keys(customizationPayload).length > 0) {
-        broadcastLiveChange({
-          id: `customization-${currentMindMapId}`,
-          type: 'customization',
-          action: 'update',
-          data: customizationPayload
-        });
-      }
-    }
-    
-    // Update undo/redo state
-  const reachedSavePoint = targetIndex === lastSavedHistoryIndex;
-    setHasUnsavedChanges(!reachedSavePoint);
-    setCanUndo(targetIndex > lastSavedHistoryIndex);
-    setCanRedo(targetIndex < history.length - 1);
-    
-    // Clear any selection state
-    setSelectedNodeId(null);
-    setVisuallySelectedNodeId(null);
-    
-  }, [currentHistoryIndex, history, lastSavedHistoryIndex, nodes, edges, editedTitle, edgeType, backgroundColor, dotColor, drawingData, broadcastLiveChange, currentMindMapId, fontFamily]);
+  // Replace jumpToHistory with hook-provided version
+  const { jumpToHistory } = useHistoryControls({
+    history,
+    currentHistoryIndex,
+    lastSavedHistoryIndex,
+    nodes,
+    edges,
+    edgeType,
+    backgroundColor,
+    dotColor,
+    fontFamily,
+    setNodes,
+    setEdges,
+    setEditedTitle,
+    setEdgeType,
+    setBackgroundColor,
+    setDotColor,
+    setDrawingData,
+    setCurrentHistoryIndex,
+    setHasUnsavedChanges,
+    setCanUndo,
+    setCanRedo,
+    setSelectedNodeId,
+    setVisuallySelectedNodeId,
+    broadcastLiveChange,
+    currentMindMapId,
+  });
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -5447,7 +5048,7 @@ export default function MindMap() {
   }, [nodes, isInitialLoad]);
 
   // Handle playlist playback actions
-  const handlePlaylistPlaybackAction = useCallback((event: CustomEvent) => {
+  const handlePlaylistPlaybackAction = useCallback((_event: CustomEvent) => {
     // This function intentionally does nothing with the event
     // Its purpose is to intercept playback actions to prevent them from affecting the save state
 
@@ -6712,7 +6313,7 @@ export default function MindMap() {
                 drawingCanvasRef.current?.clearStrokeSelection();
                 onNodeDragStart(event, node);
               }}
-              onNodeDrag={(event, node) => {
+              onNodeDrag={(_e, node) => {
                 // Convert node position (already world coordinates) to broadcast cursor near its top-left
                 // Optionally offset to pointer location if available
                 const worldPos = { x: node.position.x, y: node.position.y };
