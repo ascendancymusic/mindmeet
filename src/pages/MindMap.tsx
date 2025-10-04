@@ -4835,16 +4835,173 @@ export default function MindMap() {
         drawingData: firstAction.previousState.drawingData
       };
     } else if (targetIndex === history.length - 1) {
-      // Target is the latest action, use current state
-      targetState = {
-        nodes: nodes,
-        edges: edges,
-        title: editedTitle,
-        edgeType: edgeType,
-        backgroundColor: backgroundColor,
-        dotColor: dotColor,
-        drawingData: drawingData
+      // Target is the latest action; compute state by applying that action to its previousState
+      const lastAction = history[targetIndex];
+      if (!lastAction?.previousState) return;
+
+      const prev = lastAction.previousState;
+      // Clone previous state as a base
+      let simNodes: Node[] = prev.nodes ? prev.nodes.map(n => ({ ...n, data: { ...n.data }, style: { ...n.style } })) : [];
+      let simEdges: Edge[] = prev.edges ? prev.edges.map(e => ({ ...e })) : [];
+      let simTitle = prev.title;
+      let simEdgeType = prev.edgeType;
+      let simBackgroundColor = prev.backgroundColor;
+      let simDotColor = prev.dotColor;
+      let simDrawingData = prev.drawingData;
+      let simFontFamily = (prev as any).fontFamily;
+
+      const applyUpdateNode = (n: Node): Node => {
+        let updated: any = { ...n };
+        const d = lastAction.data as any;
+        if (d.color) {
+          const newColor = d.color;
+          updated.background = newColor;
+          updated.style = { ...updated.style, background: newColor, textShadow: "0 1px 2px rgba(0, 0, 0, 1)" };
+        }
+        if (d.label !== undefined || d.displayText !== undefined || d.trackIds !== undefined || d.spotifyUrl !== undefined) {
+          const ud: any = { ...updated.data };
+          if (d.label !== undefined) {
+            if (["instagram", "twitter", "facebook", "youtube", "tiktok", "mindmeet"].includes((updated.type as any) || '')) {
+              ud.username = d.label;
+            } else {
+              ud.label = d.label;
+              if (updated.type === "youtube-video") ud.videoUrl = d.label;
+              else if (updated.type === "spotify") ud.spotifyUrl = d.spotifyUrl || d.label;
+              else if (updated.type === "soundcloud") ud.soundCloudUrl = d.label;
+              else if (updated.type === "link") ud.url = d.label;
+              // mindmap mapId resolution skipped in simulation
+            }
+          }
+          if (d.displayText !== undefined) ud.displayText = d.displayText;
+          if (d.trackIds !== undefined) ud.trackIds = d.trackIds;
+          updated.data = ud;
+        }
+        return updated as Node;
       };
+
+      switch (lastAction.type) {
+        case 'move_node': {
+          const positionMap = lastAction.data.position as Record<string, { x: number; y: number }>;
+          if (positionMap) {
+            simNodes = simNodes.map(n => positionMap[n.id] ? ({ ...n, position: positionMap[n.id] }) : n);
+          }
+          break;
+        }
+        case 'resize_node': {
+          const id = lastAction.data.nodeId;
+          if (id) {
+            simNodes = simNodes.map(n => n.id === id ? ({
+              ...n,
+              width: typeof lastAction.data.width === 'number' ? lastAction.data.width : undefined,
+              height: typeof lastAction.data.height === 'number' ? lastAction.data.height : undefined,
+              style: {
+                ...n.style,
+                width: typeof lastAction.data.width === 'number' ? `${lastAction.data.width}px` : lastAction.data.width,
+                height: typeof lastAction.data.height === 'number' ? `${lastAction.data.height}px` : lastAction.data.height,
+              }
+            }) : n);
+          }
+          break;
+        }
+        case 'connect_nodes': {
+          const conn = (lastAction.data as any).connection;
+          const replacedId = (lastAction.data as any).replacedEdgeId;
+          if (replacedId) simEdges = simEdges.filter(e => e.id !== replacedId);
+          if (conn) {
+            simEdges = [...simEdges, { id: conn.id || `${conn.source}-${conn.target}`, ...conn } as Edge];
+            if (simEdgeType) {
+              simEdges = simEdges.map(e => ({ ...e, type: simEdgeType === 'default' ? 'default' : simEdgeType }));
+            }
+          }
+          break;
+        }
+        case 'disconnect_nodes': {
+          const nodeId = (lastAction.data as any).nodeId;
+          if (nodeId) {
+            simEdges = simEdges.filter(e => e.source !== nodeId && e.target !== nodeId);
+          }
+          break;
+        }
+        case 'delete_node': {
+          const data: any = lastAction.data;
+          let idsToDelete: string[] = [];
+          if (Array.isArray(data.affectedNodes) && data.affectedNodes.length > 0) {
+            idsToDelete = [...data.affectedNodes];
+          } else if (data.nodeId) {
+            // compute descendants via edges
+            const graph = new Map<string, string[]>();
+            simEdges.forEach(e => {
+              if (!graph.has(e.source)) graph.set(e.source, []);
+              graph.get(e.source)!.push(e.target);
+            });
+            const queue = [data.nodeId];
+            const seen = new Set(queue);
+            const descendants: string[] = [];
+            while (queue.length) {
+              const cur = queue.shift()!;
+              const children = graph.get(cur) || [];
+              for (const ch of children) if (!seen.has(ch)) { seen.add(ch); queue.push(ch); descendants.push(ch); }
+            }
+            idsToDelete = [data.nodeId, ...descendants];
+          }
+          if (idsToDelete.length) {
+            simNodes = simNodes.filter(n => !idsToDelete.includes(n.id));
+            simEdges = simEdges.filter(e => !idsToDelete.includes(e.source) && !idsToDelete.includes(e.target));
+          }
+          break;
+        }
+        case 'update_node': {
+          const d: any = lastAction.data;
+          const targets: string[] = [];
+          if (d.nodeId) targets.push(d.nodeId);
+          if (Array.isArray(d.affectedNodes)) d.affectedNodes.forEach((id: string) => { if (!targets.includes(id)) targets.push(id); });
+          if (targets.length) {
+            simNodes = simNodes.map(n => targets.includes(n.id) ? applyUpdateNode(n) : n);
+          }
+          break;
+        }
+        case 'add_node': {
+          const d: any = lastAction.data;
+          if (Array.isArray(d.nodes)) {
+            simNodes = d.nodes as Node[];
+          }
+          break;
+        }
+        case 'update_title': {
+          simTitle = lastAction.data.label || '';
+          break;
+        }
+        case 'update_customization': {
+          const d: any = lastAction.data;
+          if (d.edgeType) {
+            simEdgeType = d.edgeType;
+            simEdges = simEdges.map(e => ({ ...e, type: simEdgeType === 'default' ? 'default' : simEdgeType }));
+          }
+          if (d.backgroundColor) simBackgroundColor = d.backgroundColor;
+          if (d.dotColor) simDotColor = d.dotColor;
+          if (d.fontFamily) simFontFamily = d.fontFamily;
+          break;
+        }
+        case 'drawing_change':
+        case 'move_stroke': {
+          const d: any = lastAction.data;
+          if (d.drawingData) simDrawingData = d.drawingData;
+          break;
+        }
+        default:
+          break;
+      }
+
+      targetState = {
+        nodes: simNodes,
+        edges: simEdges,
+        title: simTitle,
+        edgeType: simEdgeType,
+        backgroundColor: simBackgroundColor,
+        dotColor: simDotColor,
+        drawingData: simDrawingData,
+        fontFamily: simFontFamily,
+      } as any;
     } else {
       // Use the next action's previousState (which is the state after the target action)
       const nextAction = history[targetIndex + 1];
@@ -5203,7 +5360,6 @@ export default function MindMap() {
   const handlePlaylistPlaybackAction = useCallback((event: CustomEvent) => {
     // This function intentionally does nothing with the event
     // Its purpose is to intercept playback actions to prevent them from affecting the save state
-    console.log('Playlist playback action:', event.detail);
 
     // We don't need to update any state here, just intercept the event
     // This prevents the default behavior that would mark the mindmap as having unsaved changes
