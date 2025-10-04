@@ -5018,6 +5018,96 @@ export default function MindMap() {
       };
     }
     
+    // Before applying, compute and broadcast diffs so collaborators stay in sync
+    if (currentMindMapId && broadcastLiveChange) {
+      try {
+        const prevNodes = nodes;
+        const prevEdges = edges;
+        const nextNodes = (targetState as any).nodes as Node[];
+        const nextEdges = (targetState as any).edges as Edge[];
+
+        // Helpers
+        const sanitizeNode = (n: any) => {
+          if (!n) return n;
+          // Exclude ephemeral fields like selection/dragging when comparing
+          const { selected, dragging, positionAbsolute, ...rest } = n;
+          return rest;
+        };
+
+        // Build maps for quick lookup
+        const prevNodeMap = new Map<string, Node>((prevNodes || []).map(n => [n.id, n]));
+        const nextNodeMap = new Map<string, Node>((nextNodes || []).map(n => [n.id, n]));
+
+        // Node deletions
+        for (const id of prevNodeMap.keys()) {
+          if (!nextNodeMap.has(id)) {
+            broadcastLiveChange({
+              id,
+              type: 'node',
+              action: 'delete',
+              data: { id }
+            });
+          }
+        }
+
+        // Node creations and updates
+        for (const [id, nextNode] of nextNodeMap.entries()) {
+          const prevNode = prevNodeMap.get(id);
+          if (!prevNode) {
+            // New node
+            broadcastLiveChange({
+              id,
+              type: 'node',
+              action: 'create',
+              data: nextNode
+            });
+          } else {
+            // Compare meaningful fields to decide if update is needed
+            const changed = JSON.stringify(sanitizeNode(prevNode)) !== JSON.stringify(sanitizeNode(nextNode));
+            if (changed) {
+              broadcastLiveChange({
+                id,
+                type: 'node',
+                action: 'update',
+                data: nextNode
+              });
+            }
+          }
+        }
+
+        // Edge diffs: only create/delete (no update semantics used elsewhere)
+        const prevEdgeIds = new Set((prevEdges || []).map(e => e.id));
+        const nextEdgeIds = new Set((nextEdges || []).map(e => e.id));
+
+        // Deleted edges
+        for (const id of prevEdgeIds) {
+          if (!nextEdgeIds.has(id)) {
+            broadcastLiveChange({
+              id,
+              type: 'edge',
+              action: 'delete',
+              data: { id }
+            });
+          }
+        }
+
+        // Created edges
+        for (const e of nextEdges || []) {
+          if (!prevEdgeIds.has(e.id)) {
+            broadcastLiveChange({
+              id: e.id,
+              type: 'edge',
+              action: 'create',
+              data: e
+            });
+          }
+        }
+      } catch (e) {
+        // Fail-safe: avoid breaking jump flow on broadcast issues
+        // console.error('Broadcast diff during jump failed', e);
+      }
+    }
+
     // Apply the target state
     setNodes(targetState.nodes);
     setEdges(targetState.edges);
@@ -5041,7 +5131,7 @@ export default function MindMap() {
     // Update history index
   setCurrentHistoryIndex(targetIndex);
     // Broadcast customization if changed due to jump
-    if (broadcastLiveChange) {
+    if (currentMindMapId && broadcastLiveChange) {
       const customizationPayload: any = {};
       if (targetState.edgeType !== undefined && targetState.edgeType !== edgeType) customizationPayload.edgeType = targetState.edgeType;
       if (targetState.backgroundColor !== undefined && targetState.backgroundColor !== backgroundColor) customizationPayload.backgroundColor = targetState.backgroundColor;
