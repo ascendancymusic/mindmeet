@@ -4808,7 +4808,8 @@ export default function MindMap() {
 
   // Jump to a specific point in history
   const jumpToHistory = useCallback((targetIndex: number) => {
-    if (targetIndex < 0 || targetIndex >= history.length) return;
+    if (history.length === 0) return;
+    if (targetIndex < -1 || targetIndex >= history.length) return;
     
     // If target is current position, do nothing
     if (targetIndex === currentHistoryIndex) return;
@@ -4820,7 +4821,20 @@ export default function MindMap() {
     // If there's no next action, we use the current state (since target is the latest action)
     let targetState;
     
-    if (targetIndex === history.length - 1) {
+    if (targetIndex === -1) {
+      // Initial state: use the previousState of the first action
+      const firstAction = history[0];
+      if (!firstAction?.previousState) return;
+      targetState = {
+        nodes: firstAction.previousState.nodes,
+        edges: firstAction.previousState.edges,
+        title: firstAction.previousState.title,
+        edgeType: firstAction.previousState.edgeType,
+        backgroundColor: firstAction.previousState.backgroundColor,
+        dotColor: firstAction.previousState.dotColor,
+        drawingData: firstAction.previousState.drawingData
+      };
+    } else if (targetIndex === history.length - 1) {
       // Target is the latest action, use current state
       targetState = {
         nodes: nodes,
@@ -4868,7 +4882,7 @@ export default function MindMap() {
     }
     
     // Update history index
-    setCurrentHistoryIndex(targetIndex);
+  setCurrentHistoryIndex(targetIndex);
     // Broadcast customization if changed due to jump
     if (broadcastLiveChange) {
       const customizationPayload: any = {};
@@ -4887,7 +4901,7 @@ export default function MindMap() {
     }
     
     // Update undo/redo state
-    const reachedSavePoint = targetIndex === lastSavedHistoryIndex;
+  const reachedSavePoint = targetIndex === lastSavedHistoryIndex;
     setHasUnsavedChanges(!reachedSavePoint);
     setCanUndo(targetIndex > lastSavedHistoryIndex);
     setCanRedo(targetIndex < history.length - 1);

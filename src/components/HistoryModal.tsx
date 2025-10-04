@@ -302,14 +302,14 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
 
       {/* Dropdown Panel */}
       <div
-        className="fixed z-[10000] w-96 max-h-96 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-[10000] w-96 max-h-96 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col"
         style={{
           left: position.left,
           top: position.top,
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-white/10">
+        <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0">
           <div className="flex items-center space-x-2">
             <Clock className="w-4 h-4 text-white/90" />
             <div>
@@ -328,7 +328,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
         </div>
 
         {/* Content */}
-        <div className="p-2 max-h-80 overflow-y-auto" style={{
+        <div className="p-2 flex-1 min-h-0 overflow-y-auto" style={{
           scrollbarColor: "rgb(147, 34, 192) rgb(34, 34, 44)",
           scrollbarWidth: "thin",
           overflowX: "hidden"
@@ -488,9 +488,20 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
         </div>
 
         {/* Footer */}
-        <div className="p-2 border-t border-white/10 bg-white/5">
-          <div className="text-xs text-white/60 text-center">
-            Ctrl+Z/Y to undo/redo • ESC to close
+        <div className="p-2 border-t border-white/10 bg-white/5 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] text-white/50">ESC to close</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                title="Undo all changes and jump to start"
+                className="px-3 py-1.5 text-xs rounded-md bg-gradient-to-r from-purple-600 via-purple-700 to-blue-600 text-white shadow-md hover:shadow-lg hover:brightness-105 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedIndex === -1}
+                onClick={() => onJumpToHistory?.(-1)}
+              >
+                Undo all
+              </button>
+            </div>
           </div>
         </div>
       </div>
