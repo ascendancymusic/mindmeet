@@ -111,6 +111,39 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
     }
   }
 
+  // Helper to derive a subject (node label or type) for display next to the action
+  const getActionSubject = (action: HistoryAction): string | null => {
+    // Only enrich node-related actions
+    const nodeRelated = ["move_node", "update_node", "resize_node", "delete_node", "add_node"];
+    if (!nodeRelated.includes(action.type)) return null;
+
+    // Multi-node cases
+    const pos = action.data.position as any;
+    if (pos && typeof pos === 'object' && !Array.isArray(pos)) {
+      const ids = Object.keys(pos);
+      if (ids.length > 1) return `(${ids.length} nodes)`;
+      if (ids.length === 1) {
+        // fallthrough to single-node lookup by nodeId
+        (action.data as any).nodeId = (action.data as any).nodeId || ids[0];
+      }
+    }
+    if (Array.isArray(action.data.affectedNodes) && action.data.affectedNodes.length > 1) {
+      return `(${action.data.affectedNodes.length} nodes)`;
+    }
+
+    // Single-node: find label from previousState snapshot
+    const nodeId = action.data.nodeId || (Array.isArray(action.data.affectedNodes) ? action.data.affectedNodes[0] : undefined);
+    if (!nodeId) return null;
+
+    const prevNodes = action.previousState?.nodes as any[] | undefined;
+    const n = prevNodes?.find?.((x: any) => x?.id === nodeId);
+    const label = n?.data?.label ? String(n.data.label).trim() : '';
+    const type = n?.type ? String(n.type) : 'node';
+    if (label) return `"${label}"`;
+    if (type) return `(${type})`;
+    return null;
+  };
+
   // Helper function to check if two actions should be grouped
   const shouldGroupActions = (action1: HistoryAction, action2: HistoryAction): boolean => {
     // Group same action types - this is the main criteria
@@ -265,17 +298,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
 
   const groupedHistory = groupActions(actionsWithIndices)
 
-  const toggleGroup = (groupIndex: number) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(groupIndex)) {
-        newSet.delete(groupIndex)
-      } else {
-        newSet.add(groupIndex)
-      }
-      return newSet
-    })
-  }
+  // group expand/collapse handled inline
 
   if (!isOpen) return null
 
@@ -345,7 +368,7 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                 if (group.type === 'single') {
                   const action = group.actions[0]
                   const actualIndex = group.startIndex
-                  const isCurrentAction = actualIndex === currentHistoryIndex
+                  // current selection computed via selectedIndex === actualIndex
                   const details = getActionDetails(action)
 
                   // Determine if this action has been undone (is ahead of current position)
@@ -366,9 +389,14 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                     >
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex items-center space-x-2 justify-between">
-                          <div className={`text-xs font-medium truncate ${selectedIndex === actualIndex ? "text-blue-100" : isUndone ? "text-white/40" : "text-white/90"
-                            }`}>
-                            {formatActionType(action.type)}
+                          <div className={`text-xs font-medium truncate pr-1 ${selectedIndex === actualIndex ? "text-blue-100" : isUndone ? "text-white/40" : "text-white/90"}`}>
+                            {formatActionType(action.type)}{' '}
+                            {(() => {
+                              const subject = getActionSubject(action);
+                              return subject ? (
+                                <span className="text-white/80">{subject}</span>
+                              ) : null;
+                            })()}
                           </div>
                           <div className="text-[10px] text-white/40 font-normal ml-2 whitespace-nowrap">
                             {formatTimeAgo((action as any).timestamp)}
@@ -421,7 +449,15 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                           onClick={() => onJumpToHistory?.(group.endIndex)}
                           title="Jump to this point in history"
                         >
-                          <span className={`text-xs font-medium truncate ${selectedIndex < group.endIndex ? "text-white/40" : "text-white/90"}`}>{formatActionType(firstAction.type)} ({group.actions.length}×)</span>
+                          <span className={`text-xs font-medium truncate pr-1 ${selectedIndex < group.endIndex ? "text-white/40" : "text-white/90"}`}>
+                            {formatActionType(firstAction.type)}{' '}
+                            {(() => {
+                              const singleTarget = group.actions.every(a => !!a.data?.nodeId && a.data.nodeId === (group.actions[0].data?.nodeId));
+                              if (!singleTarget) return null;
+                              const subj = getActionSubject(firstAction);
+                              return subj ? (<span className="text-white/80">{subj}</span>) : null;
+                            })()} ({group.actions.length}×)
+                          </span>
                         </button>
                       </div>
                       {/* No sub text for grouped actions */}
@@ -449,7 +485,15 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
                               >
                                 <div className="flex-1 min-w-0 flex flex-col">
                                   <div className="flex items-center space-x-2 justify-between">
-                                    <div className={`text-xs truncate ${selectedIndex === actualIndex ? "text-blue-100 font-medium" : isUndone ? "text-white/40" : "text-white/80"}`}>{formatActionType(action.type)}</div>
+                                    <div className={`text-xs truncate pr-1 ${selectedIndex === actualIndex ? "text-blue-100 font-medium" : isUndone ? "text-white/40" : "text-white/80"}`}>
+                                      {formatActionType(action.type)}{' '}
+                                      {(() => {
+                                        const subject = getActionSubject(action);
+                                        return subject ? (
+                                          <span className="text-white/80">{subject}</span>
+                                        ) : null;
+                                      })()}
+                                    </div>
                                     <div className="text-[10px] text-white/40 font-normal ml-2 whitespace-nowrap">
                                       {formatTimeAgo((action as any).timestamp)}
                                     </div>
