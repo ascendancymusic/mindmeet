@@ -143,6 +143,14 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
         published_at: shouldPublish ? new Date().toISOString() : mapData.published_at,
       });
 
+      // Show a success toast immediately on the current page
+      const toast = useToastStore.getState();
+      if (shouldPublish) {
+        toast.showToast(mapData.published_at ? 'Mindmap republished successfully' : 'Mindmap published successfully', 'success');
+      } else {
+        toast.showToast('Changes saved', 'success');
+      }
+
       onClose();
     } catch (error) {
       console.error("Error saving map details:", error);
@@ -151,6 +159,8 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({
         setEditError(error.message);
       } else {
         setEditError("Failed to save changes. Please try again.");
+        // Also surface an error toast immediately
+        useToastStore.getState().showToast('Failed to save changes', 'error');
       }
     } finally {
       setIsSaving(false);

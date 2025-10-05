@@ -11,13 +11,12 @@ import { NewAccountSetup } from "../components/NewAccountSetup"
 import { SuggestedUsers } from "../components/SuggestedUsers"
 import { ProPopup } from "../components/ProPopup"
 import Feed from "../components/Feed"
-import { Toast } from "../components/Toast"
-import { useToastStore } from "../store/toastStore"
+// Toast is now rendered globally in App.tsx
 
 const HomeLoggedIn: React.FC = () => {
   const { user, setAvatarUrl: cacheAvatarUrl, avatarUrl: cachedAvatarUrl, setUser } = useAuthStore()
   const { getTotalUnreadCount, fetchConversations } = useChatStore()
-  const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
+  // Toast state handled globally in App.tsx
   const navigate = useNavigate()
   const location = useLocation()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(cachedAvatarUrl)
@@ -228,13 +227,7 @@ const HomeLoggedIn: React.FC = () => {
       )}
       {showProPopup && <ProPopup isOpen={showProPopup} onClose={() => setShowProPopup(false)} />}
 
-      {/* Toast Notification */}
-      <Toast
-        message={toastMessage}
-        type={toastType}
-        isVisible={toastVisible}
-        onClose={hideToast}
-      />
+      {/* Global Toast mounted in App.tsx */}
     </div>
   )
 }

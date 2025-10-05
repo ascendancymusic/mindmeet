@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import "reactflow/dist/style.css";
-import { supabase } from "../supabaseClient";
+// import { supabase } from "../supabaseClient";
 import { Heart, MessageCircle, Bookmark, Share2, MoreVertical, Info, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useMindMapActions } from '../hooks/useMindMapActions';
@@ -246,22 +246,20 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
     if (!localMindmap || !user?.id) return;
 
     try {
-      const { error } = await supabase
-        .from('mindmaps')
-        .update({
-          title: details.title,
-          permalink: details.permalink,
-          visibility: details.visibility,
-          description: details.description,
-          is_main: details.is_main,
-          collaborators: details.collaborators,
-          published_at: details.published_at,
-          updated_at: new Date().toISOString()
-        })
-        .eq('permalink', localMindmap.permalink)
-        .eq('creator', user.id);
+      // Use centralized store method which handles JSON merge, main-map toggling, and avoids legacy columns
+  // Permalink change handled by saveMapToSupabase and subsequent state update
+      const updatedMap = {
+        ...localMindmap,
+        title: details.title,
+        visibility: details.visibility,
+        description: details.description,
+        is_main: details.is_main,
+        // collaborations are handled via mindmap_collaborations table in EditDetailsModal
+        published_at: details.published_at,
+        permalink: details.permalink,
+      };
 
-      if (error) throw error;
+      await useMindMapStore.getState().saveMapToSupabase(updatedMap, user.id);
 
       // Update local state
       setLocalMindmap((prev: any) => prev ? {
@@ -271,7 +269,6 @@ const FeedMindMapNode: React.FC<FeedMindMapNodeProps> = React.memo(({ mindmap, o
         visibility: details.visibility,
         description: details.description,
         is_main: details.is_main,
-        collaborators: details.collaborators,
         published_at: details.published_at,
         updated_at: new Date().toISOString()
       } : null);

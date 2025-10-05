@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import ReactFlow, { Background, Controls, ReactFlowProvider, type ReactFlowInstance } from "reactflow"
 import "reactflow/dist/style.css"
@@ -75,6 +75,27 @@ import eventEmitter from "../services/eventService"
 import defaultNodeStyles from "../config/defaultNodeStyles"
 
 import type { NodeTypes, NodeProps } from "reactflow"
+
+// Resolve normalized font keys (e.g., 'aspekta', 'array') to actual CSS font stacks
+function resolveFontFamily(font?: string | null): string | undefined {
+  if (!font) return undefined;
+  const raw = String(font).trim();
+  const key = raw.toLowerCase();
+  const map: Record<string, string> = {
+    aspekta: 'Aspekta, sans-serif',
+    'aspekta-regular': 'Aspekta, sans-serif',
+    chillax: 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif',
+    'chillax-regular': 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif',
+    'chillax-variable': 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif',
+    array: 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif',
+    'array-regular': 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif',
+    'array-wide': 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif',
+    switzer: 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif',
+    'switzer-regular': 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif',
+    'switzer-variable': 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif',
+  };
+  return map[key] || raw;
+}
 
 // Add shimmer animation styles
 const shimmerStyles = `
@@ -528,7 +549,7 @@ const ViewMindMap: React.FC = () => {
         let collaborators: string[] = []
         
         if (user?.id) {
-          const [{ data: likeData, error: likeError }, { data: saveData, error: saveError }, { data: collaborationData }] = await Promise.all([
+          const [{ data: likeData }, { data: saveData }, { data: collaborationData }] = await Promise.all([
             supabase
               .from("mindmap_likes")
               .select("mindmap_id, user_id")
@@ -560,6 +581,7 @@ const ViewMindMap: React.FC = () => {
           edges: processedEdges,
           edgeType: map.json_data?.edgeType || 'default',
           backgroundColor: map.json_data?.backgroundColor,
+          fontFamily: map.json_data?.fontFamily,
           drawingData: decompressDrawingData(map.drawing_data) || undefined,
           collaborators,
           creator: profile.id,
@@ -644,7 +666,7 @@ const ViewMindMap: React.FC = () => {
           const userLikedSet = new Set(userLikesResult.data?.map(item => item.mindmap_id) || []);
           const userSavedSet = new Set(userSavesResult.data?.map(item => item.mindmap_id) || []);
 
-          processedMindmaps = processedMindmaps.map(mindmap => ({
+          processedMindmaps = processedMindmaps.map((mindmap: any) => ({
             ...mindmap,
             liked_by: userLikedSet.has(mindmap.id) ? [user.id] : [],
             saved_by: userSavedSet.has(mindmap.id) ? [user.id] : [],
@@ -886,6 +908,16 @@ const ViewMindMap: React.FC = () => {
       return newCollapsed
     })
   }, [])
+
+  // Memoize style for ReactFlow to apply custom font across nodes
+  const reactFlowStyle = useMemo(() => {
+    const resolved = resolveFontFamily(currentMap?.fontFamily);
+    if (!resolved) return undefined;
+    return {
+      fontFamily: resolved,
+      ['--mindmap-font-family' as any]: resolved,
+    } as React.CSSProperties;
+  }, [currentMap?.fontFamily])
 
   // Spotify modal handlers
   const handleSpotifyModalGotIt = useCallback(() => {
@@ -1524,6 +1556,7 @@ const ViewMindMap: React.FC = () => {
                 <ReactFlowProvider>
                   <ReactFlow
                     key={`reactflow-${currentMap.permalink || currentMap.id}`}
+                    style={reactFlowStyle}
                     nodes={currentMap.nodes.map((node: any) => {
                       const hasChildren = currentMap.edges.some((edge: any) => edge.source === node.id)
                       const isHidden = (() => {

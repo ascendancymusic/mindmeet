@@ -84,7 +84,7 @@ import { ConditionalLoginPrompt } from "../components/LoginPrompt";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
 import { useClipboardStore } from "../store/clipboardStore";
-import { Toast } from "../components/Toast";
+// Toast is now rendered globally in App.tsx
 import defaultNodeStyles from "../config/defaultNodeStyles";
 import { supabase } from "../supabaseClient";
 import { calculateTextNodeMinHeight, getNodeCurrentWidth } from "../utils/textNodeUtils";
@@ -166,8 +166,7 @@ export default function MindMap() {
   const navigate = useNavigate()
   const { maps, collaborationMaps, updateMap, acceptAIChanges, updateMapPermalink, fetchMaps, fetchCollaborationMaps } = useMindMapStore()
 
-  // Toast notification state
-  const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
+  // Toast is handled globally in App.tsx
 
 
 
@@ -6626,6 +6625,7 @@ export default function MindMap() {
                   {/* Main save button */}
                   <button
                     onClick={handleSave}
+                    title="Ctrl + S"
                     className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
                       ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
                       : isSaving
@@ -7882,13 +7882,7 @@ export default function MindMap() {
           onCustomizationChanges={handleCustomizationChanges}
         />
 
-        {/* Toast Notification */}
-        <Toast
-          message={toastMessage}
-          type={toastType}
-          isVisible={toastVisible}
-          onClose={hideToast}
-        />
+        {/* Global Toast mounted in App.tsx */}
 
         {/* Publish Success Modal */}
         <PublishSuccessModal isVisible={showSuccessPopup} />

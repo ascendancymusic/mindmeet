@@ -284,7 +284,11 @@ const Feed: React.FC<FeedProps> = ({ filter = 'for-you' }) => {
     <div className="w-full">
       <div className="space-y-4">
         {mindmaps.map((mindmap) => (
-          <FeedMindMapNode key={mindmap.permalink} mindmap={mindmap} onDelete={handleMindmapDelete} />
+          <FeedMindMapNode
+            key={mindmap.id || `${mindmap.creator}-${mindmap.permalink}`}
+            mindmap={mindmap}
+            onDelete={handleMindmapDelete}
+          />
         ))}
       </div>
 

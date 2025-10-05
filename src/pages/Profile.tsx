@@ -85,8 +85,8 @@ import EditDetailsModal from '../components/EditDetailsModal'
 import ShareModal from '../components/ShareModal'
 import InfoModal from '../components/InfoModal'
 import PublishSuccessModal from '../components/PublishSuccessModal'
-import { Toast } from '../components/Toast'
-import { useToastStore } from '../store/toastStore'
+// Toast is now rendered globally in App.tsx
+// import { useToastStore } from '../store/toastStore'
 import { useNotificationStore } from '../store/notificationStore';
 
 // Memoized ReactFlow preview component to prevent unnecessary re-renders
@@ -234,7 +234,7 @@ type UsernameStatus = "checking" | "available" | "taken" | "invalid" | "unavaila
 
 export default function Profile() {
   const { user } = useAuthStore()
-  const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore()
+  // Toast state is handled globally in App.tsx
 
   // Add local state for maps instead of using mindMapStore
   const [userMaps, setUserMaps] = useState<any[]>([])
@@ -2541,13 +2541,7 @@ export default function Profile() {
         {/* Publish Success Modal */}
         <PublishSuccessModal isVisible={showSuccessPopup} />
 
-        {/* Toast Notification */}
-        <Toast
-          message={toastMessage}
-          type={toastType}
-          isVisible={toastVisible}
-          onClose={hideToast}
-        />
+        {/* Global Toast mounted in App.tsx */}
       </div>
     </div>
   )

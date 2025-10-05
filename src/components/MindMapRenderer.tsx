@@ -75,6 +75,30 @@ interface MindMapRendererProps {
   customNodeTypes?: NodeTypes;
 }
 
+// Resolve normalized font keys (e.g., 'aspekta', 'array') to actual CSS font stacks
+function resolveFontFamily(font?: string | null): string | undefined {
+  if (!font) return undefined;
+  const raw = String(font).trim();
+  const key = raw.toLowerCase();
+  const map: Record<string, string> = {
+    aspekta: 'Aspekta, sans-serif',
+    'aspekta-regular': 'Aspekta, sans-serif',
+    chillax: 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif',
+    'chillax-regular': 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif',
+    'chillax-variable': 'Chillax-Variable, Chillax-Regular, Chillax-Medium, Chillax-Bold, sans-serif',
+    array: 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif',
+    'array-regular': 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif',
+    'array-wide': 'Array-Wide, Array-Regular, Array-Semibold, Array-SemiboldWide, Array-BoldWide, Array-Bold, sans-serif',
+    switzer: 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif',
+    'switzer-regular': 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif',
+    'switzer-variable': 'Switzer-Variable, Switzer-Regular, Switzer-Medium, Switzer-Bold, sans-serif',
+  };
+  // If it's one of our normalized keys, return the mapped stack
+  if (map[key]) return map[key];
+  // Otherwise assume it's already a valid CSS font-family string
+  return raw;
+}
+
 /**
  * MindMapRenderer - A reusable component for rendering mindmaps with ReactFlow
  * 
@@ -205,8 +229,16 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = React.memo(({
   }, [mindMapData.edges, mindMapData.nodes, mindMapData.edgeType]);
 
   // Memoize ReactFlow style to prevent unnecessary re-renders
+  // Also expose CSS custom property so node styles can pick it up via var(--mindmap-font-family)
   const reactFlowStyle = useMemo(() => {
-    return mindMapData.fontFamily ? { fontFamily: mindMapData.fontFamily } : undefined;
+    const resolved = resolveFontFamily(mindMapData.fontFamily);
+    if (!resolved) return undefined;
+    return {
+      fontFamily: resolved,
+      // Provide CSS variable consumed by global styles for nodes
+      // Type assertion used to allow custom property key
+      ['--mindmap-font-family' as any]: resolved,
+    } as React.CSSProperties;
   }, [mindMapData.fontFamily]);
 
   // Memoize proOptions to prevent object recreation

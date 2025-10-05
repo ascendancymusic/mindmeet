@@ -20,11 +20,15 @@ import ViewMindMap from './pages/ViewMindMap';
 import SearchPage from './pages/SearchPage';
 import './styles/theme.css';
 import { useAuthStore } from './store/authStore';
+import { Toast } from './components/Toast';
+import { useToastStore } from './store/toastStore';
 
 function App() {
   const { isLoggedIn, validateSession, forceLoggedOut } = useAuthStore();
   const [username, setUsername] = useState<string | null>(null);
   const [isValidatingSession, setIsValidatingSession] = useState(true);
+  // Global toast state so notifications render on any page immediately
+  const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore();
 
   // Validate session on app startup
   useEffect(() => {
@@ -110,6 +114,14 @@ function App() {
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
+
+        {/* Global Toast Notification */}
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          isVisible={toastVisible}
+          onClose={hideToast}
+        />
       </div>
     </BrowserRouter>
   );
