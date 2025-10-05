@@ -56,6 +56,14 @@ const shimmerStyles = `
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
+  /* Clamp bio to 5 lines and preserve line breaks */
+  .bio-clamp-5 {
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-line;
+  }
   
   /* Custom responsive height classes */
   @media (max-height: 1090px) {
@@ -272,7 +280,9 @@ export default function Profile() {
                 saved_by: newSavedBy,
                 creatorUsername: profile?.username || user?.username || 'Unknown',
                 creatorFull_name: profile?.full_name || user?.full_name || profile?.username || user?.username || 'Unknown',
-                creatorAvatar: profile?.avatar_url || user?.avatar_url || null
+                creatorAvatar: profile?.avatar_url || user?.avatar_url || null,
+                // stamp save time so we can sort by when it was saved
+                savedAt: Date.now()
               };
               updatedSavedMaps = [...prevSavedMaps, mapWithCreatorInfo];
             } else {
@@ -280,7 +290,7 @@ export default function Profile() {
                 savedMap.id === mapToUpdate.id ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
               );
             }
-            return updatedSavedMaps;
+            return updatedSavedMaps.slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
           });
         } else {
           // Map was unsaved - remove it from savedMaps
@@ -316,11 +326,13 @@ export default function Profile() {
           setSavedMaps((prevSavedMaps) => {
             const exists = prevSavedMaps.find(savedMap => savedMap.id === mapToUpdate.id);
             if (!exists) {
-              return [...prevSavedMaps, { ...mapToUpdate, saves: newSaves, saved_by: newSavedBy }];
+              const withSaveTime = { ...mapToUpdate, saves: newSaves, saved_by: newSavedBy, savedAt: Date.now() };
+              return [...prevSavedMaps, withSaveTime].sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
             } else {
-              return prevSavedMaps.map(savedMap =>
+              const updated = prevSavedMaps.map(savedMap =>
                 savedMap.id === mapToUpdate.id ? { ...savedMap, saves: newSaves, saved_by: newSavedBy } : savedMap
               );
+              return updated.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
             }
           });
         } else {
@@ -408,6 +420,10 @@ export default function Profile() {
 
   // Dynamic page title
   usePageTitle('My Profile');
+
+  // Bio constraints
+  const MAX_BIO_CHARS = 100;
+  const MAX_BIO_LINES = 5;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -812,7 +828,7 @@ export default function Profile() {
         // Get maps saved by the current user
         const { data: userSaves, error: savesError } = await supabase
           .from("mindmap_saves")
-          .select("mindmap_id")
+          .select("mindmap_id, created_at")
           .eq("user_id", user.id);
 
         if (savesError) {
@@ -820,6 +836,10 @@ export default function Profile() {
           setSavedMaps([]);
         } else if (userSaves && userSaves.length > 0) {
           const savedMapIds = userSaves.map(save => save.mindmap_id);
+          // Build a lookup map of when each mindmap was saved by the user
+          const saveTimeMap = new Map<string, number>(
+            userSaves.map((s: any) => [s.mindmap_id, new Date(s.created_at).getTime()])
+          );
 
           // Fetch the actual mindmap data for saved maps
           const { data: savedMapsData, error: savedMapsError } = await supabase
@@ -911,6 +931,8 @@ export default function Profile() {
                 description: map.description || "",
                 comment_count: map.comment_count || 0,
                 createdAt: Date.now(),
+                // Store the time this was saved by the current user for sorting in Saves tab
+                savedAt: saveTimeMap.get(map.id) || 0,
                 is_main: map.is_main || false,
                 // Use new optimized data structure
                 likes: likeCountsMap.get(map.id) || 0,
@@ -922,7 +944,8 @@ export default function Profile() {
                 creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
                 creatorAvatar: creatorAvatars.get(map.creator) || null,
               }))
-              .sort((a, b) => b.updatedAt - a.updatedAt);
+              // Sort saved maps by the save time (desc), not by the mindmap's updated time
+              .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
             
             setSavedMaps(processedSavedMaps);
           } else {
@@ -1055,7 +1078,7 @@ export default function Profile() {
       ...profile,
       username: editProfileData.username,
       full_name: editProfileData.full_name,
-      description: editProfileData.description,
+  description: editProfileData.description.substring(0, MAX_BIO_CHARS),
       join_date: profile?.join_date || new Date().toISOString().split('T')[0], // Ensure join_date is set
       followers: profile?.followers || 0, // Ensure followers is set
       following_count: profile?.following_count || 0, // Ensure following_count is set
@@ -1596,10 +1619,12 @@ export default function Profile() {
                   onClick={() => {
                     // Reset form data to current profile values when opening the modal
                     if (profile) {
+                      const normalizedDesc = (profile.description || "").replace(/\r\n/g, '\n');
+                      const clampedDesc = normalizedDesc.split('\n').slice(0, MAX_BIO_LINES).join('\n').slice(0, MAX_BIO_CHARS);
                       setEditProfileData({
                         username: profile.username || "",
                         full_name: profile.full_name || "",
-                        description: profile.description || "",
+                        description: clampedDesc,
                         save_visibility: profile.save_visibility || 'public'
                       })
                     }
@@ -1621,7 +1646,7 @@ export default function Profile() {
                     <div className="h-4 w-3/4 bg-slate-700 rounded animate-pulse"></div>
                   </div>
                 ) : (
-                  <p className="text-slate-300 leading-relaxed text-sm">{bio || "No bio yet"}</p>
+                  <p className="text-slate-300 leading-relaxed text-sm bio-clamp-5">{bio || "No bio yet"}</p>
                 )}
               </div>
 
@@ -2261,25 +2286,48 @@ export default function Profile() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-slate-300">Bio</label>
-                    <span className="text-xs text-slate-400">{editProfileData.description.length}/50</span>
+                    <span className="text-xs text-slate-400">{editProfileData.description.length}/{MAX_BIO_CHARS}</span>
                   </div>
                   <textarea
                     value={editProfileData.description}
-                    onChange={(e) =>
-                      setEditProfileData((prev) => ({
-                        ...prev,
-                        description: e.target.value.substring(0, 50),
-                      }))
-                    }
-                    rows={3}
+                    onChange={(e) => {
+                      const normalized = e.target.value.replace(/\r\n/g, '\n');
+                      const lines = normalized.split('\n').slice(0, MAX_BIO_LINES);
+                      const clipped = lines.join('\n').slice(0, MAX_BIO_CHARS);
+                      setEditProfileData((prev) => ({ ...prev, description: clipped }));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const currentLines = (e.currentTarget.value.match(/\r\n|\n|\r/g) || []).length + 1;
+                        if (currentLines >= MAX_BIO_LINES) {
+                          e.preventDefault();
+                        }
+                      }
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const paste = e.clipboardData.getData('text');
+                      const textarea = e.currentTarget;
+                      const start = textarea.selectionStart ?? textarea.value.length;
+                      const end = textarea.selectionEnd ?? textarea.value.length;
+                      const nextVal = textarea.value.slice(0, start) + paste + textarea.value.slice(end);
+                      const normalized = nextVal.replace(/\r\n/g, '\n');
+                      const lines = normalized.split('\n').slice(0, MAX_BIO_LINES);
+                      const clipped = lines.join('\n').slice(0, MAX_BIO_CHARS);
+                      setEditProfileData((prev) => ({ ...prev, description: clipped }));
+                    }}
+                    rows={5}
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 resize-none transition-all duration-200"
-                    maxLength={50}
+                    maxLength={MAX_BIO_CHARS}
                     placeholder="Tell us about yourself..."
                   />
                 </div>
                 {/* Save Visibility Selector */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Saved Maps Visibility</label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bookmark className="w-4 h-4 text-slate-400" />
+                    <span className="block text-sm font-medium text-slate-300">Saved Maps Visibility</span>
+                  </div>
                   <p className="text-xs text-slate-500 mb-3">Controls who can view your list of saved mindmaps on your public profile.</p>
                   <div className="grid grid-cols-3 gap-2">
                     <button
@@ -2326,10 +2374,12 @@ export default function Profile() {
                   onClick={() => {
                     // Reset form data to current profile values when canceling
                     if (profile) {
+                      const normalizedDesc = (profile.description || "").replace(/\r\n/g, '\n');
+                      const clampedDesc = normalizedDesc.split('\n').slice(0, MAX_BIO_LINES).join('\n').slice(0, MAX_BIO_CHARS);
                       setEditProfileData({
                         username: profile.username || "",
                         full_name: profile.full_name || "",
-                        description: profile.description || "",
+                        description: clampedDesc,
                         save_visibility: profile.save_visibility || 'public'
                       })
                     }

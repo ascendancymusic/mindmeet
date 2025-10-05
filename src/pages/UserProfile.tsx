@@ -29,6 +29,14 @@ const shimmerStyles = `
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
+  /* Clamp bio to 5 lines and preserve line breaks */
+  .bio-clamp-5 {
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-line;
+  }
   
   /* Custom responsive height classes */
   @media (max-height: 1090px) {
@@ -346,7 +354,7 @@ const UserProfile: React.FC = () => {
       // Get saved map IDs
       const { data: userSaves, error: savesError } = await supabase
         .from("mindmap_saves")
-        .select("mindmap_id")
+        .select("mindmap_id, created_at")
         .eq("user_id", userId)
 
       if (savesError) {
@@ -356,6 +364,10 @@ const UserProfile: React.FC = () => {
       }
 
       const savedMapIds = userSaves?.map(save => save.mindmap_id) || []
+      // Build a lookup of when each map was saved by this user
+      const saveTimeMap = new Map<string, number>(
+        (userSaves || []).map((s: any) => [s.mindmap_id, new Date(s.created_at).getTime()])
+      )
       if (savedMapIds.length === 0) {
         setSavedMaps([])
         return
@@ -423,6 +435,8 @@ const UserProfile: React.FC = () => {
         description: map.description || "",
         comment_count: map.comment_count || 0,
         createdAt: Date.now(),
+        // When this map was saved by the profile user
+        savedAt: saveTimeMap.get(map.id) || 0,
         is_main: map.is_main || false,
         creatorUsername: creatorUsernames.get(map.creator) || "Unknown",
         creatorFull_name: creatorFullNames.get(map.creator) || creatorUsernames.get(map.creator) || "Unknown",
@@ -432,7 +446,9 @@ const UserProfile: React.FC = () => {
         saves: saveCountMap.get(map.id) || 0,
         saved_by: userSavedSet.has(map.id) ? [user?.id] : [],
         collaborators: collaboratorsMap.get(map.id) || []
-      })).sort((a, b) => b.updatedAt - a.updatedAt)
+      }))
+      // Sort saved maps by the time they were saved (desc)
+      .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
 
       setSavedMaps(processed)
     } catch (err) {
@@ -1037,7 +1053,7 @@ const UserProfile: React.FC = () => {
                 </div>
               </div>              {/* Enhanced Bio */}
               <div className="mb-3">
-                <p className="text-slate-300 leading-relaxed text-sm">{profile.description || "No bio yet"}</p>
+                <p className="text-slate-300 leading-relaxed text-sm bio-clamp-5">{profile.description || "No bio yet"}</p>
               </div>
 
               {/* Enhanced Meta Information */}
