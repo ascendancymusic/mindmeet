@@ -3,28 +3,27 @@
 import type React from "react"
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import ReactFlow, { Background, Controls, ReactFlowProvider, type ReactFlowInstance } from "reactflow"
+import ReactFlow, { Background, Controls, ReactFlowProvider, type ReactFlowInstance, BackgroundVariant } from "reactflow"
 import "reactflow/dist/style.css"
 import { supabase } from "../supabaseClient"
 import { decompressDrawingData } from "../utils/drawingDataCompression"
 
-const CustomBackground = ({ backgroundColor }: { backgroundColor?: string }) => {
+const CustomBackground = ({ backgroundColor, dotColor }: { backgroundColor?: string; dotColor?: string }) => {
   if (backgroundColor) {
     return (
       <>
         {/* Base background color */}
         <div className="absolute inset-0" style={{ backgroundColor, zIndex: -2 }} />
-        {/* Subtle gradient overlay for better visual appeal */}
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20"
-          style={{ zIndex: -1 }}
-        />
+  {/* Dots background rendered below the gradient */}
+  <Background variant={BackgroundVariant.Dots} color={dotColor || "#475569"} gap={20} />
+  {/* Subtle gradient overlay for better visual appeal (above dots, below nodes) */}
+  <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/20" style={{ zIndex: -1 }} />
       </>
     )
   }
 
   // Default ReactFlow background when no custom background
-  return <Background color="#475569" gap={20} />
+  return <Background variant={BackgroundVariant.Dots} color={dotColor || "#475569"} gap={20} />
 }
 import { useAuthStore } from "../store/authStore"
 import { usePageTitle } from "../hooks/usePageTitle"
@@ -328,6 +327,7 @@ const ViewMindMap: React.FC = () => {
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
+  const [isViewportReady, setIsViewportReady] = useState(false)
   const [similarMindmapsCollapsed, setSimilarMindmapsCollapsed] = useState(false)
   const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null)
 
@@ -581,6 +581,7 @@ const ViewMindMap: React.FC = () => {
           edges: processedEdges,
           edgeType: map.json_data?.edgeType || 'default',
           backgroundColor: map.json_data?.backgroundColor,
+          dotColor: map.json_data?.dotColor,
           fontFamily: map.json_data?.fontFamily,
           drawingData: decompressDrawingData(map.drawing_data) || undefined,
           collaborators,
@@ -856,18 +857,35 @@ const ViewMindMap: React.FC = () => {
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     setReactFlowInstance(instance)
-    setTimeout(() => {
-      if (instance) {
-        instance.fitView({ padding: 0.2 })
+    if (!currentMap) {
+      setIsViewportReady(true)
+      return
+    }
+    if (currentMap.nodes && currentMap.nodes.length > 0) {
+      instance.fitView({ padding: 0.2 })
+      setIsViewportReady(true)
+    } else if (currentMap.drawingData?.strokes?.length) {
+      const rect = reactFlowWrapperRef.current?.getBoundingClientRect()
+      if (!rect) {
+        setIsViewportReady(true)
+        return
       }
-    }, 300)
-  }, [])
+      const { x, y, zoom } = computeDrawingViewport(rect.width, rect.height, currentMap.drawingData)
+      instance.setViewport({ x, y, zoom })
+      setIsViewportReady(true)
+    } else {
+      setIsViewportReady(true)
+    }
+  }, [currentMap])
 
   const handleResize = useCallback(() => {
-    if (reactFlowInstance) {
+    if (!reactFlowInstance) return
+    if (currentMap?.nodes && currentMap.nodes.length > 0) {
       reactFlowInstance.fitView({ padding: 0.2 })
+    } else if (currentMap?.drawingData?.strokes?.length) {
+      fitViewToDrawing(false)
     }
-  }, [reactFlowInstance])
+  }, [reactFlowInstance, currentMap?.nodes, currentMap?.drawingData])
 
   useEffect(() => {
     window.addEventListener("resize", handleResize)
@@ -875,12 +893,107 @@ const ViewMindMap: React.FC = () => {
   }, [handleResize])
 
   useEffect(() => {
-    if (!loading && reactFlowInstance && currentMap) {
-      setTimeout(() => {
-        reactFlowInstance.fitView({ padding: 0.2 })
-      }, 300)
+    if (!loading && reactFlowInstance && currentMap && currentMap.nodes && currentMap.nodes.length > 0) {
+      // Keep this for node-based maps only
+      reactFlowInstance.fitView({ padding: 0.2 })
     }
   }, [loading, reactFlowInstance, currentMap])
+
+  // Fit view to drawing bounds when there are no nodes but drawing data exists
+  const fitViewToDrawing = useCallback((animate = false) => {
+    if (!reactFlowInstance || !reactFlowWrapperRef.current) return
+    const drawing = currentMap?.drawingData
+    const strokes = drawing?.strokes
+    if (!strokes || strokes.length === 0) return
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const stroke of strokes) {
+      if (!stroke?.points?.length) continue
+      for (const p of stroke.points) {
+        if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+          if (p.x < minX) minX = p.x
+          if (p.y < minY) minY = p.y
+          if (p.x > maxX) maxX = p.x
+          if (p.y > maxY) maxY = p.y
+        }
+      }
+    }
+
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return
+
+    const bboxWidth = Math.max(1, maxX - minX)
+    const bboxHeight = Math.max(1, maxY - minY)
+    const rect = reactFlowWrapperRef.current.getBoundingClientRect()
+    const padding = 24 // px padding around drawing
+    const availableW = Math.max(1, rect.width - padding * 2)
+    const availableH = Math.max(1, rect.height - padding * 2)
+
+    // Compute zoom to fit, respecting ReactFlow min/max zoom settings (0.1 - 2)
+    let zoom = Math.min(availableW / bboxWidth, availableH / bboxHeight)
+    zoom = Math.max(0.1, Math.min(2, zoom))
+
+    // Center drawing bounds in the viewport
+    const worldCenterX = (minX + maxX) / 2
+    const worldCenterY = (minY + maxY) / 2
+    const screenCenterX = rect.width / 2
+    const screenCenterY = rect.height / 2
+    const x = screenCenterX - worldCenterX * zoom
+    const y = screenCenterY - worldCenterY * zoom
+
+    if (animate) {
+      try {
+        reactFlowInstance.setViewport({ x, y, zoom }, { duration: 250 })
+        return
+      } catch { /* ignore */ }
+    }
+    // Apply without animation to avoid jump
+    reactFlowInstance.setViewport({ x, y, zoom })
+  }, [reactFlowInstance, currentMap?.drawingData])
+
+  // Custom fit view handler to include drawing-only maps
+  const handleCustomFitView = useCallback(() => {
+    if (!reactFlowInstance) return
+    if (currentMap?.nodes && currentMap.nodes.length > 0) {
+      reactFlowInstance.fitView({ padding: 0.2 })
+    } else if (currentMap?.drawingData?.strokes?.length) {
+      fitViewToDrawing(true)
+    }
+  }, [reactFlowInstance, currentMap?.nodes, currentMap?.drawingData, fitViewToDrawing])
+
+  // Also run when only drawing data is present (no nodes)
+  // No-op: initial viewport handled in onInit without animation; visibility gated by isViewportReady
+
+  // Helper to compute the viewport for drawing bounds
+  const computeDrawingViewport = useCallback((containerW: number, containerH: number, drawingData: any) => {
+    const strokes = drawingData?.strokes || []
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const stroke of strokes) {
+      if (!stroke?.points?.length) continue
+      for (const p of stroke.points) {
+        if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+          if (p.x < minX) minX = p.x
+          if (p.y < minY) minY = p.y
+          if (p.x > maxX) maxX = p.x
+          if (p.y > maxY) maxY = p.y
+        }
+      }
+    }
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+      return { x: 0, y: 0, zoom: 1 }
+    }
+    const bboxWidth = Math.max(1, maxX - minX)
+    const bboxHeight = Math.max(1, maxY - minY)
+    const padding = 24
+    const availableW = Math.max(1, containerW - padding * 2)
+    const availableH = Math.max(1, containerH - padding * 2)
+    let zoom = Math.min(availableW / bboxWidth, availableH / bboxHeight)
+    zoom = Math.max(0.1, Math.min(2, zoom))
+    const worldCenterX = (minX + maxX) / 2
+    const worldCenterY = (minY + maxY) / 2
+    const x = containerW / 2 - worldCenterX * zoom
+    const y = containerH / 2 - worldCenterY * zoom
+    return { x, y, zoom }
+  }, [])
 
   useEffect(() => {
     if (!loading && currentMap && currentMap.nodes && currentMap.nodes.length > 0) {
@@ -959,7 +1072,8 @@ const ViewMindMap: React.FC = () => {
         const dotElements = reactFlowWrapperRef.current.querySelectorAll(".react-flow__background-dots circle")
         dotElements.forEach((dot: Element) => {
           if (dot instanceof SVGElement) {
-            dot.style.fill = "#374151"
+            // Prefer explicit dotColor if provided, otherwise a slightly brighter slate for fullscreen
+            dot.style.fill = (currentMap as any)?.dotColor || "#374151"
           }
         })
       }
@@ -1392,7 +1506,7 @@ const ViewMindMap: React.FC = () => {
     return `${diffInYears} ${diffInYears === 1 ? "year" : "years"} ago`
   }
 
-  if (loading || !currentMap || !currentMap.nodes || !currentMap.edges || currentMap.nodes.length === 0) {
+  if (loading || !currentMap || !currentMap.nodes || !currentMap.edges) {
     return <SkeletonLoader />
   } return (
     <div className="fixed inset-0 w-screen h-screen overflow-auto">
@@ -1458,12 +1572,7 @@ const ViewMindMap: React.FC = () => {
           onLoginSuccess={handleSpotifyLoginSuccess}
         />
       )}      {showSuccessPopup && (
-        <PublishSuccessModal
-          onClose={() => setShowSuccessPopup(false)}
-          mindmapTitle={currentMap?.title || "Your Mindmap"}
-          mindmapPermalink={currentMap?.permalink || ""}
-          creatorUsername={username || ""}
-        />
+        <PublishSuccessModal isVisible={true} />
       )}
       <div className="w-full max-w-none mx-auto pb-6 pt-16 min-h-full px-4">
         {" "}        {/* Enhanced Header Section */}
@@ -1556,7 +1665,7 @@ const ViewMindMap: React.FC = () => {
                 <ReactFlowProvider>
                   <ReactFlow
                     key={`reactflow-${currentMap.permalink || currentMap.id}`}
-                    style={reactFlowStyle}
+                    style={{ ...(reactFlowStyle || {}), opacity: isViewportReady ? 1 : 0 }}
                     nodes={currentMap.nodes.map((node: any) => {
                       const hasChildren = currentMap.edges.some((edge: any) => edge.source === node.id)
                       const isHidden = (() => {
@@ -1659,7 +1768,6 @@ const ViewMindMap: React.FC = () => {
                     })}
                     nodeTypes={nodeTypes}
                     onInit={onInit}
-                    fitView
                     nodesDraggable={false}
                     nodesConnectable={false}
                     elementsSelectable={true}
@@ -1670,8 +1778,8 @@ const ViewMindMap: React.FC = () => {
                     maxZoom={2}
                     proOptions={{ hideAttribution: true }}
                   >
-                    <CustomBackground backgroundColor={currentMap.backgroundColor} />
-                    <Controls />
+                    <CustomBackground backgroundColor={currentMap.backgroundColor} dotColor={currentMap.dotColor} />
+                    <Controls onFitView={handleCustomFitView} />
                     {currentMap.drawingData && (
                       <DrawingPreview drawingData={currentMap.drawingData} />
                     )}
