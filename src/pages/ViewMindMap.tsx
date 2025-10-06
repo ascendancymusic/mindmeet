@@ -2194,7 +2194,17 @@ const ViewMindMap: React.FC = () => {
                             <MoreHorizontal className="w-5 h-5" />
                           </button>
                           {comment.isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-40 bg-slate-800 rounded-lg shadow-xl border border-slate-700 z-10">
+                            <>
+                              {/* Backdrop to capture outside clicks */}
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() =>
+                                  setComments((prev) =>
+                                    prev.map((c) => (c.id === comment.id ? { ...c, isMenuOpen: false } : c)),
+                                  )
+                                }
+                              />
+                              <div className="absolute right-0 mt-2 w-40 bg-slate-800 rounded-lg shadow-xl border border-slate-700 z-20">
                               {comment.user_id === user?.id && (
                                 <button
                                   className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 rounded-t-lg transition-colors"
@@ -2251,6 +2261,7 @@ const ViewMindMap: React.FC = () => {
                                 </button>
                               )}
                             </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -2522,7 +2533,28 @@ const ViewMindMap: React.FC = () => {
                                     <MoreHorizontal className="w-4 h-4" />
                                   </button>
                                   {reply.isMenuOpen && (
-                                    <div className="absolute right-0 mt-2 w-40 bg-slate-800 rounded-lg shadow-xl border border-slate-700 z-10">
+                                    <>
+                                      {/* Backdrop to capture outside clicks for reply menu */}
+                                      <div
+                                        className="fixed inset-0 z-10"
+                                        onClick={() =>
+                                          setComments((prev) =>
+                                            prev.map((c) =>
+                                              c.id === comment.id
+                                                ? {
+                                                  ...c,
+                                                  replies: c.replies?.map((r: any) =>
+                                                    r.id === reply.id ? { ...r, isMenuOpen: false } : r,
+                                                  ),
+                                                }
+                                                : c,
+                                            ),
+                                          )
+                                        }
+                                      />
+                                      <div
+                                        className="absolute right-0 mt-2 w-40 bg-slate-800 rounded-lg shadow-xl border border-slate-700 z-20"
+                                      >
                                       {reply.user_id === user?.id && (
                                         <button
                                           className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 rounded-t-lg transition-colors"
@@ -2581,6 +2613,7 @@ const ViewMindMap: React.FC = () => {
                                         </button>
                                       )}
                                     </div>
+                                    </>
                                   )}
                                 </div>{" "}
                               </div>
