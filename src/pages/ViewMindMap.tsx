@@ -330,12 +330,61 @@ const ViewMindMap: React.FC = () => {
   const [isViewportReady, setIsViewportReady] = useState(false)
   const [similarMindmapsCollapsed, setSimilarMindmapsCollapsed] = useState(false)
   const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null)
+  const topReplyOverlayRef = useRef<HTMLDivElement | null>(null)
 
   // Report comment handler
   const handleReportComment = () => {
     setReportSuccessMessage("Comment reported")
     setTimeout(() => setReportSuccessMessage(null), 3000) // Hide after 3 seconds
   }
+
+  // Ensure caret starts at the end (after prefilled @username )
+  const placeCaretAtEnd = useCallback((el: HTMLTextAreaElement) => {
+    if (!el) return
+    const len = el.value?.length ?? 0
+    // next frame to ensure it's applied after focus/render
+    requestAnimationFrame(() => {
+      try {
+        el.setSelectionRange(len, len)
+      } catch { /* noop */ }
+    })
+  }, [])
+
+  // Render helper: convert @username into clickable blue links, avoiding emails/inside-word cases
+  const renderWithMentions = useCallback((text: string): React.ReactNode => {
+    if (!text) return null
+    const nodes: React.ReactNode[] = []
+    let lastIndex = 0
+    const regex = /@([a-zA-Z0-9_]+)/g
+    let match: RegExpExecArray | null
+    let key = 0
+    while ((match = regex.exec(text)) !== null) {
+      const start = match.index
+      const end = start + match[0].length
+      const prevChar = start > 0 ? text[start - 1] : ' '
+      if (start > lastIndex) nodes.push(text.slice(lastIndex, start))
+      const usernameToken = match[1]
+      const isInsideWord = /^[A-Za-z0-9_]$/.test(prevChar)
+      const isMinLength = usernameToken.length >= 3
+      if (!isInsideWord && isMinLength) {
+        nodes.push(
+          <a
+            key={`m-${key++}`}
+            href={`/${usernameToken}`}
+            className="text-blue-400 hover:text-blue-300"
+          >
+            @{usernameToken}
+          </a>,
+        )
+      } else {
+        // Not a valid mention (too short or inside a word), render as plain text
+        nodes.push(match[0])
+      }
+      lastIndex = end
+    }
+    if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+    return nodes
+  }, [])
 
   // Determine if the authenticated user is the creator of the mindmap by comparing user ID to the creator field
   const isCreator = !!(user?.id && currentMap?.creator && user.id === currentMap.creator)
@@ -2037,12 +2086,38 @@ const ViewMindMap: React.FC = () => {
                   <span>Comment as</span>
                   <span className="text-blue-400 font-medium">@{userProfile?.username || user?.username || "username"}</span>
                 </div>
-                <textarea
-                  className="w-full bg-slate-800/50 border border-slate-600/50 rounded-xl p-4 text-sm min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 placeholder-slate-400 resize-none"
-                  placeholder="Share your thoughts about this mindmap..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                />
+                <div className="relative">
+                  <div
+                    className="absolute inset-0 pointer-events-none p-4 text-sm min-h-[120px] whitespace-pre-wrap break-words text-slate-200 rounded-xl"
+                    style={{
+                      fontFamily: 'inherit',
+                      lineHeight: 'inherit',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {newComment && newComment.length > 0 ? (
+                      <>{renderWithMentions(newComment)}</>
+                    ) : (
+                      <span className="text-slate-400">Share your thoughts about this mindmap...</span>
+                    )}
+                  </div>
+                  <textarea
+                    className={`w-full bg-transparent border border-slate-600/50 rounded-xl p-4 text-sm min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 placeholder-transparent resize-none ${
+                      newComment.length > 0 ? 'text-transparent caret-white' : 'text-slate-200'
+                    }`}
+                    placeholder=""
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onScroll={(e) => {
+                      const overlay = (e.currentTarget.previousSibling as HTMLDivElement | null)
+                      if (overlay) {
+                        overlay.scrollTop = e.currentTarget.scrollTop
+                        overlay.scrollLeft = e.currentTarget.scrollLeft
+                      }
+                    }}
+                  />
+                </div>
                 <div className="flex justify-end mt-4">
                   <button
                     onClick={handlePostComment}
@@ -2226,7 +2301,7 @@ const ViewMindMap: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-slate-200 leading-relaxed mb-4">{comment.content}</p>
+                        <p className="text-sm text-slate-200 leading-relaxed mb-4">{renderWithMentions(comment.content)}</p>
                       )}
                       <div className="flex items-center gap-6">
                         {" "}
@@ -2245,7 +2320,17 @@ const ViewMindMap: React.FC = () => {
                         <button
                           onClick={() =>
                             setComments((prev) =>
-                              prev.map((c) => (c.id === comment.id ? { ...c, isReplying: !c.isReplying } : c)),
+                              prev.map((c) => {
+                                if (c.id !== comment.id) return c
+                                const toggled = !c.isReplying
+                                // Initialize draft with @mention when opening, preserve existing draft otherwise
+                                const initialDraft = toggled
+                                  ? (c.replyDraft?.length
+                                    ? c.replyDraft
+                                    : (c.profiles?.username ? `@${c.profiles.username} ` : ""))
+                                  : c.replyDraft
+                                return { ...c, isReplying: toggled, replyDraft: initialDraft }
+                              }),
                             )
                           }
                           className="text-xs text-slate-400 hover:text-blue-400 transition-colors"
@@ -2285,16 +2370,56 @@ const ViewMindMap: React.FC = () => {
                         )}
                       </div>
                       <div className="flex-1">
-                        <textarea
-                          className="w-full bg-slate-800/50 border border-slate-600/50 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 placeholder-slate-400"
-                          placeholder="Write a reply..."
-                          value={comment.replyDraft || ""}
-                          onChange={(e) =>
-                            setComments((prev) =>
-                              prev.map((c) => (c.id === comment.id ? { ...c, replyDraft: e.target.value } : c)),
-                            )
-                          }
-                        />
+                        {comment.profiles?.username && (
+                          <div className="mb-2 text-xs">
+                            <span className="text-slate-400 mr-1">Replying to</span>
+                            <a
+                              href={`/${comment.profiles.username}`}
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              @{comment.profiles.username}
+                            </a>
+                          </div>
+                        )}
+                        <div className="relative">
+                          <div
+                            ref={topReplyOverlayRef}
+                            className="absolute inset-0 pointer-events-none p-3 text-sm whitespace-pre-wrap break-words text-slate-200"
+                            style={{
+                              fontFamily: 'inherit',
+                              lineHeight: 'inherit',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {comment.replyDraft && comment.replyDraft.length > 0 ? (
+                              <>{renderWithMentions(comment.replyDraft)}</>
+                            ) : (
+                              <span className="text-slate-400">Write a reply...</span>
+                            )}
+                          </div>
+                          <textarea
+                            className={`w-full bg-transparent border border-slate-600/50 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 ${
+                              (comment.replyDraft || '').length > 0 ? 'text-transparent caret-white' : 'text-slate-200'
+                            }`}
+                            placeholder=""
+                            value={comment.replyDraft || ""}
+                            onChange={(e) =>
+                              setComments((prev) =>
+                                prev.map((c) => (c.id === comment.id ? { ...c, replyDraft: e.target.value } : c)),
+                              )
+                            }
+                            onFocus={(e) => placeCaretAtEnd(e.currentTarget)}
+                            onScroll={(e) => {
+                              const overlay = topReplyOverlayRef.current
+                              if (overlay) {
+                                overlay.scrollTop = e.currentTarget.scrollTop
+                                overlay.scrollLeft = e.currentTarget.scrollLeft
+                              }
+                            }}
+                            autoFocus
+                          />
+                        </div>
                         <div className="flex justify-end mt-3 gap-2">
                           <button
                             onClick={() => {
@@ -2332,7 +2457,11 @@ const ViewMindMap: React.FC = () => {
                   )}
                   {comment.replies && comment.replies.length > 0 && comment.showReplies && (
                     <div className="ml-16 mt-4 space-y-4 border-l-2 border-blue-500/30 pl-4">
-                      {comment.replies.map((reply: any) => (
+                      {[...(comment.replies || [])]
+                        .sort((a: any, b: any) =>
+                          new Date(a?.created_at || 0).getTime() - new Date(b?.created_at || 0).getTime(),
+                        )
+                        .map((reply: any) => (
                         <div
                           key={reply.id}
                           id={`comment-${reply.id}`}
@@ -2546,7 +2675,7 @@ const ViewMindMap: React.FC = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <p className="text-sm text-slate-200 leading-relaxed">{reply.content}</p>
+                                <p className="text-sm text-slate-200 leading-relaxed">{renderWithMentions(reply.content)}</p>
                               )}
                               <div className="flex items-center gap-4 mt-2">
                                 <button
@@ -2561,7 +2690,137 @@ const ViewMindMap: React.FC = () => {
                                   />
                                   <span>{reply.likes || 0}</span>
                                 </button>
+                                <button
+                                  onClick={() =>
+                                    setComments((prev) =>
+                                      prev.map((c) =>
+                                        c.id === comment.id
+                                          ? {
+                                            ...c,
+                                            replies: c.replies?.map((r: any) => {
+                                              if (r.id !== reply.id) return r
+                                              // Initialize draft with @mention if empty
+                                              const initialDraft = r.replyDraft?.length
+                                                ? r.replyDraft
+                                                : (r.profiles?.username ? `@${r.profiles.username} ` : '')
+                                              return { ...r, isReplying: !r.isReplying, replyDraft: initialDraft }
+                                            }),
+                                          }
+                                          : c,
+                                      ),
+                                    )
+                                  }
+                                  className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                                >
+                                  Reply
+                                </button>
                               </div>
+
+                              {reply.isReplying && (
+                                <div className="mt-3">
+                                  {reply.profiles?.username && (
+                                    <div className="mb-2 text-xs">
+                                      <span className="text-slate-400 mr-1">Replying to</span>
+                                      <a
+                                        href={`/${reply.profiles.username}`}
+                                        className="text-blue-400 hover:text-blue-300"
+                                      >
+                                        @{reply.profiles.username}
+                                      </a>
+                                    </div>
+                                  )}
+                                  <div className="relative">
+                                    <div
+                                      className="absolute inset-0 pointer-events-none p-3 text-sm whitespace-pre-wrap break-words text-slate-200"
+                                      style={{
+                                        fontFamily: 'inherit',
+                                        lineHeight: 'inherit',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                      }}
+                                    >
+                                      {reply.replyDraft && reply.replyDraft.length > 0 ? (
+                                        <>{renderWithMentions(reply.replyDraft)}</>
+                                      ) : (
+                                        <span className="text-slate-400">Write a reply...</span>
+                                      )}
+                                    </div>
+                                    <textarea
+                                      className={`w-full bg-transparent border border-slate-600/50 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 ${
+                                        (reply.replyDraft || '').length > 0 ? 'text-transparent caret-white' : 'text-slate-200'
+                                      }`}
+                                      placeholder=""
+                                      value={reply.replyDraft || ''}
+                                      onChange={(e) =>
+                                        setComments((prev) =>
+                                          prev.map((c) =>
+                                            c.id === comment.id
+                                              ? {
+                                                ...c,
+                                                replies: c.replies?.map((r: any) =>
+                                                  r.id === reply.id ? { ...r, replyDraft: e.target.value } : r,
+                                                ),
+                                              }
+                                              : c,
+                                          ),
+                                        )
+                                      }
+                                      autoFocus
+                                      onFocus={(e) => placeCaretAtEnd(e.currentTarget)}
+                                    />
+                                  </div>
+                                  <div className="flex gap-2 mt-2">
+                                    <button
+                                      className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs"
+                                      disabled={!reply.replyDraft?.trim()}
+                                      onClick={async () => {
+                                        const content = (reply.replyDraft || '').trim()
+                                        if (!content) return
+                                        try {
+                                          await handlePostReply(comment.id, content)
+                                          // Close composer and clear draft; ensure replies are visible
+                                          setComments((prev) =>
+                                            prev.map((c) =>
+                                              c.id === comment.id
+                                                ? {
+                                                  ...c,
+                                                  showReplies: true,
+                                                  replies: c.replies?.map((r: any) =>
+                                                    r.id === reply.id ? { ...r, isReplying: false, replyDraft: '' } : r,
+                                                  ),
+                                                }
+                                                : c,
+                                            ),
+                                          )
+                                        } catch (e) {
+                                          console.error('Failed to post reply to reply:', e)
+                                        }
+                                      }}
+                                    >
+                                      Reply
+                                    </button>
+                                    <button
+                                      className="px-3 py-1.5 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors text-xs"
+                                      onClick={() =>
+                                        setComments((prev) =>
+                                          prev.map((c) =>
+                                            c.id === comment.id
+                                              ? {
+                                                ...c,
+                                                replies: c.replies?.map((r: any) =>
+                                                  r.id === reply.id ? { ...r, isReplying: false } : r,
+                                                ),
+                                              }
+                                              : c,
+                                          ),
+                                        )
+                                      }
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
