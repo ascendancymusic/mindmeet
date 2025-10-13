@@ -1514,6 +1514,10 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         if (currentStroke && currentStroke.points && currentStroke.points.length > 1) {
           setStrokes(prev => Array.isArray(prev) ? [...prev, currentStroke] : [currentStroke]);
         }
+        // If we were erasing, commit a single history entry on release
+        if (isEraserMode && isDrawing) {
+          onDrawingChange({ strokes });
+        }
         setIsDrawing(false);
         setIsDrawingShape(false);
         setShapeStartPoint(null);
@@ -1595,14 +1599,17 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
     // 2. Not currently initializing  
     // 3. User has actually interacted with the canvas
     // 4. NOT currently dragging, resizing, rotating a stroke, or editing stroke properties via context menu
+    // 5. NOT actively erasing (we batch eraser changes and commit on mouseup)
     // 5. If we just finished editing properties, only save if we should save to history (accept was clicked)
+    const isEraserActive = isDrawingMode && isEraserMode && isDrawing;
     const shouldNotify = dataLoaded &&
       !isInitializingRef.current &&
       userHasInteractedRef.current &&
       !isDraggingStroke &&
       !isResizingStroke &&
       !isRotatingStroke &&
-      !isEditingStrokeProperties;
+      !isEditingStrokeProperties &&
+      !isEraserActive;
 
     // If we just finished editing properties, only save if shouldSaveChangesToHistory is true
     const wasJustEditingProperties = !isEditingStrokeProperties && shouldSaveChangesToHistory;
@@ -1616,7 +1623,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         setShouldSaveChangesToHistory(false);
       }
     }
-  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke, isResizingStroke, isRotatingStroke, isEditingStrokeProperties, shouldSaveChangesToHistory]);
+  }, [strokes, onDrawingChange, dataLoaded, isDraggingStroke, isResizingStroke, isRotatingStroke, isEditingStrokeProperties, shouldSaveChangesToHistory, isDrawingMode, isEraserMode, isDrawing]);
 
   // Cleanup
   useEffect(() => {
@@ -1826,7 +1833,7 @@ export const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasPro
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseEnter={handleMouseEnter}
-        onMouseLeave={(e) => {
+        onMouseLeave={() => {
           handleMouseUp();
           handleMouseLeave();
         }}
