@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Handle, Position, NodeResizeControl, useReactFlow } from 'reactflow';
+import { Handle, Position, NodeResizeControl, useReactFlow, useUpdateNodeInternals } from 'reactflow';
 import { ImageIcon } from 'lucide-react';
 import CollapseChevron from './CollapseChevron';
 import { compressImage } from '../utils/compressImage';
@@ -60,6 +60,19 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
                         (node?.style?.backgroundColor as string) || 
                         (node as any)?.background ||
                         '#374151';
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  // Ensure React Flow recalculates handle positions after size/layout changes
+  const updateNodeInternalsSafe = useCallback(() => {
+    // schedule on next frame to ensure DOM layout has settled
+    requestAnimationFrame(() => {
+      try {
+        updateNodeInternals(id);
+      } catch (_) {
+        // no-op
+      }
+    });
+  }, [updateNodeInternals, id]);
 
   const loadImage = useCallback(() => {
     // If we have a file, prioritize it over imageUrl (for local preview before saving)
@@ -161,11 +174,14 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
         bubbles: true
       });
       document.dispatchEvent(customEvent);
+      // After dimensions are applied, ask React Flow to recompute handles
+      updateNodeInternalsSafe();
     } else if (typeof width === 'number' && typeof height === 'number') {
       // Use existing dimensions from props
       setImageDimensions({ width, height });
+      updateNodeInternalsSafe();
     }
-  }, [data.file, imageDimensions, id, width, height]);
+  }, [data.file, imageDimensions, id, width, height, updateNodeInternalsSafe]);
 
   const handleImageError = useCallback(() => {
     setError('Error loading image.');
@@ -191,7 +207,12 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
     // Observe caption height changes to position resize control precisely at image bottom edge
     const el = captionRef.current;
     if (el) {
-      const update = () => setCaptionHeight(el.getBoundingClientRect().height);
+      const update = () => {
+        const h = el.getBoundingClientRect().height;
+        setCaptionHeight(h);
+        // Recompute handles when caption height changes (affects bottom sizing)
+        updateNodeInternalsSafe();
+      };
       update();
       const ro = new ResizeObserver(update);
       ro.observe(el);
@@ -204,7 +225,7 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
         URL.revokeObjectURL(imageSrc);
       }
     };
-  }, [loadImage, data.file, data.imageUrl]);
+  }, [loadImage, data.file, data.imageUrl, updateNodeInternalsSafe, imageSrc]);
 
   const handleContextMenu = (event: React.MouseEvent) => {
     if (onContextMenu) {
@@ -280,6 +301,8 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
                 document.dispatchEvent(customEvent);
               }
               initialSizeRef.current = null;
+              // Ensure edges/handles realign after resizing
+              updateNodeInternalsSafe();
             }
           }}
         >

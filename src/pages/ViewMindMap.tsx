@@ -1796,9 +1796,43 @@ const ViewMindMap: React.FC = () => {
                     edges={currentMap.edges.map((edge: any) => {
                       // Find the source node to get its color
                       const sourceNode = currentMap.nodes.find((node: any) => node.id === edge.source);
-                      const sourceNodeColor = sourceNode
+                      const colorCandidate = sourceNode
                         ? (sourceNode.background || sourceNode.style?.background || "#374151")
                         : "#374151";
+
+                      const isTransparentColor = (color?: string | null): boolean => {
+                        if (!color) return false;
+                        const c = String(color).trim().toLowerCase();
+                        if (c === 'transparent') return true;
+                        const rgba = c.match(/^rgba?\(([^)]+)\)$/);
+                        if (rgba) {
+                          const parts = rgba[1].split(/[\s,\/]+/).filter(Boolean);
+                          if (parts.length >= 4) {
+                            const a = parseFloat(parts[3]);
+                            return !isNaN(a) && a <= 0;
+                          }
+                        }
+                        const hsla = c.match(/^hsla?\(([^)]+)\)$/);
+                        if (hsla) {
+                          const parts = hsla[1].split(/[\s,\/]+/).filter(Boolean);
+                          if (parts.length >= 4) {
+                            const a = parseFloat(parts[3]);
+                            return !isNaN(a) && a <= 0;
+                          }
+                        }
+                        if (c.startsWith('#')) {
+                          const hex = c.slice(1);
+                          if (hex.length === 4) {
+                            return hex[3] === '0';
+                          }
+                          if (hex.length === 8) {
+                            return hex.slice(6, 8) === '00';
+                          }
+                        }
+                        return false;
+                      };
+
+                      const sourceNodeColor = isTransparentColor(colorCandidate) ? "#ffffff" : colorCandidate;
 
                       // Get edgeType from currentMap, default to 'default' if not valid
                       const edgeType = ['default', 'straight', 'smoothstep'].includes((currentMap as any).edgeType)
