@@ -214,7 +214,8 @@ const defaultNodeStyles = {
   image: {
     background: "#4c5b6f",
     color: "#fff",
-    border: "2px solid #374151",
+    // Border is transparent by default; shown on hover/selection via CSS
+    border: "2px solid transparent",
     borderRadius: "16px",
     padding: "0",
     minWidth: "auto",

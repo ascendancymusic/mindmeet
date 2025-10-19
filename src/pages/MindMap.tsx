@@ -6232,26 +6232,49 @@ export default function MindMap() {
                         (node.id === selectedNodeId || (selectedNodeId && autocolorSubnodes && getNodeDescendants(selectedNodeId).includes(node.id))) && previewColor
                           ? previewColor
                           : ((node as any).background as string) || (node.style?.background as string) || nodeTypeStyle.background,
-                      // Only apply border and borderColor for non-root nodes
-                      ...(node.id !== "1" && {
-                        borderColor: node.id === visuallySelectedNodeId
-                          ? "skyblue"
-                          : (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
-                            (node.type === 'spotify' && nodeData.spotifyUrl) ||
-                            (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                            (node.type === 'youtube-video' && nodeData.videoUrl)))
-                            ? "#4ade80"
-                            : "#374151",
-                        borderWidth: (isAddingToPlaylist && ((node.type === 'audio' && nodeData.audioUrl) ||
-                          (node.type === 'spotify' && nodeData.spotifyUrl) ||
-                          (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
-                          (node.type === 'youtube-video' && nodeData.videoUrl)))
-                          ? "3px"
-                          : "2px",
-                        border: (node.type === 'audio' || node.type === 'playlist' || node.type === 'spotify' || node.type === 'youtube-video')
-                          ? "solid"
-                          : node.style?.border || nodeTypeStyle.border,
-                      }),
+                      // Only apply border and borderColor for non-root nodes; skip color for image nodes
+                      ...(node.id !== "1" && (
+                        node.type !== 'image'
+                          ? {
+                              borderColor:
+                                node.id === visuallySelectedNodeId
+                                  ? "skyblue"
+                                  : (isAddingToPlaylist &&
+                                      ((node.type === 'audio' && nodeData.audioUrl) ||
+                                        (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                                        (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                                        (node.type === 'youtube-video' && nodeData.videoUrl)))
+                                  ? "#4ade80"
+                                  : "#374151",
+                              borderWidth:
+                                isAddingToPlaylist &&
+                                ((node.type === 'audio' && nodeData.audioUrl) ||
+                                  (node.type === 'spotify' && nodeData.spotifyUrl) ||
+                                  (node.type === 'soundcloud' && nodeData.soundCloudUrl) ||
+                                  (node.type === 'youtube-video' && nodeData.videoUrl))
+                                  ? "3px"
+                                  : "2px",
+                              border:
+                                node.type === 'audio' ||
+                                node.type === 'playlist' ||
+                                node.type === 'spotify' ||
+                                node.type === 'youtube-video'
+                                  ? "solid"
+                                  : node.style?.border || nodeTypeStyle.border,
+                            }
+                          : {
+                              // Image nodes: default transparent, but show visual selection color when clicked
+                              border: node.style?.border || nodeTypeStyle.border,
+                              borderColor:
+                                node.id === visuallySelectedNodeId
+                                  ? 'skyblue'
+                                  : 'transparent',
+                              borderWidth:
+                                typeof (node.style as any)?.borderWidth === 'string' || typeof (node.style as any)?.borderWidth === 'number'
+                                  ? ((node.style as any).borderWidth as any)
+                                  : '2px',
+                            }
+                      )),
                       whiteSpace: "normal",
                       wordWrap: "break-word",
                       overflowWrap: "break-word",

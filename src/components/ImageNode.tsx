@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Handle, Position, NodeResizeControl, useReactFlow, useUpdateNodeInternals } from 'reactflow';
 import { ImageIcon } from 'lucide-react';
 import CollapseChevron from './CollapseChevron';
@@ -36,7 +36,8 @@ const ResizeIcon = () => (
   </svg>
 );
 
-export function ImageNode({ id, data, isConnectable, width, height, selected, onContextMenu }: ImageNodeProps) {
+export function ImageNode({ id, data, isConnectable, selected, onContextMenu }: ImageNodeProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +49,18 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
   const [captionHeight, setCaptionHeight] = useState(0);
+  const lastDimensionsSrcRef = useRef<string | null>(null);
 
   // Extract collapse data
   const hasChildren = data?.hasChildren || false;
   const isCollapsed = data?.isCollapsed || false;
   const onToggleCollapse = data?.onToggleCollapse;
+
+  const handleImageError = useCallback(() => {
+    setError('Error loading image.');
+    setShowError(true);
+    setIsLoading(false);
+  }, []);
 
   // Get the actual node to access its style/background
   const node = reactFlowInstance.getNode(id);
@@ -73,6 +81,19 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
       }
     });
   }, [updateNodeInternals, id]);
+
+  // Tag the React Flow node wrapper so we can style border visibility via CSS and disable global overlay
+  useEffect(() => {
+    const wrapper = rootRef.current?.closest('.react-flow__node') as HTMLElement | null;
+    if (wrapper) {
+      wrapper.classList.add('image-node', 'no-node-overlay');
+    }
+    return () => {
+      if (wrapper) {
+        wrapper.classList.remove('image-node', 'no-node-overlay');
+      }
+    };
+  }, [id]);
 
   const loadImage = useCallback(() => {
     // If we have a file, prioritize it over imageUrl (for local preview before saving)
@@ -127,67 +148,66 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
       .finally(() => setIsLoading(false));
   }, [data.file, data.imageUrl]);
 
-  const handleImageLoad = useMemo(() => (e: React.SyntheticEvent<HTMLImageElement>) => {
-    setIsLoading(false);
+  // Preload image to ensure onload/onerror always fire and avoid stuck loading state
+  useEffect(() => {
+    if (!imageSrc) return;
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (cancelled) return;
+      setIsLoading(false);
+      const naturalWidth = img.naturalWidth;
+      const naturalHeight = img.naturalHeight;
 
-    // Get natural dimensions of the loaded image
-    const img = e.target as HTMLImageElement;
-    const naturalWidth = img.naturalWidth;
-    const naturalHeight = img.naturalHeight;
+      const maxWidth = 300;
+      const maxHeight = 300;
+      let calculatedWidth = naturalWidth;
+      let calculatedHeight = naturalHeight;
+      if (calculatedWidth > maxWidth) {
+        calculatedHeight = (calculatedHeight * maxWidth) / calculatedWidth;
+        calculatedWidth = maxWidth;
+      }
+      if (calculatedHeight > maxHeight) {
+        calculatedWidth = (calculatedWidth * maxHeight) / calculatedHeight;
+        calculatedHeight = maxHeight;
+      }
 
-    // Set a reasonable max size while maintaining aspect ratio
-    const maxWidth = 300;
-    const maxHeight = 300;
+      const isNewUpload = !!data.file;
+      const dimensionsChanged = !imageDimensions ||
+        imageDimensions.width !== calculatedWidth ||
+        imageDimensions.height !== calculatedHeight;
 
-    let calculatedWidth = naturalWidth;
-    let calculatedHeight = naturalHeight;
+      if (isNewUpload || dimensionsChanged) {
+        setImageDimensions({ width: calculatedWidth, height: calculatedHeight });
+        const customEvent = new CustomEvent('image-node-dimensions-set', {
+          detail: {
+            nodeId: id,
+            width: Math.round(calculatedWidth),
+            height: Math.round(calculatedHeight),
+            isNewUpload
+          },
+          bubbles: true
+        });
+        document.dispatchEvent(customEvent);
+        updateNodeInternalsSafe();
+      }
 
-    // Scale down if needed while maintaining aspect ratio
-    if (calculatedWidth > maxWidth) {
-      calculatedHeight = (calculatedHeight * maxWidth) / calculatedWidth;
-      calculatedWidth = maxWidth;
-    }
+      lastDimensionsSrcRef.current = imageSrc;
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      handleImageError();
+    };
+    img.src = imageSrc;
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [imageSrc, data.file, imageDimensions, id, updateNodeInternalsSafe, handleImageError]);
 
-    if (calculatedHeight > maxHeight) {
-      calculatedWidth = (calculatedWidth * maxHeight) / calculatedHeight;
-      calculatedHeight = maxHeight;
-    }
-
-    // Check if this is a new upload (file exists) or if dimensions have changed
-    const isNewUpload = !!data.file;
-    const dimensionsChanged = !imageDimensions ||
-      imageDimensions.width !== calculatedWidth ||
-      imageDimensions.height !== calculatedHeight;
-
-    // For new uploads or when dimensions change, update the node
-    if (isNewUpload || dimensionsChanged) {
-      setImageDimensions({ width: calculatedWidth, height: calculatedHeight });
-
-      // Dispatch event to update node dimensions
-      const customEvent = new CustomEvent('image-node-dimensions-set', {
-        detail: {
-          nodeId: id,
-          width: Math.round(calculatedWidth),
-          height: Math.round(calculatedHeight),
-          isNewUpload
-        },
-        bubbles: true
-      });
-      document.dispatchEvent(customEvent);
-      // After dimensions are applied, ask React Flow to recompute handles
-      updateNodeInternalsSafe();
-    } else if (typeof width === 'number' && typeof height === 'number') {
-      // Use existing dimensions from props
-      setImageDimensions({ width, height });
-      updateNodeInternalsSafe();
-    }
-  }, [data.file, imageDimensions, id, width, height, updateNodeInternalsSafe]);
-
-  const handleImageError = useCallback(() => {
-    setError('Error loading image.');
-    setShowError(true);
-    setIsLoading(false);
-  }, []);
+  
 
   // Reset state when node data changes significantly
   useEffect(() => {
@@ -234,7 +254,7 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
   };
 
   return (
-    <div className={"relative overflow-visible no-node-overlay group"} onContextMenu={handleContextMenu}>
+    <div ref={rootRef} className={"relative overflow-visible no-node-overlay group"} onContextMenu={handleContextMenu}>
       {/* Collapse button overlay */}
       <CollapseChevron
         hasChildren={hasChildren}
@@ -339,7 +359,6 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
               key={imageSrc}
               src={imageSrc}
               alt={data.label || 'Node image'}
-              onLoad={handleImageLoad}
               onError={handleImageError}
               className={`w-full h-auto object-contain ${data.label ? 'rounded-t-[14px]' : 'rounded-[14px]'} transition-opacity duration-700 ease-in-out imagenode-image-content ${
                 !isLoading ? 'opacity-100' : 'opacity-0'
@@ -350,6 +369,8 @@ export function ImageNode({ id, data, isConnectable, width, height, selected, on
                 maxHeight: '900px',
                 display: 'block',
               }}
+              loading="eager"
+              decoding="async"
             />
             
             {/* Title Section */}

@@ -111,6 +111,15 @@
   border: none !important;
 }
 
+/* ImageNode: border only visible on hover or when selected */
+.react-flow__node.image-node {
+  border-color: transparent;
+}
+
+.react-flow__node.image-node:hover {
+  border-color: #374151; /* slate-700 to match theme */
+}
+
 /* Extend edges by 8 pixels to minimize gaps */
 .react-flow__edge path {
   /* Use round line caps to extend the visual connection */
