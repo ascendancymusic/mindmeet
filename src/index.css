@@ -65,7 +65,8 @@
 }
 
 /* Modern Node Overlay Effects */
-.react-flow__node:not(.no-node-overlay):not(.text-no-bg-node)::before {
+/* Exclude image nodes explicitly so the gradient never appears on them */
+.react-flow__node:not(.no-node-overlay):not(.text-no-bg-node):not(.image-node):not(:has(.imagenode-image-content))::before {
   content: '';
   position: absolute;
   top: -2px;
@@ -79,6 +80,13 @@
   opacity: 1;
   /* Always on */
   transition: opacity 0.3s ease-in-out;
+}
+
+/* Hard-disable the overlay for ImageNodes regardless of selection/hover state */
+.react-flow__node.image-node::before,
+.react-flow__node:has(.imagenode-image-content)::before {
+  content: none !important;
+  display: none !important;
 }
 
 /* Ensure YouTube embed is above overlay */
