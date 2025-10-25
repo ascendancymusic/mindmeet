@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { GripVertical, PlusCircle, Check } from 'lucide-react';
 import { SoundCloudIcon } from './icons/SoundCloudIcon';
-import { useState } from 'react';
 import CollapseChevron from './CollapseChevron';
 
 interface SoundCloudNodeProps {
@@ -21,17 +20,98 @@ interface SoundCloudNodeProps {
 
 export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnectable, onContextMenu, id, isAddingToPlaylist }) => {
   const [showCheckmark, setShowCheckmark] = useState(false);
+  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
+  const [metadata, setMetadata] = useState<{ title: string; authorName?: string; thumbnailUrl?: string } | null>(null);
+  const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
 
   // Extract collapse data
   const hasChildren = data?.hasChildren || false;
   const isCollapsed = data?.isCollapsed || false;
   const onToggleCollapse = data?.onToggleCollapse;
 
+  const fallbackTitle = useMemo(() => {
+    if (!data?.soundCloudUrl) {
+      return 'SoundCloud Track';
+    }
+
+    try {
+      const withoutQuery = data.soundCloudUrl.split('?')[0];
+      const path = withoutQuery.replace('https://soundcloud.com/', '');
+      const [artist, ...songParts] = path.split('/').filter(Boolean);
+      if (!artist || songParts.length === 0) {
+        return decodeURIComponent(path.replace(/-/g, ' ')) || 'SoundCloud Track';
+      }
+      const song = songParts.join(' ').replace(/-/g, ' ');
+      return `${decodeURIComponent(artist.replace(/-/g, ' '))} — ${decodeURIComponent(song)}`;
+    } catch (error) {
+      return 'SoundCloud Track';
+    }
+  }, [data?.soundCloudUrl]);
+
+  // Fetch SoundCloud metadata so we can render a lightweight preview before loading the iframe.
+  useEffect(() => {
+    setIsPlayerVisible(false);
+
+    if (!data?.soundCloudUrl) {
+      setMetadata(null);
+      setMetadataError(null);
+      setIsFetchingMetadata(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const soundCloudUrl = data.soundCloudUrl as string;
+    const fetchMetadata = async () => {
+      setIsFetchingMetadata(true);
+      setMetadata(null);
+      setMetadataError(null);
+
+      try {
+        const response = await fetch(
+          `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(soundCloudUrl)}&maxheight=166&show_comments=false`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const json = await response.json();
+        if (!controller.signal.aborted) {
+          setMetadata({
+            title: json.title,
+            authorName: json.author_name,
+            thumbnailUrl: json.thumbnail_url,
+          });
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setMetadataError(error instanceof Error ? error.message : 'Unable to load track details');
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsFetchingMetadata(false);
+        }
+      }
+    };
+
+    fetchMetadata();
+
+    return () => {
+      controller.abort();
+    };
+  }, [data?.soundCloudUrl]);
+
   const handleOverlayClick = () => {
     setShowCheckmark(true);
     setTimeout(() => {
       setShowCheckmark(false);
     }, 1000);
+  };
+
+  const handleLoadPlayer = () => {
+    setIsPlayerVisible(true);
   };
 
   const handleContextMenu = (event: React.MouseEvent) => {
@@ -68,16 +148,47 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
         )}
         {data.soundCloudUrl ? (
           <>
-            <div className="border-2 border-gray-700 rounded-xl">
-              <iframe
-                width="100%"
-                height="166"
-                scrolling="no"
-                frameBorder="no"
-                src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(data.soundCloudUrl)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true&show_playcount=true&buying=false&sharing=false&download=false`}
-                className="rounded-lg"
-                style={{ pointerEvents: isAddingToPlaylist ? 'none' : 'auto' }}
-              />
+            <div className="border-2 border-gray-700 rounded-xl overflow-hidden bg-gray-900">
+              {isPlayerVisible ? (
+                <iframe
+                  width="100%"
+                  height="166"
+                  scrolling="no"
+                  frameBorder="no"
+                  src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(data.soundCloudUrl as string)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true&show_playcount=true&buying=false&sharing=false&download=false`}
+                  className="rounded-lg"
+                  style={{ pointerEvents: isAddingToPlaylist ? 'none' : 'auto' }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLoadPlayer}
+                  className="w-full text-left"
+                  aria-label="Load SoundCloud player"
+                >
+                  <div className="flex items-start gap-3 p-4">
+                    <SoundCloudIcon className="w-7 h-7 flex-shrink-0 text-[#FF5500]" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-100 truncate">
+                        {metadata?.title || fallbackTitle}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {isFetchingMetadata
+                          ? 'Loading track details...'
+                          : metadata?.authorName || (metadataError ? 'Track details unavailable' : 'Unknown artist')}
+                      </p>
+                      <p className="mt-2 text-xs font-medium text-sky-400">Click to load player</p>
+                    </div>
+                    {metadata?.thumbnailUrl && (
+                      <img
+                        src={metadata.thumbnailUrl}
+                        alt="SoundCloud track artwork"
+                        className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                      />
+                    )}
+                  </div>
+                </button>
+              )}
             </div>
             <div className="absolute -right-12 top-1/2 -translate-y-1/2 cursor-move opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <GripVertical size={32} className="text-gray-400 hover:text-gray-200 transition-colors" />

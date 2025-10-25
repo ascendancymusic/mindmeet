@@ -191,7 +191,7 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextM
 
   return (
     <div
-      className="group relative bg-gray-900/75 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
+      className="group relative bg-gray-900/50 rounded-lg py-3.5 px-3 border-2 border-gray-700 transition-colors flex items-center"
       style={{ minWidth: nodeWidth, transition: 'min-width 0.2s ease-in-out' }}
       onContextMenu={handleContextMenu}
     >
