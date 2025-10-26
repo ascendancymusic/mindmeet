@@ -3,6 +3,7 @@ import { Handle, Position } from 'reactflow';
 import { GripVertical, PlusCircle, Check } from 'lucide-react';
 import { SoundCloudIcon } from './icons/SoundCloudIcon';
 import CollapseChevron from './CollapseChevron';
+import { MarqueeText } from './MarqueeText';
 
 interface SoundCloudNodeProps {
   data: {
@@ -128,7 +129,10 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
         isConnectable={isConnectable}
         className="!top-[-8px]"
       />
-      <div className="group relative bg-gray-800 rounded-lg p-0 min-w-[300px]" onContextMenu={handleContextMenu}>
+      <div
+        className="group relative bg-gray-800 rounded-lg p-0 min-w-[300px] w-[340px] max-w-full"
+        onContextMenu={handleContextMenu}
+      >
         <CollapseChevron 
           hasChildren={hasChildren}
           isCollapsed={isCollapsed}
@@ -148,7 +152,7 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
         )}
         {data.soundCloudUrl ? (
           <>
-            <div className="border-2 border-gray-700 rounded-xl overflow-hidden bg-gray-900">
+            <div className="border-2 border-gray-700 rounded-xl overflow-hidden bg-gray-900 w-full">
               {isPlayerVisible ? (
                 <iframe
                   width="100%"
@@ -169,14 +173,19 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
                   <div className="flex items-start gap-3 p-4">
                     <SoundCloudIcon className="w-7 h-7 flex-shrink-0 text-[#FF5500]" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-100 truncate">
-                        {metadata?.title || fallbackTitle}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">
-                        {isFetchingMetadata
-                          ? 'Loading track details...'
-                          : metadata?.authorName || (metadataError ? 'Track details unavailable' : 'Unknown artist')}
-                      </p>
+                      <MarqueeText
+                        text={metadata?.title || fallbackTitle}
+                        className="text-sm font-semibold text-gray-100 w-full"
+                      />
+                      <MarqueeText
+                        text={
+                          isFetchingMetadata
+                            ? 'Loading track details...'
+                            : metadata?.authorName || (metadataError ? 'Track details unavailable' : 'Unknown artist')
+                        }
+                        className="text-xs text-gray-400 w-full mt-0.5"
+                        durationSeconds={16}
+                      />
                       <p className="mt-2 text-xs font-medium text-sky-400">Click to load player</p>
                     </div>
                     {metadata?.thumbnailUrl && (
@@ -195,7 +204,7 @@ export const SoundCloudNode = React.memo<SoundCloudNodeProps>(({ data, isConnect
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[120px] text-gray-500">
+          <div className="flex flex-col items-center justify-center h-[120px] text-gray-500 w-full">
             <SoundCloudIcon className="w-8 h-8 mb-1" />
             <span className="text-sm">Add SoundCloud Track</span>
           </div>
