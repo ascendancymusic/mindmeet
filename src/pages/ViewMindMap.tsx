@@ -1509,6 +1509,22 @@ const ViewMindMap: React.FC = () => {
     }
   }
 
+  const revealCreatorReply = useCallback((commentId: string, replyId: string) => {
+    setComments((prev) =>
+      prev.map((comment) => (comment.id === commentId ? { ...comment, showReplies: true } : comment)),
+    )
+    setHighlightedCommentId(replyId)
+
+    window.setTimeout(() => {
+      const replyElement = document.getElementById(`comment-${replyId}`)
+      replyElement?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 120)
+
+    window.setTimeout(() => {
+      setHighlightedCommentId((current) => (current === replyId ? null : current))
+    }, 5000)
+  }, [setComments, setHighlightedCommentId])
+
   // Function to sort comments
   const getSortedComments = (comments: any[]) => {
     return [...comments].sort((a, b) => {
@@ -2166,57 +2182,65 @@ const ViewMindMap: React.FC = () => {
             {/* Comments list - enhanced */}
             <div className="space-y-6 px-6 pb-6">
               {" "}
-              {getSortedComments(comments).map((comment) => (
-                <div
-                  key={comment.id}
-                  id={`comment-${comment.id}`}
-                  className={`p-4 border-b border-slate-700/20 transition-all duration-300 rounded-lg ${comment.is_pinned
-                      ? "bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/30 ring-1 ring-blue-500/20"
-                      : highlightedCommentId === comment.id
-                        ? "bg-blue-900/20 border-blue-500/30"
-                        : "hover:bg-slate-800/30"
-                    }`}
-                >
-                  {" "}                  <div className="flex items-start gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <a
-                            href={`/${comment.profiles?.username}`}
-                            className="flex items-center gap-3 hover:bg-slate-800/30 rounded-lg p-2 -m-2 transition-all duration-200 cursor-pointer group"
-                          >
-                            <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-700 flex-shrink-0 group-hover:ring-2 group-hover:ring-slate-500/50 transition-all duration-200">
-                              {comment.profiles?.avatar_url ? (
-                                <img
-                                  src={comment.profiles.avatar_url || "/placeholder.svg"}
-                                  alt={comment.profiles.username || "User"}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-300 font-bold">
-                                  {comment.profiles?.username?.charAt(0).toUpperCase() || "U"}
-                                </div>
-                              )}
-                            </div>                            <span className={`text-sm font-semibold transition-colors ${comment.profiles?.username === username
-                                ? "text-white group-hover:text-slate-300 px-2 py-1 rounded-lg bg-gradient-to-r from-blue-600/60 to-purple-600/60"
-                                : "text-white group-hover:text-slate-300"
-                              }`}>
+              {getSortedComments(comments).map((comment) => {
+                const creatorReply = (comment.replies || []).find(
+                  (reply: any) => reply.user_id === currentMap.creator,
+                )
+                const replyCount = comment.replies?.length || 0
+                const replyLabel = `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+
+                return (
+                  <div
+                    key={comment.id}
+                    id={`comment-${comment.id}`}
+                    className={`p-4 border-b border-slate-700/20 transition-all duration-300 rounded-lg ${comment.is_pinned
+                        ? "bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/30 ring-1 ring-blue-500/20"
+                        : highlightedCommentId === comment.id
+                          ? "bg-blue-900/20 border-blue-500/30"
+                          : "hover:bg-slate-800/30"
+                      }`}
+                  >
+                    <div className="flex gap-3">
+                      <a
+                        href={`/${comment.profiles?.username}`}
+                        className="mt-1 block h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-slate-700 transition-all duration-200 hover:ring-2 hover:ring-slate-500/40"
+                      >
+                        {comment.profiles?.avatar_url ? (
+                          <img
+                            src={comment.profiles.avatar_url || "/placeholder.svg"}
+                            alt={comment.profiles.username || "User"}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-300">
+                            {comment.profiles?.username?.charAt(0).toUpperCase() || "U"}
+                          </div>
+                        )}
+                      </a>
+                      <div className="flex-1 min-w-0">
+                        <div className="mb-0 flex items-center justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <a
+                              href={`/${comment.profiles?.username}`}
+                              className={`text-sm font-semibold transition-colors ${comment.profiles?.username === username
+                                  ? "rounded-lg bg-gradient-to-r from-blue-600/60 to-purple-600/60 px-2 py-1 text-white hover:text-slate-200"
+                                  : "text-white hover:text-slate-300"
+                                }`}
+                            >
                               @{comment.profiles?.username}
+                            </a>
+                            {comment.is_pinned && (
+                              <span className="flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-1 text-xs font-medium text-blue-300">
+                                <Pin className="h-3 w-3" />Pinned
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-xs text-slate-400">
+                              <Clock className="h-3 w-3" />
+                              {getRelativeTime(comment.created_at)}
+                              {comment.edited_at && <span className="ml-1 text-slate-500">(edited)</span>}
                             </span>
-                          </a>
-                          {comment.is_pinned && (
-                            <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 rounded-full">
-                              <Pin className="w-3 h-3 text-blue-400" />
-                              <span className="text-xs text-blue-400 font-medium">Pinned</span>
-                            </div>
-                          )}
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {getRelativeTime(comment.created_at)}
-                            {comment.edited_at && <span className="text-slate-500 ml-1">(edited)</span>}
-                          </span>
-                        </div>
-                        <div className="relative">
+                          </div>
+                          <div className="relative">
                           <button
                             className="text-slate-400 hover:text-slate-300 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors duration-200"
                             onClick={() =>
@@ -2346,10 +2370,9 @@ const ViewMindMap: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-slate-200 leading-relaxed mb-4">{renderWithMentions(comment.content)}</p>
+                        <p className="text-sm leading-relaxed text-slate-200">{renderWithMentions(comment.content)}</p>
                       )}
-                      <div className="flex items-center gap-6">
-                        {" "}
+                      <div className="mt-3 flex items-center gap-6">
                         <button
                           onClick={() => handleLikeComment(comment.id)}
                           className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-300 transition-colors"
@@ -2382,25 +2405,49 @@ const ViewMindMap: React.FC = () => {
                         >
                           Reply
                         </button>
-                        {comment.replies && comment.replies.length > 0 && (
-                          <button
-                            onClick={() =>
-                              setComments((prev) =>
-                                prev.map((c) => (c.id === comment.id ? { ...c, showReplies: !c.showReplies } : c)),
-                              )
-                            }
-                            className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                          >
-                            {comment.showReplies
-                              ? "Hide replies"
-                              : `${comment.replies.length} ${comment.replies.length === 1 ? "reply" : "replies"}`}
-                          </button>
-                        )}
                       </div>
+                      {replyCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!comment.showReplies && creatorReply) {
+                              revealCreatorReply(comment.id, creatorReply.id)
+                              return
+                            }
+                            setComments((prev) =>
+                              prev.map((c) =>
+                                c.id === comment.id ? { ...c, showReplies: !c.showReplies } : c,
+                              ),
+                            )
+                          }}
+                          className="group mt-2 flex items-center gap-2 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+                        >
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${comment.showReplies ? "rotate-180" : ""}`}
+                          />
+                          {creatorReply && (
+                            <div className="h-6 w-6 overflow-hidden rounded-full bg-slate-700">
+                              {creatorReply.profiles?.avatar_url ? (
+                                <img
+                                  src={creatorReply.profiles.avatar_url || "/placeholder.svg"}
+                                  alt={creatorReply.profiles?.username || "Creator"}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-300">
+                                  {creatorReply.profiles?.username?.charAt(0).toUpperCase() || "C"}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {creatorReply && <span className="text-slate-400">•</span>}
+                          <span>{replyLabel}</span>
+                        </button>
+                      )}
                     </div>
-                  </div>{" "}
+                  </div>
                   {comment.isReplying && (
-                    <div className="flex items-start gap-3 ml-16 mt-4 bg-slate-800/30 rounded-lg p-4 border border-slate-600/30">
+                    <div className="ml-12 mt-4 flex items-start gap-3 rounded-lg border border-slate-600/30 bg-slate-800/30 p-4">
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700 flex-shrink-0">
                         {userProfile?.avatar_url ? (
                           <img
@@ -2501,7 +2548,7 @@ const ViewMindMap: React.FC = () => {
                     </div>
                   )}
                   {comment.replies && comment.replies.length > 0 && comment.showReplies && (
-                    <div className="ml-16 mt-4 space-y-4 border-l-2 border-blue-500/30 pl-4">
+                    <div className="ml-12 mt-4 space-y-4 border-l-2 border-blue-500/30 pl-4">
                       {[...(comment.replies || [])]
                         .sort((a: any, b: any) =>
                           new Date(a?.created_at || 0).getTime() - new Date(b?.created_at || 0).getTime(),
@@ -2895,7 +2942,8 @@ const ViewMindMap: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ))}
+              )
+            })}
             </div>
             {/* Delete confirmation modal */}
             {commentToDelete && (
