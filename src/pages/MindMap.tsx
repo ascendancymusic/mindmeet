@@ -101,6 +101,7 @@ import TextNode, { DefaultTextNode } from "../components/TextNode";
 import { TextNoBgNode } from "../components/TextNoBgNode";
 import { NodeContextMenu } from "../components/NodeContextMenu";
 import { PaneContextMenu } from "../components/PaneContextMenu";
+import { EdgeDropContextMenu } from "../components/EdgeDropContextMenu";
 import { DrawModal } from "../components/DrawModal";
 import { DrawingCanvas, DrawingData, DrawingCanvasRef } from "../components/DrawingCanvas";
 // import removed: broadcastStateDiff no longer used directly in this file
@@ -422,6 +423,29 @@ export default function MindMap() {
     position: { x: 0, y: 0 }
   });
 
+  // Edge drop context menu state
+  const [edgeDropMenu, setEdgeDropMenu] = useState<{
+    isVisible: boolean;
+    position: { x: number; y: number };
+    sourceNodeId: string | null;
+    sourceScreenPosition: { x: number; y: number } | null;
+    targetScreenPosition: { x: number; y: number } | null;
+    tempEdgeId: string | null;
+    flowPosition: { x: number; y: number } | null;
+  }>({
+    isVisible: false,
+    position: { x: 0, y: 0 },
+    sourceNodeId: null,
+    sourceScreenPosition: null,
+    targetScreenPosition: null,
+    tempEdgeId: null,
+    flowPosition: null
+  });
+
+  // Track connection drag state
+  const connectionStartNodeRef = useRef<string | null>(null);
+  const edgeDropMenuJustOpenedRef = useRef<boolean>(false);
+
   // Search state
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -490,6 +514,126 @@ export default function MindMap() {
       position: { x: 0, y: 0 }
     });
   }, []);
+
+  // Edge drop context menu handlers
+  const handleCloseEdgeDropMenu = useCallback(() => {
+    // Remove the temporary edge and node
+    setEdges(eds => eds.filter(e => !e.id.startsWith('temp-edge-drop-')));
+    setNodes(nds => nds.filter(n => !n.id.startsWith('temp-node-')));
+    setEdgeDropMenu({
+      isVisible: false,
+      position: { x: 0, y: 0 },
+      sourceNodeId: null,
+      sourceScreenPosition: null,
+      targetScreenPosition: null,
+      tempEdgeId: null,
+      flowPosition: null
+    });
+  }, []);
+
+  const handleConnectionStart = useCallback((_event: React.MouseEvent | React.TouchEvent, params: { nodeId: string | null; handleType: string | null }) => {
+    // Store the source node ID when connection starts
+    if (params.nodeId) {
+      connectionStartNodeRef.current = params.nodeId;
+    }
+  }, []);
+
+  const handleConnectionEnd = useCallback((event: MouseEvent | TouchEvent) => {
+    // Only proceed if we have a connection start node
+    if (!connectionStartNodeRef.current) {
+      return;
+    }
+
+    // Check if connection ended on a node handle or node itself
+    const target = event.target as HTMLElement;
+    const isOnNode = target.closest('.react-flow__node');
+    const isOnHandle = target.closest('.react-flow__handle');
+    
+    // Only show menu if NOT on a node or handle (i.e., dropped on empty space)
+    if (!isOnNode && !isOnHandle && reactFlowInstance) {
+      // Get the client position where the connection was dropped
+      const clientX = 'clientX' in event ? event.clientX : (event as TouchEvent).touches[0]?.clientX || 0;
+      const clientY = 'clientY' in event ? event.clientY : (event as TouchEvent).touches[0]?.clientY || 0;
+      
+      // Convert screen position to flow position
+      const flowPosition = reactFlowInstance.screenToFlowPosition({
+        x: clientX,
+        y: clientY
+      });
+      
+      // Get source node position
+      const sourceNode = nodes.find(n => n.id === connectionStartNodeRef.current);
+      if (sourceNode) {
+        const sourceFlowPosition = {
+          x: sourceNode.position.x + (sourceNode.width || 0) / 2,
+          y: sourceNode.position.y + (sourceNode.height || 0) / 2
+        };
+        
+        // Convert flow positions to screen positions
+        const sourceScreenPos = reactFlowInstance.flowToScreenPosition(sourceFlowPosition);
+        const targetScreenPos = { x: clientX, y: clientY };
+        
+        // Create a temporary invisible node at the drop position
+        const tempNodeId = `temp-node-${Date.now()}`;
+        const tempNode: Node = {
+          id: tempNodeId,
+          type: 'default',
+          position: flowPosition,
+          data: { label: '' },
+          style: {
+            opacity: 0,
+            width: 1,
+            height: 1,
+            padding: 0,
+            border: 'none',
+          },
+          draggable: false,
+          selectable: false,
+        };
+        
+        // Add temporary node
+        setNodes(nds => [...nds, tempNode]);
+        
+        // Create a temporary edge
+        const tempEdgeId = `temp-edge-drop-${Date.now()}`;
+        const tempEdge: Edge = {
+          id: tempEdgeId,
+          source: connectionStartNodeRef.current,
+          target: tempNodeId,
+          type: edgeType,
+          style: {
+            strokeWidth: 2,
+            strokeDasharray: '5,5',
+            stroke: '#6366f1',
+          },
+          animated: false,
+        };
+        
+        // Add temporary edge
+        setEdges(eds => [...eds, tempEdge]);
+        
+        // Show the edge drop menu with screen positions
+        setEdgeDropMenu({
+          isVisible: true,
+          position: { x: clientX, y: clientY },
+          sourceNodeId: connectionStartNodeRef.current,
+          sourceScreenPosition: sourceScreenPos,
+          targetScreenPosition: targetScreenPos,
+          tempEdgeId: tempNodeId,
+          flowPosition: flowPosition
+        });
+        
+        // Mark that the menu was just opened to prevent immediate closure
+        edgeDropMenuJustOpenedRef.current = true;
+        setTimeout(() => {
+          edgeDropMenuJustOpenedRef.current = false;
+        }, 100);
+      }
+    }
+    
+    // Always clear the connection start node when connection ends
+    connectionStartNodeRef.current = null;
+  }, [reactFlowInstance, nodes]);
 
   // Handle wheel events for smooth playlist editor scrolling with throttling
   const handlePlaylistEditorWheel = useCallback((e: WheelEvent, element: HTMLElement) => {
@@ -2350,6 +2494,156 @@ export default function MindMap() {
       label: DEFAULT_NODE_LABELS[nodeType] || "",
     }
   }
+
+  const handleEdgeDropNodeSelect = useCallback((nodeType: string) => {
+    if (!edgeDropMenu.flowPosition || !edgeDropMenu.sourceNodeId) return;
+
+    // Map the nodeType from menu to actual node type
+    const nodeTypeMap: Record<string, string> = {
+      'text-bg': 'default',
+      'text-no-bg': 'text-no-bg',
+      'link': 'link',
+      'video': 'youtube-video',
+      'image': 'image',
+      'mindmap': 'mindmap',
+      'spotify': 'spotify',
+      'soundcloud': 'soundcloud',
+      'playlist': 'playlist',
+      'instagram': 'instagram',
+      'twitter': 'twitter',
+      'facebook': 'facebook',
+      'tiktok': 'tiktok',
+    };
+
+    const actualNodeType = nodeTypeMap[nodeType] || 'default';
+
+    // Get source node color if autocolor is enabled
+    const sourceNode = nodes.find(n => n.id === edgeDropMenu.sourceNodeId);
+    const sourceColor = autocolorSubnodes && sourceNode
+      ? ((sourceNode as any).background || sourceNode.style?.background || "#4c5b6f")
+      : null;
+
+    // Get node width based on type for proper centering
+    // These widths are based on minWidth/width from defaultNodeStyles
+    const getNodeWidth = (type: string): number => {
+      switch (type) {
+        case 'default':
+        case 'text-no-bg':
+          return 120; // minWidth 120px
+        case 'youtube-video':
+          return 320; // width 320px
+        case 'spotify':
+        case 'soundcloud':
+          return 200; // minWidth 200px
+        case 'audio':
+        case 'playlist':
+          return 250; // minWidth 250px
+        case 'link':
+        case 'instagram':
+        case 'twitter':
+        case 'facebook':
+        case 'tiktok':
+        case 'youtube':
+        case 'mindmeet':
+        case 'mindmap':
+        case 'image':
+          return 200; // estimated for auto-width nodes
+        default:
+          return 150;
+      }
+    };
+
+    const nodeWidth = getNodeWidth(actualNodeType);
+
+    // Center the node horizontally at the drop position
+    const centeredPosition = {
+      x: edgeDropMenu.flowPosition.x - nodeWidth / 2,
+      y: edgeDropMenu.flowPosition.y,
+    };
+
+    // Create the new node
+    const newNodeId = Date.now().toString();
+    const newNode: Node = {
+      id: newNodeId,
+      type: actualNodeType,
+      position: centeredPosition,
+      data: getInitialNodeData(actualNodeType),
+      style: {
+        ...(defaultNodeStyles[actualNodeType as keyof typeof defaultNodeStyles] || defaultNodeStyles.default),
+        ...(sourceColor && {
+          background: sourceColor,
+          textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
+        }),
+      },
+      // Set initial width for text nodes
+      ...(actualNodeType === 'default' && { width: 120 }),
+      // Add background property if autocolor is enabled
+      ...(sourceColor && { background: sourceColor }),
+    };
+
+    // Create the edge connecting source to new node
+    const newEdge: Edge = {
+      id: `${edgeDropMenu.sourceNodeId}-${newNodeId}`,
+      source: edgeDropMenu.sourceNodeId,
+      target: newNodeId,
+      type: edgeType,
+    };
+
+    // Remove temporary edge and node, add real node and edge
+    setEdges(eds => {
+      const filtered = eds.filter(e => !e.id.startsWith('temp-edge-drop-'));
+      return [...filtered, newEdge];
+    });
+
+    setNodes(nds => {
+      const filtered = nds.filter(n => !n.id.startsWith('temp-node-'));
+      const updatedNodes = [...filtered, newNode];
+
+      // Broadcast live node creation to collaborators
+      if (currentMindMapId && broadcastLiveChange) {
+        broadcastLiveChange({
+          id: newNode.id,
+          type: 'node',
+          action: 'create',
+          data: newNode
+        });
+
+        // Broadcast edge creation
+        broadcastLiveChange({
+          id: newEdge.id,
+          type: 'edge',
+          action: 'create',
+          data: newEdge
+        });
+      }
+
+      // Create history action for adding node and edge
+      const action = createHistoryAction(
+        'add_node',
+        { nodes: updatedNodes },
+        filtered
+      );
+      addToHistory(action);
+
+      return updatedNodes;
+    });
+
+    // Select the new node
+    setSelectedNodeId(newNodeId);
+    setVisuallySelectedNodeId(newNodeId);
+
+    // Auto-open editing for text-no-bg nodes
+    if (actualNodeType === 'text-no-bg') {
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('text-no-bg-start-edit', { detail: { nodeId: newNodeId } }));
+      }, 50);
+    }
+
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+    setIsInitialLoad(false);
+  }, [edgeDropMenu, edgeType, currentMindMapId, broadcastLiveChange, createHistoryAction, addToHistory, isInitialLoad, getInitialNodeData, SOCIAL_MEDIA_NODE_TYPES, DEFAULT_NODE_LABELS, nodes, autocolorSubnodes]);
 
   const onDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -6356,6 +6650,8 @@ export default function MindMap() {
               onNodesChange={useMemo(() => onNodesChange, [onNodesChange])}
               onEdgesChange={useMemo(() => onEdgesChange, [onEdgesChange])}
               onConnect={useMemo(() => onConnect, [onConnect])}
+              onConnectStart={useMemo(() => handleConnectionStart, [handleConnectionStart])}
+              onConnectEnd={useMemo(() => handleConnectionEnd, [handleConnectionEnd])}
               onInit={setReactFlowInstanceSafely}
               onDrop={onDrop}
               onDragOver={onDragOver}
@@ -6390,6 +6686,11 @@ export default function MindMap() {
                 handlePaneContextMenu(event);
               }}
               onPaneClick={() => {
+                // Don't close the edge drop menu if it was just opened
+                if (edgeDropMenuJustOpenedRef.current) {
+                  return;
+                }
+                
                 // Exit "add to playlist" mode when clicking on the pane
                 if (isAddingToPlaylist) {
                   setIsAddingToPlaylist(false);
@@ -6411,6 +6712,18 @@ export default function MindMap() {
                 setPaneContextMenu({
                   isVisible: false,
                   position: { x: 0, y: 0 }
+                });
+                // Remove temporary edge and node
+                setEdges(eds => eds.filter(e => !e.id.startsWith('temp-edge-drop-')));
+                setNodes(nds => nds.filter(n => !n.id.startsWith('temp-node-')));
+                setEdgeDropMenu({
+                  isVisible: false,
+                  position: { x: 0, y: 0 },
+                  sourceNodeId: null,
+                  sourceScreenPosition: null,
+                  targetScreenPosition: null,
+                  tempEdgeId: null,
+                  flowPosition: null
                 });
               }}
               onEdgeClick={(event) => {
@@ -8004,6 +8317,18 @@ export default function MindMap() {
             setSelectionBounds(null);
           }}
         />
+
+        {/* Edge Drop Context Menu */}
+        {edgeDropMenu.isVisible && (
+          <EdgeDropContextMenu
+            position={edgeDropMenu.position}
+            onClose={handleCloseEdgeDropMenu}
+            onNodeSelect={handleEdgeDropNodeSelect}
+            sourceScreenPosition={edgeDropMenu.sourceScreenPosition}
+            targetScreenPosition={edgeDropMenu.targetScreenPosition}
+            flowPosition={edgeDropMenu.flowPosition}
+          />
+        )}
 
         {/* Search Bar - Dynamically positioned relative to NodeTypesMenu */}
         {showSearch && (
