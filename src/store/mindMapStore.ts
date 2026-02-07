@@ -119,12 +119,43 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       }
     }
 
-    const maps = data?.map((map) => ({
+    const maps = data?.map((map) => {
+      // Normalize edges: ensure all edges have explicit handles and edgeType
+      const normalizedEdges = (map.json_data.edges || []).map((edge: any) => {
+        const normalized = { ...edge };
+        
+        // Ensure valid ReactFlow type property (default, straight, smoothstep)
+        const validMapEdgeType = map.json_data.edgeType || 'default';
+        if (!normalized.type || !['default', 'straight', 'smoothstep'].includes(normalized.type)) {
+          normalized.type = validMapEdgeType;
+        }
+        
+        // If edge doesn't have sourceHandle, set it to default hierarchical handle
+        if (!normalized.sourceHandle) {
+          normalized.sourceHandle = `${edge.source}-source`;
+        }
+        
+        // If edge doesn't have targetHandle, set it to default hierarchical handle
+        if (!normalized.targetHandle) {
+          normalized.targetHandle = `${edge.target}-target`;
+        }
+        
+        // Ensure edgeType is set (default to hierarchical for backward compatibility)
+        if (!normalized.data) {
+          normalized.data = { edgeType: 'hierarchical' };
+        } else if (!normalized.data.edgeType) {
+          normalized.data.edgeType = 'hierarchical';
+        }
+        
+        return normalized;
+      });
+      
+      return {
       permalink: map.permalink,
       id: map.id,
       title: map.title,
       nodes: map.json_data.nodes,
-      edges: map.json_data.edges,
+      edges: normalizedEdges,
       edgeType: map.json_data.edgeType || 'default',
       backgroundColor: map.json_data.backgroundColor || '#11192C',
       dotColor: map.json_data.dotColor || '#81818a',
@@ -145,7 +176,8 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       creatorAvatar: userAvatar,
       published_at: map.published_at,
       drawingData: decompressDrawingData(map.drawing_data) || undefined,
-    }));
+    };
+    });
 
     console.log('[mindMapStore] Setting maps in store, count:', maps?.length || 0);
     set({ maps: maps || [] });
@@ -207,12 +239,42 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         const map = collab.mindmaps;
         const collaborators = map.mindmap_collaborations?.filter((c: any) => c.status === 'accepted').map((c: any) => c.collaborator_id) || [userId];
         
+        // Normalize edges: ensure all edges have explicit handles and edgeType
+        const normalizedEdges = (map.json_data.edges || []).map((edge: any) => {
+          const normalized = { ...edge };
+          
+          // Ensure valid ReactFlow type property (default, straight, smoothstep)
+          const validMapEdgeType = map.json_data.edgeType || 'default';
+          if (!normalized.type || !['default', 'straight', 'smoothstep'].includes(normalized.type)) {
+            normalized.type = validMapEdgeType;
+          }
+          
+          // If edge doesn't have sourceHandle, set it to default hierarchical handle
+          if (!normalized.sourceHandle) {
+            normalized.sourceHandle = `${edge.source}-source`;
+          }
+          
+          // If edge doesn't have targetHandle, set it to default hierarchical handle
+          if (!normalized.targetHandle) {
+            normalized.targetHandle = `${edge.target}-target`;
+          }
+          
+          // Ensure edgeType is set (default to hierarchical for backward compatibility)
+          if (!normalized.data) {
+            normalized.data = { edgeType: 'hierarchical' };
+          } else if (!normalized.data.edgeType) {
+            normalized.data.edgeType = 'hierarchical';
+          }
+          
+          return normalized;
+        });
+        
         return {
           permalink: map.permalink,
           id: map.id,
           title: map.title,
           nodes: map.json_data.nodes,
-          edges: map.json_data.edges,
+          edges: normalizedEdges,
           edgeType: map.json_data.edgeType || 'default',
           backgroundColor: map.json_data.backgroundColor || '#11192C',
           dotColor: map.json_data.dotColor || '#81818a',
@@ -253,9 +315,9 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         return;
       }
 
-      // Clean edges by removing unwanted properties including style and type (since edgeType is stored globally)
+      // Clean edges by removing unwanted UI properties (keep sourceHandle and targetHandle as they're essential data)
       const cleanedEdges = edges ? edges.map(edge => {
-        const { selected, sourceHandle, targetHandle, style, type, ...cleanEdge } = edge;
+        const { selected, style, type, markerEnd, ...cleanEdge } = edge;
         return cleanEdge;
       }) : (json_data?.edges || []);
 
@@ -1083,10 +1145,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       };
     });
 
-    // Clean edges by removing unwanted properties including style and type (since edgeType is stored globally)
+    // Clean edges by removing unwanted UI properties (keep sourceHandle and targetHandle as they're essential data)
     const cleanedEdges = edges.map(edge => {
       // Create a new edge object without the unwanted properties
-      const { selected, sourceHandle, targetHandle, style, type, ...cleanEdge } = edge;
+      const { selected, style, type, markerEnd, ...cleanEdge } = edge;
       return cleanEdge;
     });
 

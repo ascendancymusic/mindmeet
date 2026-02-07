@@ -86,6 +86,7 @@ import { useToastStore } from "../store/toastStore";
 import { useClipboardStore } from "../store/clipboardStore";
 // Toast is now rendered globally in App.tsx
 import defaultNodeStyles from "../config/defaultNodeStyles";
+import { applyEdgeStyling, isTransparentColor } from "../config/edgeConfig";
 import { supabase } from "../supabaseClient";
 import { calculateTextNodeMinHeight, getNodeCurrentWidth } from "../utils/textNodeUtils";
 import { MindMapHelpModal } from "../components/MindMapHelpModal";
@@ -347,7 +348,6 @@ export default function MindMap() {
   // Removed floating paste toolbox; paste now handled exclusively via PaneContextMenu
   const [pasteToolboxPosition, setPasteToolboxPosition] = useState({ x: 0, y: 0 }); // retained only for legacy calls
   const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
-  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [isHoveringPlaylist, setIsHoveringPlaylist] = useState(false);
   const lastPlaylistEditorScrollTimeRef = useRef<number>(0);
   const setIsAnimatingGeneration: React.Dispatch<React.SetStateAction<boolean>> = useState(false)[1];
@@ -428,6 +428,7 @@ export default function MindMap() {
     isVisible: boolean;
     position: { x: number; y: number };
     sourceNodeId: string | null;
+    sourceHandleId: string | null;
     sourceScreenPosition: { x: number; y: number } | null;
     targetScreenPosition: { x: number; y: number } | null;
     tempEdgeId: string | null;
@@ -436,6 +437,7 @@ export default function MindMap() {
     isVisible: false,
     position: { x: 0, y: 0 },
     sourceNodeId: null,
+    sourceHandleId: null,
     sourceScreenPosition: null,
     targetScreenPosition: null,
     tempEdgeId: null,
@@ -444,6 +446,7 @@ export default function MindMap() {
 
   // Track connection drag state
   const connectionStartNodeRef = useRef<string | null>(null);
+  const connectionStartHandleRef = useRef<string | null>(null);
   const edgeDropMenuJustOpenedRef = useRef<boolean>(false);
 
   // Search state
@@ -524,6 +527,7 @@ export default function MindMap() {
       isVisible: false,
       position: { x: 0, y: 0 },
       sourceNodeId: null,
+      sourceHandleId: null,
       sourceScreenPosition: null,
       targetScreenPosition: null,
       tempEdgeId: null,
@@ -531,10 +535,12 @@ export default function MindMap() {
     });
   }, []);
 
-  const handleConnectionStart = useCallback((_event: React.MouseEvent | React.TouchEvent, params: { nodeId: string | null; handleType: string | null }) => {
-    // Store the source node ID when connection starts
+  const handleConnectionStart = useCallback((_event: React.MouseEvent | React.TouchEvent, params: { nodeId: string | null; handleType: string | null; handleId?: string | null }) => {
+    // Store the source node ID and handle ID when connection starts
     if (params.nodeId) {
       connectionStartNodeRef.current = params.nodeId;
+      // Store the handle ID to determine if it's a side handle
+      connectionStartHandleRef.current = params.handleId || null;
     }
   }, []);
 
@@ -560,6 +566,30 @@ export default function MindMap() {
         x: clientX,
         y: clientY
       });
+      
+      // Check if there's a node within proximity distance (50px) of the drop position
+      // This prevents the menu from showing when connection snaps to nearby node
+      const proximityDistance = 50;
+      const hasNodeNearby = nodes.some(node => {
+        const nodeX = node.position.x;
+        const nodeY = node.position.y;
+        const nodeWidth = node.width || 150;
+        const nodeHeight = node.height || 50;
+        
+        // Check if drop position is near the node (considering node bounds + proximity)
+        const isNearHorizontally = flowPosition.x >= (nodeX - proximityDistance) && 
+                                    flowPosition.x <= (nodeX + nodeWidth + proximityDistance);
+        const isNearVertically = flowPosition.y >= (nodeY - proximityDistance) && 
+                                  flowPosition.y <= (nodeY + nodeHeight + proximityDistance);
+        
+        return isNearHorizontally && isNearVertically;
+      });
+      
+      // Don't show menu if there's a node nearby (likely a proximity connection)
+      if (hasNodeNearby) {
+        connectionStartNodeRef.current = null;
+        return;
+      }
       
       // Get source node position
       const sourceNode = nodes.find(n => n.id === connectionStartNodeRef.current);
@@ -594,13 +624,49 @@ export default function MindMap() {
         // Add temporary node
         setNodes(nds => [...nds, tempNode]);
         
-        // Create a temporary edge
+        // Determine handles for the temporary edge
+        const sourceHandleId = connectionStartHandleRef.current || `${connectionStartNodeRef.current}-source`;
+        
+        // Check if this is a side handle connection
+        const isFromLeftHandle = sourceHandleId.endsWith('-left') && !sourceHandleId.includes('-source') && !sourceHandleId.includes('-target');
+        const isFromRightHandle = sourceHandleId.endsWith('-right') && !sourceHandleId.includes('-source') && !sourceHandleId.includes('-target');
+        const isFromTopHandle = sourceHandleId.includes('-target');
+        
+        let edgeSource = connectionStartNodeRef.current;
+        let edgeTarget = tempNodeId;
+        let edgeSourceHandle = sourceHandleId;
+        let edgeTargetHandle = '';
+
+        if (isFromLeftHandle) {
+          // Dragged from left -> connect to right of new node
+          edgeTargetHandle = `${tempNodeId}-right`;
+        } else if (isFromRightHandle) {
+          // Dragged from right -> connect to left of new node
+          edgeTargetHandle = `${tempNodeId}-left`;
+        } else if (isFromTopHandle) {
+          // Dragged from top handle (Target) -> Create parent node connection
+          // Reverse connection: New Node (Source) -> Existing Node (Target)
+          edgeSource = tempNodeId;
+          edgeTarget = connectionStartNodeRef.current;
+          edgeSourceHandle = `${tempNodeId}-source`;
+          edgeTargetHandle = sourceHandleId;
+        } else {
+          // From bottom handle (default) -> top of temp node
+          edgeTargetHandle = `${tempNodeId}-target`;
+        }
+        
+        // Create a temporary edge with explicit handles
         const tempEdgeId = `temp-edge-drop-${Date.now()}`;
         const tempEdge: Edge = {
           id: tempEdgeId,
-          source: connectionStartNodeRef.current,
-          target: tempNodeId,
+          source: edgeSource,
+          target: edgeTarget,
+          sourceHandle: edgeSourceHandle,
+          targetHandle: edgeTargetHandle,
           type: edgeType,
+          data: {
+            edgeType: 'hierarchical' // Temporary edge is always hierarchical
+          },
           style: {
             strokeWidth: 2,
             strokeDasharray: '5,5',
@@ -617,6 +683,7 @@ export default function MindMap() {
           isVisible: true,
           position: { x: clientX, y: clientY },
           sourceNodeId: connectionStartNodeRef.current,
+          sourceHandleId: connectionStartHandleRef.current,
           sourceScreenPosition: sourceScreenPos,
           targetScreenPosition: targetScreenPos,
           tempEdgeId: tempNodeId,
@@ -1428,7 +1495,10 @@ export default function MindMap() {
         if (visited.has(currentId)) return
         visited.add(currentId)
 
-        const childEdges = edges.filter((edge) => edge.source === currentId)
+        // Only consider hierarchical edges, not association edges
+        const childEdges = edges.filter((edge) => 
+          edge.source === currentId && edge.data?.edgeType !== 'association'
+        )
         childEdges.forEach((edge) => {
           descendants.push(edge.target)
           traverse(edge.target)
@@ -2275,7 +2345,7 @@ export default function MindMap() {
     [isInitialLoad, currentMindMapId, broadcastLiveChange],
   )
   // Enhanced connection validation for easy connect functionality
-  const isValidConnection = useCallback((connection: Connection) => {
+  const isValidConnection = useCallback((connection: Connection, isAssociation: boolean = false) => {
     // Prevent self-referential connections
     if (connection.source === connection.target) {
       return false;
@@ -2289,6 +2359,47 @@ export default function MindMap() {
       return false;
     }
 
+    // For association edges, validate side handle connections
+    // Association edges are free-form connections that don't affect hierarchy
+    if (isAssociation) {
+      const sourceHandle = connection.sourceHandle || '';
+      let targetHandle = connection.targetHandle || '';
+      
+      // Auto-set the target handle to the opposite side if not already set
+      if (!targetHandle) {
+        if (sourceHandle.endsWith('-right') && !sourceHandle.includes('-source') && !sourceHandle.includes('-target')) {
+          targetHandle = `${connection.target}-left`;
+          connection.targetHandle = targetHandle;
+        } else if (sourceHandle.endsWith('-left') && !sourceHandle.includes('-source') && !sourceHandle.includes('-target')) {
+          targetHandle = `${connection.target}-right`;
+          connection.targetHandle = targetHandle;
+        }
+      }
+      
+      // Right handle can only connect to left handles
+      if (sourceHandle.endsWith('-right') && !sourceHandle.includes('-source')) {
+        if (!targetHandle.endsWith('-left') || targetHandle.includes('-target')) {
+          return false;
+        }
+      }
+      
+      // Left handle can only connect to right handles
+      if (sourceHandle.endsWith('-left') && !sourceHandle.includes('-target')) {
+        if (!targetHandle.endsWith('-right') || targetHandle.includes('-source')) {
+          return false;
+        }
+      }
+      
+      // Check if this exact association already exists
+      const existingAssociation = edges.find(edge =>
+        edge.source === connection.source &&
+        edge.target === connection.target &&
+        edge.data?.edgeType === 'association'
+      );
+      return !existingAssociation;
+    }
+
+    // For hierarchical edges, perform full validation
     // Auto-determine handles based on the original drag direction
     // If sourceHandle is already set, it means user dragged from a specific handle
     if (connection.sourceHandle) {
@@ -2308,8 +2419,11 @@ export default function MindMap() {
 
     // Check if this connection would create a cycle (but allow direct bidirectional connections)
     const wouldCreateCycle = (sourceId: string, targetId: string, currentEdges: any[]) => {
+      // Only consider hierarchical edges for cycle detection
+      const hierarchicalEdges = currentEdges.filter(edge => edge.data?.edgeType !== 'association');
+
       // Allow direct bidirectional connections (A→B and B→A)
-      const directConnection = currentEdges.find(edge =>
+      const directConnection = hierarchicalEdges.find(edge =>
         edge.source === targetId && edge.target === sourceId
       );
       if (directConnection) {
@@ -2334,8 +2448,8 @@ export default function MindMap() {
         if (visited.has(current)) continue;
         visited.add(current);
 
-        // Find all nodes that this current node connects to
-        const outgoingEdges = currentEdges.filter(edge => edge.source === current);
+        // Find all nodes that this current node connects to (only hierarchical edges)
+        const outgoingEdges = hierarchicalEdges.filter(edge => edge.source === current);
         outgoingEdges.forEach(edge => {
           if (!visited.has(edge.target)) {
             stack.push(edge.target);
@@ -2355,13 +2469,23 @@ export default function MindMap() {
 
   const onConnect = useCallback(
     (params: Connection) => {
+      // Determine if this is an association edge (sideways connection)
+      // Check if the connection is from a left or right handle
+      // Must end with -left or -right, and NOT contain -source or -target
+      const sourceHandle = params.sourceHandle || '';
+      const isAssociationEdge = (sourceHandle.endsWith('-left') || sourceHandle.endsWith('-right')) && 
+                                !sourceHandle.includes('-source') && 
+                                !sourceHandle.includes('-target');
+
       // Use enhanced validation that auto-determines handles
-      if (!isValidConnection(params)) {
+      // Pass the edge type to validation so association edges can have different rules
+      if (!isValidConnection(params, isAssociationEdge)) {
         return;
       }
 
       // Autocolor functionality: color the target node with the source node's color
-      if (autocolorSubnodes && params.source && params.target) {
+      // Skip autocolor for association edges since they're not parent-child relationships
+      if (!isAssociationEdge && autocolorSubnodes && params.source && params.target) {
         const sourceNode = nodes.find(node => node.id === params.source);
         const targetNode = nodes.find(node => node.id === params.target);
 
@@ -2402,10 +2526,16 @@ export default function MindMap() {
 
       setEdges((eds) => {
         // Create edge with explicit ID to avoid ReactFlow auto-generation issues
-        const edgeWithId = {
-          ...params,
+        const edgeWithId: Edge = {
           id: `edge-${params.source}-${params.target}-${Date.now()}`,
-          type: edgeType
+          source: params.source!,
+          target: params.target!,
+          sourceHandle: params.sourceHandle,
+          targetHandle: params.targetHandle,
+          type: edgeType,
+          data: {
+            edgeType: isAssociationEdge ? 'association' : 'hierarchical'
+          }
         };
         const newEdges = addEdge(edgeWithId, eds)
 
@@ -2441,7 +2571,7 @@ export default function MindMap() {
 
       setIsInitialLoad(false)
     },
-    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange, isValidConnection, autocolorSubnodes],
+    [nodes, isInitialLoad, addToHistory, currentMindMapId, broadcastLiveChange, isValidConnection, autocolorSubnodes, edgeType],
   )
 
   const onDragStart = () => {
@@ -2581,12 +2711,51 @@ export default function MindMap() {
       ...(sourceColor && { background: sourceColor }),
     };
 
-    // Create the edge connecting source to new node
+    // Determine source and target handles based on where the connection was dragged from
+    const sourceHandleId = edgeDropMenu.sourceHandleId || `${edgeDropMenu.sourceNodeId}-source`;
+    
+    // Check if this is a side handle connection (association edge)
+    const isFromLeftHandle = sourceHandleId.endsWith('-left') && !sourceHandleId.includes('-source') && !sourceHandleId.includes('-target');
+    const isFromRightHandle = sourceHandleId.endsWith('-right') && !sourceHandleId.includes('-source') && !sourceHandleId.includes('-target');
+    const isFromTopHandle = sourceHandleId.includes('-target');
+    
+    let edgeSource = edgeDropMenu.sourceNodeId;
+    let edgeTarget = newNodeId;
+    let edgeSourceHandle = sourceHandleId;
+    let edgeTargetHandle = '';
+    
+    if (isFromLeftHandle) {
+      // Dragged from left -> connect to right of new node
+      edgeTargetHandle = `${newNodeId}-right`;
+    } else if (isFromRightHandle) {
+      // Dragged from right -> connect to left of new node
+      edgeTargetHandle = `${newNodeId}-left`;
+    } else if (isFromTopHandle) {
+      // Dragged from top handle -> parent connection
+      // Reverse connection: New Node (Source) -> Existing Node (Target)
+      edgeSource = newNodeId;
+      edgeTarget = edgeDropMenu.sourceNodeId;
+      edgeSourceHandle = `${newNodeId}-source`;
+      edgeTargetHandle = sourceHandleId;
+    } else {
+      // Dragged from bottom handle (default) -> connect to top of new node
+      edgeTargetHandle = `${newNodeId}-target`;
+    }
+    
+    // Create the edge connecting source to new node with explicit handles
     const newEdge: Edge = {
-      id: `${edgeDropMenu.sourceNodeId}-${newNodeId}`,
-      source: edgeDropMenu.sourceNodeId,
-      target: newNodeId,
+      id: `${edgeSource}-${edgeTarget}`,
+      source: edgeSource,
+      target: edgeTarget,
+      sourceHandle: edgeSourceHandle,
+      targetHandle: edgeTargetHandle,
       type: edgeType,
+      // Set edge type for association edges
+      ...(isFromLeftHandle || isFromRightHandle ? {
+        data: { edgeType: 'association' }
+      } : {
+        data: { edgeType: 'hierarchical' }
+      }),
     };
 
     // Remove temporary edge and node, add real node and edge
@@ -5890,11 +6059,6 @@ export default function MindMap() {
   // Handles clipboard operations and selection modifiers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Monitor shift key state for multi-selection functionality
-      if (e.key === 'Shift') {
-        setIsShiftPressed(true);
-      }
-
       // Global keyboard shortcut for paste operation (Ctrl+V)
       // Works throughout the application regardless of focus state
       if (e.ctrlKey && e.key === 'v') {
@@ -6096,19 +6260,10 @@ export default function MindMap() {
       // (Removed) Escape handling for legacy paste toolbox
     };
 
-    // Reset shift key state when released
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') {
-        setIsShiftPressed(false);
-      }
-    };
-
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
     };
   }, [clipboardNodes, clipboardEdges, edges, isInitialLoad, addToHistory, reactFlowInstance, pasteToolboxPosition, lastMousePosition, getViewportCenter]);
 
@@ -6407,7 +6562,7 @@ export default function MindMap() {
         {/* ReactFlow Area - 100% width */}
         <div
           ref={reactFlowWrapperRef}
-          className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[3rem]'} ${isShiftPressed ? 'no-text-select' : ''}`}
+          className={`fixed inset-0 ${isFullscreen ? '' : 'pt-[3rem]'}`}
           style={{
             zIndex: 1,
             backgroundColor: backgroundColor || '#11192C',
@@ -6430,8 +6585,11 @@ export default function MindMap() {
 
                 // Build lookup maps for O(1) access
                 nodes.forEach(node => sourceNodeMap.set(node.id, node));
+                // Only consider hierarchical edges for determining if a node has children
                 edges.forEach(edge => {
-                  hasChildrenMap.set(edge.source, true);
+                  if (edge.data?.edgeType !== 'association') {
+                    hasChildrenMap.set(edge.source, true);
+                  }
                 });
 
                 // Pre-compute hidden nodes using optimized ancestor lookup
@@ -6439,7 +6597,10 @@ export default function MindMap() {
                   if (visited.has(nodeId)) return [];
                   visited.add(nodeId);
 
-                  const parentEdges = edges.filter((edge) => edge.target === nodeId);
+                  // Only consider hierarchical edges for parent-child relationships
+                  const parentEdges = edges.filter((edge) => 
+                    edge.target === nodeId && edge.data?.edgeType !== 'association'
+                  );
                   if (parentEdges.length === 0) return [];
 
                   const parents = parentEdges.map((edge) => edge.source);
@@ -6588,51 +6749,13 @@ export default function MindMap() {
                 });
 
                 // Helper to detect transparency in CSS color strings
-                const isTransparentColor = (color?: string | null): boolean => {
-                  if (!color) return false;
-                  const c = String(color).trim().toLowerCase();
-                  if (c === 'transparent') return true;
-                  const rgba = c.match(/^rgba?\(([^)]+)\)$/);
-                  if (rgba) {
-                    const parts = rgba[1].split(/[\s,\/]+/).filter(Boolean);
-                    if (parts.length >= 4) {
-                      const a = parseFloat(parts[3]);
-                      return !isNaN(a) && a <= 0;
-                    }
-                  }
-                  const hsla = c.match(/^hsla?\(([^)]+)\)$/);
-                  if (hsla) {
-                    const parts = hsla[1].split(/[\s,\/]+/).filter(Boolean);
-                    if (parts.length >= 4) {
-                      const a = parseFloat(parts[3]);
-                      return !isNaN(a) && a <= 0;
-                    }
-                  }
-                  if (c.startsWith('#')) {
-                    const hex = c.slice(1);
-                    if (hex.length === 4) {
-                      return hex[3] === '0';
-                    }
-                    if (hex.length === 8) {
-                      return hex.slice(6, 8) === '00';
-                    }
-                  }
-                  return false;
-                };
-
                 return edges.map(edge => {
+                  // Get source node color
                   const colorCandidate = nodeColorMap.get(edge.source) || "#374151";
                   const sourceNodeColor = isTransparentColor(colorCandidate) ? "#ffffff" : colorCandidate;
 
-                  return {
-                    ...edge,
-                    type: edgeType === 'default' ? 'default' : edgeType,
-                    style: {
-                      ...edge.style,
-                      strokeWidth: 2,
-                      stroke: sourceNodeColor,
-                    },
-                  };
+                  // Apply consistent edge styling from config
+                  return applyEdgeStyling(edge, sourceNodeColor, edgeType);
                 });
               }, [edges, nodes, edgeType])}
               nodeTypes={nodeTypes}
@@ -6646,7 +6769,15 @@ export default function MindMap() {
                 strokeWidth: 2,
               }}
               connectionRadius={50}
-              isValidConnection={isValidConnection}
+              isValidConnection={useCallback((connection: Connection) => {
+                // Check if this is an association edge based on source handle
+                // Must end with -left or -right, and NOT contain -source or -target
+                const sourceHandle = connection.sourceHandle || '';
+                const isAssociation = (sourceHandle.endsWith('-left') || sourceHandle.endsWith('-right')) && 
+                                     !sourceHandle.includes('-source') && 
+                                     !sourceHandle.includes('-target');
+                return isValidConnection(connection, isAssociation);
+              }, [isValidConnection])}
               onNodesChange={useMemo(() => onNodesChange, [onNodesChange])}
               onEdgesChange={useMemo(() => onEdgesChange, [onEdgesChange])}
               onConnect={useMemo(() => onConnect, [onConnect])}
@@ -6720,6 +6851,7 @@ export default function MindMap() {
                   isVisible: false,
                   position: { x: 0, y: 0 },
                   sourceNodeId: null,
+                  sourceHandleId: null,
                   sourceScreenPosition: null,
                   targetScreenPosition: null,
                   tempEdgeId: null,

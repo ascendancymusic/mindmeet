@@ -4,6 +4,7 @@ import 'reactflow/dist/style.css';
 import { prepareNodesForRendering } from '../utils/reactFlowUtils';
 import { processNodesForTextRendering } from '../utils/textNodeUtils';
 import { nodeTypes } from '../config/nodeTypes';
+import { applyEdgeStyling, isTransparentColor } from '../config/edgeConfig';
 import DrawingPreview from './DrawingPreview';
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 import { DrawingData, getDrawingBounds } from './DrawingCanvas';
@@ -97,52 +98,6 @@ function resolveFontFamily(font?: string | null): string | undefined {
   if (map[key]) return map[key];
   // Otherwise assume it's already a valid CSS font-family string
   return raw;
-}
-
-// Detect if a CSS color string is effectively transparent
-function isTransparentColor(color?: string | null): boolean {
-  if (!color) return false;
-  const c = String(color).trim().toLowerCase();
-  if (c === 'transparent') return true;
-
-  // rgba()/rgb()
-  const rgbaMatch = c.match(/^rgba?\(([^)]+)\)$/);
-  if (rgbaMatch) {
-    const parts = rgbaMatch[1].split(/[\s,\/]+/).filter(Boolean);
-    if (parts.length >= 4) {
-      const a = parseFloat(parts[3]);
-      return !isNaN(a) && a <= 0;
-    }
-    return false;
-  }
-
-  // hsla()/hsl()
-  const hslaMatch = c.match(/^hsla?\(([^)]+)\)$/);
-  if (hslaMatch) {
-    const parts = hslaMatch[1].split(/[\s,\/]+/).filter(Boolean);
-    if (parts.length >= 4) {
-      const a = parseFloat(parts[3]);
-      return !isNaN(a) && a <= 0;
-    }
-    return false;
-  }
-
-  // Hex with alpha: #RGBA or #RRGGBBAA
-  if (c.startsWith('#')) {
-    const hex = c.slice(1);
-    if (hex.length === 4) {
-      // #RGBA -> A is the 4th nibble
-      const aHex = hex[3];
-      return aHex === '0';
-    }
-    if (hex.length === 8) {
-      // #RRGGBBAA -> AA is last two
-      const aHex = hex.slice(6, 8);
-      return aHex === '00';
-    }
-  }
-
-  return false;
 }
 
 /**
@@ -250,6 +205,11 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = React.memo(({
   const processedEdges = React.useMemo(() => {
     if (!mindMapData.edges?.length) return [];
     
+    // Get edgeType from mindmap data, default to 'default' if not valid
+    const edgeType = ['default', 'straight', 'smoothstep'].includes(mindMapData.edgeType || '')
+      ? mindMapData.edgeType
+      : 'default';
+    
     return mindMapData.edges.map((edge: any) => {
       // Find the source node to get its color
       const sourceNode = mindMapData.nodes.find((node: any) => node.id === edge.source);
@@ -258,22 +218,10 @@ const MindMapRenderer: React.FC<MindMapRendererProps> = React.memo(({
         : '#374151';
 
       // If the source node color is transparent, use white for the edge stroke
-      const edgeStrokeColor = isTransparentColor(colorCandidate) ? '#ffffff' : colorCandidate;
+      const sourceNodeColor = isTransparentColor(colorCandidate) ? '#ffffff' : colorCandidate;
 
-      // Get edgeType from mindmap data, default to 'default' if not valid
-      const edgeType = ['default', 'straight', 'smoothstep'].includes(mindMapData.edgeType || '')
-        ? mindMapData.edgeType
-        : 'default';
-
-      return {
-        ...edge,
-        type: edgeType === 'default' ? 'default' : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: edgeStrokeColor,
-        },
-      };
+      // Apply consistent edge styling from config
+      return applyEdgeStyling(edge, sourceNodeColor, edgeType);
     });
   }, [mindMapData.edges, mindMapData.nodes, mindMapData.edgeType]);
 

@@ -97,6 +97,47 @@ import PublishSuccessModal from '../components/PublishSuccessModal'
 // import { useToastStore } from '../store/toastStore'
 import { useNotificationStore } from '../store/notificationStore';
 
+// Helper function to normalize edges loaded from database
+function normalizeEdges(edges: any[], mapEdgeType: string = 'default'): any[] {
+  return edges.map((edge: any) => {
+    const normalized = { ...edge };
+    
+    // Ensure valid ReactFlow type property (default, straight, smoothstep)
+    const validMapEdgeType = mapEdgeType || 'default';
+    if (!normalized.type || !['default', 'straight', 'smoothstep'].includes(normalized.type)) {
+      normalized.type = validMapEdgeType;
+    }
+    
+    // If edge doesn't have sourceHandle, set it to default hierarchical handle
+    if (!normalized.sourceHandle) {
+      normalized.sourceHandle = `${edge.source}-source`;
+    }
+    
+    // If edge doesn't have targetHandle, set it to default hierarchical handle
+    if (!normalized.targetHandle) {
+      normalized.targetHandle = `${edge.target}-target`;
+    }
+    
+    // Detect edge type from handles (handles are source of truth)
+    // Check if handles indicate an association edge
+    const sourceHandle = String(normalized.sourceHandle || '');
+    const targetHandle = String(normalized.targetHandle || '');
+    const isAssociationFromHandles = 
+      (sourceHandle.endsWith('-left') || sourceHandle.endsWith('-right')) &&
+      (targetHandle.endsWith('-left') || targetHandle.endsWith('-right'));
+    
+    // Ensure edgeType matches handle type
+    if (!normalized.data) {
+      normalized.data = { edgeType: isAssociationFromHandles ? 'association' : 'hierarchical' };
+    } else {
+      // Override edgeType based on handles to fix inconsistent data
+      normalized.data.edgeType = isAssociationFromHandles ? 'association' : 'hierarchical';
+    }
+    
+    return normalized;
+  });
+}
+
 // Memoized ReactFlow preview component to prevent unnecessary re-renders
 const ProfileMindMapPreview = React.memo(({ map, isSmallScreen }: { map: any, isSmallScreen: boolean }) => {
   // Parse the mindmap data for the renderer
@@ -668,7 +709,7 @@ export default function Profile() {
           const processedMaps = mapsData.map((map) => ({
             ...map,
             nodes: map.json_data?.nodes || [],
-            edges: map.json_data?.edges || [],
+            edges: normalizeEdges(map.json_data?.edges || [], map.json_data?.edgeType),
             edgeType: map.json_data?.edgeType || 'default',
             updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
             description: map.description || "",
@@ -792,7 +833,7 @@ export default function Profile() {
               .map((map) => ({
                 ...map,
                 nodes: map.json_data?.nodes || [],
-                edges: map.json_data?.edges || [],
+                edges: normalizeEdges(map.json_data?.edges || [], map.json_data?.edgeType),
                 edgeType: map.json_data?.edgeType || 'default',
                 updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
                 description: map.description || "",
@@ -925,7 +966,7 @@ export default function Profile() {
               .map((map) => ({
                 ...map,
                 nodes: map.json_data?.nodes || [],
-                edges: map.json_data?.edges || [],
+                edges: normalizeEdges(map.json_data?.edges || [], map.json_data?.edgeType),
                 edgeType: map.json_data?.edgeType || 'default',
                 updatedAt: map.updated_at ? new Date(map.updated_at).getTime() : Date.now(),
                 description: map.description || "",

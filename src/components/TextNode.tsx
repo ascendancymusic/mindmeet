@@ -328,6 +328,10 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
   const reactFlowInstance = useReactFlow();
   const initialSizeRef = useRef<{ width: number; height: number } | null>(null);
 
+  // Get node's background color for side handles
+  const node = reactFlowInstance.getNode(id);
+  const nodeBackground = (node as any)?.background || node?.style?.background || '#4c5b6f';
+
   const handleContextMenu = (event: React.MouseEvent) => {
     if (onContextMenu) {
       onContextMenu(event, id);
@@ -339,13 +343,59 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
       className="relative overflow-visible no-node-overlay w-full h-full group"
       onContextMenu={handleContextMenu}
     >
-      {/* ReactFlow handles positioned at the actual node boundaries */}
+      {/* ReactFlow handles - Top and Bottom first for proper priority */}
       <Handle
         type="target"
         position={Position.Top}
         id={`${id}-target`}
+        isConnectable={true}
         className="!top-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
         style={{ zIndex: 20 }}
+      />
+      
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id={`${id}-source`}
+        isConnectable={true}
+        className="!bottom-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20 }}
+      />
+      
+      {/* Left handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={true}
+        className="!left-[-12px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={true}
+        className="!left-[-12px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
+      />
+      
+      {/* Right handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={true}
+        className="!right-[-12px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={true}
+        className="!right-[-12px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
       />
 
       {/* Collapse button overlay - only visible on hover if node has children */}
@@ -450,16 +500,6 @@ export const DefaultTextNode: React.FC<NodeProps & { onContextMenu?: (event: Rea
           </div>
         </NodeResizeControl>
       )}
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id={`${id}-source`}
-        className="!bottom-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
-        style={{ zIndex: 20 }}
-      />
-
-
     </div>
   );
 };

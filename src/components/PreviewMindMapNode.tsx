@@ -17,6 +17,7 @@ import { MindMapNode } from "./MindMapNode"
 import { aiService } from "../services/aiService"
 import { useChatStore } from "../store/chatStore"
 import defaultNodeStyles from "../config/defaultNodeStyles";
+import { applyEdgeStyling, isTransparentColor } from '../config/edgeConfig';
 import { processNodesForTextRendering } from "../utils/textNodeUtils";
 
 const CustomBackground = React.memo(() => {
@@ -79,19 +80,13 @@ const PreviewMindMapNode: React.FC<PreviewMindMapNodeProps> = React.memo(({ mapI
     return currentVersion.edges.map((edge: any) => {
       // Find the source node to get its color
       const sourceNode = currentVersion.nodes.find((node: any) => node.id === edge.source);
-      const sourceNodeColor = sourceNode
+      const colorCandidate = sourceNode
         ? (sourceNode.background || sourceNode.style?.background || "#374151")
         : "#374151";
+      const sourceNodeColor = isTransparentColor(colorCandidate) ? "#ffffff" : colorCandidate;
 
-      return {
-        ...edge,
-        type: edgeType === 'default' ? 'default' : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      };
+      // Apply consistent edge styling from config
+      return applyEdgeStyling(edge, sourceNodeColor, edgeType);
     });
   }, [currentVersion?.edges, currentVersion?.nodes, currentVersion?.edgeType])
 

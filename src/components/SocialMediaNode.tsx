@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, useReactFlow } from 'reactflow';
 import { Instagram, Twitter, Facebook, Youtube } from 'lucide-react';
 import CollapseChevron from './CollapseChevron';
 
@@ -47,6 +47,11 @@ export function SocialMediaNode(props: any) {
   const textRef = useRef<HTMLSpanElement>(null);
   const { username = "" } = data || {};
 
+  // Get node's background color for side handles
+  const reactFlowInstance = useReactFlow();
+  const node = id ? reactFlowInstance.getNode(id) : null;
+  const nodeBackground = (node as any)?.background || node?.style?.background || '#4c5b6f';
+
   // Extract collapse data
   const hasChildren = data?.hasChildren || false;
   const isCollapsed = data?.isCollapsed || false;
@@ -87,8 +92,45 @@ export function SocialMediaNode(props: any) {
       <Handle
         type="target"
         position={Position.Top}
+        id={`${id}-target`}
         isConnectable={isConnectable}
         className="!top-[-16px]"
+      />
+      
+      {/* Left handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={isConnectable}
+        className="!left-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={isConnectable}
+        className="!left-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
+      />
+      
+      {/* Right handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={isConnectable}
+        className="!right-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={isConnectable}
+        className="!right-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
       />
       <div className="flex items-center">
         {(icons[type] || icons.default)()}
@@ -121,6 +163,7 @@ export function SocialMediaNode(props: any) {
       <Handle
         type="source"
         position={Position.Bottom}
+        id={`${id}-source`}
         isConnectable={isConnectable}
         className="!bottom-[-16px]"
       />

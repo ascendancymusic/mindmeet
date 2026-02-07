@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
 import { processNodesForTextRendering } from "../utils/textNodeUtils";
+import { applyEdgeStyling, isTransparentColor } from '../config/edgeConfig';
 import { supabase } from '../supabaseClient';
 import { nodeTypes } from '../config/nodeTypes';
 
@@ -97,19 +98,15 @@ const ChatMindMapNode: React.FC<MindMapNodeProps> = React.memo(({ data }) => {
     return selectedMap.edges.map((edge: any) => {
       // Find the source node to get its color
       const sourceNode = selectedMap.nodes.find((node: any) => node.id === edge.source);
-      const sourceNodeColor = sourceNode
+      const colorCandidate = sourceNode
         ? (sourceNode.background || sourceNode.style?.background || "#374151")
         : "#374151";
 
-      return {
-        ...edge,
-        type: edgeType === 'default' ? 'default' : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      };
+      // If the source node color is transparent, use white for the edge stroke
+      const sourceNodeColor = isTransparentColor(colorCandidate) ? '#ffffff' : colorCandidate;
+
+      // Apply consistent edge styling from config
+      return applyEdgeStyling(edge, sourceNodeColor, edgeType);
     });
   }, [selectedMap?.edges, selectedMap?.nodes, selectedMap?.edgeType]);
 

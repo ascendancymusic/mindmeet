@@ -334,9 +334,46 @@ export function ImageNode({ id, data, isConnectable, selected, onContextMenu }: 
       <Handle
         type="target"
         position={Position.Top}
+        id={`${id}-target`}
         isConnectable={isConnectable}
         className="!top-[-4px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
         style={{ zIndex: 20 }}
+      />
+      
+      {/* Left handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={isConnectable}
+        className="!left-[-4px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={isConnectable}
+        className="!left-[-4px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
+      />
+      
+      {/* Right handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={isConnectable}
+        className="!right-[-4px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={isConnectable}
+        className="!right-[-4px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ zIndex: 20, background: nodeBackground }}
       />
       <div className="p-0 m-0 font-size-0 line-height-0">
         {!imageSrc && !showError && (
@@ -394,6 +431,7 @@ export function ImageNode({ id, data, isConnectable, selected, onContextMenu }: 
       <Handle
         type="source"
         position={Position.Bottom}
+        id={`${id}-source`}
         isConnectable={isConnectable}
         className="!bottom-[-4px] !bg-sky-400 !border-1 !border-gray-700 !w-2.5 !h-2.5"
         style={{ zIndex: 20 }}

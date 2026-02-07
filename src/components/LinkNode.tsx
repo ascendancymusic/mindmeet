@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, useReactFlow } from 'reactflow';
 import { createPortal } from 'react-dom';
 import { Link as LinkIcon } from 'lucide-react';
 import CollapseChevron from './CollapseChevron';
@@ -45,6 +45,11 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextM
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [nodeWidth, setNodeWidth] = useState(60);
+
+  // Get node's background color for side handles
+  const reactFlowInstance = useReactFlow();
+  const node = id ? reactFlowInstance.getNode(id) : null;
+  const nodeBackground = (node as any)?.background || node?.style?.background || '#4c5b6f';
 
   // Extract collapse data
   const hasChildren = data?.hasChildren || false;
@@ -203,8 +208,45 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextM
       <Handle
         type="target"
         position={Position.Top}
+        id={`${id}-target`}
         isConnectable={isConnectable}
         className="!top-[-16px]"
+      />
+      
+      {/* Left handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={isConnectable}
+        className="!left-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id={`${id}-left`}
+        isConnectable={isConnectable}
+        className="!left-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
+      />
+      
+      {/* Right handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={isConnectable}
+        className="!right-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={`${id}-right`}
+        isConnectable={isConnectable}
+        className="!right-[-8px] !border-1 !border-gray-700 !w-2.5 !h-2.5"
+        style={{ background: nodeBackground }}
       />
       <div className="flex items-center">
         {iconComponent}
@@ -224,6 +266,7 @@ export const LinkNode = memo(function LinkNode({ data, isConnectable, onContextM
       <Handle
         type="source"
         position={Position.Bottom}
+        id={`${id}-source`}
         isConnectable={isConnectable}
         className="!bottom-[-16px]"
       />

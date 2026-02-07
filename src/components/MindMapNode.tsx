@@ -15,10 +15,12 @@ import { SocialMediaNode } from './SocialMediaNode';
 import { LinkNode } from './LinkNode';
 import { useNavigate } from 'react-router-dom';
 import { TextNoBgNode } from "../components/TextNoBgNode";
+import { DefaultTextNode } from "../components/TextNode";
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
 import { processNodesForTextRendering } from "../utils/textNodeUtils";
 import { supabase } from '../supabaseClient';
 import CollapseChevron from './CollapseChevron';
+import { applyEdgeStyling, isTransparentColor } from '../config/edgeConfig';
 
 const CustomBackground = React.memo(() => {
   return (
@@ -51,6 +53,11 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
   const navigate = useNavigate();
 
+  // Get node's background color for side handles
+  const reactFlowInstance = reactFlowRef.current;
+  const node = reactFlowInstance?.getNode?.(id);
+  const nodeBackground = (node as any)?.background || node?.style?.background || '#4c5b6f';
+
   // Extract collapse data
   const hasChildren = data?.hasChildren || false;
   const isCollapsed = data?.isCollapsed || false;
@@ -73,19 +80,13 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
     return selectedMap.edges.map((edge: any) => {
       // Find the source node to get its color
       const sourceNode = selectedMap.nodes.find((node: any) => node.id === edge.source);
-      const sourceNodeColor = sourceNode
+      const colorCandidate = sourceNode
         ? (sourceNode.background || sourceNode.style?.background || "#374151")
         : "#374151";
+      const sourceNodeColor = isTransparentColor(colorCandidate) ? "#ffffff" : colorCandidate;
 
-      return {
-        ...edge,
-        type: edgeType === 'default' ? 'default' : edgeType,
-        style: {
-          ...edge.style,
-          strokeWidth: 2,
-          stroke: sourceNodeColor,
-        },
-      };
+      // Apply consistent edge styling from config
+      return applyEdgeStyling(edge, sourceNodeColor, edgeType);
     });
   }, [selectedMap?.edges, selectedMap?.nodes, selectedMap?.edgeType]);
 
@@ -222,6 +223,38 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
         id={`${id}-target`}
         className="!top-[-12px] !bg-sky-400 !border-1 !border-gray-700 !w-3 !h-3"
       />
+      
+      {/* Left handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={`${id}-left`}
+        className="!left-[-12px] !border-1 !border-gray-700 !w-3 !h-3"
+        style={{ background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id={`${id}-left`}
+        className="!left-[-12px] !border-1 !border-gray-700 !w-3 !h-3"
+        style={{ background: nodeBackground }}
+      />
+      
+      {/* Right handles for sideways connections - both source and target overlapped */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id={`${id}-right`}
+        className="!right-[-12px] !border-1 !border-gray-700 !w-3 !h-3"
+        style={{ background: nodeBackground }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={`${id}-right`}
+        className="!right-[-12px] !border-1 !border-gray-700 !w-3 !h-3"
+        style={{ background: nodeBackground }}
+      />
       <div className="p-4">
         {selectedMap ? (
           <>
@@ -340,6 +373,8 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
 };
 
 const nodeTypes = {
+  default: DefaultTextNode,
+  input: DefaultTextNode,
   spotify: SpotifyLiteNode,
   soundcloud: SoundCloudLiteNode,
   'youtube-video': YouTubeLiteNode,
