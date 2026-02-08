@@ -240,6 +240,7 @@ export function NodeTypesMenu({
   currentHistoryIndex = -1,
 }: NodeTypesMenuProps) {
   const [isMusicDropdownOpen, setIsMusicDropdownOpen] = useState(false)
+  const [isMediaDropdownOpen, setIsMediaDropdownOpen] = useState(false)
   const [isSocialDropdownOpen, setIsSocialDropdownOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -523,18 +524,53 @@ export function NodeTypesMenu({
           </div>
         </div>
 
-        {nodeTypes.map((nodeType) => (
-          <div
-            key={nodeType.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, nodeType.type)}
-            onMouseEnter={(e) => showTooltip(nodeType.label, e.currentTarget)}
+        {/* Media Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setIsMediaDropdownOpen((prev) => !prev)
+              // Close other dropdowns when opening media
+              if (!isMediaDropdownOpen) {
+                setIsMusicDropdownOpen(false)
+                setIsSocialDropdownOpen(false)
+              }
+            }}
+            onMouseEnter={(e) => showTooltip("Media", e.currentTarget)}
             onMouseLeave={hideTooltip}
-            className={`${isCompactMode ? "w-8 h-8" : "w-9 h-10"} flex items-center justify-center text-white rounded-xl cursor-move shadow-md transition-all duration-300 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25`}
+            className={`${isCompactMode ? "w-8 h-8" : "w-9 h-10"} flex items-center justify-center text-white rounded-xl shadow-md transition-all duration-300 ${isMediaDropdownOpen ? "ring-2 ring-slate-500/50" : ""
+              } bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50`}
           >
-            <div className={`${isCompactMode ? "scale-90" : ""}`}>{nodeType.icon}</div>
-          </div>
-        ))}
+            <div className={`flex items-center ${isCompactMode ? "scale-90" : ""}`}>
+              <ImageIcon className="w-5 h-5" />
+              <ChevronDown
+                className={`w-3 h-3 ml-0.5 transition-transform duration-200 ${isMediaDropdownOpen ? "rotate-180" : ""}`}
+              />
+            </div>
+          </button>
+          {isMediaDropdownOpen && (
+            <div
+              className={`${isCompactMode ? "mt-1 max-h-40 p-1.5" : "mt-2 max-h-52 p-2"} overflow-y-auto rounded-xl shadow-lg bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
+              style={{
+                scrollbarColor: "rgb(147, 34, 192) rgb(34, 34, 44)",
+                scrollbarWidth: "thin",
+                overflowX: "hidden",
+              }}
+            >
+              {nodeTypes.map((nodeType) => (
+                <div
+                  key={nodeType.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, nodeType.type)}
+                  onMouseEnter={(e) => showTooltip(nodeType.label, e.currentTarget)}
+                  onMouseLeave={hideTooltip}
+                  className={`${isCompactMode ? "w-8 h-8 mb-1" : "w-9 h-10 mb-2"} flex items-center justify-center text-white rounded-xl cursor-move shadow transition-all duration-300 bg-gradient-to-br from-slate-700/80 to-slate-800/80 backdrop-blur-sm border border-slate-600/30 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 shadow-lg shadow-slate-900/25`}
+                >
+                  <div className={`${isCompactMode ? "scale-90" : ""}`}>{nodeType.icon}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="relative">
           <button
@@ -543,6 +579,7 @@ export function NodeTypesMenu({
               // Close other dropdowns when opening music
               if (!isMusicDropdownOpen) {
                 setIsSocialDropdownOpen(false)
+                setIsMediaDropdownOpen(false)
               }
             }}
             onMouseEnter={(e) => showTooltip("Music", e.currentTarget)}
@@ -559,7 +596,7 @@ export function NodeTypesMenu({
           </button>
           {isMusicDropdownOpen && (
             <div
-              className={`${isCompactMode ? "mt-1 max-h-28 p-1.5" : "mt-2 max-h-36 p-2"} overflow-y-auto rounded-xl shadow-lg bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
+              className={`${isCompactMode ? "mt-1 max-h-40 p-1.5" : "mt-2 max-h-52 p-2"} overflow-y-auto rounded-xl shadow-lg bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
               style={{
                 scrollbarColor: "rgb(147, 34, 192) rgb(34, 34, 44)",
                 scrollbarWidth: "thin",
@@ -589,6 +626,7 @@ export function NodeTypesMenu({
               // Close other dropdowns when opening social
               if (!isSocialDropdownOpen) {
                 setIsMusicDropdownOpen(false)
+                setIsMediaDropdownOpen(false)
               }
             }}
             onMouseEnter={(e) => showTooltip("Social Media", e.currentTarget)}
@@ -605,7 +643,7 @@ export function NodeTypesMenu({
           </button>
           {isSocialDropdownOpen && (
             <div
-              className={`${isCompactMode ? "mt-1 max-h-28 p-1.5" : "mt-2 max-h-36 p-2"} overflow-y-auto rounded-xl shadow-lg bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
+              className={`${isCompactMode ? "mt-1 max-h-40 p-1.5" : "mt-2 max-h-52 p-2"} overflow-y-auto rounded-xl shadow-lg bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10`}
               style={{
                 scrollbarColor: "rgb(59, 130, 246) rgb(34, 34, 44)",
                 scrollbarWidth: "thin",
