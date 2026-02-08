@@ -13,7 +13,7 @@ import { AudioLiteNode } from './AudioLiteNode';
 import { PlaylistLiteNode } from './PlaylistLiteNode';
 import { SocialMediaNode } from './SocialMediaNode';
 import { LinkNode } from './LinkNode';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { TextNoBgNode } from "../components/TextNoBgNode";
 import { DefaultTextNode } from "../components/TextNode";
 import { prepareNodesForRendering } from "../utils/reactFlowUtils";
@@ -52,6 +52,17 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
   const [isLoadingCreator, setIsLoadingCreator] = useState<boolean>(false);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
   const navigate = useNavigate();
+
+  const targetPath = useMemo(() => {
+    if (!selectedMap) return null;
+    if (user?.id === mapCreator && user?.username) {
+      return `/${user.username}/${selectedMap.permalink}/edit`;
+    }
+    if (creatorUsername) {
+      return `/${creatorUsername}/${selectedMap.permalink}`;
+    }
+    return null;
+  }, [selectedMap, user, mapCreator, creatorUsername]);
 
   // Get node's background color for side handles
   const reactFlowInstance = reactFlowRef.current;
@@ -204,6 +215,37 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
     }
   };
 
+  const previewMapContent = (
+    <ReactFlowProvider>
+      <ReactFlow
+        nodes={memoizedNodes}
+        edges={memoizedEdges}
+        nodeTypes={nodeTypes as any}
+        fitView
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        zoomOnScroll={false}
+        zoomOnDoubleClick={false}
+        minZoom={0.1}
+        maxZoom={2}
+        onInit={onInit}
+        proOptions={{ hideAttribution: true }}
+        className="react-flow-instance"
+      >
+        <CustomBackground />
+      </ReactFlow>
+    </ReactFlowProvider>
+  );
+
+  const privateMapContent = (
+    <div className="flex flex-col items-center justify-center text-slate-400">
+      <EyeOff className="w-8 h-8 mb-2" />
+      <span>Private mindmap</span>
+      <span className="text-xs mt-1 text-slate-500">Click to request access</span>
+    </div>
+  );
+
   const handleContextMenu = (event: React.MouseEvent) => {
     if (onContextMenu) {
       onContextMenu(event, id);
@@ -301,42 +343,39 @@ const MindMapNode: React.FC<MindMapNodeProps> = ({ id, data, onContextMenu }) =>
             </div>
             
             {memoizedNodes.length > 0 ? (
-              <div
-                className="h-[200px] border border-slate-700/50 rounded-xl overflow-hidden cursor-pointer hover:border-sky-500/50 transition-all duration-300 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm"
-                onClick={handleClick}
-              >
-                <ReactFlowProvider>
-                  <ReactFlow
-                    nodes={memoizedNodes}
-                    edges={memoizedEdges}
-                    nodeTypes={nodeTypes as any}
-                    fitView
-                    nodesDraggable={false}
-                    nodesConnectable={false}
-                    elementsSelectable={false}
-                    zoomOnScroll={false}
-                    zoomOnDoubleClick={false}
-                    minZoom={0.1}
-                    maxZoom={2}
-                    onInit={onInit}
-                    proOptions={{ hideAttribution: true }}
-                    className="react-flow-instance"
-                  >
-                    <CustomBackground />
-                  </ReactFlow>
-                </ReactFlowProvider>
-              </div>
-            ) : (
-              <div
-                className="h-[200px] border border-slate-700/50 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:border-sky-500/50 transition-all duration-300 bg-gradient-to-br from-slate-900/80 to-slate-800/80"
-                onClick={handleClick}
-              >
-                <div className="flex flex-col items-center justify-center text-slate-400">
-                  <EyeOff className="w-8 h-8 mb-2" />
-                  <span>Private mindmap</span>
-                  <span className="text-xs mt-1 text-slate-500">Click to request access</span>
+              targetPath ? (
+                <RouterLink
+                  to={targetPath}
+                  className="block h-[200px] border border-slate-700/50 rounded-xl overflow-hidden cursor-pointer hover:border-sky-500/50 transition-all duration-300 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {previewMapContent}
+                </RouterLink>
+              ) : (
+                <div
+                  className="h-[200px] border border-slate-700/50 rounded-xl overflow-hidden cursor-pointer hover:border-sky-500/50 transition-all duration-300 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-sm"
+                  onClick={handleClick}
+                >
+                  {previewMapContent}
                 </div>
-              </div>
+              )
+            ) : (
+              targetPath ? (
+                <RouterLink
+                  to={targetPath}
+                  className="block h-[200px] border border-slate-700/50 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:border-sky-500/50 transition-all duration-300 bg-gradient-to-br from-slate-900/80 to-slate-800/80"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {privateMapContent}
+                </RouterLink>
+              ) : (
+                <div
+                  className="h-[200px] border border-slate-700/50 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:border-sky-500/50 transition-all duration-300 bg-gradient-to-br from-slate-900/80 to-slate-800/80"
+                  onClick={handleClick}
+                >
+                  {privateMapContent}
+                </div>
+              )
             )}
           </>
         ) : (
