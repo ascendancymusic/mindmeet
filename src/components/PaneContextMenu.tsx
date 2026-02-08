@@ -1,6 +1,25 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Clipboard } from 'lucide-react';
+import {
+  Clipboard,
+  Plus,
+  Type,
+  Link,
+  Youtube,
+  ImageIcon,
+  Network,
+  Music,
+  Instagram,
+  Twitter,
+  Facebook,
+  ChevronLeft,
+  ChevronRight,
+  Users,
+  ListMusic,
+} from 'lucide-react';
+import { SpotifyIcon } from './icons/SpotifyIcon';
+import { SoundCloudIcon } from './icons/SoundCloudIcon';
+import { TikTokIcon } from './icons/TikTokIcon';
 
 interface PaneContextMenuProps {
   isVisible: boolean;
@@ -9,9 +28,20 @@ interface PaneContextMenuProps {
   position: { x: number; y: number };
   hasClipboard?: boolean; // whether there is data in custom clipboard
   onPasteAt?: (screenPosition: { x: number; y: number }) => void; // callback to perform paste
+  onAddNode?: (nodeType: string, screenPosition: { x: number; y: number }) => void;
 }
 
-export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onClose, position, hasClipboard = false, onPasteAt }) => {
+type Category = null | 'text' | 'media' | 'music' | 'social';
+
+interface NodeOption {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  category: Category;
+  description?: string;
+}
+
+export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onClose, position, hasClipboard = false, onPasteAt, onAddNode }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Internal state for the on-screen (client) coordinates we render at.
@@ -24,12 +54,49 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
   const [openCounter, setOpenCounter] = useState(0);
   const lastOpenPositionRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Menu navigation state
+  const [view, setView] = useState<'main' | 'add-categories'>('main');
+  const [activeCategory, setActiveCategory] = useState<Category>(null);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  const categories: { id: Category; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: 'text', label: 'Text', icon: <Type className="w-4 h-4" />, color: 'from-blue-500/20 to-blue-600/20' },
+    { id: 'media', label: 'Media', icon: <ImageIcon className="w-4 h-4" />, color: 'from-purple-500/20 to-purple-600/20' },
+    { id: 'music', label: 'Music', icon: <Music className="w-4 h-4" />, color: 'from-pink-500/20 to-pink-600/20' },
+    { id: 'social', label: 'Social', icon: <Users className="w-4 h-4" />, color: 'from-cyan-500/20 to-cyan-600/20' },
+  ];
+
+  const nodeOptions: NodeOption[] = [
+    { id: 'link', label: 'Link', icon: <Link className="w-4 h-4" />, category: 'media', description: 'Embed a URL preview' },
+    { id: 'video', label: 'Video', icon: <Youtube className="w-4 h-4" />, category: 'media', description: 'YouTube or video embed' },
+    { id: 'image', label: 'Image', icon: <ImageIcon className="w-4 h-4" />, category: 'media', description: 'Upload or link an image' },
+    { id: 'mindmap', label: 'Mindmap', icon: <Network className="w-4 h-4" />, category: 'media', description: 'Nested mindmap node' },
+    { id: 'spotify', label: 'Spotify', icon: <SpotifyIcon className="w-4 h-4" />, category: 'music', description: 'Spotify track or playlist' },
+    { id: 'soundcloud', label: 'SoundCloud', icon: <SoundCloudIcon className="w-4 h-4" />, category: 'music', description: 'SoundCloud audio embed' },
+    { id: 'playlist', label: 'Playlist', icon: <ListMusic className="w-4 h-4" />, category: 'music', description: 'Audio playlist' },
+    { id: 'instagram', label: 'Instagram', icon: <Instagram className="w-4 h-4" />, category: 'social', description: 'Instagram account' },
+    { id: 'twitter', label: 'Twitter', icon: <Twitter className="w-4 h-4" />, category: 'social', description: 'Twitter/X account' },
+    { id: 'facebook', label: 'Facebook', icon: <Facebook className="w-4 h-4" />, category: 'social', description: 'Facebook account' },
+    { id: 'tiktok', label: 'TikTok', icon: <TikTokIcon className="w-4 h-4" />, category: 'social', description: 'TikTok video embed' },
+  ];
+
+  const filteredOptions = activeCategory
+    ? nodeOptions.filter((o) => o.category === activeCategory)
+    : [];
+
   const handlePaste = () => {
     if (!hasClipboard) return;
     if (onPasteAt) {
       onPasteAt(screenPosition);
     } else {
       console.log('Paste requested but no handler provided');
+    }
+    onClose();
+  };
+
+  const handleNodeSelect = (nodeId: string) => {
+    if (onAddNode) {
+      onAddNode(nodeId, screenPosition);
     }
     onClose();
   };
@@ -79,6 +146,10 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
   // Initialize world position and set up sticky behavior when menu opens (layout effect to avoid paint jump)
   useLayoutEffect(() => {
     if (!isVisible) return;
+
+    // Reset view state when opening
+    setView('main');
+    setActiveCategory(null);
 
     const openingNewSpot = !lastOpenPositionRef.current ||
       lastOpenPositionRef.current.x !== position.x ||
@@ -156,7 +227,13 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        if (activeCategory) {
+          setActiveCategory(null);
+        } else if (view === 'add-categories') {
+          setView('main');
+        } else {
+          onClose();
+        }
       }
     };
 
@@ -166,7 +243,7 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
         document.removeEventListener('keydown', handleEscape);
       };
     }
-  }, [isVisible, onClose]);
+  }, [isVisible, onClose, activeCategory, view]);
 
   if (!isVisible) return null;
 
@@ -175,23 +252,184 @@ export const PaneContextMenu: React.FC<PaneContextMenuProps> = ({ isVisible, onC
     <div
       key={openCounter}
       ref={menuRef}
-      className="fixed bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-xl shadow-2xl py-2 min-w-[120px] z-[1000]"
+      className="fixed z-[1000]"
       style={{
         left: screenPosition.x,
         top: screenPosition.y,
       }}
     >
-      <div className="px-3 py-1 text-xs text-slate-400 font-medium border-b border-slate-700/50 mb-1">
-        Actions
-      </div>
-      <button
-        onClick={handlePaste}
-        disabled={!hasClipboard}
-        className={`w-full px-3 py-2 text-left text-sm transition-all duration-150 flex items-center gap-2.5 group ${hasClipboard ? 'text-slate-200 hover:bg-slate-700/50' : 'text-slate-500 cursor-not-allowed opacity-60'}`}
+      <div 
+        className="bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+        style={{
+          minWidth: view === 'main' ? '180px' : (activeCategory ? '220px' : '180px'),
+          animation: 'fadeInScale 0.15s ease-out',
+        }}
       >
-        <Clipboard className={`w-3.5 h-3.5 ${hasClipboard ? 'text-slate-400 group-hover:text-slate-300' : 'text-slate-600' } transition-colors`} />
-        Paste
-      </button>
+        {/* Header Logic */}
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
+          {view === 'main' ? (
+             <div className="text-xs font-semibold text-slate-300 tracking-wide">
+               Actions
+             </div>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  if (activeCategory) setActiveCategory(null);
+                  else setView('main');
+                }}
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-xs font-semibold text-slate-300 tracking-wide">
+                {activeCategory
+                  ? categories.find((c) => c.id === activeCategory)?.label
+                  : 'Add Node'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="p-1.5">
+          {view === 'main' ? (
+            <div className="space-y-0.5">
+              <button
+                 onClick={handlePaste}
+                 disabled={!hasClipboard}
+                 onMouseEnter={() => setHoveredItem('paste')}
+                 onMouseLeave={() => setHoveredItem(null)}
+                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group ${
+                   hasClipboard 
+                    ? (hoveredItem === 'paste' ? 'bg-white/10 border border-white/10' : 'hover:bg-white/5 border border-transparent')
+                    : 'opacity-50 cursor-not-allowed border border-transparent'
+                 }`}
+              >
+                <div className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 ${
+                   hoveredItem === 'paste' && hasClipboard ? 'bg-white/10 text-white' : 'bg-white/5 text-slate-400'
+                }`}>
+                  <Clipboard className="w-4 h-4" />
+                </div>
+                <span className={`text-sm font-medium transition-colors ${
+                  hoveredItem === 'paste' && hasClipboard ? 'text-white' : 'text-slate-300'
+                }`}>
+                  Paste
+                </span>
+              </button>
+
+              <button
+                 onClick={() => setView('add-categories')}
+                 onMouseEnter={() => setHoveredItem('add-node')}
+                 onMouseLeave={() => setHoveredItem(null)}
+                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group ${
+                   hoveredItem === 'add-node' ? 'bg-white/10 border border-white/10' : 'hover:bg-white/5 border border-transparent'
+                 }`}
+              >
+                <div className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 ${
+                   hoveredItem === 'add-node' ? 'bg-white/10 text-white' : 'bg-white/5 text-slate-400'
+                }`}>
+                  <Plus className="w-4 h-4" />
+                </div>
+                <span className={`text-sm font-medium transition-colors ${
+                  hoveredItem === 'add-node' ? 'text-white' : 'text-slate-300'
+                }`}>
+                  Add Node
+                </span>
+                 <ChevronRight className={`w-3.5 h-3.5 ml-auto transition-all duration-150 ${
+                   hoveredItem === 'add-node' ? 'text-slate-300 translate-x-0.5' : 'text-slate-600'
+                 }`} />
+              </button>
+            </div>
+          ) : !activeCategory ? (
+            /* Category Selection */
+            <div className="space-y-0.5">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    if (cat.id === 'text') {
+                      handleNodeSelect('text-bg');
+                    } else {
+                      setActiveCategory(cat.id);
+                    }
+                  }}
+                  onMouseEnter={() => setHoveredItem(cat.id!)}
+                  onMouseLeave={() => setHoveredItem(null)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group ${
+                    hoveredItem === cat.id
+                      ? 'bg-gradient-to-r ' + cat.color + ' border border-white/10'
+                      : 'hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <div className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 ${
+                    hoveredItem === cat.id
+                      ? 'bg-white/10 text-white'
+                      : 'bg-white/5 text-slate-400'
+                  }`}>
+                    {cat.icon}
+                  </div>
+                  <span className={`text-sm font-medium transition-colors ${
+                    hoveredItem === cat.id ? 'text-white' : 'text-slate-300'
+                  }`}>
+                    {cat.label}
+                  </span>
+                  {cat.id !== 'text' && (
+                    <ChevronRight className={`w-3.5 h-3.5 ml-auto transition-all duration-150 ${
+                      hoveredItem === cat.id ? 'text-slate-300 translate-x-0.5' : 'text-slate-600'
+                    }`} />
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* Node Options */
+            <div className="space-y-0.5">
+              {filteredOptions.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => handleNodeSelect(option.id)}
+                  onMouseEnter={() => setHoveredItem(option.id)}
+                  onMouseLeave={() => setHoveredItem(null)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group ${
+                    hoveredItem === option.id
+                      ? 'bg-white/10 border border-white/10'
+                      : 'hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <div className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 ${
+                    hoveredItem === option.id
+                      ? 'bg-white/10 text-white'
+                      : 'bg-white/5 text-slate-400'
+                  }`}>
+                    {option.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium transition-colors ${
+                      hoveredItem === option.id ? 'text-white' : 'text-slate-300'
+                    }`}>
+                      {option.label}
+                    </div>
+                    {option.description && (
+                      <div className={`text-[11px] leading-tight truncate transition-colors ${
+                        hoveredItem === option.id ? 'text-slate-300' : 'text-slate-500'
+                      }`}>
+                        {option.description}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <style>{`
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
     </div>,
     document.body
   );

@@ -518,6 +518,7 @@ export default function MindMap() {
     });
   }, []);
 
+
   // Edge drop context menu handlers
   const handleCloseEdgeDropMenu = useCallback(() => {
     // Remove the temporary edge and node
@@ -2625,9 +2626,7 @@ export default function MindMap() {
     }
   }
 
-  const handleEdgeDropNodeSelect = useCallback((nodeType: string) => {
-    if (!edgeDropMenu.flowPosition || !edgeDropMenu.sourceNodeId) return;
-
+  const createNewNode = useCallback((nodeType: string, position: {x: number, y: number}, sourceNodeId?: string | null) => {
     // Map the nodeType from menu to actual node type
     const nodeTypeMap: Record<string, string> = {
       'text-bg': 'default',
@@ -2647,14 +2646,13 @@ export default function MindMap() {
 
     const actualNodeType = nodeTypeMap[nodeType] || 'default';
 
-    // Get source node color if autocolor is enabled
-    const sourceNode = nodes.find(n => n.id === edgeDropMenu.sourceNodeId);
+    // Get source node color if autocolor is enabled and we have a source node
+    const sourceNode = sourceNodeId ? nodes.find(n => n.id === sourceNodeId) : null;
     const sourceColor = autocolorSubnodes && sourceNode
       ? ((sourceNode as any).background || sourceNode.style?.background || "#4c5b6f")
       : null;
 
     // Get node width based on type for proper centering
-    // These widths are based on minWidth/width from defaultNodeStyles
     const getNodeWidth = (type: string): number => {
       switch (type) {
         case 'default':
@@ -2684,14 +2682,11 @@ export default function MindMap() {
     };
 
     const nodeWidth = getNodeWidth(actualNodeType);
-
-    // Center the node horizontally at the drop position
     const centeredPosition = {
-      x: edgeDropMenu.flowPosition.x - nodeWidth / 2,
-      y: edgeDropMenu.flowPosition.y,
+      x: position.x - nodeWidth / 2,
+      y: position.y,
     };
 
-    // Create the new node
     const newNodeId = Date.now().toString();
     const newNode: Node = {
       id: newNodeId,
@@ -2705,11 +2700,72 @@ export default function MindMap() {
           textShadow: "0 1px 2px rgba(0, 0, 0, 1)",
         }),
       },
-      // Set initial width for text nodes
       ...(actualNodeType === 'default' && { width: 120 }),
-      // Add background property if autocolor is enabled
       ...(sourceColor && { background: sourceColor }),
     };
+
+    return newNode;
+  }, [nodes, autocolorSubnodes, getInitialNodeData]);
+
+  const handlePaneAddNode = useCallback((nodeType: string, screenPosition: { x: number; y: number }) => {
+    if (!reactFlowInstance) return;
+
+    // Convert screen position to flow position
+    const flowPosition = reactFlowInstance.screenToFlowPosition(screenPosition);
+    
+    // Validate flow position
+    if (!flowPosition || isNaN(flowPosition.x) || isNaN(flowPosition.y)) {
+        console.error('Invalid flow position derived from screen position:', screenPosition);
+        return;
+    }
+
+    const newNode = createNewNode(nodeType, flowPosition);
+
+    setNodes(nds => {
+      const updatedNodes = [...nds, newNode];
+
+      // Broadcast live node creation to collaborators
+      if (currentMindMapId && broadcastLiveChange) {
+        broadcastLiveChange({
+          id: newNode.id,
+          type: 'node',
+          action: 'create',
+          data: newNode
+        });
+      }
+
+      // Create history action for adding node
+      const action = createHistoryAction(
+        'add_node',
+        { nodes: updatedNodes },
+        nds
+      );
+      addToHistory(action);
+
+      return updatedNodes;
+    });
+
+    // Select the new node
+    setSelectedNodeId(newNode.id);
+    setVisuallySelectedNodeId(newNode.id);
+
+    // Auto-open editing for text-no-bg nodes
+    if (newNode.type === 'text-no-bg') {
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('text-no-bg-start-edit', { detail: { nodeId: newNode.id } }));
+      }, 50);
+    }
+
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+  }, [reactFlowInstance, currentMindMapId, broadcastLiveChange, createHistoryAction, addToHistory, isInitialLoad, createNewNode]);
+
+  const handleEdgeDropNodeSelect = useCallback((nodeType: string) => {
+    if (!edgeDropMenu.flowPosition || !edgeDropMenu.sourceNodeId) return;
+
+    const newNode = createNewNode(nodeType, edgeDropMenu.flowPosition, edgeDropMenu.sourceNodeId);
+    const newNodeId = newNode.id;
 
     // Determine source and target handles based on where the connection was dragged from
     const sourceHandleId = edgeDropMenu.sourceHandleId || `${edgeDropMenu.sourceNodeId}-source`;
@@ -2802,7 +2858,7 @@ export default function MindMap() {
     setVisuallySelectedNodeId(newNodeId);
 
     // Auto-open editing for text-no-bg nodes
-    if (actualNodeType === 'text-no-bg') {
+    if (newNode.type === 'text-no-bg') {
       setTimeout(() => {
         document.dispatchEvent(new CustomEvent('text-no-bg-start-edit', { detail: { nodeId: newNodeId } }));
       }, 50);
@@ -2812,7 +2868,7 @@ export default function MindMap() {
       setHasUnsavedChanges(true);
     }
     setIsInitialLoad(false);
-  }, [edgeDropMenu, edgeType, currentMindMapId, broadcastLiveChange, createHistoryAction, addToHistory, isInitialLoad, getInitialNodeData, SOCIAL_MEDIA_NODE_TYPES, DEFAULT_NODE_LABELS, nodes, autocolorSubnodes]);
+  }, [edgeDropMenu, edgeType, currentMindMapId, broadcastLiveChange, createHistoryAction, addToHistory, isInitialLoad, createNewNode]);
 
   const onDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -8407,6 +8463,7 @@ export default function MindMap() {
           position={paneContextMenu.position}
           onClose={handleClosePaneContextMenu}
           hasClipboard={hasClipboard()}
+          onAddNode={handlePaneAddNode}
           onPasteAt={(screenPos) => {
             if (!reactFlowInstance || clipboardNodes.length === 0) return;
             // Use createPasteAction with current clipboard and screen position
