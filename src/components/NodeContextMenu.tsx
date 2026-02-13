@@ -350,55 +350,95 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     <div
       key={openCounter}
       ref={menuRef}
-      className="fixed bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-xl shadow-2xl py-2 min-w-[140px] z-[1000]"
+      className="fixed z-[1000]"
       style={{
         left: position.x,
         top: position.y,
       }}
     >
-      <div className="px-3 py-1 text-xs text-slate-400 font-medium border-b border-slate-700/50 mb-1">
-        Node Actions
-      </div>
-      {showAutoLayoutOption && (
-        <button
-          onClick={handleAutoLayout}
-          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
-        >
-          <Network className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
-          Autolayout
-        </button>
-      )}
-      {showBoldOption && (
-        <button
-          onClick={handleBold}
-          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
-        >
-          <Bold className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
-          {isBold ? 'Unbold' : 'Bold'}
-        </button>
-      )}
-      {showCopyOption && (
-        <button
-          onClick={handleCopy}
-          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
-        >
-          <Copy className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
-          Copy
-        </button>
-      )}
-      {showMarkAsDoneOption && (
-        <button
-          onClick={handleMarkAsDone}
-          className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700/50 transition-all duration-150 flex items-center gap-2.5 group"
-        >
-          {isDone ? (
-            <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
-          ) : (
-            <Check className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-300 transition-colors" />
+      <div 
+        className="bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+        style={{
+          minWidth: '180px',
+          animation: 'fadeInScale 0.15s ease-out',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
+          <div className="text-xs font-semibold text-slate-300 tracking-wide">
+            Node Actions
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-1.5 space-y-0.5">
+          {showAutoLayoutOption && (
+            <button
+              onClick={handleAutoLayout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group hover:bg-white/10 border border-transparent hover:border-white/10"
+            >
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white">
+                <Network className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium transition-colors text-slate-300 group-hover:text-white">
+                Autolayout
+              </span>
+            </button>
           )}
-          {isDone ? 'Mark as undone' : 'Mark as done'}
-        </button>
-      )}
+
+          {showBoldOption && (
+            <button
+              onClick={handleBold}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group hover:bg-white/10 border border-transparent hover:border-white/10"
+            >
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white">
+                <Bold className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium transition-colors text-slate-300 group-hover:text-white">
+                {isBold ? 'Unbold' : 'Bold'}
+              </span>
+            </button>
+          )}
+
+          {showCopyOption && (
+            <button
+              onClick={handleCopy}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group hover:bg-white/10 border border-transparent hover:border-white/10"
+            >
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white">
+                <Copy className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium transition-colors text-slate-300 group-hover:text-white">
+                Copy
+              </span>
+            </button>
+          )}
+
+          {showMarkAsDoneOption && (
+            <button
+              onClick={handleMarkAsDone}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 group hover:bg-white/10 border border-transparent hover:border-white/10"
+            >
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-150 bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white">
+                {isDone ? (
+                  <X className="w-4 h-4" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+              </div>
+              <span className="text-sm font-medium transition-colors text-slate-300 group-hover:text-white">
+                {isDone ? 'Mark as undone' : 'Mark as done'}
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+      <style>{`
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
     </div>,
     document.body
   );
