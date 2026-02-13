@@ -32,46 +32,13 @@ import { TikTokIcon } from "./icons/TikTokIcon"
 import { SpotifyIcon } from "./icons/SpotifyIcon"
 import { SoundCloudIcon } from "./icons/SoundCloudIcon"
 import { HistoryModal } from "./HistoryModal"
+import { HistoryAction } from "../types/history"
 
 interface NodeType {
   id: string
   icon: React.ReactNode
   label: string
   type: string
-}
-
-interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke" | "update_customization"
-  data: {
-    nodes?: any[]
-    edges?: any[]
-    nodeId?: string
-    position?: { x: number; y: number } | Record<string, { x: number; y: number }>
-    connection?: any
-    label?: string
-    width?: number
-    height?: number
-    videoUrl?: string
-    spotifyUrl?: string
-    displayText?: string
-    color?: string
-    affectedNodes?: string[]
-    edgeType?: 'default' | 'straight' | 'smoothstep'
-    backgroundColor?: string
-    dotColor?: string
-    replacedEdgeId?: string
-    drawingData?: any
-    strokeId?: string
-  }
-  previousState?: {
-    nodes: any[]
-    edges: any[]
-    title?: string
-    edgeType?: 'default' | 'straight' | 'smoothstep'
-    backgroundColor?: string
-    dotColor?: string
-    drawingData?: any
-  }
 }
 
 interface NodeTypesMenuProps {

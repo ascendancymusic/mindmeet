@@ -114,44 +114,7 @@ import BrainstormChat from "../components/BrainstormChat";
 
 
 
-interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "update_customization" | "drawing_change" | "move_stroke"
-  timestamp?: string;
-  data: {
-    nodes?: Node[]
-    edges?: Edge[]
-    nodeId?: string
-    position?: { x: number; y: number } | Record<string, { x: number; y: number }>
-    connection?: Connection
-    label?: string
-    width?: number
-    height?: number
-
-    videoUrl?: string
-    spotifyUrl?: string
-    displayText?: string
-    color?: string
-    affectedNodes?: string[]
-    edgeType?: 'default' | 'straight' | 'smoothstep'
-    backgroundColor?: string
-    dotColor?: string
-    replacedEdgeId?: string
-    drawingData?: DrawingData
-    strokeId?: string
-    trackIds?: string[]
-    fontFamily?: string
-  }
-  previousState?: {
-    nodes: Node[]
-    edges: Edge[]
-    title?: string
-    edgeType?: 'default' | 'straight' | 'smoothstep'
-    backgroundColor?: string
-    dotColor?: string
-    drawingData?: DrawingData
-    fontFamily?: string
-  }
-}
+import { HistoryAction } from "../types/history"
 
 export interface YouTubeVideo {
   id: string
@@ -202,6 +165,7 @@ export default function MindMap() {
     }
   }, [reactFlowInstance]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [visuallySelectedNodeId, setVisuallySelectedNodeId] = useState<string | null>(null)
   const [moveWithChildren, setMoveWithChildren] = useState(false)
   const [snapToGrid, setSnapToGrid] = useState(true)
@@ -4191,6 +4155,51 @@ export default function MindMap() {
     );
   }
 
+  const updateEdgeLabel = (edgeId: string, newLabel: string) => {
+    // Determine previous label for history
+    const targetEdge = edges.find(e => e.id === edgeId);
+    const previousLabel = targetEdge?.label;
+
+    // Don't record history if label hasn't changed
+    if (previousLabel === newLabel) return;
+
+    setEdges((eds) => {
+      const updatedEdges = eds.map((edge) => {
+        if (edge.id === edgeId) {
+          return { ...edge, label: newLabel };
+        }
+        return edge;
+      });
+
+      // Find the updated edge for broadcast
+      const updatedEdge = updatedEdges.find(e => e.id === edgeId);
+      
+      if (updatedEdge && currentMindMapId && broadcastLiveChange) {
+        broadcastLiveChange({
+          id: edgeId,
+          type: 'edge',
+          action: 'update',
+          data: updatedEdge
+        });
+      }
+
+      return updatedEdges;
+    });
+
+    // Create history action
+    const action = createHistoryAction(
+      "update_edge",
+      { edgeId, label: newLabel },
+      nodes, // nodes haven't changed
+      edges // pass PREVIOUS edges state
+    );
+    addToHistory(action);
+
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+  }
+
   const handleYouTubeVideoSelect = (nodeId: string, video: YouTubeVideo) => {
     const selectedNode = nodes.find((node) => node.id === nodeId)
     if (!selectedNode) return
@@ -6326,6 +6335,7 @@ export default function MindMap() {
   const nodeEditorClass = `w-full`
   const nodeEditorStyle = { maxWidth: `${nodeEditorWidth}px`, width: `${nodeEditorWidth}px` }
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
+  const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
 
   // Skeleton loader for mind map interface
   const MindMapSkeleton = () => (
@@ -6846,6 +6856,7 @@ export default function MindMap() {
                 // Clear stroke selection when clicking on nodes
                 drawingCanvasRef.current?.clearStrokeSelection();
                 selectNode(event, node.id);
+                setSelectedEdgeId(null);
               }}
               onNodeDragStart={(event, node) => {
                 // Clear stroke selection when starting to drag nodes
@@ -6867,6 +6878,7 @@ export default function MindMap() {
                 event.preventDefault()
                 setSelectedNodeId(null)
                 setVisuallySelectedNodeId(null)
+                setSelectedEdgeId(null)
                 // Clear stroke selection when right-clicking on pane
                 drawingCanvasRef.current?.clearStrokeSelection();
                 // Show pane context menu
@@ -6887,6 +6899,7 @@ export default function MindMap() {
                 // Clear node selection
                 setSelectedNodeId(null);
                 setVisuallySelectedNodeId(null);
+                setSelectedEdgeId(null);
 
                 // Clear stroke selection when clicking on pane
                 drawingCanvasRef.current?.clearStrokeSelection();
@@ -6914,12 +6927,15 @@ export default function MindMap() {
                   flowPosition: null
                 });
               }}
-              onEdgeClick={(event) => {
+              onEdgeClick={(event, edge) => {
                 // Prevent edge selection from interfering with node selection
                 event.preventDefault()
                 event.stopPropagation()
                 // Clear stroke selection when clicking on edges
                 drawingCanvasRef.current?.clearStrokeSelection();
+                setSelectedEdgeId(edge.id);
+                setSelectedNodeId(null);
+                setVisuallySelectedNodeId(null);
               }}
               onSelectionStart={() => {
                 // Clear stroke selection when starting multi-selection
@@ -8029,6 +8045,42 @@ export default function MindMap() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+        {selectedEdgeId && selectedEdge && (
+          <div
+            className={`fixed bottom-8 right-8 ${nodeEditorClass} ${isResizingNodeEditor ? 'select-none' : ''}`}
+            style={{
+              ...nodeEditorStyle,
+              cursor: isResizingNodeEditor ? 'ew-resize' : 'default',
+              zIndex: 9999
+            }}
+          >
+            <div className="relative flex flex-col bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/30 shadow-2xl space-y-4">
+              {/* Resize handle */}
+              <div
+                className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-blue-500/30 transition-all group rounded-l-2xl ${isResizingNodeEditor ? 'bg-blue-500/50' : ''}`}
+                onMouseDown={handleResizeStart}
+              >
+                <div className={`absolute left-1/2 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-3 h-8 bg-slate-600/70 rounded-full transition-opacity flex items-center justify-center ${isResizingNodeEditor ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div className="w-0.5 h-4 bg-slate-300 rounded-full"></div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <span className="text-slate-200 font-medium">Edge Label</span>
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Enter edge label..."
+                  value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ""}
+                  onChange={(e) => updateEdgeLabel(selectedEdgeId, e.target.value)}
+                  className="px-4 py-3 bg-slate-800/50 text-white border border-slate-600/30 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
+                />
+              </div>
             </div>
           </div>
         )}

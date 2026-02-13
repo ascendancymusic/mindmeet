@@ -24,6 +24,20 @@ export function applyEdgeStyling(
       strokeWidth: 2,
       stroke: sourceNodeColor,
     },
+    // Label styling: White text, black shadow/outline, no background
+    labelStyle: {
+      fill: 'white',
+      fontWeight: 'normal',
+      fontSize: 14,
+      // Stroke simulates a text border - thicker for better visibility/contrast
+      stroke: 'black',
+      strokeWidth: 3,
+      // Paint order ensures stroke is drawn BEHIND the text fill
+      paintOrder: 'stroke',
+      pointerEvents: 'all', // Ensure label captures clicks
+    },
+    labelShowBg: false,
+    interactionWidth: 30, // Balanced hit area
     // Association edges get an arrowhead marker
     ...(isAssociation && {
       markerEnd: {

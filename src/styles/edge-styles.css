@@ -1,0 +1,52 @@
+
+/* Edge Hover Effect */
+
+/* Make the whole edge group responsive to pointer events */
+.react-flow__edge {
+  pointer-events: all !important;
+  cursor: pointer;
+}
+
+/* Make the path black on hover of the entire edge group (text OR path OR interaction area) */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #000000 !important;
+  cursor: pointer;
+  /* Add a subtle drop shadow to make it pop */
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
+  stroke-width: 3px !important;
+}
+
+/* Force text to be clickable and trigger hover on parent group */
+.react-flow__edge-text {
+  pointer-events: all !important;
+  cursor: pointer;
+  user-select: none; /* Prevent text selection cursor */
+}
+
+/* Force interaction path width via CSS as a backup, and ensure it captures events */
+.react-flow__edge-interaction {
+  /* removed fixed stroke-width so config takes precedence */
+  stroke: transparent !important;
+  pointer-events: stroke !important; /* Ensure it captures events on the stroke */
+  cursor: pointer;
+  display: block !important; /* Ensure it's not hidden */
+}
+
+/* Ensure the interaction path also shows pointer cursor */
+.react-flow__edge:hover .react-flow__edge-interaction {
+  cursor: pointer;
+}
+
+
+/* Ensure label text is above the black stroke if conflicting? */
+/* The label is usually a separate div or text element */
+.react-flow__edge:hover .react-flow__edge-text {
+  /* Keep label style consistent */
+}
+
+/* Selected edge styling - ensure selected edge stays highlighted if selectedNodeId/selectedEdgeId logic adds a class */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #000000 !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
+}

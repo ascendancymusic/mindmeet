@@ -14,40 +14,7 @@ function formatTimeAgo(date: Date | string | undefined): string {
 }
 import { createPortal } from "react-dom"
 import { Clock, X, ChevronDown, ChevronRight } from "lucide-react"
-
-interface HistoryAction {
-  type: "add_node" | "move_node" | "connect_nodes" | "disconnect_nodes" | "delete_node" | "update_node" | "update_title" | "resize_node" | "change_edge_type" | "change_background_color" | "change_dot_color" | "drawing_change" | "move_stroke" | "update_customization"
-  data: {
-    nodes?: any[]
-    edges?: any[]
-    nodeId?: string
-    position?: { x: number; y: number } | Record<string, { x: number; y: number }>
-    connection?: any
-    label?: string
-    width?: number
-    height?: number
-    videoUrl?: string
-    spotifyUrl?: string
-    displayText?: string
-    color?: string
-    affectedNodes?: string[]
-    edgeType?: 'default' | 'straight' | 'smoothstep'
-    backgroundColor?: string
-    dotColor?: string
-    replacedEdgeId?: string
-    drawingData?: any
-    strokeId?: string
-  }
-  previousState?: {
-    nodes: any[]
-    edges: any[]
-    title?: string
-    edgeType?: 'default' | 'straight' | 'smoothstep'
-    backgroundColor?: string
-    dotColor?: string
-    drawingData?: any
-  }
-}
+import { HistoryAction } from "../types/history"
 
 interface HistoryModalProps {
   isOpen: boolean
@@ -81,7 +48,8 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
       change_dot_color: "Changed Dot Color",
       drawing_change: "Drawing Change",
       move_stroke: "Moved Stroke",
-      update_customization: "Updated Customization"
+      update_customization: "Updated Customization",
+      update_edge: "Updated Edge"
     }
     return actionMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
@@ -97,6 +65,8 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
         if (action.data.color) return "Color change"
         if (action.data.label) return `"${action.data.label}"`
         return "Node properties"
+      case "update_edge":
+        return action.data.label ? `"${action.data.label}"` : "Edge label"
       case "move_node":
         return action.data.affectedNodes ? `${action.data.affectedNodes.length} node(s)` : "Node position"
       case "connect_nodes":
@@ -113,6 +83,12 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
 
   // Helper to derive a subject (node label or type) for display next to the action
   const getActionSubject = (action: HistoryAction): string | null => {
+    // Edge updates
+    if (action.type === 'update_edge') {
+       const label = action.data.label;
+       return label ? `"${label}"` : null;
+    }
+
     // Only enrich node-related actions
     const nodeRelated = ["move_node", "update_node", "resize_node", "delete_node", "add_node"];
     if (!nodeRelated.includes(action.type)) return null;
@@ -181,6 +157,11 @@ export function HistoryModal({ isOpen, onClose, history, currentHistoryIndex, bu
 
       // Don't group if they affect different nodes
       return false;
+    }
+
+    // For edge-update actions
+    if (action1.type === 'update_edge') {
+      return action1.data.edgeId === action2.data.edgeId;
     }
 
     // For edge-related actions, check if they affect the same connection
