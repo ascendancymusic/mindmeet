@@ -1,13 +1,14 @@
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, FileText, Copy, FolderInput, Network } from 'lucide-react';
-import { Node } from 'reactflow';
+import { Node, Edge } from 'reactflow';
 
 interface NotesNodeContextMenuProps {
   isVisible: boolean;
   onClose: () => void;
   nodeId: string;
   nodes: Node[];
+  edges: Edge[];
   onRename: (nodeId: string, newName: string) => void;
   onDelete: (nodeId: string) => void;
   onAutoLayout: (nodeId: string) => void;
@@ -18,6 +19,7 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
   onClose,
   nodeId,
   nodes,
+  edges,
   onRename,
   onDelete,
   onAutoLayout
@@ -162,6 +164,7 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
 
   const node = nodes.find(n => n.id === nodeId);
   const isFolder = node?.type === 'folder';
+  const hasChildren = edges.some(edge => edge.source === nodeId);
 
   return createPortal(
     <div
@@ -219,20 +222,22 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
             </div>
           ) : (
             <>
-              <button
-                onClick={() => {
-                   onAutoLayout(nodeId);
-                   onClose();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/5 border border-transparent group"
-              >
-                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-all">
-                  <Network className="w-4 h-4" />
-                </div>
-                <div className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
-                  Auto Layout
-                </div>
-              </button>
+              {hasChildren && (
+                <button
+                  onClick={() => {
+                     onAutoLayout(nodeId);
+                     onClose();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/5 border border-transparent group"
+                >
+                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-all">
+                    <Network className="w-4 h-4" />
+                  </div>
+                  <div className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    Auto Layout
+                  </div>
+                </button>
+              )}
 
               <button
                 onClick={() => setIsRenaming(true)}

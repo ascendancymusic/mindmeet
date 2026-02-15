@@ -1,7 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Folder, FileText } from 'lucide-react';
-import { useReactFlow } from 'reactflow';
 
 interface NotesEdgeDropMenuProps {
   position: { x: number; y: number };
@@ -19,27 +18,86 @@ export const NotesEdgeDropMenu: React.FC<NotesEdgeDropMenuProps> = ({
   sourceType = 'folder',
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const { flowToScreenPosition } = useReactFlow();
-  
-  // Calculate screen position: prefer flow-based projection for accuracy during movement
-  const calculatedPos = flowPosition 
-    ? flowToScreenPosition(flowPosition) 
-    : position;
+  const [screenPosition, setScreenPosition] = useState<{ x: number; y: number }>(position);
+  const worldPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTransformRef = useRef<string>('');
+  const [openCounter, setOpenCounter] = useState(0);
+  const lastOpenPositionRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Use state to track position to force re-render on viewport change (if simple calculation misses it)
-  // Logic: We want to update position when viewport changes. flowToScreenPosition uses current viewport transform.
-  // BUT: just using it in render body doesn't subscribe to updates unless we use useViewport or similar.
-  // Actually, flowToScreenPosition returns the current value. We need to re-render.
-  // Let's use requestAnimationFrame loop or useViewport (if it works) to keep it sync.
-  // For simplicity and robustness given previous failure, let's just stick to the initial calculated pos or simple interval?
-  // No, let's trust useViewport creates re-renders. 
-  
-  // If useViewport() was causing issues (e.g. infinite loop?), try without it first to see if it renders.
-  // But wait, if I remove useViewport, it won't move on pan.
-  // Let's revert to a simpler "fixed" position for now to ensuring it SHOWS UP.
-  // If flowToScreenPosition is returning NaN or something, fallback to position.
-  
-  const finalPos = (calculatedPos.x && calculatedPos.y) ? calculatedPos : position;
+  const parseTransform = (transform: string): { x: number; y: number; scale: number } => {
+    let x = 0, y = 0, scale = 1;
+    if (!transform) return { x, y, scale };
+    const translateMatch = transform.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/);
+    if (translateMatch) { x = parseFloat(translateMatch[1]); y = parseFloat(translateMatch[2]); }
+    const scaleMatch = transform.match(/scale\(([-0-9.]+)\)/);
+    if (scaleMatch) { scale = parseFloat(scaleMatch[1]); }
+    return { x, y, scale };
+  };
+
+  const projectToScreen = (world: { x: number; y: number }, t: { x: number; y: number; scale: number }) => ({
+    x: world.x * t.scale + t.x,
+    y: world.y * t.scale + t.y,
+  });
+
+  const getViewportTransform = (): { x: number; y: number; scale: number } => {
+    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement | null;
+    let transform = viewport?.style.transform;
+    if (!transform) {
+      const rf = document.querySelector('.react-flow');
+      if (rf) {
+        const transformed = rf.querySelector<HTMLElement>('*[style*="translate("]');
+        transform = transformed?.style.transform;
+      }
+    }
+    return parseTransform(transform || '');
+  };
+
+  useLayoutEffect(() => {
+    if (!flowPosition) return;
+    const openingNewSpot = !lastOpenPositionRef.current ||
+      lastOpenPositionRef.current.x !== position.x ||
+      lastOpenPositionRef.current.y !== position.y;
+    if (openingNewSpot) {
+      setOpenCounter((c) => c + 1);
+      lastOpenPositionRef.current = { ...position };
+    }
+    const initialT = getViewportTransform();
+    worldPositionRef.current = { x: flowPosition.x, y: flowPosition.y };
+    lastTransformRef.current = `${initialT.x},${initialT.y},${initialT.scale}`;
+    const projected = projectToScreen(worldPositionRef.current, initialT);
+    setScreenPosition(projected);
+
+    const frameRef = { id: 0 as number };
+    const updatePosition = () => {
+      if (!worldPositionRef.current) return;
+      const t = getViewportTransform();
+      const key = `${t.x},${t.y},${t.scale}`;
+      if (key === lastTransformRef.current) return;
+      lastTransformRef.current = key;
+      const p = projectToScreen(worldPositionRef.current, t);
+      setScreenPosition(p);
+    };
+    const scheduleUpdate = () => {
+      if (frameRef.id) return;
+      frameRef.id = requestAnimationFrame(() => { updatePosition(); frameRef.id = 0; });
+    };
+    const viewportEl = document.querySelector('.react-flow__viewport');
+    let observer: MutationObserver | null = null;
+    if (viewportEl) {
+      observer = new MutationObserver(scheduleUpdate);
+      observer.observe(viewportEl, { attributes: true, attributeFilter: ['style'] });
+    }
+    const wheelHandler = () => scheduleUpdate();
+    const resizeHandler = () => scheduleUpdate();
+    viewportEl?.addEventListener('wheel', wheelHandler, { passive: true });
+    window.addEventListener('resize', resizeHandler);
+    return () => {
+      observer?.disconnect();
+      viewportEl?.removeEventListener('wheel', wheelHandler);
+      window.removeEventListener('resize', resizeHandler);
+      if (frameRef.id) cancelAnimationFrame(frameRef.id);
+    };
+  }, [position, flowPosition]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -58,9 +116,10 @@ export const NotesEdgeDropMenu: React.FC<NotesEdgeDropMenuProps> = ({
 
   return createPortal(
     <div
+      key={openCounter}
       ref={menuRef}
       className="fixed z-[1000]"
-      style={{ left: finalPos.x, top: finalPos.y }}
+      style={{ left: screenPosition.x + 220, top: screenPosition.y + 8 }}
     >
       <div
         className="bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
@@ -101,6 +160,13 @@ export const NotesEdgeDropMenu: React.FC<NotesEdgeDropMenuProps> = ({
             </button>
           )}
         </div>
+
+      <style>{`
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
       </div>
     </div>,
     document.body

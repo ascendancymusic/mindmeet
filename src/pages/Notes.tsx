@@ -1,6 +1,26 @@
-"use client"
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import LinkExtension from '@tiptap/extension-link'
+import UnderlineExtension from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import Placeholder from '@tiptap/extension-placeholder'
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
+const ToolbarBtn = ({ children, onClick, active, title, disabled }: any) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={`p-1.5 rounded-lg transition-all duration-200 ${
+      active 
+        ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/30" 
+        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+    } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+  >
+    {children}
+  </button>
+)
+
 import { v4 as uuidv4 } from "uuid"
 import {
   Trash2,
@@ -29,34 +49,35 @@ import {
   X,
   Check,
   AlertTriangle,
+  Maximize2,
+  Grid3x3,
+  GitBranch,
 } from "lucide-react"
 
 import ReactFlow, {
   Background,
-  Controls,
   Edge,
   Node as RFNode,
-  useNodesState,
-  useEdgesState,
-  Handle,
-  Position,
-  NodeProps,
   BackgroundVariant,
   Connection,
   ReactFlowProvider,
   useReactFlow,
   OnConnectStart,
   OnConnectEnd,
-  NodeChange,
+  reconnectEdge,
 } from "reactflow"
 import "reactflow/dist/style.css"
 import { NotesEdgeDropMenu } from "../components/NotesEdgeDropMenu"
 import { NotesNodeContextMenu } from "../components/NotesNodeContextMenu"
 import { NotesPaneContextMenu } from "../components/NotesPaneContextMenu"
-import { autoLayoutNode } from "../utils/autoLayout"
+import { FolderMindNode } from "../components/flow/FolderMindNode"
+import { NoteMindNode } from "../components/flow/NoteMindNode"
+import { useMindMapSync } from "../hooks/useMindMapSync"
+import { useAutoLayout } from "../hooks/useAutoLayout"
+import { getChildPosition } from "../utils/nodePositioning"
 
 /* --- types --- */
-interface NoteItem {
+export interface NoteItem {
   id: string
   title: string
   content: string
@@ -66,7 +87,7 @@ interface NoteItem {
   position?: { x: number; y: number }
 }
 
-interface FolderItem {
+export interface FolderItem {
   id: string
   name: string
   collapsed: boolean
@@ -83,104 +104,6 @@ const ACCENT_COLORS = [
   "#ec4899",
   "#f59e0b",
 ]
-
-/* --- custom node types --- */
-// Optimized node types to prevent drag lag (removed conflicting transitions)
-const FolderMindNode = React.memo(({ data }: NodeProps) => {
-  return (
-    <div className="relative group">
-      {/* Glow effect - removing transition to prevent drag lag */}
-      <div 
-        className="absolute -inset-0.5 rounded-xl opacity-20 group-hover:opacity-40"
-        style={{ background: data.color || '#3b82f6' }}
-      ></div>
-      
-      {/* Removed backdrop-blur-xl which can be performance heavy during drag */}
-      <div className="relative flex items-center gap-3 bg-[#0f172a] border border-slate-700/50 rounded-xl p-3 min-w-[180px] shadow-xl">
-        <Handle type="target" position={Position.Top} className="!w-1 !h-1 !min-w-0 !min-h-0 !bg-transparent !border-none !top-0" />
-        {/* Add source handle to top to allow dragging from top to create parent folder */}
-        <Handle 
-           type="source" 
-           position={Position.Top} 
-           id="top-source"
-           className="!w-2 !h-2 !min-w-0 !min-h-0 !bg-transparent !border-none !top-0 z-50 cursor-crosshair" 
-           style={{ background: 'transparent' }}
-        />
-        
-        <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center border border-white/5 shadow-inner" 
-          style={{ 
-            backgroundColor: data.color ? `${data.color}15` : '#1e293b',
-            borderColor: data.color ? `${data.color}30` : 'rgba(255,255,255,0.05)'
-          }}
-        >
-          {data.collapsed ? (
-            <Folder className="w-5 h-5" style={{ color: data.color || '#64748b' }} />
-          ) : (
-            <FolderOpen className="w-5 h-5" style={{ color: data.color || '#64748b' }} />
-          )}
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-slate-200 truncate">{data.label}</div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{data.count || 0} ITEMS</span>
-            {data.collapsed && <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50" />}
-          </div>
-        </div>
-
-        {/* Both source and target handles at bottom to allow connecting TO folder (as parent) and FROM folder (to child) */}
-        {/* We use specific IDs and positioning to prevent overlap issues */}
-        {/* We make the source handle larger (z-index) to ensure it catches the drag start */}
-        <Handle 
-           type="source" 
-           position={Position.Bottom} 
-           id="bottom-source"
-           className="!w-2 !h-2 !min-w-0 !min-h-0 !bg-transparent !border-none !bottom-0 z-50 cursor-crosshair" 
-           style={{ background: 'transparent' }}
-        />
-        <Handle 
-           type="target" 
-           position={Position.Bottom} 
-           id="bottom-target"
-           className="!w-2 !h-2 !min-w-0 !min-h-0 !bg-transparent !border-none !bottom-0 z-40" 
-           style={{ background: 'transparent' }}
-        />
-      </div>
-    </div>
-  )
-})
-
-const NoteMindNode = React.memo(({ data }: NodeProps) => {
-  return (
-    <div className="relative group hover:z-10">
-       <div className="absolute -inset-px bg-blue-500/20 rounded-xl opacity-0 group-hover:opacity-100"></div>
-       <div className="relative flex items-center gap-2.5 bg-[#1e293b] border border-slate-700/50 group-hover:border-blue-500/30 rounded-xl p-2.5 min-w-[160px] max-w-[220px] shadow-lg hover:bg-[#1e293b]">
-          <Handle type="target" position={Position.Top} className="!w-1 !h-1 !min-w-0 !min-h-0 !bg-transparent !border-none !top-0" />
-          {/* Add source handle to top as well, so we can drag from top to create parent folder */}
-          {/* Make source handle accessible effectively */}
-          <Handle 
-              type="source" 
-              position={Position.Top} 
-              className="!w-2 !h-2 !min-w-0 !min-h-0 !bg-transparent !border-none !top-0 z-50 cursor-crosshair" 
-              style={{ background: 'transparent' }}
-          />
-          
-          <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ backgroundColor: data.color ? `${data.color}15` : '#334155' }}
-          >
-            <FileText className="w-4 h-4" style={{ color: data.color || '#94a3b8' }} />
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-slate-300 truncate group-hover:text-blue-200">{data.label}</div>
-            <div className="text-[10px] text-slate-500 truncate">{data.preview || "No content"}</div>
-          </div>
-       </div>
-    </div>
-  )
-})
 
 const nodeTypes = {
   folder: FolderMindNode,
@@ -200,13 +123,15 @@ const NotesMindMapContent = ({
   onAddRootNote,
   onDeleteNode,
   onRenameNode,
-  onPositionChange
+  onPositionChange,
+  onDisconnectNode
 }: {
   notes: NoteItem[]
   folders: FolderItem[]
   onNoteClick: (noteId: string) => void
   onFolderClick?: (folderId: string) => void
   onConnectNode?: (sourceId: string, targetId: string, sourceHandle?: string | null, targetHandle?: string | null) => void
+  onDisconnectNode?: (nodeId: string) => void
   onAddNode?: (type: 'folder' | 'note', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => void
   onCreateFirstNote?: () => void
   onAddRootFolder?: (position?: { x: number; y: number }) => void
@@ -215,35 +140,30 @@ const NotesMindMapContent = ({
   onRenameNode?: (id: string, type: 'folder' | 'note', newName: string) => void
   onPositionChange?: (id: string, position: { x: number; y: number }, type: 'folder' | 'note') => void
 }) => {
-  const [nodes, setNodes, onNodesChangeInternal] = useNodesState([])
-  const nodesRef = useRef<RFNode[]>([]); // Ref to track nodes without triggering re-renders
-  
-  // Sync ref with state
-  useEffect(() => {
-    nodesRef.current = nodes;
-  }, [nodes]);
+  const {
+    nodes,
+    setNodes,
+    onNodesChange,
+    edges,
+    setEdges,
+    onEdgesChange,
+    isCtrlPressed,
+    moveWithChildren,
+    setMoveWithChildren,
+    snapToGrid,
+    setSnapToGrid
+  } = useMindMapSync({ notes, folders, onPositionChange })
 
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
-  const { screenToFlowPosition } = useReactFlow()
-
+  const { handleAutoLayout } = useAutoLayout({
+     nodes, 
+     edges, 
+     setNodes, 
+     onPositionChange 
+  });
   
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      onNodesChangeInternal(changes)
-      if (onPositionChange) {
-        changes.forEach(change => {
-            if (change.type === 'position' && change.position && !change.dragging) {
-               // When dragging ends or explicit position set
-               const node = nodes.find(n => n.id === change.id)
-               if (node) {
-                  onPositionChange(change.id, change.position, node.type as 'folder' | 'note')
-               }
-            }
-        });
-      }
-    },
-    [onNodesChangeInternal, onPositionChange, nodes]
-  )
+  const { screenToFlowPosition, fitView } = useReactFlow()
+  const edgeReconnectSuccessful = useRef(true);
+  
   const [contextMenu, setContextMenu] = useState<{
     isVisible: boolean;
     nodeId: string;
@@ -380,179 +300,64 @@ const NotesMindMapContent = ({
     }
   }, [onConnectNode])
 
-  // Helper to extract plain text preview
-  const getPreview = (html: string) => {
-    if (typeof document === 'undefined') return ""
-    const tmp = document.createElement("div")
-    tmp.innerHTML = html
-    return tmp.textContent?.slice(0, 30) || "Empty"
-  }
-
-
-  const handleAutoLayout = useCallback((nodeId: string) => {
-    // Basic auto-layout logic for a subtree
-    try {
-      const result = autoLayoutNode(nodes, edges, nodeId, {
-        nodeSpacing: 20,
-        subtreeSpacing: 60,
-        levelSpacing: 120,
-        childrenPerRow: 3,
-        minRowSpacing: 60,
-      });
-
-      // Update positions
-      setNodes((nds) => {
-        const updated = nds.map((n) => {
-          if (result.positions[n.id]) {
-            const newPos = result.positions[n.id];
-            // Notify parent about change to persist
-            if (onPositionChange) {
-                 // Optimization: batch this if there are many nodes? 
-                 // For now, simple loop is fine unless huge.
-            }
-            return {
-              ...n,
-              position: newPos,
-            };
-          }
-          return n;
-        });
-        
-        // After layout, persist all changed positions
-        if (onPositionChange) {
-             Object.keys(result.positions).forEach(id => {
-                 const node = nodes.find(n => n.id === id);
-                 if (node) {
-                     onPositionChange(id, result.positions[id], node.type as 'folder' | 'note');
-                 }
-             });
-        }
-        
-        return updated;
-      });
-    } catch (error) {
-       console.error("Auto layout failed", error);
-    }
-  }, [nodes, edges, onPositionChange, setNodes])
-
-  useEffect(() => {
-    // Basic auto-layout logic
-    const newNodes: RFNode[] = []
-    const newEdges: Edge[] = [] 
-
-
-    // Helper to process hierarchy
-    const processHierarchy = (
-      parentId: string | null,
-      x: number,
-      y: number,
-      level: number,
-    ) => {
-      const childFolders = folders.filter((f) => f.parentId === parentId)
-      const childNotes = notes.filter((n) => n.folderId === parentId)
-
-      const items = [...childFolders, ...childNotes]
-      
-      // We only care about layout calculation for items WITHOUT stored position
-      // For items with stored position, we just place them there.
-      // But to avoid overlap, maybe we should track occupied space? 
-      // Simplified approach: Just place them.
-      
-      const spacingX = 220 
-      const levelYOffset = 150 
-      
-      // Calculate starting X to center children beneath parent
-      const totalItems = items.length
-      let currentX = x - ((totalItems - 1) * spacingX) / 2
-
-      items.forEach((item) => {
-        const isFolder = "name" in item
-        const id = item.id
-        
-        // Count items if folder
-        let count = 0
-        if (isFolder) {
-            const fId = item.id
-            const subNotes = notes.filter(n => n.folderId === fId).length
-            const subFolders = folders.filter(f => f.parentId === fId).length
-            count = subNotes + subFolders
-        }
-        
-        // Logic:
-        // 1. If persisted position exists in data (item.position), ALWAYS use it.
-        // 2. If NOT persisted, check if node exists in ReactFlow state (nodesRef). Use that visual position to be stable.
-        // 3. If NEITHER (brand new node, no drag drop pos), use calculated 'currentX'.
-
-        let position: { x: number; y: number } = item.position || { x: currentX, y };
-
-        if (!item.position) {
-           // Try to find status from previous nodes to avoid jumping
-           const existing = nodesRef.current.find(n => n.id === id);
-           if (existing) {
-               // Reuse existing position effectively freezing auto-layout for this node
-               position = existing.position;
-           }
-        }
-
-        newNodes.push({
-          id,
-          type: isFolder ? 'folder' : 'note',
-          position,
-          data: { 
-            label: isFolder ? (item as FolderItem).name : (item as NoteItem).title || "Untitled",
-            color: (item as any).color,
-            count,
-            collapsed: isFolder ? (item as FolderItem).collapsed : false,
-            preview: !isFolder ? getPreview((item as NoteItem).content) : undefined
-          },
-        })
-
-
-
-
-
-        // Add Edge from parent (if not root)
-        if (parentId) {
-          // If parent is a folder, use "bottom-source" handle explicitly
-          // If parent is note (shouldn't happen in this structure but possible in data), use default
-          const parentIsFolder = folders.some(f => f.id === parentId);
-          
-          newEdges.push({
-            id: `e-${parentId}-${id}`,
-            source: parentId,
-            sourceHandle: parentIsFolder ? "bottom-source" : undefined,
-            target: id,
-            // If child is folder, target top (default). If note, target top (default).
-            // But dragging TO folder involves targeting "bottom-target", but hierarchically edges are top-down.
-            // Rendering edges should connect Parent(Bottom) -> Child(Top).
-            style: { stroke: '#475569', strokeWidth: 2 },
-            type: 'default', // Bezier curve for smoother visuals
-            animated: false,
-          })
-        }
-
-        // Recursively process children if it's a folder AND NOT COLLAPSED
-        if (isFolder && !(item as FolderItem).collapsed) {
-          // Pass new coordinates for next level (increment Y, centered X will be calculated)
-          processHierarchy(id, currentX, y + levelYOffset, level + 1)
-        }
-
-        currentX += spacingX
-      })
-    }
-
-
-    // Start with root items
-    // Center logic handles by fitView
-    processHierarchy(null, 0, 50, 0)
+  const isValidConnection = useCallback((connection: Connection) => {
+    // Prevent self-connections
+    if (connection.source === connection.target) return false;
     
-    // Only update if something changed?
-    // For now, always update to keep sync
-    setNodes(() => {
-        return newNodes
-    })
-    setEdges(newEdges)
-  }, [notes, folders, setNodes, setEdges]) // Removed 'nodes' dependency to prevent loops, use ref instead
+    const sourceHandle = connection.sourceHandle;
+    const targetHandle = connection.targetHandle;
+    
+    // TOP source handles should only connect to BOTTOM target handles
+    if (sourceHandle === 'top-source') {
+      return targetHandle === 'bottom-target' || targetHandle === 'bottom';
+    }
+    
+    // BOTTOM source handles should only connect to TOP target handles
+    if (sourceHandle === 'bottom-source') {
+      return !targetHandle || targetHandle === 'top' || targetHandle === 'top-target' || !targetHandle.includes('bottom');
+    }
+    
+    // Default behavior for handles without specific IDs
+    return true;
+  }, [])
+
+  const onReconnectStart = useCallback(() => {
+    edgeReconnectSuccessful.current = false;
+  }, []);
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      edgeReconnectSuccessful.current = true;
+      
+      // First, disconnect the old relationship by removing the child's parent reference
+      if (onDisconnectNode) {
+        onDisconnectNode(oldEdge.target);
+      }
+      
+      // Then, create the new connection using the existing handler
+      if (onConnectNode && newConnection.source && newConnection.target) {
+        onConnectNode(newConnection.source, newConnection.target, newConnection.sourceHandle, newConnection.targetHandle);
+      }
+      
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+    },
+    [setEdges, onDisconnectNode, onConnectNode]
+  );
+
+  const onReconnectEnd = useCallback(
+    (_: unknown, edge: Edge) => {
+      if (!edgeReconnectSuccessful.current) {
+        // Instead of just deleting the edge, disconnect the node (move to root)
+        if (onDisconnectNode) {
+          onDisconnectNode(edge.target);
+        }
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      }
+      edgeReconnectSuccessful.current = true;
+    },
+    [setEdges, onDisconnectNode]
+  );
+
 
 
   return (
@@ -589,8 +394,12 @@ const NotesMindMapContent = ({
          onNodesChange={onNodesChange}
          onEdgesChange={onEdgesChange}
          onConnect={onConnect}
+         isValidConnection={isValidConnection}
          onConnectStart={onConnectStart}
          onConnectEnd={onConnectEnd}
+         onReconnectStart={onReconnectStart}
+         onReconnect={onReconnect}
+         onReconnectEnd={onReconnectEnd}
          onPaneContextMenu={handlePaneContextMenu}
          onPaneClick={() => {
             if (menuState.isOpen && Date.now() - menuOpenTimeStampRef.current > 200) {
@@ -621,11 +430,82 @@ const NotesMindMapContent = ({
             }
          }}
          fitView
+         proOptions={{ hideAttribution: true }}
          minZoom={0.2}
          maxZoom={2}
+         snapToGrid={snapToGrid}
+         snapGrid={[15, 15]}
+         connectionRadius={50}
       >
         <Background gap={24} size={1} color="#334155" variant={BackgroundVariant.Dots} />
-        <Controls className="bg-slate-800 border-slate-700 fill-slate-400 !m-4" />
+        
+        {/* Custom Control Panel */}
+        <div className="absolute bottom-4 left-4 z-10 group">
+          <div className="bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2">
+            {/* Glow effect */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 rounded-2xl blur opacity-50"></div>
+            
+            <div className="relative flex flex-col-reverse gap-2">
+              {/* Fit View Button - Always visible at bottom */}
+              <button
+                onClick={() => fitView({ duration: 400, padding: 0.2 })}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 text-slate-400 hover:text-blue-400 transition-all duration-200 relative overflow-hidden"
+                title="Fit View"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-200"></div>
+                <Maximize2 className="w-5 h-5 relative z-10" />
+              </button>
+
+              {/* Hidden buttons container - emerges on hover */}
+              <div className="flex flex-col gap-2 max-h-0 overflow-hidden opacity-0 group-hover:max-h-40 group-hover:opacity-100 transition-all duration-300 ease-out">
+                {/* Divider */}
+                <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                {/* Move with Children Toggle */}
+                <button
+                  onClick={() => setMoveWithChildren(!moveWithChildren)}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                    (isCtrlPressed || moveWithChildren)
+                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-purple-500/30 text-slate-400 hover:text-purple-400'
+                  }`}
+                  title={`Move with Children${(isCtrlPressed && !moveWithChildren) ? ' (Ctrl)' : ''}`}
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                    (isCtrlPressed || moveWithChildren)
+                      ? 'from-purple-500/20 to-pink-500/20'
+                      : 'from-purple-500/0 to-purple-500/0 hover:from-purple-500/10 hover:to-pink-500/10'
+                  }`}></div>
+                  <GitBranch className="w-5 h-5 relative z-10" />
+                  {(isCtrlPressed || moveWithChildren) && (
+                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-400 rounded-full shadow-lg shadow-purple-500/50 animate-pulse"></div>
+                  )}
+                </button>
+
+                {/* Snap to Grid Toggle */}
+                <button
+                  onClick={() => setSnapToGrid(!snapToGrid)}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                    snapToGrid
+                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-blue-500/30 text-slate-400 hover:text-blue-400'
+                  }`}
+                  title="Snap to Grid"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                    snapToGrid
+                      ? 'from-blue-500/20 to-purple-500/20'
+                      : 'from-blue-500/0 to-blue-500/0 hover:from-blue-500/10 hover:to-purple-500/10'
+                  }`}></div>
+                  <Grid3x3 className="w-5 h-5 relative z-10" />
+                  {snapToGrid && (
+                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full shadow-lg shadow-blue-500/50"></div>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </ReactFlow>
 
       {menuState.isOpen && menuState.flowPosition && (
@@ -654,6 +534,7 @@ const NotesMindMapContent = ({
         onClose={() => setContextMenu(prev => ({ ...prev, isVisible: false }))}
         nodeId={contextMenu.nodeId}
         nodes={nodes}
+        edges={edges}
         onDelete={(nodeId) => {
            const node = nodes.find(n => n.id === nodeId);
            if (node && onDeleteNode) {
@@ -760,36 +641,6 @@ function pickColor(): string {
   return ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)]
 }
 
-/* --- toolbar button --- */
-function ToolbarBtn({
-  onClick,
-  active,
-  title,
-  children,
-}: {
-  onClick: () => void
-  active?: boolean
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onMouseDown={(e) => {
-        e.preventDefault()
-        onClick()
-      }}
-      title={title}
-      className={`w-7 h-7 flex items-center justify-center rounded-md transition-all duration-150 ${
-        active
-          ? "bg-blue-500/20 text-blue-400"
-          : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]"
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
 /* --- main component --- */
 const Notes = () => {
   const [notes, setNotes] = useState<NoteItem[]>([])
@@ -804,7 +655,134 @@ const Notes = () => {
   const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({})
   const [wordCount, setWordCount] = useState(0)
   const [charCount, setCharCount] = useState(0)
-  const editorRef = useRef<HTMLDivElement>(null)
+  
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      LinkExtension.configure({
+        openOnClick: false, // We'll handle this
+        autolink: true,
+        defaultProtocol: 'https',
+      }),
+      UnderlineExtension,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Placeholder.configure({
+        placeholder: 'Start writing...',
+      })
+    ],
+    editorProps: {
+      attributes: {
+        class: 'min-h-full outline-none text-[15px] leading-relaxed text-slate-200 caret-blue-400 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mb-2 [&_h2]:mt-5 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-500/40 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400 [&_blockquote]:italic [&_blockquote]:my-3 [&_pre]:bg-white/[0.04] [&_pre]:border [&_pre]:border-white/[0.06] [&_pre]:rounded-lg [&_pre]:px-4 [&_pre]:py-3 [&_pre]:my-3 [&_pre]:font-mono [&_pre]:text-sm [&_pre]:text-slate-300 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:my-1 [&_a]:text-blue-400 [&_a]:underline',
+      },
+      handleDOMEvents: {
+          mouseover: (_view, event) => {
+              const target = event.target as HTMLElement;
+              const link = target.closest('a');
+              if (link) {
+                  const rect = link.getBoundingClientRect();
+                  setLinkTooltip({ x: rect.left, y: rect.bottom + 5, show: true });
+              }
+              return false;
+          },
+          mouseout: () => {
+             setLinkTooltip(null);
+             return false;
+          },
+          click: (_view, event) => {
+             const target = event.target as HTMLElement;
+             const link = target.closest('a');
+             if (link && (event.ctrlKey || event.metaKey)) {
+                 window.open(link.href, '_blank');
+                 return true;
+             }
+             return false;
+          }
+      },
+      // Override default link click
+      handleClickOn: (_view, _pos, node, _nodePos, event) => {
+         // Prevent default opening unless Ctrl is held
+         if (node.type.name === 'link' && !(event.ctrlKey || event.metaKey)) {
+             return true; // Handled
+         }
+         return false;
+      }
+    },
+    onUpdate: ({ editor }) => {
+       const text = editor.getText();
+       setCharCount(text.replace(/\n/g, "").length);
+       const words = text.trim().split(/\s+/);
+       setWordCount(text.trim() === "" ? 0 : words.length);
+       
+       if (savingTimeout.current) clearTimeout(savingTimeout.current)
+       savingTimeout.current = setTimeout(saveContent, 300)
+    },
+    onSelectionUpdate: () => {
+       checkActiveFormats();
+    }
+  });
+
+  // Sync content when note changes
+  useEffect(() => {
+     if (editor && activeNote && editor.getHTML() !== activeNote.content) {
+         editor.commands.setContent(activeNote.content);
+     }
+  }, [activeNoteId, editor]); // activeNote dependencies handled by ID
+  
+  // Save Content Override
+  const saveContent = useCallback(() => {
+      if (!activeNoteId || !editor) return;
+      const html = editor.getHTML();
+      setNotes((prev) =>
+          prev.map((n) =>
+              n.id === activeNoteId ? { ...n, content: html, updatedAt: Date.now() } : n
+          )
+      );
+  }, [activeNoteId, editor]);
+  
+  // Toolbar Actions
+  const checkActiveFormats = useCallback(() => {
+      if (!editor) return;
+      setActiveFormats({
+          bold: editor.isActive('bold'),
+          italic: editor.isActive('italic'),
+          underline: editor.isActive('underline'),
+          h1: editor.isActive('heading', { level: 1 }),
+          h2: editor.isActive('heading', { level: 2 }),
+          blockquote: editor.isActive('blockquote'),
+          insertUnorderedList: editor.isActive('bulletList'),
+          insertOrderedList: editor.isActive('orderedList'),
+          justifyLeft: editor.isActive({ textAlign: 'left' }),
+          justifyCenter: editor.isActive({ textAlign: 'center' }),
+          justifyRight: editor.isActive({ textAlign: 'right' }),
+          pre: editor.isActive('codeBlock')
+      });
+  }, [editor]);
+
+  const execCommand = (command: string, arg?: any) => {
+      if (!editor) return;
+      
+      switch (command) {
+          case 'bold': editor.chain().focus().toggleBold().run(); break;
+          case 'italic': editor.chain().focus().toggleItalic().run(); break;
+          case 'underline': editor.chain().focus().toggleUnderline().run(); break;
+          case 'formatBlock': 
+             if (arg === 'h1') editor.chain().focus().toggleHeading({ level: 1 }).run();
+             if (arg === 'h2') editor.chain().focus().toggleHeading({ level: 2 }).run();
+             if (arg === 'blockquote') editor.chain().focus().toggleBlockquote().run();
+             if (arg === 'pre') editor.chain().focus().toggleCodeBlock().run();
+             break;
+         case 'insertUnorderedList': editor.chain().focus().toggleBulletList().run(); break;
+         case 'insertOrderedList': editor.chain().focus().toggleOrderedList().run(); break;
+         case 'justifyLeft': editor.chain().focus().setTextAlign('left').run(); break;
+         case 'justifyCenter': editor.chain().focus().setTextAlign('center').run(); break;
+         case 'justifyRight': editor.chain().focus().setTextAlign('right').run(); break;
+      }
+  };
+
+
+  const [linkTooltip, setLinkTooltip] = useState<{ x: number; y: number; show: boolean } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null)
   const headerMenuRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -827,6 +805,12 @@ const Notes = () => {
     isOpen: false,
     type: 'note',
   })
+
+  // Create folder modal state
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("New Folder")
+  const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null)
+
 
   // Load
   useEffect(() => {
@@ -908,84 +892,8 @@ const Notes = () => {
 
   const activeNote = notes.find((n) => n.id === activeNoteId)
 
-  const updateCounts = useCallback(() => {
-    if (!editorRef.current) return
-    const text = editorRef.current.innerText || ""
-    setCharCount(text.replace(/\n/g, "").length)
-    const words = text.trim().split(/\s+/)
-    setWordCount(text.trim() === "" ? 0 : words.length)
-  }, [])
-
-  // Sync editor content when switching notes
-  useEffect(() => {
-    if (editorRef.current && activeNote) {
-      editorRef.current.innerHTML = activeNote.content
-      updateCounts()
-    }
-  }, [activeNoteId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const saveContent = useCallback(() => {
-    if (!activeNoteId || !editorRef.current) return
-    const html = editorRef.current.innerHTML
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.id === activeNoteId ? { ...n, content: html, updatedAt: Date.now() } : n,
-      ),
-    )
-  }, [activeNoteId])
-
-  const handleEditorInput = useCallback(() => {
-    if (savingTimeout.current) clearTimeout(savingTimeout.current)
-    updateCounts()
-    savingTimeout.current = setTimeout(saveContent, 300)
-  }, [saveContent, updateCounts])
-
-  const checkActiveFormats = useCallback(() => {
-    const formats: Record<string, boolean> = {}
-    formats.bold = document.queryCommandState("bold")
-    formats.italic = document.queryCommandState("italic")
-    formats.underline = document.queryCommandState("underline")
-    formats.insertUnorderedList = document.queryCommandState("insertUnorderedList")
-    formats.insertOrderedList = document.queryCommandState("insertOrderedList")
-    formats.justifyLeft = document.queryCommandState("justifyLeft")
-    formats.justifyCenter = document.queryCommandState("justifyCenter")
-    formats.justifyRight = document.queryCommandState("justifyRight")
-    // Check block format
-    const block = document.queryCommandValue("formatBlock")
-    formats.h1 = block === "h1"
-    formats.h2 = block === "h2"
-    formats.blockquote = block === "blockquote"
-    formats.pre = block === "pre"
-    setActiveFormats(formats)
-  }, [])
-
-  // Listen for selection changes to update toolbar state
-  useEffect(() => {
-    const handler = () => checkActiveFormats()
-    document.addEventListener("selectionchange", handler)
-    return () => document.removeEventListener("selectionchange", handler)
-  }, [checkActiveFormats])
-
-  const execCommand = (command: string, value?: string) => {
-    // Check if we are trying to set a format that is already active (toggle behavior)
-    if (command === "formatBlock" && value) {
-      const currentBlock = document.queryCommandValue("formatBlock")
-      if (currentBlock === value) {
-        // Toggle off by setting to default paragraph
-        document.execCommand("formatBlock", false, "p")
-        editorRef.current?.focus()
-        setTimeout(checkActiveFormats, 10)
-        return
-      }
-    }
-
-    document.execCommand(command, false, value)
-    editorRef.current?.focus()
-    // Update toolbar state immediately after command
-    setTimeout(checkActiveFormats, 10)
-  }
-
   const addNote = (folderId: string | null = null, position?: { x: number; y: number }) => {
+    const finalPosition = position || getChildPosition(folderId, folders, notes)
     const newNote: NoteItem = {
       id: uuidv4(),
       title: "New Note",
@@ -993,7 +901,7 @@ const Notes = () => {
       updatedAt: Date.now(),
       color: pickColor(),
       folderId,
-      position,
+      position: finalPosition,
     }
     setNotes((prev) => [newNote, ...prev])
     setActiveNoteId(newNote.id)
@@ -1054,17 +962,26 @@ const Notes = () => {
     }
   }
 
-  const addFolder = (parentId: string | null = null, position?: { x: number; y: number }) => {
+  const addFolder = (
+    parentId: string | null = null,
+    position?: { x: number; y: number },
+    name?: string,
+    options?: { renameOnCreate?: boolean }
+  ) => {
+    const finalName = getNextFolderName(name)
+    const finalPosition = position || getChildPosition(parentId, folders, notes)
     const folder: FolderItem = {
       id: uuidv4(),
-      name: "New Folder",
+      name: finalName,
       collapsed: false,
       color: pickColor(),
       parentId: parentId || null,
-      position,
+      position: finalPosition,
     }
     setFolders((prev) => [...prev, folder])
-    setRenamingFolder(folder.id)
+    if (options?.renameOnCreate !== false) {
+      setRenamingFolder(folder.id)
+    }
   }
 
   const deleteFolder = (folderId: string, name?: string) => {
@@ -1099,6 +1016,22 @@ const Notes = () => {
     )
     setShowNoteMenu(null)
   }
+
+  const getNextFolderName = useCallback(
+    (proposed?: string) => {
+      const base = (proposed?.trim() || "New Folder").trim()
+      const existing = new Set(folders.map((f) => f.name))
+      if (!existing.has(base)) return base
+      let i = 2
+      let candidate = `${base} ${i}`
+      while (existing.has(candidate)) {
+        i += 1
+        candidate = `${base} ${i}`
+      }
+      return candidate
+    },
+    [folders],
+  )
 
   const deleteSelectedNotes = () => {
     setDeleteConfirm({
@@ -1448,7 +1381,13 @@ const Notes = () => {
           {renamingFolder === folder.id ? (
             <input
               autoFocus
-              defaultValue={folder.name}
+              defaultValue={folder.name === "New Folder" ? "" : folder.name}
+              placeholder={folder.name || "New Folder"}
+              onFocus={(e) => {
+                if (folder.name === "New Folder") {
+                  e.target.select()
+                }
+              }}
               onBlur={(e) => {
                 setFolders((prev) =>
                   prev.map((f) =>
@@ -1784,7 +1723,16 @@ const Notes = () => {
             </h2>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => addFolder(null)}
+                onClick={() => {
+                  setNewFolderName("New Folder")
+                  setCreateFolderParentId(null)
+                  setShowCreateFolderModal(true)
+                  setTimeout(() => {
+                    const input = document.getElementById('create-folder-input') as HTMLInputElement | null
+                    input?.focus()
+                    input?.select()
+                  }, 0)
+                }}
                 className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] hover:bg-gradient-to-br hover:from-blue-500/20 hover:to-purple-500/20 border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 text-slate-400 hover:text-white"
                 title="New folder"
               >
@@ -2058,14 +2006,11 @@ const Notes = () => {
             </div>
 
             {/* Editor */}
-            <div className="flex-1 overflow-y-auto bg-[#0c1220] scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent" onClick={() => editorRef.current?.focus()}>
-              <div className="w-full min-h-full px-12 py-8">
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={handleEditorInput}
-                  className="min-h-full outline-none text-[15px] leading-relaxed text-slate-200 caret-blue-400
+            <div className="flex-1 overflow-y-auto bg-[#0c1220] scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+              <div className="w-full min-h-full px-12 py-8 tiptap-editor-wrapper">
+                 <EditorContent 
+                   editor={editor} 
+                   className="min-h-full outline-none text-[15px] leading-relaxed text-slate-200 caret-blue-400
                     [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6
                     [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mb-2 [&_h2]:mt-5
                     [&_blockquote]:border-l-2 [&_blockquote]:border-blue-500/40 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400 [&_blockquote]:italic [&_blockquote]:my-3
@@ -2073,10 +2018,8 @@ const Notes = () => {
                     [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2
                     [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2
                     [&_li]:my-1
-                    [&_a]:text-blue-400 [&_a]:underline
-                    empty:before:content-[attr(data-placeholder)] empty:before:text-slate-600"
-                  data-placeholder="Start writing..."
-                />
+                    [&_a]:text-blue-400 [&_a]:underline"
+                 />
               </div>
             </div>
 
@@ -2118,6 +2061,16 @@ const Notes = () => {
               onNoteClick={(id) => setActiveNoteId(id)}
               onFolderClick={(id) => toggleFolder(id)}
               onConnectNode={(source, target, sourceHandle, targetHandle) => handleConnectNode(source, target, sourceHandle, targetHandle)}
+              onDisconnectNode={(nodeId) => {
+                const note = notes.find(n => n.id === nodeId);
+                const folder = folders.find(f => f.id === nodeId);
+                if (note) {
+                  setNotes(prev => prev.map(n => n.id === nodeId ? { ...n, folderId: null } : n));
+                }
+                if (folder) {
+                  setFolders(prev => prev.map(f => f.id === nodeId ? { ...f, parentId: null } : f));
+                }
+              }}
               onAddNode={(type, sourceId, position, handleId) => handleAddNode(type, sourceId, position, handleId)}
               onCreateFirstNote={() => addNote(null)}
               onAddRootFolder={(position) => addFolder(null, position)}
@@ -2169,11 +2122,82 @@ const Notes = () => {
             : `"${deleteConfirm.title}"`
         }? This action cannot be undone and all data will be permanently lost.`}
       />
+
+      {/* Create Folder Modal */}
+      {showCreateFolderModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateFolderModal(false)}>
+          <div
+            className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center">
+                  <FolderPlus className="w-5 h-5 text-blue-300" />
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-slate-100">Create Folder</div>
+                  <div className="text-sm text-slate-500">Choose a name and confirm to add it.</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Folder Name</label>
+                <input
+                  id="create-folder-input"
+                  autoFocus
+                  value={newFolderName}
+                  placeholder="New Folder"
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      addFolder(createFolderParentId, undefined, newFolderName, { renameOnCreate: false })
+                      setShowCreateFolderModal(false)
+                    }
+                    if (e.key === 'Escape') {
+                      setShowCreateFolderModal(false)
+                    }
+                  }}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-all"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowCreateFolderModal(false)}
+                  className="px-3.5 py-2 rounded-lg text-sm text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    addFolder(createFolderParentId, undefined, newFolderName, { renameOnCreate: false })
+                    setShowCreateFolderModal(false)
+                  }}
+                  className="px-3.5 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 shadow-lg shadow-blue-500/20 transition-colors"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Tooltip */}
+      {linkTooltip?.show && (
+        <div 
+          className="fixed z-[9999] px-2 py-1 text-xs text-white bg-slate-900 border border-slate-700 rounded shadow-xl pointer-events-none"
+          style={{ left: linkTooltip.x, top: linkTooltip.y }}
+        >
+          Ctrl + Click to open
+        </div>
+      )}
     </div>
   )
 }
 
-// Inject keyframe animation
+// Inject keyframe animation and TipTap placeholder styles
 if (typeof document !== 'undefined' && !document.getElementById('notes-menu-anim')) {
   const style = document.createElement('style')
   style.id = 'notes-menu-anim'
@@ -2181,6 +2205,16 @@ if (typeof document !== 'undefined' && !document.getElementById('notes-menu-anim
     @keyframes fadeInScale {
       from { opacity: 0; transform: scale(0.95) translateY(-4px); }
       to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    
+    /* TipTap Placeholder */
+    .ProseMirror p.is-editor-empty:first-child::before,
+    .ProseMirror p.is-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      color: rgb(71 85 105);
+      pointer-events: none;
+      height: 0;
     }
   `
   document.head.appendChild(style)

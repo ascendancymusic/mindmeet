@@ -75,7 +75,7 @@
   right: -2px;
   bottom: -2px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.10) 40%, rgba(0, 0, 0, 0.2) 100%);
-  border-radius: inherit;
+  border-radius: 18px; /* Slightly larger than node border-radius to account for 2px extension */
   pointer-events: none;
   z-index: 1;
   opacity: 1;
@@ -106,7 +106,8 @@
 .react-flow__node {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
   /* transition: all 0.3s ease-in-out;  <-- REMOVED: This causes drag lag */
-  transition: box-shadow 0.3s ease-in-out; 
+  transition: box-shadow 0.3s ease-in-out;
+  border-radius: 16px; /* rounded-2xl equivalent */
 }
 
 .react-flow__node:hover {
@@ -156,6 +157,7 @@
   width: 8px !important;
   height: 8px !important;
   border: 2px solid #374151 !important;
+  border-radius: 50% !important;
 }
 
 /* Modern Edge Overlay Effects - Apply gradient overlay to edges *-- Maybe try box shadow instead of filter? */
