@@ -1,7 +1,7 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { Search, Bell, User, Network, LogOut, Settings, Menu, X, MessageCircle, MessageSquare } from "lucide-react"
+import { Search, Bell, User, Network, LogOut, Settings, Menu, X, MessageCircle, MessageSquare, FileText } from "lucide-react"
 import NotificationsDropdown from "./NotificationsDropdown"
 import { useAuthStore } from "../store/authStore"
 import { supabase } from "../supabaseClient"
@@ -319,6 +319,13 @@ const LoggedInNavigation: React.FC = () => {
                 <Network className="w-4 h-4 md:w-4.5 md:h-4.5 mx-auto" />
               </Link>
               <Link
+                to="/notes"
+                className={`flex items-center justify-center px-2 py-1.5 md:px-2.5 md:py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive("/notes")}`}
+              >
+                <FileText className="w-4 h-4 md:w-4.5 md:h-4.5 mx-auto" />
+              </Link>
+              <div className="w-px h-6 bg-slate-700/50 mx-1" />
+              <Link
                 to="/chat"
                 className={`flex items-center justify-center px-2 py-1.5 md:px-2.5 md:py-2 rounded-lg text-sm font-medium transition-all duration-200 relative ${isActive("/chat")}`}
                 aria-label="Chat"
@@ -485,6 +492,19 @@ const LoggedInNavigation: React.FC = () => {
                     <Network className="w-4 h-4 mr-3" />
                     Mindmap
                   </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/notes"
+                    className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive("/notes")}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <FileText className="w-4 h-4 mr-3" />
+                    Notes
+                  </Link>
+                </li>
+                <li className="my-2">
+                  <div className="border-t border-slate-700/50" />
                 </li>
                 <li>
                   <Link

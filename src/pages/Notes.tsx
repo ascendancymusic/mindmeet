@@ -5,6 +5,8 @@ import LinkExtension from '@tiptap/extension-link'
 import UnderlineExtension from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
+import { useNotesStore } from '../store/notesStore'
+import { useAuthStore } from '../store/authStore'
 
 const ToolbarBtn = ({ children, onClick, active, title, disabled }: any) => (
   <button
@@ -395,6 +397,7 @@ const NotesMindMapContent = ({
          onEdgesChange={onEdgesChange}
          onConnect={onConnect}
          isValidConnection={isValidConnection}
+         fitView
          onConnectStart={onConnectStart}
          onConnectEnd={onConnectEnd}
          onReconnectStart={onReconnectStart}
@@ -429,7 +432,6 @@ const NotesMindMapContent = ({
                 onFolderClick?.(node.id)
             }
          }}
-         fitView
          proOptions={{ hideAttribution: true }}
          minZoom={0.2}
          maxZoom={2}
@@ -643,8 +645,24 @@ function pickColor(): string {
 
 /* --- main component --- */
 const Notes = () => {
-  const [notes, setNotes] = useState<NoteItem[]>([])
-  const [folders, setFolders] = useState<FolderItem[]>([])
+  const { user } = useAuthStore()
+  const { 
+    notes, 
+    folders, 
+    saveStatus, 
+    fetchNotes, 
+    fetchFolders, 
+    saveNote, 
+    saveFolder, 
+    saveNotePosition,
+    saveFolderPosition,
+    deleteNote: deleteNoteFromDB, 
+    deleteFolder: deleteFolderFromDB,
+    updateNoteLocal,
+    updateFolderLocal,
+    migrateFromLocalStorage 
+  } = useNotesStore()
+  
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [showNoteMenu, setShowNoteMenu] = useState<string | null>(null)
@@ -655,6 +673,9 @@ const Notes = () => {
   const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({})
   const [wordCount, setWordCount] = useState(0)
   const [charCount, setCharCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  
+  const activeNote = notes.find((n) => n.id === activeNoteId)
   
   const editor = useEditor({
     extensions: [
@@ -710,6 +731,9 @@ const Notes = () => {
       }
     },
     onUpdate: ({ editor }) => {
+       // Skip save if we're programmatically setting content
+       if (isSettingContentRef.current) return;
+       
        const text = editor.getText();
        setCharCount(text.replace(/\n/g, "").length);
        const words = text.trim().split(/\s+/);
@@ -726,20 +750,49 @@ const Notes = () => {
   // Sync content when note changes
   useEffect(() => {
      if (editor && activeNote && editor.getHTML() !== activeNote.content) {
+         isSettingContentRef.current = true;
          editor.commands.setContent(activeNote.content);
+         // Reset flag after a brief delay to allow the update to complete
+         setTimeout(() => {
+           isSettingContentRef.current = false;
+         }, 50);
      }
+  }, [activeNoteId, editor]);
+
+  // Update word/char count when active note changes
+  useEffect(() => {
+    if (editor && activeNote) {
+      const text = editor.getText();
+      setCharCount(text.replace(/\n/g, "").length);
+      const words = text.trim().split(/\s+/);
+      setWordCount(text.trim() === "" ? 0 : words.length);
+    } else {
+      setWordCount(0);
+      setCharCount(0);
+    }
   }, [activeNoteId, editor]); // activeNote dependencies handled by ID
   
   // Save Content Override
   const saveContent = useCallback(() => {
       if (!activeNoteId || !editor) return;
+      const currentNote = notes.find((n) => n.id === activeNoteId);
+      if (!currentNote) return;
       const html = editor.getHTML();
-      setNotes((prev) =>
-          prev.map((n) =>
-              n.id === activeNoteId ? { ...n, content: html, updatedAt: Date.now() } : n
-          )
-      );
-  }, [activeNoteId, editor]);
+      
+      // Update local state immediately (optimistic)
+      updateNoteLocal(activeNoteId, { content: html });
+      
+      // Debounced save to Supabase
+      if (!user?.id) return;
+      if (saveNoteTimeoutRef.current) {
+        clearTimeout(saveNoteTimeoutRef.current);
+      }
+      saveNoteTimeoutRef.current = setTimeout(() => {
+        if (user?.id) {
+          saveNote({ ...currentNote, content: html, updatedAt: Date.now() }, user.id);
+        }
+      }, 2000);
+  }, [activeNoteId, editor, notes, updateNoteLocal, user, saveNote]);
   
   // Toolbar Actions
   const checkActiveFormats = useCallback(() => {
@@ -789,6 +842,7 @@ const Notes = () => {
   const [showHeaderMenu, setShowHeaderMenu] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const savingTimeout = useRef<NodeJS.Timeout | null>(null)
+  const isSettingContentRef = useRef(false) // Track programmatic content updates
 
   // Selection state
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set())
@@ -811,35 +865,59 @@ const Notes = () => {
   const [newFolderName, setNewFolderName] = useState("New Folder")
   const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null)
 
+  // Debounced save refs
+  const saveNoteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const saveFolderTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Load
+  // Debounced save function for notes
+  const debouncedSaveNote = useCallback((note: NoteItem) => {
+    if (!user?.id) return
+    
+    if (saveNoteTimeoutRef.current) {
+      clearTimeout(saveNoteTimeoutRef.current)
+    }
+    
+    saveNoteTimeoutRef.current = setTimeout(() => {
+      saveNote(note, user.id)
+    }, 2000) // 2 second delay
+  }, [user, saveNote])
+
+  // Debounced save function for folders
+  const debouncedSaveFolder = useCallback((folder: FolderItem) => {
+    if (!user?.id) return
+    
+    if (saveFolderTimeoutRef.current) {
+      clearTimeout(saveFolderTimeoutRef.current)
+    }
+    
+    saveFolderTimeoutRef.current = setTimeout(() => {
+      saveFolder(folder, user.id)
+    }, 500) // 500ms delay for structure changes
+  }, [user, saveFolder])
+
+  // Load data on mount and handle migration
   useEffect(() => {
-    try {
-      const savedNotes = localStorage.getItem("notes_wysiwyg_v1")
-      const savedFolders = localStorage.getItem("notes_folders_v1")
-      if (savedNotes) {
-        const parsed = JSON.parse(savedNotes)
-        setNotes(parsed)
-        if (parsed.length > 0) setActiveNoteId(parsed[0].id)
+    if (!user?.id) return
+
+    const initializeNotes = async () => {
+      // Check if there's data in localStorage to migrate
+      const hasLocalData = localStorage.getItem("notes_wysiwyg_v1") || localStorage.getItem("notes_folders_v1")
+      
+      if (hasLocalData) {
+        // Migrate from localStorage
+        await migrateFromLocalStorage(user.id)
+      } else {
+        // Just fetch from Supabase
+        await fetchNotes(user.id)
+        await fetchFolders(user.id)
       }
-      if (savedFolders) setFolders(JSON.parse(savedFolders))
-    } catch {
-      /* ignore */
+      
+      // Don't auto-select any note - show mindmap view by default
+      setIsLoading(false)
     }
-  }, [])
 
-  // Save
-  useEffect(() => {
-    if (notes.length > 0 || localStorage.getItem("notes_wysiwyg_v1")) {
-      localStorage.setItem("notes_wysiwyg_v1", JSON.stringify(notes))
-    }
-  }, [notes])
-
-  useEffect(() => {
-    if (folders.length > 0 || localStorage.getItem("notes_folders_v1")) {
-      localStorage.setItem("notes_folders_v1", JSON.stringify(folders))
-    }
-  }, [folders])
+    initializeNotes()
+  }, [user?.id])
 
   // Close menu on outside click
   useEffect(() => {
@@ -890,9 +968,8 @@ const Notes = () => {
     }
   }, [isResizing, handleResize])
 
-  const activeNote = notes.find((n) => n.id === activeNoteId)
-
   const addNote = (folderId: string | null = null, position?: { x: number; y: number }) => {
+    if (!user?.id) return
     const finalPosition = position || getChildPosition(folderId, folders, notes)
     const newNote: NoteItem = {
       id: uuidv4(),
@@ -903,8 +980,14 @@ const Notes = () => {
       folderId,
       position: finalPosition,
     }
-    setNotes((prev) => [newNote, ...prev])
+    
+    // Update local state
+    useNotesStore.setState({ notes: [newNote, ...notes] })
     setActiveNoteId(newNote.id)
+    
+    // Save to Supabase immediately
+    saveNote(newNote, user.id)
+    
     setTimeout(() => titleRef.current?.focus(), 50)
   }
 
@@ -919,16 +1002,20 @@ const Notes = () => {
   }
 
   const handleDeleteNoteConfirm = () => {
-    if (!deleteConfirm.id) return
-    const filtered = notes.filter((n) => n.id !== deleteConfirm.id)
-    setNotes(filtered)
+    if (!deleteConfirm.id || !user?.id) return
+    
+    // Delete from Supabase
+    deleteNoteFromDB(deleteConfirm.id, user.id)
+    
+    // Update active note if needed
     if (activeNoteId === deleteConfirm.id) {
-      setActiveNoteId(filtered.length > 0 ? filtered[0].id : null)
+      const remaining = notes.filter((n) => n.id !== deleteConfirm.id)
+      setActiveNoteId(remaining.length > 0 ? remaining[0].id : null)
     }
   }
 
   const handleDeleteFolderConfirm = () => {
-    if (!deleteConfirm.id) return
+    if (!deleteConfirm.id || !user?.id) return
     const folderId = deleteConfirm.id
     
     // Find all descendant folders
@@ -945,20 +1032,35 @@ const Notes = () => {
 
     findDescendants(folderId, folders)
 
-    setFolders((prev) => prev.filter((f) => !foldersToDelete.has(f.id)))
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.folderId && foldersToDelete.has(n.folderId) ? { ...n, folderId: null } : n,
-      ),
-    )
+    // Delete all folders from Supabase
+    foldersToDelete.forEach(id => {
+      deleteFolderFromDB(id, user.id)
+    })
+    
+    // Update notes that were in deleted folders (move to root)
+    notes.forEach(note => {
+      if (note.folderId && foldersToDelete.has(note.folderId)) {
+        const updatedNote = { ...note, folderId: null }
+        updateNoteLocal(note.id, { folderId: null })
+        saveNote(updatedNote, user.id)
+      }
+    })
   }
 
   const handleDeleteSelectionConfirm = () => {
-    const remainingNotes = notes.filter((n) => !selectedNotes.has(n.id))
-    setNotes(remainingNotes)
+    if (!user?.id) return
+    
+    // Delete each selected note from Supabase
+    selectedNotes.forEach(noteId => {
+      deleteNoteFromDB(noteId, user.id)
+    })
+    
     setSelectedNotes(new Set())
+    
+    // Update active note if it was deleted
     if (activeNoteId && selectedNotes.has(activeNoteId)) {
-      setActiveNoteId(remainingNotes.length > 0 ? remainingNotes[0].id : null)
+      const remaining = notes.filter((n) => !selectedNotes.has(n.id))
+      setActiveNoteId(remaining.length > 0 ? remaining[0].id : null)
     }
   }
 
@@ -968,6 +1070,7 @@ const Notes = () => {
     name?: string,
     options?: { renameOnCreate?: boolean }
   ) => {
+    if (!user?.id) return
     const finalName = getNextFolderName(name)
     const finalPosition = position || getChildPosition(parentId, folders, notes)
     const folder: FolderItem = {
@@ -978,7 +1081,13 @@ const Notes = () => {
       parentId: parentId || null,
       position: finalPosition,
     }
-    setFolders((prev) => [...prev, folder])
+    
+    // Update local state
+    useNotesStore.setState({ folders: [...folders, folder] })
+    
+    // Save to Supabase immediately
+    saveFolder(folder, user.id)
+    
     if (options?.renameOnCreate !== false) {
       setRenamingFolder(folder.id)
     }
@@ -994,26 +1103,45 @@ const Notes = () => {
   }
 
   const toggleFolder = (folderId: string) => {
-    setFolders((prev) =>
-      prev.map((f) =>
-        f.id === folderId ? { ...f, collapsed: !f.collapsed } : f,
-      ),
-    )
+    if (!user?.id) return
+    const folder = folders.find(f => f.id === folderId)
+    if (!folder) return
+    
+    // Update local state immediately
+    updateFolderLocal(folderId, { collapsed: !folder.collapsed })
+    
+    // Save to Supabase with short debounce
+    debouncedSaveFolder({ ...folder, collapsed: !folder.collapsed })
   }
 
   const updateNoteTitle = (title: string) => {
-    if (!activeNoteId) return
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.id === activeNoteId ? { ...n, title, updatedAt: Date.now() } : n,
-      ),
-    )
+    if (!activeNoteId || !user?.id) return
+    const note = notes.find(n => n.id === activeNoteId)
+    if (!note) return
+    
+    // Update local state immediately
+    updateNoteLocal(activeNoteId, { title })
+    
+    // Debounced save to Supabase (1 second for title changes)
+    if (saveNoteTimeoutRef.current) {
+      clearTimeout(saveNoteTimeoutRef.current)
+    }
+    saveNoteTimeoutRef.current = setTimeout(() => {
+      saveNote({ ...note, title, updatedAt: Date.now() }, user.id)
+    }, 1000)
   }
 
   const moveNoteToFolder = (noteId: string, folderId: string | null) => {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, folderId } : n)),
-    )
+    if (!user?.id) return
+    const note = notes.find(n => n.id === noteId)
+    if (!note) return
+    
+    // Update local state immediately
+    updateNoteLocal(noteId, { folderId })
+    
+    // Save to Supabase immediately (structure changes don't need debounce)
+    saveNote({ ...note, folderId, updatedAt: Date.now() }, user.id)
+    
     setShowNoteMenu(null)
   }
 
@@ -1042,10 +1170,17 @@ const Notes = () => {
   }
 
   const moveSelectedNotes = (folderId: string | null) => {
-    const updatedNotes = notes.map((n) =>
-      selectedNotes.has(n.id) ? { ...n, folderId } : n,
-    )
-    setNotes(updatedNotes)
+    if (!user?.id) return
+    
+    // Update each selected note
+    selectedNotes.forEach(noteId => {
+      const note = notes.find(n => n.id === noteId)
+      if (note) {
+        updateNoteLocal(noteId, { folderId })
+        saveNote({ ...note, folderId, updatedAt: Date.now() }, user.id)
+      }
+    })
+    
     setSelectedNotes(new Set())
     setShowBulkMoveMenu(false)
   }
@@ -1062,6 +1197,8 @@ const Notes = () => {
   }
 
   const handleConnectNode = useCallback((sourceId: string, targetId: string, sourceHandle?: string | null, _targetHandle?: string | null) => {
+    if (!user?.id) return
+    
     // Determine types of source and target
     const sourceNote = notes.find(n => n.id === sourceId)
     const sourceFolder = folders.find(f => f.id === sourceId)
@@ -1071,14 +1208,16 @@ const Notes = () => {
     // CASE 1: Dragging Note (Source) -> Folder (Target)
     // User wants Note to be CHILD of Folder.
     if (sourceNote && targetFolder) {
-       setNotes(prev => prev.map(n => n.id === sourceId ? { ...n, folderId: targetId } : n))
+       updateNoteLocal(sourceId, { folderId: targetId })
+       saveNote({ ...sourceNote, folderId: targetId, updatedAt: Date.now() }, user.id)
        return;
     }
 
     // CASE 2: Dragging Folder (Source) -> Note (Target)
     // User dragged from Folder to Note. Likely implies Folder should be Parent of Note.
     if (sourceFolder && targetNote) {
-       setNotes(prev => prev.map(n => n.id === targetId ? { ...n, folderId: sourceId } : n))
+       updateNoteLocal(targetId, { folderId: sourceId })
+       saveNote({ ...targetNote, folderId: sourceId, updatedAt: Date.now() }, user.id)
        return;
     }
     
@@ -1213,20 +1352,30 @@ const Notes = () => {
           if (sourceHandle === 'top-source') {
              // Source becomes child of Target
              console.log(`Linking Folder (from top): Parent ${targetId} -> Child ${sourceId}`);
-             setFolders(prev => prev.map(f => f.id === sourceId ? { ...f, parentId: targetId } : f))
+             const folder = folders.find(f => f.id === sourceId)
+             if (folder) {
+               updateFolderLocal(sourceId, { parentId: targetId })
+               saveFolder({ ...folder, parentId: targetId }, user.id)
+             }
           } else {
              // Standard Behavior: Source (Start of line) is PARENT. Target (End of line) is CHILD.
              // Update Target's parentId to be SourceId.
              console.log(`Linking Folder: Parent ${sourceId} -> Child ${targetId}`);
-             setFolders(prev => prev.map(f => f.id === targetId ? { ...f, parentId: sourceId } : f))
+             const folder = folders.find(f => f.id === targetId)
+             if (folder) {
+               updateFolderLocal(targetId, { parentId: sourceId })
+               saveFolder({ ...folder, parentId: sourceId }, user.id)
+             }
           }
        }
     }
-  }, [notes, folders])
+  }, [notes, folders, user, updateNoteLocal, updateFolderLocal, saveNote, saveFolder])
 
 
 
   const handleAddNode = useCallback((type: 'folder' | 'note', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => {
+    if (!user?.id) return
+    
     // 1. Check if source is a NOTE
     // If dragging from a Note, we are creating a PARENT folder for it (putting the note inside the new folder)
     const sourceNote = notes.find(n => n.id === parentId);
@@ -1240,12 +1389,12 @@ const Notes = () => {
                 parentId: sourceNote.folderId || null,
                 position,
             }
-            // If the note was already in a folder, the new folder becomes a sibling in that folder (optional behavior), 
-            // OR we just move the note to the NEW folder. 
-            // The user said: "creating a new folder that the note is inside" -> Implies moving the note.
             
-            setFolders(prev => [...prev, newFolder])
-            setNotes(prev => prev.map(n => n.id === sourceNote.id ? { ...n, folderId: newFolder.id } : n))
+            useNotesStore.setState({ folders: [...folders, newFolder] })
+            saveFolder(newFolder, user.id)
+            
+            updateNoteLocal(sourceNote.id, { folderId: newFolder.id })
+            saveNote({ ...sourceNote, folderId: newFolder.id, updatedAt: Date.now() }, user.id)
         }
         return;
     }
@@ -1269,11 +1418,12 @@ const Notes = () => {
                 parentId: sourceFolder.parentId, // Same parent as source folder (becomes sibling)
                 position,
             }
-            // Move source folder to be a child of the new folder
-            setFolders(prev => [
-                ...prev.map(f => f.id === sourceFolder.id ? { ...f, parentId: newFolder.id } : f),
-                newFolder
-            ])
+            
+            useNotesStore.setState({ folders: [...folders, newFolder] })
+            saveFolder(newFolder, user.id)
+            
+            updateFolderLocal(sourceFolder.id, { parentId: newFolder.id })
+            saveFolder({ ...sourceFolder, parentId: newFolder.id }, user.id)
         } else if (type === 'note') {
             // Create a note as sibling of the folder (same parent)
             const newNote: NoteItem = {
@@ -1285,7 +1435,9 @@ const Notes = () => {
                 folderId: sourceFolder.parentId,
                 position,
             }
-            setNotes(prev => [...prev, newNote])
+            
+            useNotesStore.setState({ notes: [...notes, newNote] })
+            saveNote(newNote, user.id)
             setActiveNoteId(newNote.id)
         }
         return;
@@ -1304,7 +1456,9 @@ const Notes = () => {
             folderId: targetFolderId, // Add into the source folder
             position,
         }
-        setNotes(prev => [...prev, newNote])
+        
+        useNotesStore.setState({ notes: [...notes, newNote] })
+        saveNote(newNote, user.id)
         setActiveNoteId(newNote.id)
     } else {
         const newFolder: FolderItem = {
@@ -1315,9 +1469,11 @@ const Notes = () => {
             parentId: targetFolderId, // Add as child of source folder
             position,
         }
-        setFolders(prev => [...prev, newFolder])
+        
+        useNotesStore.setState({ folders: [...folders, newFolder] })
+        saveFolder(newFolder, user.id)
     }
-  }, [folders, notes])
+  }, [folders, notes, user, saveNote, saveFolder, updateNoteLocal, updateFolderLocal])
 
   const formatDate = (ts: number) => {
     const d = new Date(ts)
@@ -1389,13 +1545,10 @@ const Notes = () => {
                 }
               }}
               onBlur={(e) => {
-                setFolders((prev) =>
-                  prev.map((f) =>
-                    f.id === folder.id
-                      ? { ...f, name: e.target.value || "Untitled" }
-                      : f,
-                  ),
-                )
+                if (!user?.id) return
+                const newName = e.target.value || "Untitled"
+                updateFolderLocal(folder.id, { name: newName })
+                debouncedSaveFolder({ ...folder, name: newName })
                 setRenamingFolder(null)
               }}
               onKeyDown={(e) => {
@@ -1630,13 +1783,38 @@ const Notes = () => {
 
   return (
     <div className="flex flex-1 w-full bg-[#0c1220] text-slate-100 overflow-hidden">
+      {isLoading ? (
+        // Loading Skeleton
+        <div className="flex flex-1 w-full">
+          {/* Sidebar Skeleton */}
+          <div style={{ width: 280 }} className="flex-shrink-0 border-r border-white/[0.08] bg-gradient-to-b from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-xl p-4">
+            <div className="space-y-3 animate-pulse">
+              {/* Search bar skeleton */}
+              <div className="h-10 bg-slate-700/30 rounded-xl"></div>
+              {/* Note items skeleton */}
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="h-16 bg-slate-700/20 rounded-xl"></div>
+              ))}
+            </div>
+          </div>
+          {/* Main content skeleton */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center animate-pulse">
+              <div className="w-16 h-16 bg-blue-500/20 rounded-2xl mx-auto mb-4"></div>
+              <div className="h-6 w-48 bg-slate-700/30 rounded mx-auto mb-2"></div>
+              <div className="h-4 w-64 bg-slate-700/20 rounded mx-auto"></div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Sidebar */}
       <div
         ref={sidebarRef}
         style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
         className={`flex-shrink-0 flex flex-col h-full border-r border-white/[0.08] bg-gradient-to-b from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-xl relative ${
           sidebarCollapsed ? "overflow-hidden border-r-0" : ""
-        } ${isResizing ? "" : "transition-all duration-300"}`}
+        }`}
       >
         {/* Resize Handle */}
         <div 
@@ -1829,14 +2007,6 @@ const Notes = () => {
                 <Share2 className="w-3 h-3" />
                 Turn into Mindmap
               </button>
-              <span className="text-[11px] text-slate-600 ml-4 flex-shrink-0">
-                {new Date(activeNote.updatedAt).toLocaleString([], {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
 
               <div className="relative ml-4" ref={headerMenuRef}>
                  <button
@@ -2025,7 +2195,33 @@ const Notes = () => {
 
             {/* Footer / Status Bar - Character Count */}
             <div className="flex-shrink-0 flex items-center justify-between px-6 h-12 border-t border-white/[0.06] text-xs text-slate-500 select-none bg-gradient-to-r from-slate-800/40 via-slate-900/40 to-slate-800/40 backdrop-blur-xl">
-               <div>{/* Left side usually file path or breadcrumbs, keeping empty for now */}</div>
+               <div className="flex items-center gap-2">
+                 {saveStatus === 'saving' && (
+                   <span className="text-blue-400 flex items-center gap-1.5">
+                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                     </svg>
+                     Saving...
+                   </span>
+                 )}
+                 {saveStatus === 'saved' && activeNote?.updatedAt && (
+                   <span className="text-slate-500">
+                     Updated {new Date(activeNote.updatedAt).toLocaleString([], {
+                       month: "short",
+                       day: "numeric",
+                       hour: "2-digit",
+                       minute: "2-digit",
+                     })}
+                   </span>
+                 )}
+                 {saveStatus === 'error' && (
+                   <span className="text-red-400">Failed to save</span>
+                 )}
+                 {saveStatus === 'offline' && (
+                   <span className="text-yellow-400">Offline mode</span>
+                 )}
+               </div>
                <div className="flex gap-6 font-medium">
                  <span>{wordCount} words</span>
                  <span>{charCount} characters</span>
@@ -2062,13 +2258,16 @@ const Notes = () => {
               onFolderClick={(id) => toggleFolder(id)}
               onConnectNode={(source, target, sourceHandle, targetHandle) => handleConnectNode(source, target, sourceHandle, targetHandle)}
               onDisconnectNode={(nodeId) => {
+                if (!user?.id) return
                 const note = notes.find(n => n.id === nodeId);
                 const folder = folders.find(f => f.id === nodeId);
                 if (note) {
-                  setNotes(prev => prev.map(n => n.id === nodeId ? { ...n, folderId: null } : n));
+                  updateNoteLocal(nodeId, { folderId: null });
+                  saveNote({ ...note, folderId: null, updatedAt: Date.now() }, user.id);
                 }
                 if (folder) {
-                  setFolders(prev => prev.map(f => f.id === nodeId ? { ...f, parentId: null } : f));
+                  updateFolderLocal(nodeId, { parentId: null });
+                  saveFolder({ ...folder, parentId: null }, user.id);
                 }
               }}
               onAddNode={(type, sourceId, position, handleId) => handleAddNode(type, sourceId, position, handleId)}
@@ -2080,19 +2279,37 @@ const Notes = () => {
                  if (type === 'note') deleteNote(id, label);
               }}
               onRenameNode={(id, type, newName) => {
+                 if (!user?.id) return
                  if (type === 'folder') {
-                    setFolders(prev => prev.map(f => f.id === id ? { ...f, name: newName } : f));
+                    const folder = folders.find(f => f.id === id);
+                    if (folder) {
+                      updateFolderLocal(id, { name: newName });
+                      debouncedSaveFolder({ ...folder, name: newName });
+                    }
                  }
                  if (type === 'note') {
-                    setNotes(prev => prev.map(n => n.id === id ? { ...n, title: newName, updatedAt: Date.now() } : n));
+                    const note = notes.find(n => n.id === id);
+                    if (note) {
+                      updateNoteLocal(id, { title: newName });
+                      debouncedSaveNote({ ...note, title: newName, updatedAt: Date.now() });
+                    }
                  }
               }}
               onPositionChange={(id, position, type) => {
+                  if (!user?.id) return
                   if (type === 'folder') {
-                      setFolders(prev => prev.map(f => f.id === id ? { ...f, position } : f));
+                      const folder = folders.find(f => f.id === id);
+                      if (folder) {
+                        updateFolderLocal(id, { position });
+                        saveFolderPosition(id, position, user.id);
+                      }
                   }
                   if (type === 'note') {
-                      setNotes(prev => prev.map(n => n.id === id ? { ...n, position } : n));
+                      const note = notes.find(n => n.id === id);
+                      if (note) {
+                        updateNoteLocal(id, { position });
+                        saveNotePosition(id, position, user.id);
+                      }
                   }
               }}
             />
@@ -2192,6 +2409,8 @@ const Notes = () => {
         >
           Ctrl + Click to open
         </div>
+      )}
+        </>
       )}
     </div>
   )

@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useAuthStore } from "../store/authStore"
 import { useChatStore } from "../store/chatStore"
-import { PlusCircle, User, MessageSquare, Settings, Network, Crown } from "lucide-react"
+import { PlusCircle, User, MessageSquare, Settings, Network, Crown, FileText } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { supabase } from "../supabaseClient"
 import { NewAccountSetup } from "../components/NewAccountSetup"
@@ -141,6 +141,14 @@ const HomeLoggedIn: React.FC = () => {
               <Network className="inline-block mr-3 h-5 w-5 text-slate-400 group-hover:text-slate-300 transition-colors -translate-y-0.5" />
               <span className="font-medium group-hover:text-white transition-colors">Mindmaps</span>
             </button>            <button
+              onClick={() => navigate("/notes")}
+              className="group w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/50 transition-all duration-200 border border-transparent hover:border-slate-700/50 backdrop-blur-sm"
+            >
+              <FileText className="inline-block mr-3 h-5 w-5 text-slate-400 group-hover:text-slate-300 transition-colors -translate-y-0.5" />
+              <span className="font-medium group-hover:text-white transition-colors">Notes</span>
+            </button>
+            <div className="my-2 border-t border-slate-700/50" />
+            <button
               onClick={() => setShowProPopup(true)}
               className="group w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800/50 transition-all duration-200 border border-transparent hover:border-slate-700/50 backdrop-blur-sm"
             >
