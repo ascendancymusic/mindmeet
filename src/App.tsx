@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import LoggedInNavigation from './components/LoggedInNavigation';
@@ -18,15 +18,17 @@ import ForgotPassword from './pages/ForgotPassword';
 import UserProfile from './pages/UserProfile';
 import ViewMindMap from './pages/ViewMindMap';
 import SearchPage from './pages/SearchPage';
+import Notes from './pages/Notes';
 import './styles/theme.css';
 import { useAuthStore } from './store/authStore';
 import { Toast } from './components/Toast';
 import { useToastStore } from './store/toastStore';
 
-function App() {
+function AppContent() {
   const { isLoggedIn, validateSession, forceLoggedOut } = useAuthStore();
   const [username, setUsername] = useState<string | null>(null);
   const [isValidatingSession, setIsValidatingSession] = useState(true);
+  const location = useLocation();
   // Global toast state so notifications render on any page immediately
   const { message: toastMessage, type: toastType, isVisible: toastVisible, hideToast } = useToastStore();
 
@@ -83,21 +85,30 @@ function App() {
   // Determine effective logged in state (force logged out overrides isLoggedIn)
   const effectivelyLoggedIn = isLoggedIn && !forceLoggedOut;
 
+  // Check if we're on the Notes page to apply full-width layout
+  const isNotesPage = location.pathname.startsWith('/notes');
+  const containerClassName = isNotesPage
+    ? "flex flex-col h-screen overflow-hidden bg-fixed bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+    : "flex flex-col min-h-screen bg-fixed bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950";
+  const mainClassName = isNotesPage 
+    ? "flex flex-col flex-1 min-h-0 w-full overflow-hidden"
+    : "flex-1 min-h-0 container mx-auto px-1 py-0";
+
   return (
-    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-      <div className="flex flex-col min-h-screen bg-fixed bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className={containerClassName}>
         {effectivelyLoggedIn && <LoggedInNavigation />}
         {!effectivelyLoggedIn &&
-          !['/', '/login', '/signup'].includes(window.location.pathname) && (
+          !['/', '/login', '/signup'].includes(location.pathname) && (
             <LoggedOutNavigation />
           )} {/* Show only when not logged in and not on home, login, or signup */}
-        <main className="flex-1 min-h-0 container mx-auto px-1 py-0">
+        <main className={mainClassName}>
           <Routes>
             <Route path="/" element={effectivelyLoggedIn ? <HomeLoggedIn /> : <Home />} />
             <Route path="/mindmap" element={<MindMapList />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/signup" element={effectivelyLoggedIn ? <Navigate to="/" /> : <SignUp />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/notes" element={<Notes />} />
             <Route path="/chat" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
             <Route path="/chat/:supabaseId" element={effectivelyLoggedIn ? <Chat /> : <Navigate to="/login" />} />
             <Route path="/chat2" element={<Chat2Page />} />
@@ -123,6 +134,13 @@ function App() {
           onClose={hideToast}
         />
       </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      <AppContent />
     </BrowserRouter>
   );
 }

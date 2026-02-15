@@ -105,12 +105,13 @@
 /* Enhanced node shadows and borders */
 .react-flow__node {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease-in-out;
+  /* transition: all 0.3s ease-in-out;  <-- REMOVED: This causes drag lag */
+  transition: box-shadow 0.3s ease-in-out; 
 }
 
 .react-flow__node:hover {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-  transform: translateY(-2px);
+  /* transform: translateY(-2px); <-- REMOVED: Conflicts with React Flow positioning */
 }
 
 /* TextNoBgNode wrapper should not add extra space/background */
