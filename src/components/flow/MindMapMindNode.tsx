@@ -29,9 +29,7 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
   const targetPath = user?.username ? `/${user.username}/${permalink}/edit` : '#'
 
   return (
-    <div className="relative group hover:z-10">
-       <div className="absolute -inset-px bg-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100"></div>
-       
+    <div className="relative group">
        {/* Handles positioned outside the link to avoid event conflicts */}
        <Handle type="target" position={Position.Top} id="top-target" className="!w-1 !h-1 !min-w-0 !min-h-0 !bg-transparent !border-none !top-0" />
        <Handle 
@@ -41,9 +39,8 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
           className="!w-2 !h-2 !min-w-0 !min-h-0 !bg-transparent !border-none !top-0 z-50 cursor-crosshair" 
           style={{ background: 'transparent' }}
        />
-       
        {/* Content wrapper - only this part is clickable */}
-       <div className="relative bg-[#1e293b] border border-slate-700/50 group-hover:border-purple-500/30 rounded-2xl shadow-lg pointer-events-none min-w-[160px] max-w-[220px]">
+       <div className="relative bg-[#1e293b] border border-slate-700/50 group-hover:border-purple-500/30 rounded-2xl pointer-events-none min-w-[160px] max-w-[220px] transition-colors">
          <RouterLink
            to={targetPath}
            className="flex items-center gap-2.5 p-2.5 no-underline pointer-events-auto"
@@ -55,7 +52,6 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
            >
              <Network className="w-4 h-4" style={{ color: data.color || '#94a3b8' }} />
            </div>
-           
            <div className="flex-1 min-w-0">
              <div className="flex items-center gap-1.5">
                <div className="text-xs font-semibold text-slate-300 truncate group-hover:text-purple-200">{data.label}</div>
@@ -67,7 +63,6 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
            </div>
          </RouterLink>
        </div>
-       
        {/* Bottom handles for connections */}
        <Handle 
           type="source" 

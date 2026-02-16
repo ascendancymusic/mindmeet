@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
 import UnderlineExtension from '@tiptap/extension-underline'
@@ -9,57 +8,19 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { useNotesStore } from '../store/notesStore'
 import { useAuthStore } from '../store/authStore'
 import { useMindMapStore } from '../store/mindMapStore'
-
-const ToolbarBtn = ({ children, onClick, active, title, disabled }: any) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    title={title}
-    className={`p-1.5 rounded-lg transition-all duration-200 ${
-      active 
-        ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/30" 
-        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
-    } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-  >
-    {children}
-  </button>
-)
+import { WorkspaceSidebar } from '../components/WorkspaceSidebar'
+import { NoteEditor } from '../components/NoteEditor'
 
 import { v4 as uuidv4 } from "uuid"
 import {
-  Trash2,
   Plus,
   ChevronRight,
-  FileText,
-  Search,
-  MoreHorizontal,
   FolderPlus,
-  Folder,
-  FolderOpen,
-  Bold,
-  Italic,
-  Underline,
-  List,
-  ListOrdered,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Heading1,
-  Heading2,
-  Quote,
-  Code,
-  Share2,
   GripVertical,
-  X,
-  Check,
   AlertTriangle,
   Maximize2,
   Grid3x3,
   GitBranch,
-  Network,
-  Globe,
-  Lock,
-  Link,
 } from "lucide-react"
 
 import ReactFlow, {
@@ -729,6 +690,8 @@ const Notes = () => {
   const [wordCount, setWordCount] = useState(0)
   const [charCount, setCharCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [colorPickerFolder, setColorPickerFolder] = useState<string | null>(null)
+  const [tempColor, setTempColor] = useState<string>("")
   
   const activeNote = notes.find((n) => n.id === activeNoteId)
   
@@ -1205,6 +1168,19 @@ const Notes = () => {
     setShowNoteMenu(null)
   }
 
+
+  const changeFolderColor = (folderId: string, color: string) => {
+    if (!user?.id) return
+    const folder = folders.find(f => f.id === folderId)
+    if (!folder) return
+    
+    // Update local state immediately
+    updateFolderLocal(folderId, { color })
+    
+    // Save to Supabase immediately
+    saveFolder({ ...folder, color }, user.id)
+  }
+
   const getNextFolderName = useCallback(
     (proposed?: string) => {
       const base = (proposed?.trim() || "New Folder").trim()
@@ -1622,439 +1598,6 @@ const Notes = () => {
     }
   }, [folders, notes, mindmaps, user, saveNote, saveFolder, updateNoteLocal, updateFolderLocal, setMindmaps])
 
-  const formatDate = (ts: number) => {
-    const d = new Date(ts)
-    const now = new Date()
-    if (d.toDateString() === now.toDateString()) {
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    }
-    return d.toLocaleDateString([], { month: "short", day: "numeric" })
-  }
-
-  const getPreview = (html: string) => {
-    const tmp = document.createElement("div")
-    tmp.innerHTML = html
-    const text = tmp.textContent || ""
-    return text.slice(0, 60) || "Empty note"
-  }
-
-  const filteredNotes = searchQuery
-    ? notes.filter(
-        (n) =>
-          (n.title || "Untitled").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          getPreview(n.content).toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : notes
-
-  const rootNotes = filteredNotes.filter((n) => !n.folderId)
-  const notesInFolder = (fId: string) => filteredNotes.filter((n) => n.folderId === fId)
-  const rootMindmaps = mindmaps.filter((m) => !m.folderId)
-  const mindmapsInFolder = (fId: string) => mindmaps.filter((m) => m.folderId === fId)
-
-  // Recursive folder renderer
-  const renderFolder = (folder: FolderItem) => {
-    const childFolders = folders.filter((f) => f.parentId === folder.id)
-    const folderNotes = notesInFolder(folder.id)
-    const folderMindmaps = mindmapsInFolder(folder.id)
-
-    return (
-      <div key={folder.id} className="mb-1">
-        <div className="group/folder flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors relative">
-          {/* Indentation line for hierarchy visualization could be added here if needed */}
-          <button
-            onClick={() => toggleFolder(folder.id)}
-            className="flex-shrink-0"
-          >
-            <ChevronRight
-              className="w-3 h-3 text-slate-600 transition-transform duration-200"
-              style={{
-                transform: folder.collapsed ? "rotate(0deg)" : "rotate(90deg)",
-              }}
-            />
-          </button>
-          {folder.collapsed ? (
-            <Folder
-              className="w-4 h-4 flex-shrink-0"
-              style={{ color: folder.color }}
-            />
-          ) : (
-            <FolderOpen
-              className="w-4 h-4 flex-shrink-0"
-              style={{ color: folder.color }}
-            />
-          )}
-
-          {renamingFolder === folder.id ? (
-            <input
-              autoFocus
-              defaultValue={folder.name === "New Folder" ? "" : folder.name}
-              placeholder={folder.name || "New Folder"}
-              onFocus={(e) => {
-                if (folder.name === "New Folder") {
-                  e.target.select()
-                }
-              }}
-              onBlur={(e) => {
-                if (!user?.id) return
-                const newName = e.target.value || "Untitled"
-                updateFolderLocal(folder.id, { name: newName })
-                debouncedSaveFolder({ ...folder, name: newName })
-                setRenamingFolder(null)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  ;(e.target as HTMLInputElement).blur()
-                }
-                if (e.key === "Escape") {
-                  setRenamingFolder(null)
-                }
-              }}
-              className="flex-1 bg-white/[0.06] text-sm text-slate-200 outline-none border border-blue-500/40 rounded px-1.5 py-0.5 min-w-0"
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <span
-              className="text-sm text-slate-400 truncate flex-1 cursor-text"
-              onDoubleClick={(e) => {
-                e.stopPropagation()
-                setRenamingFolder(folder.id)
-              }}
-              title="Double-click to rename"
-            >
-              {folder.name}
-            </span>
-          )}
-
-          <span className="text-[10px] text-slate-600 flex-shrink-0 group-hover/folder:hidden">
-            {folderNotes.length + folderMindmaps.length + childFolders.length}
-          </span>
-          
-          <div className="items-center gap-0.5 hidden group-hover/folder:flex flex-shrink-0">
-             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setRenamingFolder(folder.id)
-              }}
-              className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
-              title="Rename folder"
-            >
-              <FileText className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                addFolder(folder.id)
-              }}
-              className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
-              title="Add subfolder"
-            >
-              <FolderPlus className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                addNote(folder.id)
-              }}
-              className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
-              title="Add note to folder"
-            >
-              <Plus className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                deleteFolder(folder.id, folder.name)
-              }}
-              className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-red-400 hover:bg-white/[0.06] transition-colors"
-              title="Delete folder"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-
-        {!folder.collapsed && (
-          <div className="ml-4 border-l border-white/[0.04] pl-1">
-            
-            {/* Render Subfolders */}
-            {childFolders.map((child) => renderFolder(child))}
-
-            {/* Render Notes */}
-            {folderNotes.map((note) => (
-               <NoteListItem key={note.id} note={note} />
-            ))}
-            
-            {/* Render Mindmaps */}
-            {folderMindmaps.map((mindmap) => (
-               <MindMapListItem key={mindmap.id} mindmap={mindmap} />
-            ))}
-            
-            {folderNotes.length === 0 && folderMindmaps.length === 0 && childFolders.length === 0 && (
-                 <p className="text-[11px] text-slate-700 px-3 py-2">
-                   Empty
-                 </p>
-            )}
-          </div>
-        )}
-
-      </div>
-    )
-  }
-
-  /* --- note list item --- */
-  const NoteListItem = ({ note }: { note: NoteItem }) => {
-    const isActive = activeNoteId === note.id
-    const isSelected = selectedNotes.has(note.id)
-
-    return (
-      <div className="relative group/note">
-        <button
-          onClick={() => {
-            setActiveNoteId(note.id)
-          }}
-          className={`w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 ${
-            isActive
-              ? "bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-transparent border border-white/[0.08]"
-              : isSelected
-                ? "bg-blue-500/10 border border-blue-500/20"
-                : "hover:bg-white/[0.04] border border-transparent"
-          }`}
-        >
-          <div className="flex items-start gap-2.5">
-            <div
-              onClick={(e) => toggleNoteSelection(e, note.id)}
-              className={`w-4 h-4 mt-1 flex-shrink-0 flex items-center justify-center rounded border transition-all cursor-pointer ${
-                isSelected
-                  ? "bg-blue-500 border-blue-500 text-white opacity-100"
-                  : "border-slate-500 bg-transparent opacity-0 group-hover/note:opacity-100 hover:border-slate-300"
-              }`}
-            >
-              {isSelected && <Check className="w-3 h-3 pointer-events-none" />}
-            </div>
-            <FileText className="w-4 h-4 mt-1 flex-shrink-0" style={{ color: note.color }} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span
-                  className={`text-sm font-medium truncate ${
-                    isActive ? "text-white" : "text-slate-400"
-                  }`}
-                >
-                  {note.title || "Untitled"}
-                </span>
-                <span className="text-[11px] text-slate-600 flex-shrink-0 ml-2 group-hover/note:hidden transition-opacity">
-                  {formatDate(note.updatedAt)}
-                </span>
-              </div>
-              <p className="text-[12px] text-slate-600 truncate mt-0.5">
-                {getPreview(note.content)}
-              </p>
-            </div>
-          </div>
-        </button>
-
-        {!isSelected && (
-          <div className="absolute right-2 top-2.5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowNoteMenu(showNoteMenu === note.id ? null : note.id)
-              }}
-              className={`w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 ${
-                showNoteMenu === note.id
-                  ? "opacity-100 bg-white/[0.08]"
-                  : "opacity-0 group-hover/note:opacity-100 hover:bg-white/[0.08]"
-              } text-slate-500 hover:text-slate-300`}
-            >
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {showNoteMenu === note.id && (
-          <div
-            ref={menuRef}
-            className="absolute right-1 top-9 z-50 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
-            style={{ animation: 'fadeInScale 0.15s ease-out' }}
-          >
-            <div className="p-1.5">
-              {/* Move to folder options */}
-              {folders.length > 0 && (
-                <>
-                  <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Move to
-                  </div>
-                  {note.folderId && (
-                    <button
-                      onClick={() => moveNoteToFolder(note.id, null)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08] group"
-                    >
-                      <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-white/10 transition-all">
-                        <FileText className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
-                      </div>
-                      <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Root</span>
-                    </button>
-                  )}
-                  {folders
-                    .filter((f) => f.id !== note.folderId)
-                    .map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={() => moveNoteToFolder(note.id, f.id)}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08] group"
-                      >
-                        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-white/10 transition-all">
-                          <Folder className="w-3.5 h-3.5 transition-colors" style={{ color: f.color }} />
-                        </div>
-                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{f.name}</span>
-                      </button>
-                    ))}
-                  <div className="my-1 mx-2 border-t border-white/[0.06]" />
-                </>
-              )}
-              <button
-                onClick={() => setShowNoteMenu(null)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 border border-transparent cursor-not-allowed opacity-40"
-                disabled
-                title="Coming soon"
-              >
-                <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05]">
-                  <Share2 className="w-3.5 h-3.5 text-slate-400" />
-                </div>
-                <span className="text-sm text-slate-400">Turn into Mindmap</span>
-              </button>
-              <button
-                onClick={() => deleteNote(note.id, note.title)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 group"
-              >
-                <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-red-500/10 transition-all">
-                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                </div>
-                <span className="text-sm text-red-400 group-hover:text-red-300 transition-colors">Delete</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  /* --- mindmap list item --- */
-  const MindMapListItem = ({ mindmap }: { mindmap: MindMapItem }) => {
-    const isSelected = selectedMindmaps.has(mindmap.id)
-
-    const getVisibilityIcon = () => {
-      const visibility = mindmap.visibility || 'private'
-      const iconClass = "w-3 h-3"
-      
-      switch (visibility) {
-        case 'public':
-          return <Globe className={iconClass} />
-        case 'linkOnly':
-          return <Link className={iconClass} />
-        default:
-          return <Lock className={iconClass} />
-      }
-    }
-
-    // Find the actual map to get its permalink
-    const map = maps.find(m => m.id === mindmap.id || m.permalink === mindmap.id)
-    const permalink = map?.permalink || mindmap.id
-    const targetPath = user?.username ? `/${user.username}/${permalink}/edit` : '#'
-
-    return (
-      <div className="relative group/mindmap">
-        <RouterLink
-          to={targetPath}
-          className={`block w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 border ${
-            isSelected
-              ? "bg-purple-500/10 border-purple-500/20"
-              : "hover:bg-white/[0.04] border-transparent hover:border-purple-500/20"
-          }`}
-        >
-          <div className="flex items-start gap-2.5">
-            <div
-              onClick={(e) => toggleMindmapSelection(e, mindmap.id)}
-              className={`w-4 h-4 mt-1 flex-shrink-0 flex items-center justify-center rounded border transition-all cursor-pointer ${
-                isSelected
-                  ? "bg-purple-500 border-purple-500 text-white opacity-100"
-                  : "border-slate-500 bg-transparent opacity-0 group-hover/mindmap:opacity-100 hover:border-slate-300"
-              }`}
-            >
-              {isSelected && <Check className="w-3 h-3 pointer-events-none" />}
-            </div>
-            <Network className="w-4 h-4 mt-1 flex-shrink-0 text-purple-400" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <span className="text-sm font-medium truncate text-slate-400">
-                    {mindmap.title || "Untitled Mindmap"}
-                  </span>
-                  <div className="text-slate-600 opacity-70 shrink-0">
-                    {getVisibilityIcon()}
-                  </div>
-                </div>
-                <span className="text-[11px] text-slate-600 flex-shrink-0 ml-2 group-hover/mindmap:hidden transition-opacity">
-                  {formatDate(mindmap.updatedAt)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </RouterLink>
-
-        {!isSelected && (
-          <div className="absolute right-2 top-2.5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                setShowMindmapMenu(showMindmapMenu === mindmap.id ? null : mindmap.id)
-              }}
-              className={`w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 ${
-                showMindmapMenu === mindmap.id
-                  ? "opacity-100 bg-white/[0.08]"
-                  : "opacity-0 group-hover/mindmap:opacity-100 hover:bg-white/[0.08]"
-              } text-slate-500 hover:text-slate-300`}
-            >
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {showMindmapMenu === mindmap.id && (
-          <div
-            ref={menuRef}
-            className="absolute right-2 top-10 z-50 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[160px]"
-            style={{ animation: 'fadeInScale 0.15s ease-out' }}
-            onClick={(e) => e.preventDefault()}
-          >
-            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
-              <Folder className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-xs font-semibold text-slate-300 tracking-wide">Move to</span>
-            </div>
-            <div className="p-1.5">
-              <button
-                disabled
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 opacity-40 cursor-not-allowed"
-                title="Coming soon"
-              >
-                <Share2 className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-sm text-slate-300">Rename</span>
-              </button>
-              <button
-                disabled
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 opacity-40 cursor-not-allowed"
-                title="Coming soon"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                <span className="text-sm text-slate-300">Delete</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-1 w-full bg-[#0c1220] text-slate-100 overflow-hidden">
       {isLoading ? (
@@ -2082,439 +1625,84 @@ const Notes = () => {
         </div>
       ) : (
         <>
-      {/* Sidebar */}
-      <div
-        ref={sidebarRef}
-        style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
-        className={`flex-shrink-0 flex flex-col h-full border-r border-white/[0.08] bg-gradient-to-b from-slate-800/60 via-slate-900/60 to-slate-800/60 backdrop-blur-xl relative ${
-          sidebarCollapsed ? "overflow-hidden border-r-0" : ""
-        }`}
-      >
-        {/* Resize Handle */}
-        <div 
-           className="absolute right-[-2px] top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/50 z-20 transition-colors"
-           onMouseDown={(e) => {
-             e.preventDefault()
-             e.stopPropagation()
-             setIsResizing(true)
-           }}
-        />
-        {/* Header */}
-        {(selectedNotes.size > 0 || selectedMindmaps.size > 0) ? (
-          <div className="p-4 flex items-center justify-between bg-blue-500/10 border-b border-blue-500/20">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setSelectedNotes(new Set())
-                  setSelectedMindmaps(new Set())
-                }}
-                className="text-slate-400 hover:text-white transition-colors"
-                title="Clear selection"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <span className="text-sm font-medium text-blue-400">
-                {selectedNotes.size + selectedMindmaps.size} selected
-              </span>
-            </div>
-            <div className="flex items-center gap-1 relative">
-              <button
-                onClick={() => setShowBulkMoveMenu(!showBulkMoveMenu)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.1] text-slate-300 transition-colors"
-                title="Move selected"
-              >
-                <Folder className="w-4 h-4" />
-              </button>
-              <button
-                onClick={deleteSelectedNotes}
-                disabled={selectedMindmaps.size > 0}
-                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
-                  selectedMindmaps.size > 0
-                    ? "opacity-40 cursor-not-allowed text-slate-500"
-                    : "hover:bg-red-500/20 text-red-400"
-                }`}
-                title={selectedMindmaps.size > 0 ? "Delete not available for mindmaps yet" : "Delete selected"}
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-
-              {/* Bulk Move Menu */}
-            {showBulkMoveMenu && (
-              <div
-                ref={menuRef}
-                className="absolute right-0 top-9 z-50 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[180px]"
-                style={{ animation: 'fadeInScale 0.15s ease-out' }}
-              >
-                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
-                  <Folder className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="text-xs font-semibold text-slate-300 tracking-wide">Move to</span>
-                </div>
-                <div className="p-1.5">
-                  <button
-                    onClick={() => moveSelectedNotes(null)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08] group"
-                  >
-                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-white/10 transition-all">
-                      <FileText className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
-                    </div>
-                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Root</span>
-                  </button>
-                  {folders.map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => moveSelectedNotes(f.id)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08] group"
-                    >
-                      <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-white/10 transition-all">
-                        <Folder className="w-3.5 h-3.5 transition-colors" style={{ color: f.color }} />
-                      </div>
-                      <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{f.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 flex items-center justify-between border-b border-white/[0.06]">
-            <h2 className="text-base font-semibold tracking-normal bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 text-transparent bg-clip-text" style={{letterSpacing: '0.01em'}}>
-              Workspace
-            </h2>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  setNewFolderName("New Folder")
-                  setCreateFolderParentId(null)
-                  setShowCreateFolderModal(true)
-                  setTimeout(() => {
-                    const input = document.getElementById('create-folder-input') as HTMLInputElement | null
-                    input?.focus()
-                    input?.select()
-                  }, 0)
-                }}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] hover:bg-gradient-to-br hover:from-blue-500/20 hover:to-purple-500/20 border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 text-slate-400 hover:text-white"
-                title="New folder"
-              >
-                <FolderPlus className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => addNote(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.05] hover:bg-gradient-to-br hover:from-blue-500/20 hover:to-purple-500/20 border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 text-slate-400 hover:text-white"
-                title="New note"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Search */}
-        <div className="px-3 pb-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search notes..."
-              className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 pl-9 pr-3 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-blue-500/30 focus:bg-white/[0.06] transition-all duration-200"
-            />
-          </div>
-        </div>
-
-        {/* Note list */}
-        <div className="flex-1 overflow-y-auto px-2 pb-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {notes.length === 0 && folders.length === 0 ? (
-            <div className="px-3 py-8 text-center">
-              <FileText className="w-8 h-8 text-slate-700 mx-auto mb-3" />
-              <p className="text-sm text-slate-600">No notes yet</p>
-              <button
-                onClick={() => addNote(null)}
-                className="mt-3 text-xs text-blue-400/80 hover:text-blue-400 transition-colors"
-              >
-                Create your first note
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Folders */}
-              {folders
-                .filter((folder) => !folder.parentId)
-                .map((folder) => renderFolder(folder))}
-
-              {/* Root notes */}
-              {rootNotes.map((note) => (
-                <NoteListItem key={note.id} note={note} />
-              ))}
-              
-              {/* Root mindmaps */}
-              {rootMindmaps.map((mindmap) => (
-                <MindMapListItem key={mindmap.id} mindmap={mindmap} />
-              ))}
-            </>
-          )}
-        </div>
-      </div>
+      {/* Workspace Sidebar */}
+      <WorkspaceSidebar
+        notes={notes}
+        folders={folders}
+        mindmaps={mindmaps}
+        activeNoteId={activeNoteId}
+        selectedNotes={selectedNotes}
+        selectedMindmaps={selectedMindmaps}
+        searchQuery={searchQuery}
+        isCollapsed={sidebarCollapsed}
+        width={sidebarWidth}
+        showNoteMenu={showNoteMenu}
+        showMindmapMenu={showMindmapMenu}
+        showBulkMoveMenu={showBulkMoveMenu}
+        renamingFolder={renamingFolder}
+        colorPickerFolder={colorPickerFolder}
+        tempColor={tempColor}
+        sidebarRef={sidebarRef}
+        menuRef={menuRef}
+        onSetActiveNoteId={setActiveNoteId}
+        onSetSearchQuery={setSearchQuery}
+        onSetSelectedNotes={setSelectedNotes}
+        onSetSelectedMindmaps={setSelectedMindmaps}
+        onSetShowNoteMenu={setShowNoteMenu}
+        onSetShowMindmapMenu={setShowMindmapMenu}
+        onSetShowBulkMoveMenu={setShowBulkMoveMenu}
+        onSetIsResizing={setIsResizing}
+        onSetRenamingFolder={setRenamingFolder}
+        onSetColorPickerFolder={setColorPickerFolder}
+        onSetTempColor={setTempColor}
+        onAddNote={addNote}
+        onDeleteNote={deleteNote}
+        onAddFolder={(parentId) => {
+          setNewFolderName("New Folder")
+          setCreateFolderParentId(parentId)
+          setShowCreateFolderModal(true)
+          setTimeout(() => {
+            const input = document.getElementById('create-folder-input') as HTMLInputElement | null
+            input?.focus()
+            input?.select()
+          }, 0)
+        }}
+        onDeleteFolder={deleteFolder}
+        onToggleFolder={toggleFolder}
+        onMoveNoteToFolder={moveNoteToFolder}
+        onChangeFolderColor={changeFolderColor}
+        onDeleteSelectedNotes={deleteSelectedNotes}
+        onMoveSelectedNotes={moveSelectedNotes}
+        onToggleNoteSelection={toggleNoteSelection}
+        onToggleMindmapSelection={toggleMindmapSelection}
+        onUpdateFolderLocal={updateFolderLocal}
+        onDebouncedSaveFolder={debouncedSaveFolder}
+      />
 
       {/* Editor area */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         {activeNote ? (
-          <>
-            {/* Header */}
-            <div className="flex items-center px-8 py-3 border-b border-white/[0.06] bg-gradient-to-r from-slate-800/30 via-transparent to-slate-800/30">
-              
-               <button
-                  onClick={() => {
-                    setActiveNoteId(null)
-                  }}
-                  className="mr-4 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-all"
-                  title="Close note & View Mindmap"
-                >
-                  <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${sidebarCollapsed ? "rotate-0" : "rotate-180"}`} />
-                </button>
-
-              <div
-                className="w-2 h-2 rounded-full mr-3 flex-shrink-0"
-                style={{ backgroundColor: activeNote.color }}
-              />
-              <input
-                ref={titleRef}
-                type="text"
-                value={activeNote.title}
-                onChange={(e) => updateNoteTitle(e.target.value)}
-                placeholder="Untitled note"
-                className="flex-1 bg-transparent text-lg font-semibold text-white placeholder-slate-600 outline-none"
-              />
-              <button
-                className="ml-3 px-3 py-1.5 text-xs rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-500 flex items-center gap-1.5 cursor-not-allowed opacity-40 transition-all"
-                disabled
-                title="Coming soon"
-              >
-                <Share2 className="w-3 h-3" />
-                Turn into Mindmap
-              </button>
-
-              <div className="relative ml-4" ref={headerMenuRef}>
-                 <button
-                   data-header-trigger
-                   onClick={() => setShowHeaderMenu(!showHeaderMenu)}
-                   className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] transition-colors ${showHeaderMenu ? "bg-white/[0.06] text-white" : "text-slate-400"}`}
-                 >
-                   <MoreHorizontal className="w-4 h-4" />
-                 </button>
-                 
-                 {showHeaderMenu && (
-                  <div
-                    className="absolute right-0 top-9 z-50 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[210px]"
-                    style={{ animation: 'fadeInScale 0.15s ease-out' }}
-                  >
-                    <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
-                      <MoreHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-xs font-semibold text-slate-300 tracking-wide">Options</span>
-                    </div>
-                    <div className="p-1.5">
-                      {folders.length > 0 && (
-                        <>
-                          <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                            Move to folder
-                          </div>
-                          <button
-                            onClick={() => {
-                              moveNoteToFolder(activeNote.id, null)
-                              setShowHeaderMenu(false)
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08] group"
-                          >
-                            <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-white/10 transition-all">
-                              <FileText className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
-                            </div>
-                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Root</span>
-                          </button>
-                          {folders.map((f) => (
-                            <button
-                              key={f.id}
-                              onClick={() => {
-                                moveNoteToFolder(activeNote.id, f.id)
-                                setShowHeaderMenu(false)
-                              }}
-                              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08] group"
-                            >
-                              <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-white/10 transition-all">
-                                <Folder className="w-3.5 h-3.5 transition-colors" style={{ color: f.color }} />
-                              </div>
-                              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{f.name}</span>
-                            </button>
-                          ))}
-                          <div className="my-1 mx-2 border-t border-white/[0.06]" />
-                        </>
-                      )}
-                      <button
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 border border-transparent cursor-not-allowed opacity-40"
-                        disabled
-                        title="Coming soon"
-                      >
-                        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05]">
-                          <Share2 className="w-3.5 h-3.5 text-slate-400" />
-                        </div>
-                        <span className="text-sm text-slate-400">Turn into Mindmap</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                           deleteNote(activeNote.id, activeNote.title)
-                           setShowHeaderMenu(false)
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 group"
-                      >
-                        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/[0.05] group-hover:bg-red-500/10 transition-all">
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        </div>
-                        <span className="text-sm text-red-400 group-hover:text-red-300 transition-colors">Delete note</span>
-                      </button>
-                    </div>
-                  </div>
-                 )}
-              </div>
-            </div>
-
-            {/* Toolbar */}
-            <div className="flex items-center gap-0.5 px-8 py-2 border-b border-white/[0.06] bg-gradient-to-r from-slate-800/40 via-slate-900/40 to-slate-800/40 backdrop-blur-sm flex-wrap">
-              <ToolbarBtn onClick={() => execCommand("bold")} active={activeFormats.bold} title="Bold (Ctrl+B)">
-                <Bold className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn onClick={() => execCommand("italic")} active={activeFormats.italic} title="Italic (Ctrl+I)">
-                <Italic className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn onClick={() => execCommand("underline")} active={activeFormats.underline} title="Underline (Ctrl+U)">
-                <Underline className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-
-              <div className="w-px h-5 bg-white/[0.06] mx-1.5" />
-
-              <ToolbarBtn
-                onClick={() => execCommand("formatBlock", "h1")}
-                active={activeFormats.h1}
-                title="Heading 1"
-              >
-                <Heading1 className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn
-                onClick={() => execCommand("formatBlock", "h2")}
-                active={activeFormats.h2}
-                title="Heading 2"
-              >
-                <Heading2 className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-
-              <div className="w-px h-5 bg-white/[0.06] mx-1.5" />
-
-              <ToolbarBtn
-                onClick={() => execCommand("insertUnorderedList")}
-                active={activeFormats.insertUnorderedList}
-                title="Bullet list"
-              >
-                <List className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn
-                onClick={() => execCommand("insertOrderedList")}
-                active={activeFormats.insertOrderedList}
-                title="Numbered list"
-              >
-                <ListOrdered className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn
-                onClick={() => execCommand("formatBlock", "blockquote")}
-                active={activeFormats.blockquote}
-                title="Quote"
-              >
-                <Quote className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn
-                onClick={() => execCommand("formatBlock", "pre")}
-                active={activeFormats.pre}
-                title="Code block"
-              >
-                <Code className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-
-              <div className="w-px h-5 bg-white/[0.06] mx-1.5" />
-
-              <ToolbarBtn
-                onClick={() => execCommand("justifyLeft")}
-                active={activeFormats.justifyLeft}
-                title="Align left"
-              >
-                <AlignLeft className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn
-                onClick={() => execCommand("justifyCenter")}
-                active={activeFormats.justifyCenter}
-                title="Align center"
-              >
-                <AlignCenter className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-              <ToolbarBtn
-                onClick={() => execCommand("justifyRight")}
-                active={activeFormats.justifyRight}
-                title="Align right"
-              >
-                <AlignRight className="w-3.5 h-3.5" />
-              </ToolbarBtn>
-            </div>
-
-            {/* Editor */}
-            <div className="flex-1 overflow-y-auto bg-[#0c1220] scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-              <div className="w-full min-h-full px-12 py-8 tiptap-editor-wrapper">
-                 <EditorContent 
-                   editor={editor} 
-                   className="min-h-full outline-none text-[15px] leading-relaxed text-slate-200 caret-blue-400
-                    [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-3 [&_h1]:mt-6
-                    [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mb-2 [&_h2]:mt-5
-                    [&_blockquote]:border-l-2 [&_blockquote]:border-blue-500/40 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400 [&_blockquote]:italic [&_blockquote]:my-3
-                    [&_pre]:bg-white/[0.04] [&_pre]:border [&_pre]:border-white/[0.06] [&_pre]:rounded-lg [&_pre]:px-4 [&_pre]:py-3 [&_pre]:my-3 [&_pre]:font-mono [&_pre]:text-sm [&_pre]:text-slate-300
-                    [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2
-                    [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2
-                    [&_li]:my-1
-                    [&_a]:text-blue-400 [&_a]:underline"
-                 />
-              </div>
-            </div>
-
-            {/* Footer / Status Bar - Character Count */}
-            <div className="flex-shrink-0 flex items-center justify-between px-6 h-12 border-t border-white/[0.06] text-xs text-slate-500 select-none bg-gradient-to-r from-slate-800/40 via-slate-900/40 to-slate-800/40 backdrop-blur-xl">
-               <div className="flex items-center gap-2">
-                 {saveStatus === 'saving' && (
-                   <span className="text-blue-400 flex items-center gap-1.5">
-                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                     </svg>
-                     Saving...
-                   </span>
-                 )}
-                 {saveStatus === 'saved' && activeNote?.updatedAt && (
-                   <span className="text-slate-500">
-                     Updated {new Date(activeNote.updatedAt).toLocaleString([], {
-                       month: "short",
-                       day: "numeric",
-                       hour: "2-digit",
-                       minute: "2-digit",
-                     })}
-                   </span>
-                 )}
-                 {saveStatus === 'error' && (
-                   <span className="text-red-400">Failed to save</span>
-                 )}
-                 {saveStatus === 'offline' && (
-                   <span className="text-yellow-400">Offline mode</span>
-                 )}
-               </div>
-               <div className="flex gap-6 font-medium">
-                 <span>{wordCount} words</span>
-                 <span>{charCount} characters</span>
-               </div>
-            </div>
-          </>
+          <NoteEditor
+            note={activeNote}
+            editor={editor}
+            folders={folders}
+            activeFormats={activeFormats}
+            wordCount={wordCount}
+            charCount={charCount}
+            saveStatus={saveStatus}
+            sidebarCollapsed={sidebarCollapsed}
+            showHeaderMenu={showHeaderMenu}
+            titleRef={titleRef}
+            headerMenuRef={headerMenuRef}
+            onClose={() => setActiveNoteId(null)}
+            onUpdateTitle={updateNoteTitle}
+            onSetShowHeaderMenu={setShowHeaderMenu}
+            onMoveToFolder={(folderId) => {
+              moveNoteToFolder(activeNote.id, folderId)
+            }}
+            onDeleteNote={deleteNote}
+            onExecCommand={execCommand}
+          />
         ) : (
           <div className="flex-1 h-full relative">
             {/* Mindmap View Header / Sidebar Toggle */}
