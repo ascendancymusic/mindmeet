@@ -77,6 +77,7 @@ interface MindMapState {
   updateMapPermalink: (oldPermalink: string, newPermalink: string) => Promise<void>;
   setMaps: (maps: MindMap[]) => void;
   setCollaborationMaps: (maps: MindMap[]) => void;
+  updateMindMapColor: (mindmapId: string, color: string) => Promise<void>;
 }
 
 const isUUID = (val: string | undefined | null) => !!val && /^[0-9a-fA-F-]{36}$/.test(val);
@@ -1539,6 +1540,23 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
   },
   setMaps: (maps) => set({ maps }),
   setCollaborationMaps: (maps) => set({ collaborationMaps: maps }),
+  updateMindMapColor: async (mindmapId: string, color: string) => {
+    const { maps } = get();
+    const updatedMaps = maps.map((map) =>
+      map.id === mindmapId ? { ...map, color } : map
+    );
+
+    set({ maps: updatedMaps });
+
+    const { error } = await supabase
+      .from("mindmaps")
+      .update({ color })
+      .eq("id", mindmapId);
+
+    if (error) {
+      console.error("Failed to update mindmap color in Supabase:", error);
+    }
+  }
 }));
 
 function sanitizeTitle(title: string): string {

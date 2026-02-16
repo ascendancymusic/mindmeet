@@ -2,6 +2,10 @@ import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, FileText, Copy, FolderInput, Network } from 'lucide-react';
 import { Node, Edge } from 'reactflow';
+import { HexColorPicker } from "react-colorful";
+import { useMindMapStore } from '../store/mindMapStore';
+import { useNotesStore } from '../store/notesStore';
+import { useAuthStore } from '../store/authStore';
 
 interface NotesNodeContextMenuProps {
   isVisible: boolean;
@@ -31,7 +35,9 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
   const frameRef = useRef<number | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-
+  const [isColorPickerVisible, setIsColorPickerVisible] = useState(false);
+  const [tempColor, setTempColor] = useState("#334155");
+  const { updateMindMapColor } = useMindMapStore();
   // Helper to compute current on-screen coordinates for the node
   const computeNodeScreenPosition = () => {
     if (!nodeId) return null;
@@ -66,6 +72,7 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
     const node = nodes.find(n => n.id === nodeId);
     if (node) {
       setRenameValue(node.data.label || '');
+      setTempColor(node.data.color || "#334155");
     }
   }, [isVisible, nodeId, nodes]);
 
@@ -160,6 +167,40 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
     }
   };
 
+  const { updateNoteLocal, updateFolderLocal, saveNote, saveFolder } = useNotesStore();
+  const { user } = useAuthStore();
+
+  const handleColorChange = () => {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || !user?.id) {
+      onClose();
+      return;
+    }
+    
+    // Update local ReactFlow state immediately for responsiveness
+    node.data.color = tempColor;
+
+    if (node.type === 'mindmap') {
+        updateMindMapColor(node.id, tempColor);
+    } else if (node.type === 'note') {
+        // Fetch full note data to save
+        const note = useNotesStore.getState().notes.find(n => n.id === nodeId);
+        if (note) {
+            updateNoteLocal(nodeId, { color: tempColor });
+            saveNote({ ...note, color: tempColor }, user.id);
+        }
+    } else if (node.type === 'folder') {
+        // Fetch full folder data to save
+        const folder = useNotesStore.getState().folders.find(f => f.id === nodeId);
+        if (folder) {
+            updateFolderLocal(nodeId, { color: tempColor });
+            saveFolder({ ...folder, color: tempColor }, user.id);
+        }
+    }
+    
+    onClose();
+  };
+
   if (!isVisible) return null;
 
   const node = nodes.find(n => n.id === nodeId);
@@ -251,20 +292,45 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
                 </div>
               </button>
 
-              <button 
-                onClick={() => {/* Placeholder for copy */}} 
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 opacity-50 cursor-not-allowed border border-transparent group"
-                disabled
+              <button
+                onClick={() => setIsColorPickerVisible(!isColorPickerVisible)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/5 border border-transparent group"
               >
-                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400">
-                    <Copy className="w-4 h-4" />
-                  </div>
-                  <div className="text-sm font-medium text-slate-300">
-                    Copy
-                  </div>
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-all">
+                  <div
+                    className="w-4 h-4 rounded"
+                    style={{ backgroundColor: tempColor }}
+                  ></div>
+                </div>
+                <div className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                  Change Color
+                </div>
               </button>
 
-            <div className="my-1 border-t border-white/5"></div>
+              {isColorPickerVisible && (
+                <div className="p-3">
+                  <HexColorPicker
+                    color={tempColor}
+                    onChange={setTempColor}
+                  />
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      onClick={handleColorChange}
+                      className="px-3 py-1 text-xs text-white bg-blue-600 rounded-lg"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => setIsColorPickerVisible(false)}
+                      className="px-3 py-1 text-xs text-slate-400 bg-slate-700 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="my-1 border-t border-white/5"></div>
 
               <button
                 onClick={() => {

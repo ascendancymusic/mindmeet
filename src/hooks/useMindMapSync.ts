@@ -1,6 +1,5 @@
-
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import { useNodesState, useEdgesState, Node, Edge, NodeChange, EdgeChange } from 'reactflow';
+import { useNodesState, useEdgesState, Node, Edge, NodeChange } from 'reactflow';
 import { NoteItem, FolderItem, MindMapItem } from '../pages/Notes';
 
 interface UseMindMapSyncProps {
@@ -166,7 +165,7 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
   // Main sync effect
   useEffect(() => {
     // Helper to check if a node should be visible
-    const isNodeVisible = (itemId: string, itemIsFolder: boolean, itemParentId: string | null): boolean => {
+    const isNodeVisible = (_itemId: string, _itemIsFolder: boolean, itemParentId: string | null): boolean => {
       let currentParentId = itemParentId
       
       while (currentParentId) {
