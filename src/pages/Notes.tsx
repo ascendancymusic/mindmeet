@@ -623,7 +623,7 @@ function DeleteConfirmModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div 
-        className="bg-[#0f172a] border border-red-500/20 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
@@ -720,6 +720,7 @@ const Notes = () => {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [showNoteMenu, setShowNoteMenu] = useState<string | null>(null)
+  const [showMindmapMenu, setShowMindmapMenu] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -900,6 +901,7 @@ const Notes = () => {
 
   // Selection state
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set())
+  const [selectedMindmaps, setSelectedMindmaps] = useState<Set<string>>(new Set())
   const [showBulkMoveMenu, setShowBulkMoveMenu] = useState(false)
   
   // Delete Confirmation State
@@ -981,6 +983,7 @@ const Notes = () => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowNoteMenu(null)
+        setShowMindmapMenu(null)
         setShowBulkMoveMenu(false)
       }
       if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node) && !(e.target as Element).closest('[data-header-trigger]')) {
@@ -1238,7 +1241,17 @@ const Notes = () => {
       }
     })
     
+    // Update each selected mindmap
+    selectedMindmaps.forEach(mindmapId => {
+      const mindmap = mindmaps.find(m => m.id === mindmapId)
+      if (mindmap) {
+        updateMindmapLocal(mindmapId, { folderId })
+        saveMindmapFolder(mindmapId, folderId, user.id)
+      }
+    })
+    
     setSelectedNotes(new Set())
+    setSelectedMindmaps(new Set())
     setShowBulkMoveMenu(false)
   }
 
@@ -1251,6 +1264,18 @@ const Notes = () => {
       newSet.add(noteId)
     }
     setSelectedNotes(newSet)
+  }
+
+  const toggleMindmapSelection = (e: React.MouseEvent, mindmapId: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const newSet = new Set(selectedMindmaps)
+    if (newSet.has(mindmapId)) {
+      newSet.delete(mindmapId)
+    } else {
+      newSet.add(mindmapId)
+    }
+    setSelectedMindmaps(newSet)
   }
 
   const handleConnectNode = useCallback((sourceId: string, targetId: string, sourceHandle?: string | null, _targetHandle?: string | null) => {
@@ -1915,6 +1940,8 @@ const Notes = () => {
 
   /* --- mindmap list item --- */
   const MindMapListItem = ({ mindmap }: { mindmap: MindMapItem }) => {
+    const isSelected = selectedMindmaps.has(mindmap.id)
+
     const getVisibilityIcon = () => {
       const visibility = mindmap.visibility || 'private'
       const iconClass = "w-3 h-3"
@@ -1938,9 +1965,23 @@ const Notes = () => {
       <div className="relative group/mindmap">
         <RouterLink
           to={targetPath}
-          className="block w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 hover:bg-white/[0.04] border border-transparent hover:border-purple-500/20"
+          className={`block w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 border ${
+            isSelected
+              ? "bg-purple-500/10 border-purple-500/20"
+              : "hover:bg-white/[0.04] border-transparent hover:border-purple-500/20"
+          }`}
         >
           <div className="flex items-start gap-2.5">
+            <div
+              onClick={(e) => toggleMindmapSelection(e, mindmap.id)}
+              className={`w-4 h-4 mt-1 flex-shrink-0 flex items-center justify-center rounded border transition-all cursor-pointer ${
+                isSelected
+                  ? "bg-purple-500 border-purple-500 text-white opacity-100"
+                  : "border-slate-500 bg-transparent opacity-0 group-hover/mindmap:opacity-100 hover:border-slate-300"
+              }`}
+            >
+              {isSelected && <Check className="w-3 h-3 pointer-events-none" />}
+            </div>
             <Network className="w-4 h-4 mt-1 flex-shrink-0 text-purple-400" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
@@ -1952,13 +1993,64 @@ const Notes = () => {
                     {getVisibilityIcon()}
                   </div>
                 </div>
-                <span className="text-[11px] text-slate-600 flex-shrink-0 ml-2">
+                <span className="text-[11px] text-slate-600 flex-shrink-0 ml-2 group-hover/mindmap:hidden transition-opacity">
                   {formatDate(mindmap.updatedAt)}
                 </span>
               </div>
             </div>
           </div>
         </RouterLink>
+
+        {!isSelected && (
+          <div className="absolute right-2 top-2.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                setShowMindmapMenu(showMindmapMenu === mindmap.id ? null : mindmap.id)
+              }}
+              className={`w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 ${
+                showMindmapMenu === mindmap.id
+                  ? "opacity-100 bg-white/[0.08]"
+                  : "opacity-0 group-hover/mindmap:opacity-100 hover:bg-white/[0.08]"
+              } text-slate-500 hover:text-slate-300`}
+            >
+              <MoreHorizontal className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {showMindmapMenu === mindmap.id && (
+          <div
+            ref={menuRef}
+            className="absolute right-2 top-10 z-50 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[160px]"
+            style={{ animation: 'fadeInScale 0.15s ease-out' }}
+            onClick={(e) => e.preventDefault()}
+          >
+            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
+              <Folder className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-xs font-semibold text-slate-300 tracking-wide">Move to</span>
+            </div>
+            <div className="p-1.5">
+              <button
+                disabled
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 opacity-40 cursor-not-allowed"
+                title="Coming soon"
+              >
+                <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-sm text-slate-300">Rename</span>
+              </button>
+              <button
+                disabled
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 opacity-40 cursor-not-allowed"
+                title="Coming soon"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span className="text-sm text-slate-300">Delete</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -2008,18 +2100,21 @@ const Notes = () => {
            }}
         />
         {/* Header */}
-        {selectedNotes.size > 0 ? (
+        {(selectedNotes.size > 0 || selectedMindmaps.size > 0) ? (
           <div className="p-4 flex items-center justify-between bg-blue-500/10 border-b border-blue-500/20">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setSelectedNotes(new Set())}
+                onClick={() => {
+                  setSelectedNotes(new Set())
+                  setSelectedMindmaps(new Set())
+                }}
                 className="text-slate-400 hover:text-white transition-colors"
                 title="Clear selection"
               >
                 <X className="w-4 h-4" />
               </button>
               <span className="text-sm font-medium text-blue-400">
-                {selectedNotes.size} selected
+                {selectedNotes.size + selectedMindmaps.size} selected
               </span>
             </div>
             <div className="flex items-center gap-1 relative">
@@ -2032,8 +2127,13 @@ const Notes = () => {
               </button>
               <button
                 onClick={deleteSelectedNotes}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
-                title="Delete selected"
+                disabled={selectedMindmaps.size > 0}
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                  selectedMindmaps.size > 0
+                    ? "opacity-40 cursor-not-allowed text-slate-500"
+                    : "hover:bg-red-500/20 text-red-400"
+                }`}
+                title={selectedMindmaps.size > 0 ? "Delete not available for mindmaps yet" : "Delete selected"}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -2078,8 +2178,8 @@ const Notes = () => {
           </div>
         ) : (
           <div className="p-4 flex items-center justify-between border-b border-white/[0.06]">
-            <h2 className="text-sm font-semibold text-slate-200 tracking-wide uppercase">
-              Notes
+            <h2 className="text-base font-semibold tracking-normal bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 text-transparent bg-clip-text" style={{letterSpacing: '0.01em'}}>
+              Workspace
             </h2>
             <div className="flex items-center gap-1">
               <button
