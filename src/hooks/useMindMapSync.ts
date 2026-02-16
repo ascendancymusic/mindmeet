@@ -1,15 +1,16 @@
 
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { useNodesState, useEdgesState, Node, Edge, NodeChange, EdgeChange } from 'reactflow';
-import { NoteItem, FolderItem } from '../pages/Notes';
+import { NoteItem, FolderItem, MindMapItem } from '../pages/Notes';
 
 interface UseMindMapSyncProps {
   notes: NoteItem[];
   folders: FolderItem[];
-  onPositionChange?: (id: string, position: { x: number; y: number }, type: 'folder' | 'note') => void;
+  mindmaps?: MindMapItem[];
+  onPositionChange?: (id: string, position: { x: number; y: number }, type: 'folder' | 'note' | 'mindmap') => void;
 }
 
-export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapSyncProps) => {
+export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange }: UseMindMapSyncProps) => {
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
@@ -152,7 +153,7 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
             if (change.type === 'position' && (change as any).position) {
               const node = nodes.find(n => n.id === (change as any).id)
               if (node) {
-                onPositionChange((change as any).id, (change as any).position, node.type as 'folder' | 'note')
+                onPositionChange((change as any).id, (change as any).position, node.type as 'folder' | 'note' | 'mindmap')
               }
             }
           });
@@ -183,7 +184,7 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
     }
     
     setNodes((currentNodes) => {
-      const allItems = [...folders, ...notes]
+      const allItems = [...folders, ...notes, ...mindmaps]
       const allItemIds = new Set(allItems.map(item => item.id))
       
       const filteredNodes = currentNodes.filter(node => allItemIds.has(node.id))
@@ -191,29 +192,33 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
       const updatedNodes = filteredNodes.map(node => {
         const folder = folders.find(f => f.id === node.id)
         const note = notes.find(n => n.id === node.id)
-        const item = folder || note
+        const mindmap = mindmaps.find(m => m.id === node.id)
+        const item = folder || note || mindmap
         
         if (!item) return node
         
         const isFolder = !!folder
+        const isMindMap = !!mindmap
         let count = 0
         if (isFolder && folder) {
           count = notes.filter(n => n.folderId === folder.id).length + 
-                  folders.filter(f => f.parentId === folder.id).length
+                  folders.filter(f => f.parentId === folder.id).length + 
+                  mindmaps.filter(m => m.folderId === folder.id).length
         }
         
         const position = item.position || node.position
         
         return {
           ...node,
-          type: isFolder ? 'folder' : 'note',
+          type: isFolder ? 'folder' : (isMindMap ? 'mindmap' : 'note'),
           position,
           data: {
-            label: isFolder ? folder!.name : ((note as NoteItem)!.title || "Untitled"),
+            label: isFolder ? folder!.name : (isMindMap ? mindmap!.title : ((note as NoteItem)!.title || "Untitled")),
             color: item.color,
             count,
             collapsed: isFolder ? folder!.collapsed : false,
-            preview: !isFolder && note ? getPreview((note as NoteItem).content) : undefined
+            preview: !isFolder && !isMindMap && note ? getPreview((note as NoteItem).content) : undefined,
+            visibility: isMindMap && mindmap ? mindmap.visibility : undefined
           }
         }
       })
@@ -223,12 +228,14 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
       
       newItems.forEach(item => {
         const isFolder = "name" in item
+        const isMindMap = "title" in item && "folderId" in item && !("content" in item)
         const id = item.id
         
         let count = 0
         if (isFolder) {
           count = notes.filter(n => n.folderId === id).length + 
-                  folders.filter(f => f.parentId === id).length
+                  folders.filter(f => f.parentId === id).length + 
+                  mindmaps.filter(m => m.folderId === id).length
         }
         
         let position = item.position
@@ -239,14 +246,15 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
         
         updatedNodes.push({
           id,
-          type: isFolder ? 'folder' : 'note',
+          type: isFolder ? 'folder' : (isMindMap ? 'mindmap' : 'note'),
           position,
           data: {
-            label: isFolder ? (item as FolderItem).name : (item as NoteItem).title || "Untitled",
+            label: isFolder ? (item as FolderItem).name : (item as any).title || "Untitled",
             color: item.color,
             count,
             collapsed: isFolder ? (item as FolderItem).collapsed : false,
-            preview: !isFolder ? getPreview((item as NoteItem).content) : undefined
+            preview: !isFolder && !isMindMap ? getPreview((item as NoteItem).content) : undefined,
+            visibility: isMindMap ? (item as any).visibility : undefined
           }
         })
       })
@@ -254,12 +262,15 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
       return updatedNodes.map(node => {
         const folder = folders.find(f => f.id === node.id)
         const note = notes.find(n => n.id === node.id)
+        const mindmap = mindmaps.find(m => m.id === node.id)
         
         let hidden = false
         if (folder) {
           hidden = !isNodeVisible(folder.id, true, folder.parentId)
         } else if (note) {
           hidden = !isNodeVisible(note.id, false, note.folderId)
+        } else if (mindmap) {
+          hidden = !isNodeVisible(mindmap.id, false, mindmap.folderId)
         }
         
         return {
@@ -303,8 +314,23 @@ export const useMindMapSync = ({ notes, folders, onPositionChange }: UseMindMapS
       }
     })
     
+    mindmaps.forEach(mindmap => {
+      if (mindmap.folderId && isNodeVisible(mindmap.id, false, mindmap.folderId)) {
+        newEdges.push({
+          id: `e-${mindmap.folderId}-${mindmap.id}`,
+          source: mindmap.folderId,
+          sourceHandle: "bottom-source",
+          target: mindmap.id,
+          targetHandle: "top-target",
+          style: { stroke: '#8b5cf6', strokeWidth: 2 },
+          type: 'default',
+          animated: false,
+        })
+      }
+    })
+    
     setEdges(newEdges)
-  }, [notes, folders, setNodes, setEdges]);
+  }, [notes, folders, mindmaps, setNodes, setEdges]);
 
   return {
     nodes,

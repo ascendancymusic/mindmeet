@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
@@ -7,6 +8,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useNotesStore } from '../store/notesStore'
 import { useAuthStore } from '../store/authStore'
+import { useMindMapStore } from '../store/mindMapStore'
 
 const ToolbarBtn = ({ children, onClick, active, title, disabled }: any) => (
   <button
@@ -54,6 +56,10 @@ import {
   Maximize2,
   Grid3x3,
   GitBranch,
+  Network,
+  Globe,
+  Lock,
+  Link,
 } from "lucide-react"
 
 import ReactFlow, {
@@ -74,6 +80,7 @@ import { NotesNodeContextMenu } from "../components/NotesNodeContextMenu"
 import { NotesPaneContextMenu } from "../components/NotesPaneContextMenu"
 import { FolderMindNode } from "../components/flow/FolderMindNode"
 import { NoteMindNode } from "../components/flow/NoteMindNode"
+import { MindMapMindNode } from "../components/flow/MindMapMindNode"
 import { useMindMapSync } from "../hooks/useMindMapSync"
 import { useAutoLayout } from "../hooks/useAutoLayout"
 import { getChildPosition } from "../utils/nodePositioning"
@@ -98,6 +105,16 @@ export interface FolderItem {
   position?: { x: number; y: number }
 }
 
+export interface MindMapItem {
+  id: string
+  title: string
+  updatedAt: number
+  color: string
+  folderId: string | null
+  position?: { x: number; y: number }
+  visibility?: 'public' | 'private' | 'linkOnly'
+}
+
 const ACCENT_COLORS = [
   "#3b82f6",
   "#8b5cf6",
@@ -110,12 +127,14 @@ const ACCENT_COLORS = [
 const nodeTypes = {
   folder: FolderMindNode,
   note: NoteMindNode,
+  mindmap: MindMapMindNode,
 }
 
 /* --- mindmap view component --- */
 const NotesMindMapContent = ({
   notes,
   folders,
+  mindmaps,
   onNoteClick,
   onFolderClick,
   onConnectNode,
@@ -130,17 +149,18 @@ const NotesMindMapContent = ({
 }: {
   notes: NoteItem[]
   folders: FolderItem[]
+  mindmaps: MindMapItem[]
   onNoteClick: (noteId: string) => void
   onFolderClick?: (folderId: string) => void
   onConnectNode?: (sourceId: string, targetId: string, sourceHandle?: string | null, targetHandle?: string | null) => void
   onDisconnectNode?: (nodeId: string) => void
-  onAddNode?: (type: 'folder' | 'note', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => void
+  onAddNode?: (type: 'folder' | 'note' | 'mindmap', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => void
   onCreateFirstNote?: () => void
   onAddRootFolder?: (position?: { x: number; y: number }) => void
   onAddRootNote?: (position?: { x: number; y: number }) => void
-  onDeleteNode?: (id: string, type: 'folder' | 'note', label: string) => void
-  onRenameNode?: (id: string, type: 'folder' | 'note', newName: string) => void
-  onPositionChange?: (id: string, position: { x: number; y: number }, type: 'folder' | 'note') => void
+  onDeleteNode?: (id: string, type: 'folder' | 'note' | 'mindmap', label: string) => void
+  onRenameNode?: (id: string, type: 'folder' | 'note' | 'mindmap', newName: string) => void
+  onPositionChange?: (id: string, position: { x: number; y: number }, type: 'folder' | 'note' | 'mindmap') => void
 }) => {
   const {
     nodes,
@@ -154,7 +174,7 @@ const NotesMindMapContent = ({
     setMoveWithChildren,
     snapToGrid,
     setSnapToGrid
-  } = useMindMapSync({ notes, folders, onPositionChange })
+  } = useMindMapSync({ notes, folders, mindmaps, onPositionChange })
 
   const { handleAutoLayout } = useAutoLayout({
      nodes, 
@@ -426,8 +446,12 @@ const NotesMindMapContent = ({
          nodeTypes={nodeTypes}
          onNodeClick={(_, node) => {
             const isNote = node.type === 'note'
+            const isMindMap = node.type === 'mindmap'
             if (isNote) {
                 onNoteClick(node.id)
+            } else if (isMindMap) {
+                // Mindmap navigation is now handled by the node itself via Link
+                return
             } else {
                 onFolderClick?.(node.id)
             }
@@ -662,6 +686,36 @@ const Notes = () => {
     updateFolderLocal,
     migrateFromLocalStorage 
   } = useNotesStore()
+  
+  const { maps, fetchMaps, saveMindmapPosition, saveMindmapFolder, saveMindmapTitle, updateMindmapLocal } = useMindMapStore()
+  
+  // Convert mindmaps from store to local format
+  const [mindmaps, setMindmaps] = useState<MindMapItem[]>([])
+  
+  // Sync mindmaps from store when maps change
+  useEffect(() => {
+    const processedMindmaps: MindMapItem[] = []
+    const startX = 800 // Position mindmaps to the right of typical content
+    const startY = 50
+    const spacingY = 120 // Vertical spacing between mindmaps
+    
+    maps.forEach((map, index) => {
+      const mindmapItem: MindMapItem = {
+        id: map.id || map.permalink,
+        title: map.title,
+        updatedAt: map.updatedAt,
+        color: map.backgroundColor || pickColor(),
+        folderId: map.folderId || null,
+        // Use position from DB if available, otherwise assign default position
+        position: map.position || { x: startX, y: startY + (index * spacingY) },
+        visibility: map.visibility || 'private'
+      }
+      
+      processedMindmaps.push(mindmapItem)
+    })
+    
+    setMindmaps(processedMindmaps)
+  }, [maps])
   
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -912,6 +966,9 @@ const Notes = () => {
         await fetchFolders(user.id)
       }
       
+      // Fetch mindmaps from database
+      await fetchMaps(user.id)
+      
       // Don't auto-select any note - show mindmap view by default
       setIsLoading(false)
     }
@@ -970,7 +1027,7 @@ const Notes = () => {
 
   const addNote = (folderId: string | null = null, position?: { x: number; y: number }) => {
     if (!user?.id) return
-    const finalPosition = position || getChildPosition(folderId, folders, notes)
+    const finalPosition = position || getChildPosition(folderId, folders, notes, mindmaps)
     const newNote: NoteItem = {
       id: uuidv4(),
       title: "New Note",
@@ -1072,7 +1129,7 @@ const Notes = () => {
   ) => {
     if (!user?.id) return
     const finalName = getNextFolderName(name)
-    const finalPosition = position || getChildPosition(parentId, folders, notes)
+    const finalPosition = position || getChildPosition(parentId, folders, notes, mindmaps)
     const folder: FolderItem = {
       id: uuidv4(),
       name: finalName,
@@ -1202,8 +1259,10 @@ const Notes = () => {
     // Determine types of source and target
     const sourceNote = notes.find(n => n.id === sourceId)
     const sourceFolder = folders.find(f => f.id === sourceId)
+    const sourceMindMap = mindmaps.find(m => m.id === sourceId)
     const targetNote = notes.find(n => n.id === targetId)
     const targetFolder = folders.find(f => f.id === targetId)
+    const targetMindMap = mindmaps.find(m => m.id === targetId)
 
     // CASE 1: Dragging Note (Source) -> Folder (Target)
     // User wants Note to be CHILD of Folder.
@@ -1218,6 +1277,36 @@ const Notes = () => {
     if (sourceFolder && targetNote) {
        updateNoteLocal(targetId, { folderId: sourceId })
        saveNote({ ...targetNote, folderId: sourceId, updatedAt: Date.now() }, user.id)
+       return;
+    }
+    
+    // CASE 3: Dragging MindMap (Source) -> Folder (Target)
+    // User wants MindMap to be CHILD of Folder.
+    if (sourceMindMap && targetFolder) {
+       updateMindmapLocal(sourceId, { folderId: targetId })
+       saveMindmapFolder(sourceId, targetId, user.id)
+       return;
+    }
+
+    // CASE 4: Dragging Folder (Source) -> MindMap (Target)
+    // User dragged from Folder to MindMap. Likely implies Folder should be Parent of MindMap.
+    if (sourceFolder && targetMindMap) {
+       updateMindmapLocal(targetId, { folderId: sourceId })
+       saveMindmapFolder(targetId, sourceId, user.id)
+       return;
+    }
+    
+    // CASE 5: Dragging Note (Source) -> MindMap (Target) or vice versa
+    // These don't make hierarchical sense, so we'll just log for now
+    if ((sourceNote && targetMindMap) || (sourceMindMap && targetNote)) {
+       console.log('Cannot connect notes and mindmaps directly')
+       return;
+    }
+    
+    // CASE 6: Dragging MindMap (Source) -> MindMap (Target)
+    // Currently not supported for hierarchies, just log
+    if (sourceMindMap && targetMindMap) {
+       console.log('MindMap to MindMap connections not yet supported')
        return;
     }
     
@@ -1369,11 +1458,11 @@ const Notes = () => {
           }
        }
     }
-  }, [notes, folders, user, updateNoteLocal, updateFolderLocal, saveNote, saveFolder])
+  }, [notes, folders, mindmaps, user, updateNoteLocal, updateFolderLocal, saveNote, saveFolder, setMindmaps])
 
 
 
-  const handleAddNode = useCallback((type: 'folder' | 'note', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => {
+  const handleAddNode = useCallback((type: 'folder' | 'note' | 'mindmap', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => {
     if (!user?.id) return
     
     // 1. Check if source is a NOTE
@@ -1395,6 +1484,28 @@ const Notes = () => {
             
             updateNoteLocal(sourceNote.id, { folderId: newFolder.id })
             saveNote({ ...sourceNote, folderId: newFolder.id, updatedAt: Date.now() }, user.id)
+        }
+        return;
+    }
+    
+    // 1b. Check if source is a MINDMAP
+    const sourceMindMap = mindmaps.find(m => m.id === parentId);
+    if (sourceMindMap) {
+        if (type === 'folder') {
+            const newFolder: FolderItem = {
+                id: uuidv4(),
+                name: "New Folder",
+                collapsed: false,
+                color: ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)],
+                parentId: null,
+                position,
+            }
+            
+            useNotesStore.setState({ folders: [...folders, newFolder] })
+            saveFolder(newFolder, user.id)
+            
+            updateMindmapLocal(parentId, { folderId: newFolder.id })
+            saveMindmapFolder(parentId, newFolder.id, user.id)
         }
         return;
     }
@@ -1460,6 +1571,17 @@ const Notes = () => {
         useNotesStore.setState({ notes: [...notes, newNote] })
         saveNote(newNote, user.id)
         setActiveNoteId(newNote.id)
+    } else if (type === 'mindmap') {
+        const newMindMap: MindMapItem = {
+            id: uuidv4(),
+            title: "New Mind Map",
+            updatedAt: Date.now(),
+            color: ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)],
+            folderId: targetFolderId,
+            position,
+        }
+        
+        setMindmaps(prev => [...prev, newMindMap])
     } else {
         const newFolder: FolderItem = {
             id: uuidv4(),
@@ -1473,7 +1595,7 @@ const Notes = () => {
         useNotesStore.setState({ folders: [...folders, newFolder] })
         saveFolder(newFolder, user.id)
     }
-  }, [folders, notes, user, saveNote, saveFolder, updateNoteLocal, updateFolderLocal])
+  }, [folders, notes, mindmaps, user, saveNote, saveFolder, updateNoteLocal, updateFolderLocal, setMindmaps])
 
   const formatDate = (ts: number) => {
     const d = new Date(ts)
@@ -1501,11 +1623,14 @@ const Notes = () => {
 
   const rootNotes = filteredNotes.filter((n) => !n.folderId)
   const notesInFolder = (fId: string) => filteredNotes.filter((n) => n.folderId === fId)
+  const rootMindmaps = mindmaps.filter((m) => !m.folderId)
+  const mindmapsInFolder = (fId: string) => mindmaps.filter((m) => m.folderId === fId)
 
   // Recursive folder renderer
   const renderFolder = (folder: FolderItem) => {
     const childFolders = folders.filter((f) => f.parentId === folder.id)
     const folderNotes = notesInFolder(folder.id)
+    const folderMindmaps = mindmapsInFolder(folder.id)
 
     return (
       <div key={folder.id} className="mb-1">
@@ -1576,7 +1701,7 @@ const Notes = () => {
           )}
 
           <span className="text-[10px] text-slate-600 flex-shrink-0 group-hover/folder:hidden">
-            {folderNotes.length + childFolders.length}
+            {folderNotes.length + folderMindmaps.length + childFolders.length}
           </span>
           
           <div className="items-center gap-0.5 hidden group-hover/folder:flex flex-shrink-0">
@@ -1634,13 +1759,19 @@ const Notes = () => {
                <NoteListItem key={note.id} note={note} />
             ))}
             
-            {folderNotes.length === 0 && childFolders.length === 0 && (
+            {/* Render Mindmaps */}
+            {folderMindmaps.map((mindmap) => (
+               <MindMapListItem key={mindmap.id} mindmap={mindmap} />
+            ))}
+            
+            {folderNotes.length === 0 && folderMindmaps.length === 0 && childFolders.length === 0 && (
                  <p className="text-[11px] text-slate-700 px-3 py-2">
                    Empty
                  </p>
             )}
           </div>
         )}
+
       </div>
     )
   }
@@ -1675,6 +1806,7 @@ const Notes = () => {
             >
               {isSelected && <Check className="w-3 h-3 pointer-events-none" />}
             </div>
+            <FileText className="w-4 h-4 mt-1 flex-shrink-0" style={{ color: note.color }} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span
@@ -1777,6 +1909,56 @@ const Notes = () => {
             </div>
           </div>
         )}
+      </div>
+    )
+  }
+
+  /* --- mindmap list item --- */
+  const MindMapListItem = ({ mindmap }: { mindmap: MindMapItem }) => {
+    const getVisibilityIcon = () => {
+      const visibility = mindmap.visibility || 'private'
+      const iconClass = "w-3 h-3"
+      
+      switch (visibility) {
+        case 'public':
+          return <Globe className={iconClass} />
+        case 'linkOnly':
+          return <Link className={iconClass} />
+        default:
+          return <Lock className={iconClass} />
+      }
+    }
+
+    // Find the actual map to get its permalink
+    const map = maps.find(m => m.id === mindmap.id || m.permalink === mindmap.id)
+    const permalink = map?.permalink || mindmap.id
+    const targetPath = user?.username ? `/${user.username}/${permalink}/edit` : '#'
+
+    return (
+      <div className="relative group/mindmap">
+        <RouterLink
+          to={targetPath}
+          className="block w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 hover:bg-white/[0.04] border border-transparent hover:border-purple-500/20"
+        >
+          <div className="flex items-start gap-2.5">
+            <Network className="w-4 h-4 mt-1 flex-shrink-0 text-purple-400" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="text-sm font-medium truncate text-slate-400">
+                    {mindmap.title || "Untitled Mindmap"}
+                  </span>
+                  <div className="text-slate-600 opacity-70 shrink-0">
+                    {getVisibilityIcon()}
+                  </div>
+                </div>
+                <span className="text-[11px] text-slate-600 flex-shrink-0 ml-2">
+                  {formatDate(mindmap.updatedAt)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </RouterLink>
       </div>
     )
   }
@@ -1964,6 +2146,11 @@ const Notes = () => {
               {/* Root notes */}
               {rootNotes.map((note) => (
                 <NoteListItem key={note.id} note={note} />
+              ))}
+              
+              {/* Root mindmaps */}
+              {rootMindmaps.map((mindmap) => (
+                <MindMapListItem key={mindmap.id} mindmap={mindmap} />
               ))}
             </>
           )}
@@ -2254,6 +2441,7 @@ const Notes = () => {
              <NotesMindMap
               notes={notes}
               folders={folders}
+              mindmaps={mindmaps}
               onNoteClick={(id) => setActiveNoteId(id)}
               onFolderClick={(id) => toggleFolder(id)}
               onConnectNode={(source, target, sourceHandle, targetHandle) => handleConnectNode(source, target, sourceHandle, targetHandle)}
@@ -2261,6 +2449,7 @@ const Notes = () => {
                 if (!user?.id) return
                 const note = notes.find(n => n.id === nodeId);
                 const folder = folders.find(f => f.id === nodeId);
+                const mindmap = mindmaps.find(m => m.id === nodeId);
                 if (note) {
                   updateNoteLocal(nodeId, { folderId: null });
                   saveNote({ ...note, folderId: null, updatedAt: Date.now() }, user.id);
@@ -2268,6 +2457,10 @@ const Notes = () => {
                 if (folder) {
                   updateFolderLocal(nodeId, { parentId: null });
                   saveFolder({ ...folder, parentId: null }, user.id);
+                }
+                if (mindmap) {
+                  updateMindmapLocal(nodeId, { folderId: null });
+                  saveMindmapFolder(nodeId, null, user.id);
                 }
               }}
               onAddNode={(type, sourceId, position, handleId) => handleAddNode(type, sourceId, position, handleId)}
@@ -2277,6 +2470,10 @@ const Notes = () => {
               onDeleteNode={(id, type, label) => {
                  if (type === 'folder') deleteFolder(id, label);
                  if (type === 'note') deleteNote(id, label);
+                 if (type === 'mindmap') {
+                   console.log('Delete mindmap:', id);
+                   setMindmaps(prev => prev.filter(m => m.id !== id));
+                 }
               }}
               onRenameNode={(id, type, newName) => {
                  if (!user?.id) return
@@ -2294,6 +2491,13 @@ const Notes = () => {
                       debouncedSaveNote({ ...note, title: newName, updatedAt: Date.now() });
                     }
                  }
+                 if (type === 'mindmap') {
+                    const mindmap = mindmaps.find(m => m.id === id);
+                    if (mindmap) {
+                      updateMindmapLocal(id, { title: newName, updatedAt: Date.now() });
+                      saveMindmapTitle(id, newName, user.id);
+                    }
+                 }
               }}
               onPositionChange={(id, position, type) => {
                   if (!user?.id) return
@@ -2309,6 +2513,13 @@ const Notes = () => {
                       if (note) {
                         updateNoteLocal(id, { position });
                         saveNotePosition(id, position, user.id);
+                      }
+                  }
+                  if (type === 'mindmap') {
+                      const mindmap = mindmaps.find(m => m.id === id);
+                      if (mindmap) {
+                        updateMindmapLocal(id, { position });
+                        saveMindmapPosition(id, position, user.id);
                       }
                   }
               }}

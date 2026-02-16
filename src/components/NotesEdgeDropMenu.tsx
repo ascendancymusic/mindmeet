@@ -1,13 +1,13 @@
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Folder, FileText } from 'lucide-react';
+import { Plus, Folder, FileText, Network } from 'lucide-react';
 
 interface NotesEdgeDropMenuProps {
   position: { x: number; y: number };
   onClose: () => void;
-  onSelect: (type: 'folder' | 'note') => void;
+  onSelect: (type: 'folder' | 'note' | 'mindmap') => void;
   flowPosition: { x: number; y: number } | null;
-  sourceType?: 'folder' | 'note';
+  sourceType?: 'folder' | 'note' | 'mindmap';
 }
 
 export const NotesEdgeDropMenu: React.FC<NotesEdgeDropMenuProps> = ({
@@ -147,17 +147,31 @@ export const NotesEdgeDropMenu: React.FC<NotesEdgeDropMenuProps> = ({
           </button>
           
           {sourceType === 'folder' && (
-            <button
-                onClick={() => { onSelect('note'); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/5 border border-transparent group"
-            >
-                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-all">
-                <FileText className="w-4 h-4" />
-                </div>
-                <div className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
-                New Note
-                </div>
-            </button>
+            <>
+              <button
+                  onClick={() => { onSelect('note'); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/5 border border-transparent group"
+              >
+                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-all">
+                  <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                  New Note
+                  </div>
+              </button>
+              
+              <button
+                  onClick={() => { onSelect('mindmap'); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all duration-150 hover:bg-white/5 border border-transparent group"
+              >
+                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-purple-400 transition-all">
+                  <Network className="w-4 h-4" />
+                  </div>
+                  <div className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                  New Mind Map
+                  </div>
+              </button>
+            </>
           )}
         </div>
 

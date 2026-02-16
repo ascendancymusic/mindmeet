@@ -1,10 +1,11 @@
 
-import { NoteItem, FolderItem } from '../pages/Notes'
+import { NoteItem, FolderItem, MindMapItem } from '../pages/Notes'
 
 export const getChildPosition = (
     parentId: string | null,
     currentFolders: FolderItem[],
-    currentNotes: NoteItem[]
+    currentNotes: NoteItem[],
+    currentMindmaps?: MindMapItem[]
   ): { x: number; y: number } => {
     const spacingX = 260
     const spacingY = 180
@@ -17,6 +18,9 @@ export const getChildPosition = (
         .filter((p): p is { x: number; y: number } => !!p),
       ...currentNotes
         .map((n) => n.position)
+        .filter((p): p is { x: number; y: number } => !!p),
+      ...(currentMindmaps || [])
+        .map((m) => m.position)
         .filter((p): p is { x: number; y: number } => !!p),
     ]
 

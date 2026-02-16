@@ -41,6 +41,8 @@ export interface MindMap {
   published_at?: string | null;
   drawingData?: DrawingData;
   json_data?: any; // Add this to preserve all json_data fields for merging
+  folderId?: string | null;
+  position?: { x: number; y: number };
 }
 
 interface MindMapState {
@@ -66,6 +68,10 @@ interface MindMapState {
   fetchCollaborationMaps: (userId: string) => Promise<void>;
   saveMapToSupabase: (map: MindMap, userId?: string, isCollaboratorEdit?: boolean) => Promise<void>;
   deleteMapFromSupabase: (permalink: string, userId: string) => Promise<void>;
+  saveMindmapPosition: (mindmapId: string, position: { x: number; y: number }, userId: string) => Promise<void>;
+  saveMindmapFolder: (mindmapId: string, folderId: string | null, userId: string) => Promise<void>;
+  saveMindmapTitle: (mindmapId: string, title: string, userId: string) => Promise<void>;
+  updateMindmapLocal: (mindmapId: string, updates: Partial<MindMap>) => void;
   subscribeToMindMaps: () => void;
   updateMapPermalink: (oldPermalink: string, newPermalink: string) => Promise<void>;
   setMaps: (maps: MindMap[]) => void;
@@ -91,7 +97,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     const { data, error } = await supabase
       .from("mindmaps")
       .select(`
-        permalink, title, json_data, drawing_data, created_at, updated_at, visibility, is_pinned, is_main, description, creator, id, published_at,
+        permalink, title, json_data, drawing_data, created_at, updated_at, visibility, is_pinned, is_main, description, creator, id, published_at, position_x, position_y, folder_id,
         mindmap_like_counts (like_count),
         mindmap_save_counts (save_count),
         mindmap_collaborations (collaborator_id, status)
@@ -176,6 +182,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       creatorAvatar: userAvatar,
       published_at: map.published_at,
       drawingData: decompressDrawingData(map.drawing_data) || undefined,
+      folderId: map.folder_id || null,
+      position: map.position_x !== null && map.position_y !== null
+        ? { x: map.position_x / 100, y: map.position_y / 100 }
+        : undefined,
     };
     });
 
@@ -197,7 +207,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         mindmap_id,
         mindmaps!mindmap_collaborations_mindmap_id_fkey (
           permalink, title, json_data, drawing_data, created_at, updated_at, visibility, 
-          is_pinned, is_main, description, creator, id, published_at,
+          is_pinned, is_main, description, creator, id, published_at, position_x, position_y, folder_id,
           mindmap_like_counts (like_count),
           mindmap_save_counts (save_count),
           mindmap_collaborations!mindmap_collaborations_mindmap_id_fkey (
@@ -295,6 +305,10 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           creatorAvatar: creatorAvatars.get(map.creator) || null,
           published_at: map.published_at,
           drawingData: decompressDrawingData(map.drawing_data) || undefined,
+          folderId: map.folder_id || null,
+          position: map.position_x !== null && map.position_y !== null
+            ? { x: map.position_x / 100, y: map.position_y / 100 }
+            : undefined,
         };
       });
 
@@ -305,7 +319,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-  const { id, permalink, title, nodes, edges, edgeType, backgroundColor, dotColor, fontFamily, createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData, json_data } = map;
+  const { id, permalink, title, nodes, edges, edgeType, backgroundColor, dotColor, fontFamily, createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData, json_data, folderId, position } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -441,6 +455,9 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           creator: effectiveUserId,
           description: description || '',
           published_at: published_at,
+          position_x: position ? Math.round(position.x * 100) : null,
+          position_y: position ? Math.round(position.y * 100) : null,
+          folder_id: folderId || null,
         };
 
         // Fast path: if no id and no existing record by permalink, insert immediately
@@ -1461,6 +1478,60 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         maps: state.maps.map((map) => (map.permalink === oldPermalink ? currentMap : map)),
       }));
     }
+  },
+  saveMindmapPosition: async (mindmapId: string, position: { x: number; y: number }, userId: string) => {
+    try {
+      const { error } = await supabase
+        .from("mindmaps")
+        .update({
+          position_x: Math.round(position.x * 100),
+          position_y: Math.round(position.y * 100),
+        })
+        .eq("id", mindmapId)
+        .eq("creator", userId);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error saving mindmap position:", error);
+    }
+  },
+  saveMindmapFolder: async (mindmapId: string, folderId: string | null, userId: string) => {
+    try {
+      const { error } = await supabase
+        .from("mindmaps")
+        .update({
+          folder_id: folderId,
+        })
+        .eq("id", mindmapId)
+        .eq("creator", userId);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error saving mindmap folder:", error);
+    }
+  },
+  saveMindmapTitle: async (mindmapId: string, title: string, userId: string) => {
+    try {
+      const { error } = await supabase
+        .from("mindmaps")
+        .update({
+          title: title,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", mindmapId)
+        .eq("creator", userId);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error saving mindmap title:", error);
+    }
+  },
+  updateMindmapLocal: (mindmapId, updates) => {
+    set((state) => ({
+      maps: state.maps.map((m) =>
+        m.id === mindmapId || m.permalink === mindmapId ? { ...m, ...updates } : m
+      ),
+    }));
   },
   setMaps: (maps) => set({ maps }),
   setCollaborationMaps: (maps) => set({ collaborationMaps: maps }),
