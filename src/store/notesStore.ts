@@ -8,7 +8,7 @@ export interface NoteItem {
   title: string;
   content: string; // Markdown content
   updatedAt: number;
-  color: string;
+  color: string | null;
   folderId: string | null;
   position?: { x: number; y: number };
 }

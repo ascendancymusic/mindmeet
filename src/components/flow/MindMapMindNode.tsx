@@ -8,6 +8,23 @@ import { useMindMapStore } from "../../store/mindMapStore"
 export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
   const { user } = useAuthStore()
   const { maps } = useMindMapStore()
+
+  // Use the color from the mindmaps table (data.color), fallback to default grey
+  const color = data.color || '#334155';
+  // Use a diagonal gradient: color (99% opacity) to a much darker version (85% opacity)
+  function darken(hex: string, amount = 0.35) {
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+    const num = parseInt(c, 16);
+    let r = Math.max(0, ((num >> 16) & 0xff) * (1-amount));
+    let g = Math.max(0, ((num >> 8) & 0xff) * (1-amount));
+    let b = Math.max(0, (num & 0xff) * (1-amount));
+    return `rgb(${r|0},${g|0},${b|0})`;
+  }
+  // Use a vibrant, mostly opaque mindmap color background with a very subtle gradient for depth
+  const gradientBg = `linear-gradient(135deg, ${color}FA 0%, ${color}F2 100%)`;
+  // Icon background: even darker version of the mindmap color
+  const iconBg = data.color ? darken(data.color, 0.6) : '#1a202c';
   
   const getVisibilityIcon = () => {
     const visibility = data.visibility || 'private'
@@ -40,15 +57,18 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
           style={{ background: 'transparent' }}
        />
        {/* Content wrapper - only this part is clickable */}
-       <div className="relative bg-[#1e293b] border border-slate-700/50 group-hover:border-purple-500/30 rounded-2xl pointer-events-none min-w-[160px] max-w-[220px] transition-colors">
+       <div
+         className="relative flex items-center gap-2.5 border border-slate-700/50 group-hover:border-purple-500/30 rounded-2xl p-2.5 min-w-[160px] max-w-[220px] transition-colors pointer-events-none"
+         style={{ background: gradientBg }}
+       >
          <RouterLink
            to={targetPath}
-           className="flex items-center gap-2.5 p-2.5 no-underline pointer-events-auto"
+           className="flex items-center gap-2.5 no-underline pointer-events-auto"
            onClick={(e) => e.stopPropagation()}
          >
            <div 
              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-             style={{ backgroundColor: data.color ? `${data.color}15` : '#334155' }}
+             style={{ backgroundColor: iconBg }}
            >
              <Network className="w-4 h-4" style={{ color: data.color || '#94a3b8' }} />
            </div>
@@ -59,7 +79,7 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
                  {getVisibilityIcon()}
                </div>
              </div>
-             <div className="text-[10px] text-slate-500 truncate">Mind Map</div>
+             <div className="text-[10px] text-slate-500 truncate">Mindmap</div>
            </div>
          </RouterLink>
        </div>

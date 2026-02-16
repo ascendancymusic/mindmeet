@@ -363,7 +363,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             >
               {isSelected && <Check className="w-3 h-3 pointer-events-none" />}
             </div>
-            <FileText className="w-4 h-4 mt-1 flex-shrink-0" style={{ color: note.color }} />
+            <FileText className="w-4 h-4 mt-1 flex-shrink-0" style={{ color: note.color || '#94a3b8' }} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span
@@ -514,16 +514,17 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             >
               {isSelected && <Check className="w-3 h-3 pointer-events-none" />}
             </div>
-            <Network className="w-4 h-4 mt-1 flex-shrink-0 text-purple-400" />
+            <Network
+              className="w-4 h-4 mt-1 flex-shrink-0"
+              style={{ color: mindmap.color || "#94a3b8" }}
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                   <span className="text-sm font-medium truncate text-slate-400">
                     {mindmap.title || "Untitled Mindmap"}
                   </span>
-                  <div className="text-slate-600 opacity-70 shrink-0">
-                    {getVisibilityIcon()}
-                  </div>
+                  <div className="text-slate-600 opacity-70 shrink-0">{getVisibilityIcon()}</div>
                 </div>
                 <span className="text-[11px] text-slate-600 flex-shrink-0 ml-2 group-hover/mindmap:hidden transition-opacity">
                   {formatDate(mindmap.updatedAt)}
@@ -537,9 +538,9 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           <div className="absolute right-2 top-2.5">
             <button
               onClick={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                onSetShowMindmapMenu(showMindmapMenu === mindmap.id ? null : mindmap.id)
+                e.stopPropagation();
+                e.preventDefault();
+                onSetShowMindmapMenu(showMindmapMenu === mindmap.id ? null : mindmap.id);
               }}
               className={`w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 ${
                 showMindmapMenu === mindmap.id
@@ -556,7 +557,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           <div
             ref={menuRef}
             className="absolute right-2 top-10 z-50 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden min-w-[160px]"
-            style={{ animation: 'fadeInScale 0.15s ease-out' }}
+            style={{ animation: "fadeInScale 0.15s ease-out" }}
             onClick={(e) => e.preventDefault()}
           >
             <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">

@@ -286,13 +286,16 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
     folders.forEach(folder => {
       if (folder.parentId && isNodeVisible(folder.id, true, folder.parentId)) {
         const parentIsFolder = folders.some(f => f.id === folder.parentId)
+        // Get parent folder color
+        const parentFolder = folders.find(f => f.id === folder.parentId)
+        const edgeColor = parentFolder?.color || '#475569'
         newEdges.push({
           id: `e-${folder.parentId}-${folder.id}`,
           source: folder.parentId,
           sourceHandle: parentIsFolder ? "bottom-source" : undefined,
           target: folder.id,
           targetHandle: "top-target",
-          style: { stroke: '#475569', strokeWidth: 2 },
+          style: { stroke: edgeColor, strokeWidth: 2 },
           type: 'default',
           animated: false,
         })
@@ -301,13 +304,16 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
     
     notes.forEach(note => {
       if (note.folderId && isNodeVisible(note.id, false, note.folderId)) {
+        // Get parent folder color
+        const parentFolder = folders.find(f => f.id === note.folderId)
+        const edgeColor = parentFolder?.color || '#475569'
         newEdges.push({
           id: `e-${note.folderId}-${note.id}`,
           source: note.folderId,
           sourceHandle: "bottom-source",
           target: note.id,
           targetHandle: "top-target",
-          style: { stroke: '#475569', strokeWidth: 2 },
+          style: { stroke: edgeColor, strokeWidth: 2 },
           type: 'default',
           animated: false,
         })
@@ -316,13 +322,16 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
     
     mindmaps.forEach(mindmap => {
       if (mindmap.folderId && isNodeVisible(mindmap.id, false, mindmap.folderId)) {
+        // Get parent folder color
+        const parentFolder = folders.find(f => f.id === mindmap.folderId)
+        const edgeColor = parentFolder?.color || '#8b5cf6'
         newEdges.push({
           id: `e-${mindmap.folderId}-${mindmap.id}`,
           source: mindmap.folderId,
           sourceHandle: "bottom-source",
           target: mindmap.id,
           targetHandle: "top-target",
-          style: { stroke: '#8b5cf6', strokeWidth: 2 },
+          style: { stroke: edgeColor, strokeWidth: 2 },
           type: 'default',
           animated: false,
         })

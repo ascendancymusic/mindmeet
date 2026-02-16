@@ -91,7 +91,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
         <div
           className="w-2 h-2 rounded-full mr-3 flex-shrink-0"
-          style={{ backgroundColor: note.color }}
+          style={{ backgroundColor: note.color || '#94a3b8' }}
         />
         <input
           ref={titleRef}

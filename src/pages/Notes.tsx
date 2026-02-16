@@ -52,7 +52,7 @@ export interface NoteItem {
   title: string
   content: string
   updatedAt: number
-  color: string
+  color: string | null
   folderId: string | null
   position?: { x: number; y: number }
 }
@@ -70,7 +70,7 @@ export interface MindMapItem {
   id: string
   title: string
   updatedAt: number
-  color: string
+  color: string | null
   folderId: string | null
   position?: { x: number; y: number }
   visibility?: 'public' | 'private' | 'linkOnly'
@@ -665,7 +665,7 @@ const Notes = () => {
         id: map.id || map.permalink,
         title: map.title,
         updatedAt: map.updatedAt,
-        color: map.backgroundColor || pickColor(),
+        color: map.color || null,
         folderId: map.folderId || null,
         // Use position from DB if available, otherwise assign default position
         position: map.position || { x: startX, y: startY + (index * spacingY) },

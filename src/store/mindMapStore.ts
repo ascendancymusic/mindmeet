@@ -42,6 +42,7 @@ export interface MindMap {
   drawingData?: DrawingData;
   json_data?: any; // Add this to preserve all json_data fields for merging
   folderId?: string | null;
+  color?: string;
   position?: { x: number; y: number };
 }
 
@@ -97,7 +98,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     const { data, error } = await supabase
       .from("mindmaps")
       .select(`
-        permalink, title, json_data, drawing_data, created_at, updated_at, visibility, is_pinned, is_main, description, creator, id, published_at, position_x, position_y, folder_id,
+        permalink, title, json_data, drawing_data, created_at, updated_at, visibility, is_pinned, is_main, description, creator, id, published_at, position_x, position_y, folder_id, color,
         mindmap_like_counts (like_count),
         mindmap_save_counts (save_count),
         mindmap_collaborations (collaborator_id, status)
@@ -183,6 +184,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
       published_at: map.published_at,
       drawingData: decompressDrawingData(map.drawing_data) || undefined,
       folderId: map.folder_id || null,
+      color: map.color,
       position: map.position_x !== null && map.position_y !== null
         ? { x: map.position_x / 100, y: map.position_y / 100 }
         : undefined,
@@ -207,7 +209,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
         mindmap_id,
         mindmaps!mindmap_collaborations_mindmap_id_fkey (
           permalink, title, json_data, drawing_data, created_at, updated_at, visibility, 
-          is_pinned, is_main, description, creator, id, published_at, position_x, position_y, folder_id,
+          is_pinned, is_main, description, creator, id, published_at, position_x, position_y, folder_id, color,
           mindmap_like_counts (like_count),
           mindmap_save_counts (save_count),
           mindmap_collaborations!mindmap_collaborations_mindmap_id_fkey (
@@ -306,6 +308,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           published_at: map.published_at,
           drawingData: decompressDrawingData(map.drawing_data) || undefined,
           folderId: map.folder_id || null,
+          color: map.color,
           position: map.position_x !== null && map.position_y !== null
             ? { x: map.position_x / 100, y: map.position_y / 100 }
             : undefined,
@@ -319,7 +322,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
     }
   },
   saveMapToSupabase: async (map, userId, isCollaboratorEdit = false) => {
-  const { id, permalink, title, nodes, edges, edgeType, backgroundColor, dotColor, fontFamily, createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData, json_data, folderId, position } = map;
+  const { id, permalink, title, nodes, edges, edgeType, backgroundColor, dotColor, fontFamily, createdAt, updatedAt, visibility, isPinned, is_main, description, published_at, drawingData, json_data, folderId, position, color } = map;
 
     try {
       const effectiveUserId = userId || useAuthStore.getState().user?.id;
@@ -458,6 +461,7 @@ export const useMindMapStore = create<MindMapState>()((set, get) => ({
           position_x: position ? Math.round(position.x * 100) : null,
           position_y: position ? Math.round(position.y * 100) : null,
           folder_id: folderId || null,
+          color: color || null,
         };
 
         // Fast path: if no id and no existing record by permalink, insert immediately
