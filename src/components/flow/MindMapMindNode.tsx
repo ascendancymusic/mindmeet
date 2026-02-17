@@ -12,6 +12,7 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
   const { maps } = useMindMapStore()
 
   const color = data.color || "#334155";
+  const onClick = data.onClick; // Optional onClick callback from data
 
   function darken(hex: string, amount = 0.35) {
     let c = hex.replace("#", "");
@@ -44,6 +45,14 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
   const permalink = map?.permalink || id;
   const targetPath = user?.username ? `/${user.username}/${permalink}/edit` : "#";
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onClick) {
+      e.preventDefault(); // Prevent navigation if onClick is provided
+      onClick();
+    }
+  };
+
   return (
     <div className="relative group">
       <Handle
@@ -66,7 +75,7 @@ export const MindMapMindNode = React.memo(({ data, id }: NodeProps) => {
         <RouterLink
           to={targetPath}
           className="flex items-center gap-2.5 no-underline pointer-events-auto"
-          onClick={(e) => e.stopPropagation()}
+          onClick={handleClick}
         >
           <div
             className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"

@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore'
 import { useMindMapStore } from '../store/mindMapStore'
 import { WorkspaceSidebar } from '../components/WorkspaceSidebar'
 import { NoteEditor } from '../components/NoteEditor'
+import MindMapViewer from '../components/MindMapViewer'
 
 import { v4 as uuidv4 } from "uuid"
 import {
@@ -98,6 +99,7 @@ const NotesMindMapContent = ({
   mindmaps,
   onNoteClick,
   onFolderClick,
+  onMindMapClick,
   onConnectNode,
   onAddNode,
   onCreateFirstNote,
@@ -113,6 +115,7 @@ const NotesMindMapContent = ({
   mindmaps: MindMapItem[]
   onNoteClick: (noteId: string) => void
   onFolderClick?: (folderId: string) => void
+  onMindMapClick?: (mindmapId: string) => void
   onConnectNode?: (sourceId: string, targetId: string, sourceHandle?: string | null, targetHandle?: string | null) => void
   onDisconnectNode?: (nodeId: string) => void
   onAddNode?: (type: 'folder' | 'note' | 'mindmap', parentId: string, position?: { x: number; y: number }, handleId?: string | null) => void
@@ -135,7 +138,7 @@ const NotesMindMapContent = ({
     setMoveWithChildren,
     snapToGrid,
     setSnapToGrid
-  } = useMindMapSync({ notes, folders, mindmaps, onPositionChange })
+  } = useMindMapSync({ notes, folders, mindmaps, onPositionChange, onMindMapClick })
 
   const { handleAutoLayout } = useAutoLayout({
      nodes, 
@@ -411,7 +414,7 @@ const NotesMindMapContent = ({
             if (isNote) {
                 onNoteClick(node.id)
             } else if (isMindMap) {
-                // Mindmap navigation is now handled by the node itself via Link
+                // Mindmap clicks are handled by the node component itself
                 return
             } else {
                 onFolderClick?.(node.id)
@@ -679,6 +682,7 @@ const Notes = () => {
   }, [maps])
   
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
+  const [selectedMindMapId, setSelectedMindMapId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [showNoteMenu, setShowNoteMenu] = useState<string | null>(null)
   const [showMindmapMenu, setShowMindmapMenu] = useState<string | null>(null)
@@ -1631,6 +1635,7 @@ const Notes = () => {
         folders={folders}
         mindmaps={mindmaps}
         activeNoteId={activeNoteId}
+        activeMindMapId={selectedMindMapId}
         selectedNotes={selectedNotes}
         selectedMindmaps={selectedMindmaps}
         searchQuery={searchQuery}
@@ -1644,7 +1649,10 @@ const Notes = () => {
         tempColor={tempColor}
         sidebarRef={sidebarRef}
         menuRef={menuRef}
-        onSetActiveNoteId={setActiveNoteId}
+        onSetActiveNoteId={(id) => {
+          setActiveNoteId(id)
+          setSelectedMindMapId(null)
+        }}
         onSetSearchQuery={setSearchQuery}
         onSetSelectedNotes={setSelectedNotes}
         onSetSelectedMindmaps={setSelectedMindmaps}
@@ -1677,11 +1685,20 @@ const Notes = () => {
         onToggleMindmapSelection={toggleMindmapSelection}
         onUpdateFolderLocal={updateFolderLocal}
         onDebouncedSaveFolder={debouncedSaveFolder}
+        onMindMapClick={(id) => {
+          setSelectedMindMapId(id)
+          setActiveNoteId(null)
+        }}
       />
 
       {/* Editor area */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        {activeNote ? (
+        {selectedMindMapId ? (
+          <MindMapViewer
+            mindmapId={selectedMindMapId}
+            onClose={() => setSelectedMindMapId(null)}
+          />
+        ) : activeNote ? (
           <NoteEditor
             note={activeNote}
             editor={editor}
@@ -1730,8 +1747,12 @@ const Notes = () => {
               notes={notes}
               folders={folders}
               mindmaps={mindmaps}
-              onNoteClick={(id) => setActiveNoteId(id)}
+              onNoteClick={(id) => {
+                setActiveNoteId(id)
+                setSelectedMindMapId(null)
+              }}
               onFolderClick={(id) => toggleFolder(id)}
+              onMindMapClick={(id) => setSelectedMindMapId(id)}
               onConnectNode={(source, target, sourceHandle, targetHandle) => handleConnectNode(source, target, sourceHandle, targetHandle)}
               onDisconnectNode={(nodeId) => {
                 if (!user?.id) return

@@ -1,5 +1,4 @@
 import React from 'react'
-import { Link as RouterLink } from 'react-router-dom'
 import {
   Trash2,
   Plus,
@@ -29,6 +28,7 @@ interface WorkspaceSidebarProps {
   folders: FolderItem[]
   mindmaps: MindMapItem[]
   activeNoteId: string | null
+  activeMindMapId: string | null
   selectedNotes: Set<string>
   selectedMindmaps: Set<string>
   searchQuery: string
@@ -66,6 +66,7 @@ interface WorkspaceSidebarProps {
   onToggleMindmapSelection: (e: React.MouseEvent, mindmapId: string) => void
   onUpdateFolderLocal: (folderId: string, updates: Partial<FolderItem>) => void
   onDebouncedSaveFolder: (folder: FolderItem) => void
+  onMindMapClick?: (mindmapId: string) => void
 }
 
 export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
@@ -73,6 +74,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
   folders,
   mindmaps,
   activeNoteId,
+  activeMindMapId,
   selectedNotes,
   selectedMindmaps,
   searchQuery,
@@ -110,6 +112,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
   onToggleMindmapSelection,
   onUpdateFolderLocal,
   onDebouncedSaveFolder,
+  onMindMapClick,
 }) => {
   const { user } = useAuthStore()
   const { maps } = useMindMapStore()
@@ -472,6 +475,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
 
   /* --- mindmap list item --- */
   const MindMapListItem = ({ mindmap }: { mindmap: MindMapItem }) => {
+    const isActive = activeMindMapId === mindmap.id
     const isSelected = selectedMindmaps.has(mindmap.id)
 
     const getVisibilityIcon = () => {
@@ -495,12 +499,21 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
 
     return (
       <div className="relative group/mindmap">
-        <RouterLink
-          to={targetPath}
-          className={`block w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 border ${
-            isSelected
-              ? "bg-purple-500/10 border-purple-500/20"
-              : "hover:bg-white/[0.04] border-transparent hover:border-purple-500/20"
+        <button
+          onClick={() => {
+            if (onMindMapClick) {
+              onMindMapClick(mindmap.id)
+            } else {
+              // Fallback to navigation if no callback provided
+              window.location.href = targetPath
+            }
+          }}
+          className={`block w-full text-left px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 ${
+            isActive
+              ? "bg-gradient-to-r from-purple-500/10 via-blue-500/5 to-transparent border border-white/[0.08]"
+              : isSelected
+                ? "bg-purple-500/10 border border-purple-500/20"
+                : "hover:bg-white/[0.04] border border-transparent"
           }`}
         >
           <div className="flex items-start gap-2.5">
@@ -521,7 +534,9 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <span className="text-sm font-medium truncate text-slate-400">
+                  <span className={`text-sm font-medium truncate ${
+                    isActive ? "text-white" : "text-slate-400"
+                  }`}>
                     {mindmap.title || "Untitled Mindmap"}
                   </span>
                   <div className="text-slate-600 opacity-70 shrink-0">{getVisibilityIcon()}</div>
@@ -532,7 +547,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
               </div>
             </div>
           </div>
-        </RouterLink>
+        </button>
 
         {!isSelected && (
           <div className="absolute right-2 top-2.5">

@@ -7,9 +7,10 @@ interface UseMindMapSyncProps {
   folders: FolderItem[];
   mindmaps?: MindMapItem[];
   onPositionChange?: (id: string, position: { x: number; y: number }, type: 'folder' | 'note' | 'mindmap') => void;
+  onMindMapClick?: (mindmapId: string) => void;
 }
 
-export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange }: UseMindMapSyncProps) => {
+export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange, onMindMapClick }: UseMindMapSyncProps) => {
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
@@ -217,7 +218,8 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
             count,
             collapsed: isFolder ? folder!.collapsed : false,
             preview: !isFolder && !isMindMap && note ? getPreview((note as NoteItem).content) : undefined,
-            visibility: isMindMap && mindmap ? mindmap.visibility : undefined
+            visibility: isMindMap && mindmap ? mindmap.visibility : undefined,
+            onClick: isMindMap && onMindMapClick ? () => onMindMapClick(node.id) : undefined
           }
         }
       })
@@ -253,7 +255,8 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
             count,
             collapsed: isFolder ? (item as FolderItem).collapsed : false,
             preview: !isFolder && !isMindMap ? getPreview((item as NoteItem).content) : undefined,
-            visibility: isMindMap ? (item as any).visibility : undefined
+            visibility: isMindMap ? (item as any).visibility : undefined,
+            onClick: isMindMap && onMindMapClick ? () => onMindMapClick(id) : undefined
           }
         })
       })
