@@ -10,7 +10,7 @@ interface UseMindMapSyncProps {
   onMindMapClick?: (mindmapId: string) => void;
 }
 
-export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange, onMindMapClick }: UseMindMapSyncProps) => {
+export const useMindMapSync = ({ notes, folders, mindmaps = [], onMindMapClick }: UseMindMapSyncProps) => {
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
@@ -118,8 +118,8 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
   }
 
   // Handle node changes (including movement with children)
-  // Matches MindMapViewer approach: apply changes via functional setNodes,
-  // only persist positions on drag end (not every frame).
+  // Only updates ReactFlow state — position persistence is handled externally
+  // via onNodeDragStop for reliable saves (no side effects in state updaters).
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const positionChanges = changes.filter(c => c.type === 'position') as any[];
@@ -167,50 +167,24 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
           const allChanges = [...nonPositionChanges, ...updatedChanges] as NodeChange[];
           const updatedNodes = applyNodeChanges(allChanges, currentNodes);
 
-          // Check if drag ended — persist positions only then
-          const isDragEnd = positionChanges.some((c: any) => !c.dragging);
-          if (isDragEnd && onPositionChange) {
-            // Defer to avoid state update during render
-            setTimeout(() => {
-              updatedNodes.forEach((node) => {
-                const nodeType = node.type as 'folder' | 'note' | 'mindmap';
-                onPositionChange(node.id, node.position, nodeType);
-              });
-            }, 0);
-          }
-
-          // Force edge re-render after drag ends with children (fixes connection lines)
-          if (isDragEnd) {
-            setTimeout(() => {
-              setEdges((currentEdges) => [...currentEdges]);
-            }, 0);
-          }
-
           return updatedNodes;
         });
+
+        // Force edge re-render after drag ends with children (fixes connection lines)
+        const isDragEnd = positionChanges.some((c: any) => !c.dragging);
+        if (isDragEnd) {
+          setTimeout(() => {
+            setEdges((currentEdges) => [...currentEdges]);
+          }, 0);
+        }
       } else {
         // Standard handling without move-with-children
         setNodes((currentNodes) => {
-          const updatedNodes = applyNodeChanges(changes, currentNodes);
-
-          // Only persist positions on drag end
-          const isDragEnd = positionChanges.some((c: any) => c.position && !c.dragging);
-          if (isDragEnd && onPositionChange) {
-            const changedIds = new Set(positionChanges.map((c: any) => c.id));
-            setTimeout(() => {
-              updatedNodes
-                .filter((n) => changedIds.has(n.id))
-                .forEach((node) => {
-                  onPositionChange(node.id, node.position, node.type as 'folder' | 'note' | 'mindmap');
-                });
-            }, 0);
-          }
-
-          return updatedNodes;
+          return applyNodeChanges(changes, currentNodes);
         });
       }
     },
-    [setNodes, setEdges, onPositionChange, isCtrlPressed, moveWithChildren, getNodeDescendants]
+    [setNodes, setEdges, isCtrlPressed, moveWithChildren, getNodeDescendants]
   );
 
   // Main sync effect
@@ -256,7 +230,10 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
                   mindmaps.filter(m => m.folderId === folder.id).length
         }
         
-        const position = item.position || node.position
+        // Always prefer the current ReactFlow node position for existing nodes.
+        // The store position may be stale (async/debounced saves), so ReactFlow
+        // is the source of truth for positions during the session.
+        const position = node.position
         
         return {
           ...node,

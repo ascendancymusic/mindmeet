@@ -233,6 +233,68 @@ const NotesMindMapContent = ({
      setNodes, 
      onPositionChange 
   });
+
+  // --- Debounced position save on drag stop ---
+  const positionSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingPositionSaves = useRef<Map<string, { position: { x: number; y: number }; type: 'folder' | 'note' | 'mindmap' }>>(new Map());
+  const [saveIndicator, setSaveIndicator] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  const flushPositionSaves = useCallback(() => {
+    if (!onPositionChange || pendingPositionSaves.current.size === 0) return;
+    setSaveIndicator('saving');
+    const saves = new Map(pendingPositionSaves.current);
+    pendingPositionSaves.current.clear();
+
+    // Fire all saves
+    saves.forEach(({ position, type }, id) => {
+      // onPositionChange returns void but calls async store methods
+      onPositionChange(id, position, type);
+    });
+
+    // Show "saved" briefly after a short delay to let DB calls finish
+    setTimeout(() => {
+      setSaveIndicator('saved');
+      setTimeout(() => setSaveIndicator('idle'), 1500);
+    }, 400);
+  }, [onPositionChange]);
+
+  const schedulePositionSave = useCallback((id: string, position: { x: number; y: number }, type: 'folder' | 'note' | 'mindmap') => {
+    pendingPositionSaves.current.set(id, { position, type });
+    if (positionSaveTimerRef.current) clearTimeout(positionSaveTimerRef.current);
+    positionSaveTimerRef.current = setTimeout(flushPositionSaves, 300);
+  }, [flushPositionSaves]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (positionSaveTimerRef.current) {
+        clearTimeout(positionSaveTimerRef.current);
+        // Flush any pending saves on unmount
+        flushPositionSaves();
+      }
+    };
+  }, [flushPositionSaves]);
+
+  // onNodeDragStop: reliably save positions after drag ends
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, draggedNode: RFNode) => {
+    const effectiveMoveWithChildren = isCtrlPressed || moveWithChildren;
+    
+    // Save the dragged node's position
+    const nodeType = draggedNode.type as 'folder' | 'note' | 'mindmap';
+    schedulePositionSave(draggedNode.id, draggedNode.position, nodeType);
+    
+    // If move-with-children, also save descendants' positions (they were moved in onNodesChange)
+    if (effectiveMoveWithChildren) {
+      const descendants = getNodeDescendants(draggedNode.id);
+      // Read current positions from nodes state (already updated by onNodesChange)
+      descendants.forEach(descId => {
+        const descNode = nodes.find(n => n.id === descId);
+        if (descNode) {
+          schedulePositionSave(descId, descNode.position, descNode.type as 'folder' | 'note' | 'mindmap');
+        }
+      });
+    }
+  }, [isCtrlPressed, moveWithChildren, getNodeDescendants, nodes, schedulePositionSave]);
   
   const { screenToFlowPosition, fitView } = useReactFlow()
   const edgeReconnectSuccessful = useRef(true);
@@ -474,6 +536,7 @@ const NotesMindMapContent = ({
          onReconnectStart={onReconnectStart}
          onReconnect={onReconnect}
          onReconnectEnd={onReconnectEnd}
+         onNodeDragStop={handleNodeDragStop}
          onPaneContextMenu={handlePaneContextMenu}
          onPaneClick={() => {
             if (menuState.isOpen && Date.now() - menuOpenTimeStampRef.current > 200) {
@@ -698,6 +761,31 @@ const NotesMindMapContent = ({
             }
          }}
       />
+
+      {/* Position Save Indicator */}
+      {saveIndicator !== 'idle' && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border backdrop-blur-xl text-xs font-medium transition-all duration-300 ${
+            saveIndicator === 'saving'
+              ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+          }`}>
+            {saveIndicator === 'saving' ? (
+              <>
+                <div className="w-3 h-3 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                <span>Saving…</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Saved</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
