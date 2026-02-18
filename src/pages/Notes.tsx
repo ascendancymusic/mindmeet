@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
@@ -145,6 +145,50 @@ const NotesMindMapContent = ({
     isControlPanelPinned,
     setIsControlPanelPinned
   } = useMindMapSync({ notes, folders, mindmaps, onPositionChange, onMindMapClick })
+
+  // Color preview state for live preview while using the color picker
+  const [previewColor, setPreviewColor] = useState<string | null>(null);
+  const [previewNodeId, setPreviewNodeId] = useState<string | null>(null);
+
+  // Get all descendants of a node (for autocolor preview)
+  const getNodeDescendants = useCallback((startNodeId: string): string[] => {
+    const descendants: string[] = [];
+    const visited = new Set<string>();
+    const traverse = (currentId: string) => {
+      if (visited.has(currentId)) return;
+      visited.add(currentId);
+      const childEdges = edges.filter((edge) => edge.source === currentId);
+      childEdges.forEach((edge) => {
+        descendants.push(edge.target);
+        traverse(edge.target);
+      });
+    };
+    traverse(startNodeId);
+    return descendants;
+  }, [edges]);
+
+  // Compute display nodes with preview color overrides
+  const displayNodes = useMemo(() => {
+    if (!previewColor || !previewNodeId) return nodes;
+    const affectedIds = new Set([previewNodeId]);
+    if (autocolorSubnodes) {
+      getNodeDescendants(previewNodeId).forEach(id => affectedIds.add(id));
+    }
+    return nodes.map(node => {
+      if (affectedIds.has(node.id)) {
+        return {
+          ...node,
+          data: { ...node.data, color: previewColor },
+        };
+      }
+      return node;
+    });
+  }, [nodes, previewColor, previewNodeId, autocolorSubnodes, getNodeDescendants]);
+
+  const handleColorPreview = useCallback((nodeId: string, color: string | null) => {
+    setPreviewNodeId(color ? nodeId : null);
+    setPreviewColor(color);
+  }, []);
 
   // Tooltip state for control panel (shared approach with MindMapViewer)
   const [activeTooltip, setActiveTooltip] = useState<{ content: React.ReactNode; element: HTMLElement } | null>(null)
@@ -418,7 +462,7 @@ const NotesMindMapContent = ({
       ) }
 
       <ReactFlow
-         nodes={nodes}
+         nodes={displayNodes}
          edges={edges}
          onNodesChange={onNodesChange}
          onEdgesChange={onEdgesChange}
@@ -620,6 +664,7 @@ const NotesMindMapContent = ({
         nodes={nodes}
         edges={edges}
         autocolorSubnodes={autocolorSubnodes}
+        onColorPreview={handleColorPreview}
         onDelete={(nodeId) => {
            const node = nodes.find(n => n.id === nodeId);
            if (node && onDeleteNode) {

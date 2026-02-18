@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import { useNodesState, useEdgesState, Node, Edge, NodeChange } from 'reactflow';
+import { useNodesState, useEdgesState, Node, Edge, NodeChange, applyNodeChanges } from 'reactflow';
 import { NoteItem, FolderItem, MindMapItem } from '../pages/Notes';
 
 interface UseMindMapSyncProps {
@@ -11,7 +11,7 @@ interface UseMindMapSyncProps {
 }
 
 export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange, onMindMapClick }: UseMindMapSyncProps) => {
-  const [nodes, setNodes, onNodesChangeInternal] = useNodesState([]);
+  const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
   const nodesRef = useRef<Node[]>([]);
@@ -118,78 +118,99 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
   }
 
   // Handle node changes (including movement with children)
+  // Matches MindMapViewer approach: apply changes via functional setNodes,
+  // only persist positions on drag end (not every frame).
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const positionChanges = changes.filter(c => c.type === 'position') as any[];
-      
-      if ((isCtrlPressed || moveWithChildren) && positionChanges.length > 0) {
-        // Move node with children when CTRL is pressed
-        const updatedChanges = positionChanges.flatMap((change) => {
-          const posChange = change as { id: string; position: { x: number; y: number }; dragging?: boolean }
-          const nodeId = posChange.id
-          const descendants = getNodeDescendants(nodeId)
-          const node = nodes.find((n) => n.id === nodeId)
+      const nonPositionChanges = changes.filter(c => c.type !== 'position');
+      const effectiveMoveWithChildren = isCtrlPressed || moveWithChildren;
 
-          if (!node) return [change];
+      if (effectiveMoveWithChildren && positionChanges.length > 0) {
+        // Use functional setNodes to always compute deltas from latest state
+        setNodes((currentNodes) => {
+          const updatedChanges = positionChanges.flatMap((change: any) => {
+            const posChange = change as { id: string; position: { x: number; y: number }; dragging?: boolean };
+            const nodeId = posChange.id;
+            const descendants = getNodeDescendants(nodeId);
+            const node = currentNodes.find((n) => n.id === nodeId);
 
-          const deltaX = posChange.position?.x - node.position.x
-          const deltaY = posChange.position?.y - node.position.y
+            if (!node || !posChange.position) return [change];
 
-          const hasMovement = Math.abs(deltaX) >= 0.1 || Math.abs(deltaY) >= 0.1;
-          if (!hasMovement) return [change];
+            const deltaX = posChange.position.x - node.position.x;
+            const deltaY = posChange.position.y - node.position.y;
 
-          return [
-            change,
-            ...descendants
-              .map((descendantId) => {
-                const descendantNode = nodes.find((n) => n.id === descendantId)
-                return descendantNode
-                  ? {
-                      id: descendantId,
-                      type: 'position' as const,
-                      position: {
-                        x: descendantNode.position.x + deltaX,
-                        y: descendantNode.position.y + deltaY,
-                      },
-                      dragging: posChange.dragging,
-                    }
-                  : null
-              })
-              .filter((c): c is NonNullable<typeof c> => c !== null),
-          ]
-        })
+            const hasMovement = Math.abs(deltaX) >= 0.1 || Math.abs(deltaY) >= 0.1;
+            if (!hasMovement) return [change];
 
-        const allChanges = [
-          ...changes.filter(c => c.type !== 'position'),
-          ...updatedChanges
-        ];
-        onNodesChangeInternal(allChanges);
-        
-        if (onPositionChange) {
-          allChanges.forEach(change => {
-            if (change.type === 'position' && (change as any).position) {
-              const node = nodes.find(n => n.id === (change as any).id)
-              if (node) {
-                onPositionChange((change as any).id, (change as any).position, node.type as 'folder' | 'note')
-              }
-            }
+            return [
+              change,
+              ...descendants
+                .map((descendantId) => {
+                  const descendantNode = currentNodes.find((n) => n.id === descendantId);
+                  return descendantNode
+                    ? {
+                        id: descendantId,
+                        type: 'position' as const,
+                        position: {
+                          x: descendantNode.position.x + deltaX,
+                          y: descendantNode.position.y + deltaY,
+                        },
+                        dragging: posChange.dragging,
+                      }
+                    : null;
+                })
+                .filter((c): c is NonNullable<typeof c> => c !== null),
+            ];
           });
-        }
+
+          const allChanges = [...nonPositionChanges, ...updatedChanges] as NodeChange[];
+          const updatedNodes = applyNodeChanges(allChanges, currentNodes);
+
+          // Check if drag ended — persist positions only then
+          const isDragEnd = positionChanges.some((c: any) => !c.dragging);
+          if (isDragEnd && onPositionChange) {
+            // Defer to avoid state update during render
+            setTimeout(() => {
+              updatedNodes.forEach((node) => {
+                const nodeType = node.type as 'folder' | 'note' | 'mindmap';
+                onPositionChange(node.id, node.position, nodeType);
+              });
+            }, 0);
+          }
+
+          // Force edge re-render after drag ends with children (fixes connection lines)
+          if (isDragEnd) {
+            setTimeout(() => {
+              setEdges((currentEdges) => [...currentEdges]);
+            }, 0);
+          }
+
+          return updatedNodes;
+        });
       } else {
-        onNodesChangeInternal(changes)
-        if (onPositionChange) {
-          changes.forEach(change => {
-            if (change.type === 'position' && (change as any).position) {
-              const node = nodes.find(n => n.id === (change as any).id)
-              if (node) {
-                onPositionChange((change as any).id, (change as any).position, node.type as 'folder' | 'note' | 'mindmap')
-              }
-            }
-          });
-        }
+        // Standard handling without move-with-children
+        setNodes((currentNodes) => {
+          const updatedNodes = applyNodeChanges(changes, currentNodes);
+
+          // Only persist positions on drag end
+          const isDragEnd = positionChanges.some((c: any) => c.position && !c.dragging);
+          if (isDragEnd && onPositionChange) {
+            const changedIds = new Set(positionChanges.map((c: any) => c.id));
+            setTimeout(() => {
+              updatedNodes
+                .filter((n) => changedIds.has(n.id))
+                .forEach((node) => {
+                  onPositionChange(node.id, node.position, node.type as 'folder' | 'note' | 'mindmap');
+                });
+            }, 0);
+          }
+
+          return updatedNodes;
+        });
       }
     },
-    [onNodesChangeInternal, onPositionChange, nodes, isCtrlPressed, moveWithChildren, getNodeDescendants]
+    [setNodes, setEdges, onPositionChange, isCtrlPressed, moveWithChildren, getNodeDescendants]
   );
 
   // Main sync effect

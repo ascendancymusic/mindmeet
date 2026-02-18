@@ -17,6 +17,7 @@ interface NotesNodeContextMenuProps {
   onDelete: (nodeId: string) => void;
   onAutoLayout: (nodeId: string) => void;
   autocolorSubnodes?: boolean;
+  onColorPreview?: (nodeId: string, color: string | null) => void;
 }
 
 export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
@@ -28,7 +29,8 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
   onRename,
   onDelete,
   onAutoLayout,
-  autocolorSubnodes = false
+  autocolorSubnodes = false,
+  onColorPreview
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -77,6 +79,14 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
       setTempColor(node.data.color || "#334155");
     }
   }, [isVisible, nodeId, nodes]);
+
+  // Clear color preview when menu becomes invisible
+  useEffect(() => {
+    if (!isVisible) {
+      onColorPreview?.(nodeId, null);
+      setIsColorPickerVisible(false);
+    }
+  }, [isVisible]);
 
   // Observer Logic (same as NodeContextMenu)
   useEffect(() => {
@@ -232,6 +242,7 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
       });
     }
     
+    onColorPreview?.(nodeId, null);
     onClose();
   };
 
@@ -345,7 +356,10 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
                 <div className="p-3">
                   <HexColorPicker
                     color={tempColor}
-                    onChange={setTempColor}
+                    onChange={(color) => {
+                      setTempColor(color);
+                      onColorPreview?.(nodeId, color);
+                    }}
                   />
                   <div className="flex justify-end gap-2 mt-2">
                     <button
@@ -355,7 +369,10 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
                       Apply
                     </button>
                     <button
-                      onClick={() => setIsColorPickerVisible(false)}
+                      onClick={() => {
+                        setIsColorPickerVisible(false);
+                        onColorPreview?.(nodeId, null);
+                      }}
                       className="px-3 py-1 text-xs text-slate-400 bg-slate-700 rounded-lg"
                     >
                       Cancel
