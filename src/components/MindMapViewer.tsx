@@ -1,12 +1,13 @@
 import React from "react"
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from "react"
+import { createPortal } from "react-dom"
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import ReactFlow,
 {
   addEdge,
   Background,
-  Controls,
   ReactFlowProvider,
+  useReactFlow,
   applyNodeChanges,
   applyEdgeChanges,
   reconnectEdge,
@@ -22,8 +23,6 @@ import {
   Trash2,
   Unlink,
   Music,
-  Save,
-  ArrowLeft,
   ImageIcon,
   Maximize2,
   AlertCircle,
@@ -36,15 +35,14 @@ import {
   ListMusic,
   Plus,
   Brain,
-  SquarePen,
   Youtube,
+  GitBranch,
+  Grid3x3,
+  MousePointer,
+  Pin,
   Edit3,
   Search,
-  MoreVertical,
-  Monitor,
 } from "lucide-react"
-import { MdQuestionMark } from "react-icons/md"
-import { FiMessageSquare } from "react-icons/fi"
 import {
   DndContext,
   closestCenter,
@@ -93,7 +91,6 @@ import SelectionToolbarWrapper from "../components/SelectionToolbarWrapper";
 import { aiService } from "../services/aiService";
 import { useCollaborationStore } from "../store/collaborationStore";
 import { CollaboratorCursors } from "../components/CollaboratorCursors";
-import { CollaboratorsList } from "../components/CollaboratorsList";
 import EditDetailsModal from "../components/EditDetailsModal";
 import PublishSuccessModal from "../components/PublishSuccessModal";
 import TextNode, { DefaultTextNode } from "../components/TextNode";
@@ -109,6 +106,7 @@ import { useCollaborationSync } from "../hooks/useCollaboration";
 import { useHistoryControls } from "../hooks/useHistory";
 import { decompressDrawingData } from '../utils/drawingDataCompression';
 import BrainstormChat from "../components/BrainstormChat";
+import MindMapViewerHeader from "../components/MindMapViewerHeader";
 
 
 
@@ -133,6 +131,7 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
   const MapId = mindmapId
   const { maps, collaborationMaps, updateMap, acceptAIChanges, updateMapPermalink, fetchMaps, fetchCollaborationMaps } = useMindMapStore()
   const showToast = useToastStore((state) => state.showToast)
+  const { fitView } = useReactFlow()
 
   // Toast is handled globally in App.tsx
 
@@ -170,12 +169,42 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [visuallySelectedNodeId, setVisuallySelectedNodeId] = useState<string | null>(null)
-  const [moveWithChildren, setMoveWithChildren] = useState(false)
-  const [snapToGrid, setSnapToGrid] = useState(true)
-  const [autocolorSubnodes, setAutocolorSubnodes] = useState(true)
+  const [moveWithChildren, setMoveWithChildren] = useState(() => {
+    const saved = localStorage.getItem('mindmap-moveWithChildren')
+    return saved !== null ? JSON.parse(saved) : false
+  })
+  const [snapToGrid, setSnapToGrid] = useState(() => {
+    const saved = localStorage.getItem('mindmap-snapToGrid')
+    return saved !== null ? JSON.parse(saved) : true
+  })
+  const [autocolorSubnodes, setAutocolorSubnodes] = useState(() => {
+    const saved = localStorage.getItem('mindmap-autocolorSubnodes')
+    return saved !== null ? JSON.parse(saved) : true
+  })
   const [isCtrlPressed, setIsCtrlPressed] = useState(false)
+  const [isControlPanelPinned, setIsControlPanelPinned] = useState(() => {
+    const saved = localStorage.getItem('mindmap-controlPanelPinned')
+    return saved !== null ? JSON.parse(saved) : false
+  })
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+
+  // Save control panel states to localStorage
+  useEffect(() => {
+    localStorage.setItem('mindmap-moveWithChildren', JSON.stringify(moveWithChildren))
+  }, [moveWithChildren])
+  
+  useEffect(() => {
+    localStorage.setItem('mindmap-snapToGrid', JSON.stringify(snapToGrid))
+  }, [snapToGrid])
+  
+  useEffect(() => {
+    localStorage.setItem('mindmap-autocolorSubnodes', JSON.stringify(autocolorSubnodes))
+  }, [autocolorSubnodes])
+  
+  useEffect(() => {
+    localStorage.setItem('mindmap-controlPanelPinned', JSON.stringify(isControlPanelPinned))
+  }, [isControlPanelPinned])
 
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1080)
   const [showErrorModal, setShowErrorModal] = useState(false)
@@ -413,6 +442,56 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
   const connectionStartNodeRef = useRef<string | null>(null);
   const connectionStartHandleRef = useRef<string | null>(null);
   const edgeDropMenuJustOpenedRef = useRef<boolean>(false);
+
+  // Tooltip state for control panel
+  const [activeTooltip, setActiveTooltip] = useState<{ content: React.ReactNode; element: HTMLElement } | null>(null)
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(true)
+
+  // Load tooltip setting from localStorage
+  useEffect(() => {
+    const savedShowTooltips = localStorage.getItem("showTooltips")
+    if (savedShowTooltips !== null) {
+      setTooltipsEnabled(savedShowTooltips === "true")
+    }
+  }, [])
+
+  // Tooltip handlers
+  const showTooltip = useCallback(
+    (content: React.ReactNode, element: HTMLElement) => {
+      if (tooltipsEnabled) {
+        setActiveTooltip({ content, element });
+      }
+    },
+    [tooltipsEnabled]
+  );
+
+  const hideTooltip = useCallback(() => {
+    setActiveTooltip(null);
+  }, []);
+
+  // Tooltip component that renders to document.body
+  const renderTooltip = () => {
+    if (!activeTooltip || !tooltipsEnabled) return null;
+
+    const rect = activeTooltip.element.getBoundingClientRect();
+    const tooltipStyle = {
+      position: "fixed" as const,
+      left: rect.right + 8,
+      top: rect.top + rect.height / 2,
+      transform: "translateY(-50%)",
+      zIndex: 10000,
+    };
+
+    return createPortal(
+      <div
+        className="px-3 py-1.5 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-purple-900/95 backdrop-blur-xl border border-white/10 shadow-2xl text-white text-sm rounded-xl"
+        style={tooltipStyle}
+      >
+        {activeTooltip.content}
+      </div>,
+      document.body
+    );
+  };
 
   // Search state
   const [showSearch, setShowSearch] = useState(false);
@@ -6619,7 +6698,7 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
             // Always allow pointer events so ReactFlow can handle zooming
             pointerEvents: 'auto'
           }}
-        ><ReactFlowProvider>
+        >
             <ReactFlow
               key={`reactflow-${(currentMap as any)?.id || currentMap?.permalink || 'default'}`}
               style={useMemo(() => {
@@ -6995,17 +7074,156 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
                 // Add key to force re-render if coordinates get corrupted
                 key={`background-${dotColor || 'default'}`}
               />
-              <Controls
-                style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                  padding: '1px',
-                }}
-                className="react-flow__controls-custom"
-              />
+              
+              {/* Custom Control Panel */}
+              <div className="absolute bottom-4 left-4 z-10 group">
+                <div className="bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2">
+                  {/* Glow effect */}
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 rounded-2xl blur opacity-50"></div>
+                  
+                  <div className="relative flex flex-col-reverse gap-2">
+                    {/* Fit View Button - Always visible at bottom */}
+                    <button
+                      onClick={() => fitView({ duration: 400, padding: 0.2 })}
+                      onMouseEnter={(e) => showTooltip("Fit View", e.currentTarget)}
+                      onMouseLeave={hideTooltip}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 text-slate-400 hover:text-blue-400 transition-all duration-200 relative overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-200"></div>
+                      <Maximize2 className="w-5 h-5 relative z-10" />
+                    </button>
+
+                    {/* Hidden buttons container - emerges on hover or when pinned */}
+                    <div className={`flex flex-col gap-2 overflow-hidden transition-all duration-300 ease-out ${
+                      isControlPanelPinned ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 group-hover:max-h-96 group-hover:opacity-100'
+                    }`}>
+                      {/* Pin Button - Small and at the top */}
+                      <button
+                        onClick={() => setIsControlPanelPinned(!isControlPanelPinned)}
+                        onMouseEnter={(e) => showTooltip(isControlPanelPinned ? "Unpin Menu" : "Pin Menu Open", e.currentTarget)}
+                        onMouseLeave={hideTooltip}
+                        className={`w-10 h-7 flex items-center justify-center rounded-lg border transition-all duration-200 relative overflow-hidden ${
+                          isControlPanelPinned
+                            ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-indigo-500/30 text-slate-500 hover:text-indigo-400'
+                        }`}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                          isControlPanelPinned
+                            ? 'from-indigo-500/20 to-blue-500/20'
+                            : 'from-indigo-500/0 to-indigo-500/0 hover:from-indigo-500/10 hover:to-blue-500/10'
+                        }`}></div>
+                        <Pin className={`w-3.5 h-3.5 relative z-10 transition-transform duration-200 ${
+                          isControlPanelPinned ? 'rotate-0' : 'rotate-45'
+                        }`} />
+                      </button>
+
+                      {/* Divider */}
+                      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                      {/* Move with Children Toggle */}
+                      <button
+                        onClick={() => setMoveWithChildren(!moveWithChildren)}
+                        onMouseEnter={(e) => showTooltip(`Move with Children${(isCtrlPressed && !moveWithChildren) ? ' (Ctrl)' : ''}`, e.currentTarget)}
+                        onMouseLeave={hideTooltip}
+                        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                          (isCtrlPressed || moveWithChildren)
+                            ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-purple-500/30 text-slate-400 hover:text-purple-400'
+                        }`}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                          (isCtrlPressed || moveWithChildren)
+                            ? 'from-purple-500/20 to-pink-500/20'
+                            : 'from-purple-500/0 to-purple-500/0 hover:from-purple-500/10 hover:to-pink-500/10'
+                        }`}></div>
+                        <GitBranch className="w-5 h-5 relative z-10" />
+                        {(isCtrlPressed || moveWithChildren) && (
+                          <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-purple-400 rounded-full shadow-lg shadow-purple-500/50 animate-pulse"></div>
+                        )}
+                      </button>
+
+                      {/* Snap to Grid Toggle */}
+                      <button
+                        onClick={() => setSnapToGrid(!snapToGrid)}
+                        onMouseEnter={(e) => showTooltip("Snap to Grid", e.currentTarget)}
+                        onMouseLeave={hideTooltip}
+                        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                          snapToGrid
+                            ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-blue-500/30 text-slate-400 hover:text-blue-400'
+                        }`}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                          snapToGrid
+                            ? 'from-blue-500/20 to-purple-500/20'
+                            : 'from-blue-500/0 to-blue-500/0 hover:from-blue-500/10 hover:to-purple-500/10'
+                        }`}></div>
+                        <Grid3x3 className="w-5 h-5 relative z-10" />
+                        {snapToGrid && (
+                          <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full shadow-lg shadow-blue-500/50"></div>
+                        )}
+                      </button>
+
+                      {/* Autocolor Subnodes Toggle */}
+                      <button
+                        onClick={() => setAutocolorSubnodes(!autocolorSubnodes)}
+                        onMouseEnter={(e) => showTooltip("Autocolor Subnodes", e.currentTarget)}
+                        onMouseLeave={hideTooltip}
+                        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                          autocolorSubnodes
+                            ? 'bg-pink-500/20 border-pink-500/50 text-pink-400'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-pink-500/30 text-slate-400 hover:text-pink-400'
+                        }`}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                          autocolorSubnodes
+                            ? 'from-pink-500/20 to-orange-500/20'
+                            : 'from-pink-500/0 to-pink-500/0 hover:from-pink-500/10 hover:to-orange-500/10'
+                        }`}></div>
+                        <Palette className="w-5 h-5 relative z-10" />
+                        {autocolorSubnodes && (
+                          <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-pink-400 rounded-full shadow-lg shadow-pink-500/50"></div>
+                        )}
+                      </button>
+
+                      {/* Pen Mode Toggle */}
+                      <button
+                        onClick={() => {
+                          const newPenMode = !isPenModeActive;
+                          setIsPenModeActive(newPenMode);
+                          setShowDrawModal(newPenMode);
+                          
+                          // Dispatch custom event to notify NodeTypesMenu
+                          const event = new CustomEvent('pen-mode-changed', {
+                            detail: { isPenMode: newPenMode }
+                          });
+                          document.dispatchEvent(event);
+                        }}
+                        onMouseEnter={(e) => showTooltip(isPenModeActive ? "Switch to Cursor Mode" : "Switch to Pen Mode", e.currentTarget)}
+                        onMouseLeave={hideTooltip}
+                        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                          isPenModeActive
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 border-blue-500/50 text-white shadow-lg shadow-blue-500/25'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-blue-500/30 text-slate-400 hover:text-blue-400'
+                        }`}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                          isPenModeActive
+                            ? 'from-blue-500/20 to-purple-500/20'
+                            : 'from-blue-500/0 to-blue-500/0 hover:from-blue-500/10 hover:to-purple-500/10'
+                        }`}></div>
+                        {isPenModeActive ? (
+                          <Edit3 className="w-5 h-5 relative z-10" />
+                        ) : (
+                          <MousePointer className="w-5 h-5 relative z-10" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Real-time collaboration cursors */}
               <CollaboratorCursors />
 
@@ -7018,7 +7236,6 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
               />
 
             </ReactFlow>
-          </ReactFlowProvider>
 
           {/* Drawing Canvas - Overlays ReactFlow for drawing functionality */}
           <DrawingCanvas
@@ -7038,305 +7255,46 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
 
 
           {/* Header Elements - Always visible, positioned over ReactFlow */}
-          <>
-            {/* Back to Maps button and Search - Top Left */}
-            <div className="absolute top-4 left-4 z-50 flex items-center space-x-2">
-              <button
-                onClick={() => {
-                  if (hasUnsavedChanges) {
-                    setShowUnsavedChangesModal(true)
-                  } else {
-                    onClose()
-                  }
-                }}
-                disabled={isSaving}
-                className={`flex items-center transition-all duration-200 rounded-lg px-3 py-2 backdrop-blur-sm border ${isSaving
-                  ? 'text-slate-600 cursor-not-allowed bg-slate-800/50 border-slate-700/50'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50'
-                  }`}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {isSmallScreen ? null : <span>Back to Notes</span>}
-              </button>
-
-              {/* Search button */}
-              <button
-                onClick={handleSearchOpen}
-                className="flex items-center justify-center w-10 h-10 transition-all duration-200 rounded-lg backdrop-blur-sm border text-slate-300 hover:text-white hover:bg-slate-700/80 bg-slate-800/70 border-slate-600/50"
-                title="Search nodes"
-              >
-                <Search className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Collaborators List - positioned next to Back to Maps and Search buttons */}
-            {(detailedMap || currentMap) && (detailedMap || currentMap).collaborators && (detailedMap || currentMap).collaborators.length > 0 && (
-              <div className={`absolute top-4 z-50 transform translate-x-2 ${isSmallScreen ? 'left-32' : 'left-56'}`}>
-                <CollaboratorsList
-                  mindMapId={((detailedMap || currentMap) as any).id || (detailedMap || currentMap).permalink}
-                  collaboratorIds={(detailedMap || currentMap).collaborators || []}
-                  creatorId={(detailedMap || currentMap).creator}
-                  className="max-w-xs"
-                />
-
-                {/* Collaboration Chat removed: BrainstormChat handles collaboration now */}
-              </div>
-            )}
-
-            {/* Title - Top Center */}
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-              {isEditingTitle ? (
-                <input
-                  type="text"
-                  ref={titleRef}
-                  value={editedTitle}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  onBlur={() => {
-                    setIsEditingTitle(false)
-                    if (editedTitle.trim() === "") {
-                      setEditedTitle(originalTitle)
-                      setHasUnsavedChanges(false)
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    setIsEditingTitle(false)
-                    if (editedTitle.trim() === "") {
-                      setEditedTitle(originalTitle)
-                      setHasUnsavedChanges(false)
-                    }
-                  }}
-                  className="text-xl font-bold text-center bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-white"
-                  autoFocus
-                />
-              ) : (
-                <h1
-                  className="text-xl font-bold text-center cursor-pointer hover:text-blue-400 transition-colors bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg px-3 py-2 text-white"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  {editedTitle}
-                </h1>
-              )}
-            </div>
-
-
-            {/* Action buttons group - Top Right */}
-            <div className="absolute top-4 right-4 z-40 flex items-center space-x-2">
-              {/* Three-dot menu - Show for both creator and collaborators */}
-              {(user?.id === (detailedMap || currentMap)?.creator || ((detailedMap || currentMap)?.collaborators?.includes(user?.id))) && (
-                <div className="relative three-dot-dropdown">
-                  <button
-                    onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
-                    className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-
-                  {/* Three-dot dropdown menu */}
-                  {showThreeDotMenu && (
-                    <div className="absolute top-full right-0 mt-1 w-40 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
-                      <div className="p-1">
-                        {/* Only show Edit details for creator */}
-                        {user?.id === (detailedMap || currentMap)?.creator && (
-                          <button
-                            onClick={() => {
-                              setShowEditDetailsModal(true);
-                              setShowThreeDotMenu(false);
-                            }}
-                            className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                            <span>Edit details</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setShowCustomizationModal(true);
-                            setShowThreeDotMenu(false);
-                          }}
-                          className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
-                        >
-                          <SquarePen className="w-4 h-4" />
-                          <span>Customize</span>
-                        </button>
-                        <a
-                          href={`/${user?.username}/${currentMap?.permalink}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setShowThreeDotMenu(false);
-                            handleViewNavigation();
-                          }}
-                          className="w-full text-left px-3 py-2 rounded text-sm transition-colors duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2"
-                        >
-                          <Monitor className="w-4 h-4" />
-                          <span>View</span>
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Save button with dropdown */}
-              <div className="relative autosave-dropdown">
-                <div className="flex">
-                  {/* Main save button */}
-                  <button
-                    onClick={handleSave}
-                    title="Ctrl + S"
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-l-lg transition-all duration-200 backdrop-blur-sm border border-r-0 ${hasUnsavedChanges && !isSaving
-                      ? "bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-500/80 hover:to-purple-500/80 text-white border-blue-500/50 transform hover:scale-105"
-                      : isSaving
-                        ? "bg-gradient-to-r from-orange-500/80 to-amber-600/80 text-white cursor-wait border-orange-500/50"
-                        : "bg-slate-800/70 text-slate-400 cursor-not-allowed border-slate-600/50"
-                      }`}
-                    disabled={!hasUnsavedChanges || isSaving}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader className="w-4 h-4 animate-spin" />
-                        {isSmallScreen ? null : <span>Saving...</span>}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        {isSmallScreen ? null : <span>Save</span>}
-                      </>
-                    )}
-                  </button>
-
-                  {/* Chevron dropdown button */}
-                  <button
-                    onClick={() => setShowAutosaveMenu(!showAutosaveMenu)}
-                    className="flex items-center px-2 py-2 rounded-r-lg transition-all duration-200 backdrop-blur-sm border bg-slate-800/70 text-white hover:text-white hover:bg-slate-700/80 border-slate-600/50"
-                    disabled={isSaving}
-                  >
-                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showAutosaveMenu ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
-
-                {/* Autosave dropdown menu */}
-                {showAutosaveMenu && (
-                  <div className="absolute top-full right-0 mt-1 w-48 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50">
-                    <div className="p-2">
-                      <div className="flex items-center justify-between mb-2 px-2">
-                        <span className="text-xs text-slate-400">Autosave</span>
-                        <div className="relative group">
-                          <MdQuestionMark className="w-3 h-3 text-slate-500 hover:text-slate-300 cursor-help" />
-                          <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                            <div className="text-xs text-slate-300 space-y-2">
-                              <p>This setting applies to all your mindmaps globally.</p>
-                              <p className="text-amber-400 font-medium">⚠️ After saving, you cannot undo changes, so use autosave with caution.</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setAutosaveInterval('off')
-                          setShowCustomInput(false)
-                          setShowAutosaveMenu(false)
-                        }}
-                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'off'
-                          ? 'bg-blue-600/20 text-blue-300'
-                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                          }`}
-                      >
-                        Off
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setAutosaveInterval('5min')
-                          setShowCustomInput(false)
-                          setShowAutosaveMenu(false)
-                        }}
-                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '5min'
-                          ? 'bg-blue-600/20 text-blue-300'
-                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                          }`}
-                      >
-                        5 minutes
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setAutosaveInterval('10min')
-                          setShowCustomInput(false)
-                          setShowAutosaveMenu(false)
-                        }}
-                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === '10min'
-                          ? 'bg-blue-600/20 text-blue-300'
-                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                          }`}
-                      >
-                        10 minutes
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setAutosaveInterval('custom')
-                          setShowCustomInput(true)
-                        }}
-                        className={`w-full text-left px-2 py-2 rounded text-sm transition-colors duration-200 ${autosaveInterval === 'custom'
-                          ? 'bg-blue-600/20 text-blue-300'
-                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                          }`}
-                      >
-                        Custom ({customAutosaveMinutes} min)
-                      </button>
-
-                      {/* Custom input field */}
-                      {showCustomInput && (
-                        <div className="mt-2 p-2 border-t border-slate-600/50">
-                          <div className="text-xs text-slate-400 mb-2">Custom interval (1-30 minutes)</div>
-                          <input
-                            type="number"
-                            min="1"
-                            max="30"
-                            value={customAutosaveMinutes}
-                            onChange={(e) => {
-                              const value = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
-                              setCustomAutosaveMinutes(value);
-                            }}
-                            className="w-full px-2 py-1 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white focus:outline-none focus:border-blue-500/50"
-                            autoFocus
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Fullscreen button */}
-              <button
-                onClick={handleFullscreen}
-                className="flex items-center px-3 py-3 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-lg hover:bg-slate-700/80 transition-all duration-200 text-slate-300 hover:text-white"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Playlist banner - Below title if active */}
-            {isAddingToPlaylist && (
-              <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 max-w-2xl">
-                <div className="px-4 py-2 bg-blue-600/80 border border-blue-500/50 rounded-xl text-sm text-blue-100 flex items-center justify-between backdrop-blur-sm">
-                  <div className="flex items-center">
-                    <ListMusic className="w-4 h-4 mr-2" />
-                    <span>Click on any audio, Spotify, SoundCloud, or YouTube video node to add it to the playlist</span>
-                  </div>
-                  <button
-                    onClick={() => toggleAddToPlaylistMode(null)}
-                    className="px-2 py-1 bg-slate-700/50 text-white rounded-lg hover:bg-slate-600/50 transition-colors text-xs ml-3"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+          <MindMapViewerHeader
+            hasUnsavedChanges={hasUnsavedChanges}
+            isSaving={isSaving}
+            onClose={onClose}
+            setShowUnsavedChangesModal={setShowUnsavedChangesModal}
+            isSmallScreen={isSmallScreen}
+            handleSearchOpen={handleSearchOpen}
+            detailedMap={detailedMap}
+            currentMap={currentMap}
+            isEditingTitle={isEditingTitle}
+            setIsEditingTitle={setIsEditingTitle}
+            editedTitle={editedTitle}
+            handleTitleChange={handleTitleChange}
+            originalTitle={originalTitle}
+            setHasUnsavedChanges={setHasUnsavedChanges}
+            titleRef={titleRef}
+            setEditedTitle={setEditedTitle}
+            user={user}
+            showThreeDotMenu={showThreeDotMenu}
+            setShowThreeDotMenu={setShowThreeDotMenu}
+            setShowEditDetailsModal={setShowEditDetailsModal}
+            setShowCustomizationModal={setShowCustomizationModal}
+            handleViewNavigation={handleViewNavigation}
+            handleSave={handleSave}
+            showAutosaveMenu={showAutosaveMenu}
+            setShowAutosaveMenu={setShowAutosaveMenu}
+            autosaveInterval={autosaveInterval}
+            setAutosaveInterval={setAutosaveInterval}
+            showCustomInput={showCustomInput}
+            setShowCustomInput={setShowCustomInput}
+            customAutosaveMinutes={customAutosaveMinutes}
+            setCustomAutosaveMinutes={setCustomAutosaveMinutes}
+            handleFullscreen={handleFullscreen}
+            isAddingToPlaylist={isAddingToPlaylist}
+            toggleAddToPlaylistMode={toggleAddToPlaylistMode}
+            setShowBrainstormChat={setShowBrainstormChat}
+            unreadChatCount={unreadChatCount}
+            setUnreadChatCount={setUnreadChatCount}
+            setShowHelpModal={setShowHelpModal}
+          />
 
 
 
@@ -7382,38 +7340,6 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
               drawingData: currentMap.drawingData,
             } : undefined}
           />
-
-          {/* Chat and Help icon buttons: vertical by default, horizontal on small screens */}
-          <div className="fixed bottom-4 right-4 z-30 flex flex-col sm:flex-row gap-2">
-            <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10 relative">
-              <button
-                onClick={() => { setShowBrainstormChat(true); setUnreadChatCount(0); }}
-                className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
-                title="AI Chat"
-              >
-                <FiMessageSquare className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
-              </button>
-              {unreadChatCount > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] leading-[18px] rounded-full ring-1 ring-white/20 flex items-center justify-center shadow-lg shadow-purple-500/30"
-                  aria-label={`${unreadChatCount} unread messages`}
-                >
-                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                </span>
-              )}
-            </div>
-
-            <div className="rounded-2xl bg-slate-800/50 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-lg w-11 h-11 sm:w-10 sm:h-10">
-              <button
-                onClick={() => setShowHelpModal(true)}
-                className="w-full h-full flex items-center justify-center rounded-2xl hover:bg-white/10 transition"
-                title="Help"
-              >
-                <MdQuestionMark className="text-slate-300 hover:text-white w-6 h-6 sm:w-5 sm:h-5 transition-colors duration-200" />
-              </button>
-            </div>
-          </div>
-
 
         </>
 
@@ -8648,6 +8574,9 @@ const MindMapViewerContentInner: React.FC<MindMapViewerProps> = ({ mindmapId, on
             document.dispatchEvent(event);
           }}
         />
+
+        {/* Tooltip for control panel buttons */}
+        {renderTooltip()}
       </div>
     </>
   )

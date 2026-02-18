@@ -3,6 +3,8 @@ import { Editor, EditorContent } from '@tiptap/react'
 import {
   Trash2,
   ChevronRight,
+  GripVertical,
+  X,
   FileText,
   MoreHorizontal,
   Folder,
@@ -55,6 +57,7 @@ interface NoteEditorProps {
   onMoveToFolder: (folderId: string | null) => void
   onDeleteNote: (id: string, title?: string) => void
   onExecCommand: (command: string, arg?: any) => void
+  onToggleSidebar: () => void
 }
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({
@@ -75,19 +78,32 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onMoveToFolder,
   onDeleteNote,
   onExecCommand,
+  onToggleSidebar,
 }) => {
   return (
     <>
       {/* Header */}
       <div className="flex items-center px-8 py-3 border-b border-white/[0.06] bg-gradient-to-r from-slate-800/30 via-transparent to-slate-800/30">
         
-         <button
-            onClick={onClose}
-            className="mr-4 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-all"
-            title="Close note & View Mindmap"
-          >
-            <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${sidebarCollapsed ? "rotate-0" : "rotate-180"}`} />
-          </button>
+        {/* Close note (go back to Mindmap) */}
+        <button
+          onClick={onClose}
+          className="mr-2 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.04] text-slate-400 hover:text-white transition-colors ring-1 ring-transparent hover:ring-white/6"
+          title="Close note & return to Mindmap"
+          aria-label="Close note"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Sidebar toggle (keeps editor open) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleSidebar(); }}
+          className="mr-4 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-slate-500 hover:text-slate-300 transition-all"
+          title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          aria-label="Toggle sidebar"
+        >
+          {sidebarCollapsed ? <GripVertical className="w-4 h-4" /> : <ChevronRight className="w-4 h-4 rotate-180" />}
+        </button>
 
         <div
           className="w-2 h-2 rounded-full mr-3 flex-shrink-0"

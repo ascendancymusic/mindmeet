@@ -22,6 +22,8 @@ import {
   Maximize2,
   Grid3x3,
   GitBranch,
+  Pin,
+  Palette,
 } from "lucide-react"
 
 import ReactFlow, {
@@ -137,8 +139,49 @@ const NotesMindMapContent = ({
     moveWithChildren,
     setMoveWithChildren,
     snapToGrid,
-    setSnapToGrid
+    setSnapToGrid,
+    autocolorSubnodes,
+    setAutocolorSubnodes,
+    isControlPanelPinned,
+    setIsControlPanelPinned
   } = useMindMapSync({ notes, folders, mindmaps, onPositionChange, onMindMapClick })
+
+  // Tooltip state for control panel (shared approach with MindMapViewer)
+  const [activeTooltip, setActiveTooltip] = useState<{ content: React.ReactNode; element: HTMLElement } | null>(null)
+  const [tooltipsEnabled] = useState(true)
+
+  const showTooltip = useCallback(
+    (content: React.ReactNode, element: HTMLElement) => {
+      if (!tooltipsEnabled) return;
+      setActiveTooltip({ content, element });
+    },
+    [tooltipsEnabled]
+  );
+
+  const hideTooltip = useCallback(() => {
+    setActiveTooltip(null);
+  }, []);
+
+  // Tooltip component that renders positioned relative to control panel buttons
+  const renderTooltip = () => {
+    if (!activeTooltip) return null;
+    const rect = activeTooltip.element.getBoundingClientRect();
+    return (
+      <div
+        className="fixed z-[99999] px-2.5 py-1 bg-slate-800/95 backdrop-blur-sm text-white text-xs rounded-lg border border-white/10 shadow-xl whitespace-nowrap pointer-events-none"
+        style={{
+          left: rect.right + 8,
+          top: rect.top + rect.height / 2,
+          transform: 'translateY(-50%)',
+        }}
+      >
+        {activeTooltip.content}
+        <div
+          className="absolute top-1/2 -left-1 w-2 h-2 bg-slate-800/95 border-l border-b border-white/10 transform -translate-y-1/2 rotate-45"
+        />
+      </div>
+    );
+  };
 
   const { handleAutoLayout } = useAutoLayout({
      nodes, 
@@ -439,27 +482,52 @@ const NotesMindMapContent = ({
               {/* Fit View Button - Always visible at bottom */}
               <button
                 onClick={() => fitView({ duration: 400, padding: 0.2 })}
+                onMouseEnter={(e) => showTooltip("Fit View", e.currentTarget)}
+                onMouseLeave={hideTooltip}
                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 text-slate-400 hover:text-blue-400 transition-all duration-200 relative overflow-hidden"
-                title="Fit View"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-200"></div>
                 <Maximize2 className="w-5 h-5 relative z-10" />
               </button>
 
-              {/* Hidden buttons container - emerges on hover */}
-              <div className="flex flex-col gap-2 max-h-0 overflow-hidden opacity-0 group-hover:max-h-40 group-hover:opacity-100 transition-all duration-300 ease-out">
+              {/* Hidden buttons container - emerges on hover or when pinned */}
+              <div className={`flex flex-col gap-2 overflow-hidden transition-all duration-300 ease-out ${
+                isControlPanelPinned ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 group-hover:max-h-96 group-hover:opacity-100'
+              }`}>
+                {/* Pin Button - Small and at the top */}
+                <button
+                  onClick={() => setIsControlPanelPinned(!isControlPanelPinned)}
+                  onMouseEnter={(e) => showTooltip(isControlPanelPinned ? "Unpin Menu" : "Pin Menu Open", e.currentTarget)}
+                  onMouseLeave={hideTooltip}
+                  className={`w-10 h-7 flex items-center justify-center rounded-lg border transition-all duration-200 relative overflow-hidden ${
+                    isControlPanelPinned
+                      ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-indigo-500/30 text-slate-500 hover:text-indigo-400'
+                  }`}
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                    isControlPanelPinned
+                      ? 'from-indigo-500/20 to-blue-500/20'
+                      : 'from-indigo-500/0 to-indigo-500/0 hover:from-indigo-500/10 hover:to-blue-500/10'
+                  }`}></div>
+                  <Pin className={`w-3.5 h-3.5 relative z-10 transition-transform duration-200 ${
+                    isControlPanelPinned ? 'rotate-0' : 'rotate-45'
+                  }`} />
+                </button>
+
                 {/* Divider */}
                 <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
 
                 {/* Move with Children Toggle */}
                 <button
                   onClick={() => setMoveWithChildren(!moveWithChildren)}
+                  onMouseEnter={(e) => showTooltip(`Move with Children${(isCtrlPressed && !moveWithChildren) ? ' (Ctrl)' : ''}`, e.currentTarget)}
+                  onMouseLeave={hideTooltip}
                   className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
                     (isCtrlPressed || moveWithChildren)
                       ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
                       : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-purple-500/30 text-slate-400 hover:text-purple-400'
                   }`}
-                  title={`Move with Children${(isCtrlPressed && !moveWithChildren) ? ' (Ctrl)' : ''}`}
                 >
                   <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
                     (isCtrlPressed || moveWithChildren)
@@ -475,12 +543,13 @@ const NotesMindMapContent = ({
                 {/* Snap to Grid Toggle */}
                 <button
                   onClick={() => setSnapToGrid(!snapToGrid)}
+                  onMouseEnter={(e) => showTooltip("Snap to Grid", e.currentTarget)}
+                  onMouseLeave={hideTooltip}
                   className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
                     snapToGrid
                       ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
                       : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-blue-500/30 text-slate-400 hover:text-blue-400'
                   }`}
-                  title="Snap to Grid"
                 >
                   <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
                     snapToGrid
@@ -492,10 +561,35 @@ const NotesMindMapContent = ({
                     <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-400 rounded-full shadow-lg shadow-blue-500/50"></div>
                   )}
                 </button>
+
+                {/* Autocolor Subnodes Toggle */}
+                <button
+                  onClick={() => setAutocolorSubnodes(!autocolorSubnodes)}
+                  onMouseEnter={(e) => showTooltip("Autocolor Subnodes", e.currentTarget)}
+                  onMouseLeave={hideTooltip}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                    autocolorSubnodes
+                      ? 'bg-pink-500/20 border-pink-500/50 text-pink-400'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-pink-500/30 text-slate-400 hover:text-pink-400'
+                  }`}
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-200 ${
+                    autocolorSubnodes
+                      ? 'from-pink-500/20 to-orange-500/20'
+                      : 'from-pink-500/0 to-pink-500/0 hover:from-pink-500/10 hover:to-orange-500/10'
+                  }`}></div>
+                  <Palette className="w-5 h-5 relative z-10" />
+                  {autocolorSubnodes && (
+                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-pink-400 rounded-full shadow-lg shadow-pink-500/50"></div>
+                  )}
+                </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Tooltip for control panel buttons */}
+        {renderTooltip()}
       </ReactFlow>
 
       {menuState.isOpen && menuState.flowPosition && (
@@ -525,6 +619,7 @@ const NotesMindMapContent = ({
         nodeId={contextMenu.nodeId}
         nodes={nodes}
         edges={edges}
+        autocolorSubnodes={autocolorSubnodes}
         onDelete={(nodeId) => {
            const node = nodes.find(n => n.id === nodeId);
            if (node && onDeleteNode) {
@@ -1708,6 +1803,7 @@ const Notes = () => {
             charCount={charCount}
             saveStatus={saveStatus}
             sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
             showHeaderMenu={showHeaderMenu}
             titleRef={titleRef}
             headerMenuRef={headerMenuRef}

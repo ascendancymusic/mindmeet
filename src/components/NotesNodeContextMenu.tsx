@@ -16,6 +16,7 @@ interface NotesNodeContextMenuProps {
   onRename: (nodeId: string, newName: string) => void;
   onDelete: (nodeId: string) => void;
   onAutoLayout: (nodeId: string) => void;
+  autocolorSubnodes?: boolean;
 }
 
 export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
@@ -26,7 +27,8 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
   edges,
   onRename,
   onDelete,
-  onAutoLayout
+  onAutoLayout,
+  autocolorSubnodes = false
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -170,6 +172,48 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
   const { updateNoteLocal, updateFolderLocal, saveNote, saveFolder } = useNotesStore();
   const { user } = useAuthStore();
 
+  // Get all descendants of a node (children, grandchildren, etc.)
+  const getNodeDescendants = (startNodeId: string): string[] => {
+    const descendants: string[] = [];
+    const visited = new Set<string>();
+    const traverse = (currentId: string) => {
+      if (visited.has(currentId)) return;
+      visited.add(currentId);
+      const childEdges = edges.filter((edge) => edge.source === currentId);
+      childEdges.forEach((edge) => {
+        descendants.push(edge.target);
+        traverse(edge.target);
+      });
+    };
+    traverse(startNodeId);
+    return descendants;
+  };
+
+  // Apply color to a single node by id
+  const applyColorToNode = (targetNodeId: string, color: string) => {
+    const node = nodes.find((n) => n.id === targetNodeId);
+    if (!node || !user?.id) return;
+
+    // Update local ReactFlow state immediately for responsiveness
+    node.data.color = color;
+
+    if (node.type === 'mindmap') {
+      updateMindMapColor(node.id, color);
+    } else if (node.type === 'note') {
+      const note = useNotesStore.getState().notes.find(n => n.id === targetNodeId);
+      if (note) {
+        updateNoteLocal(targetNodeId, { color });
+        saveNote({ ...note, color }, user.id);
+      }
+    } else if (node.type === 'folder') {
+      const folder = useNotesStore.getState().folders.find(f => f.id === targetNodeId);
+      if (folder) {
+        updateFolderLocal(targetNodeId, { color });
+        saveFolder({ ...folder, color }, user.id);
+      }
+    }
+  };
+
   const handleColorChange = () => {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node || !user?.id) {
@@ -177,25 +221,15 @@ export const NotesNodeContextMenu: React.FC<NotesNodeContextMenuProps> = ({
       return;
     }
     
-    // Update local ReactFlow state immediately for responsiveness
-    node.data.color = tempColor;
+    // Apply color to the selected node
+    applyColorToNode(nodeId, tempColor);
 
-    if (node.type === 'mindmap') {
-        updateMindMapColor(node.id, tempColor);
-    } else if (node.type === 'note') {
-        // Fetch full note data to save
-        const note = useNotesStore.getState().notes.find(n => n.id === nodeId);
-        if (note) {
-            updateNoteLocal(nodeId, { color: tempColor });
-            saveNote({ ...note, color: tempColor }, user.id);
-        }
-    } else if (node.type === 'folder') {
-        // Fetch full folder data to save
-        const folder = useNotesStore.getState().folders.find(f => f.id === nodeId);
-        if (folder) {
-            updateFolderLocal(nodeId, { color: tempColor });
-            saveFolder({ ...folder, color: tempColor }, user.id);
-        }
+    // If autocolor subnodes is enabled, apply same color to all descendants
+    if (autocolorSubnodes) {
+      const descendants = getNodeDescendants(nodeId);
+      descendants.forEach((descendantId) => {
+        applyColorToNode(descendantId, tempColor);
+      });
     }
     
     onClose();

@@ -16,8 +16,37 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
   
   const nodesRef = useRef<Node[]>([]);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
-  const [moveWithChildren, setMoveWithChildren] = useState(false);
-  const [snapToGrid, setSnapToGrid] = useState(false);
+  // Use same localStorage keys as MindMapViewer for shared cache
+  const [moveWithChildren, setMoveWithChildren] = useState(() => {
+    const saved = localStorage.getItem('mindmap-moveWithChildren');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [snapToGrid, setSnapToGrid] = useState(() => {
+    const saved = localStorage.getItem('mindmap-snapToGrid');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [autocolorSubnodes, setAutocolorSubnodes] = useState(() => {
+    const saved = localStorage.getItem('mindmap-autocolorSubnodes');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [isControlPanelPinned, setIsControlPanelPinned] = useState(() => {
+    const saved = localStorage.getItem('mindmap-controlPanelPinned');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
+  // Save control panel states to localStorage (shared with MindMapViewer)
+  useEffect(() => {
+    localStorage.setItem('mindmap-moveWithChildren', JSON.stringify(moveWithChildren));
+  }, [moveWithChildren]);
+  useEffect(() => {
+    localStorage.setItem('mindmap-snapToGrid', JSON.stringify(snapToGrid));
+  }, [snapToGrid]);
+  useEffect(() => {
+    localStorage.setItem('mindmap-autocolorSubnodes', JSON.stringify(autocolorSubnodes));
+  }, [autocolorSubnodes]);
+  useEffect(() => {
+    localStorage.setItem('mindmap-controlPanelPinned', JSON.stringify(isControlPanelPinned));
+  }, [isControlPanelPinned]);
 
   // Sync ref with state
   useEffect(() => {
@@ -354,6 +383,10 @@ export const useMindMapSync = ({ notes, folders, mindmaps = [], onPositionChange
     moveWithChildren,
     setMoveWithChildren,
     snapToGrid,
-    setSnapToGrid
+    setSnapToGrid,
+    autocolorSubnodes,
+    setAutocolorSubnodes,
+    isControlPanelPinned,
+    setIsControlPanelPinned
   };
 };
