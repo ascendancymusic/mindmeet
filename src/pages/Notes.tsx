@@ -22,6 +22,10 @@ import {
   Maximize2,
   Grid3x3,
   GitBranch,
+  RotateCcw,
+  RotateCw,
+  MoreVertical,
+  Clock,
   Pin,
   Palette,
 } from "lucide-react"
@@ -210,18 +214,40 @@ const NotesMindMapContent = ({
   const renderTooltip = () => {
     if (!activeTooltip) return null;
     const rect = activeTooltip.element.getBoundingClientRect();
+    const clientWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const clientHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const tooltipMaxWidth = 220;
+    const approxHeight = 36;
+
+    // Decide placement: prefer right, but place to left if not enough room
+    let left = rect.right + 8;
+    let placedLeft = false;
+    if (left + tooltipMaxWidth > clientWidth - 12) {
+      placedLeft = true;
+      left = Math.max(12, rect.left - 8 - tooltipMaxWidth);
+    } else {
+      // clamp so tooltip never overflows right edge
+      left = Math.min(left, clientWidth - tooltipMaxWidth - 12);
+    }
+
+    // vertical center, clamped
+    let top = rect.top + rect.height / 2;
+    const minTop = 12 + approxHeight / 2;
+    const maxTop = clientHeight - 12 - approxHeight / 2;
+    top = Math.min(Math.max(top, minTop), maxTop);
+
     return (
       <div
-        className="fixed z-[99999] px-2.5 py-1 bg-slate-800/95 backdrop-blur-sm text-white text-xs rounded-lg border border-white/10 shadow-xl whitespace-nowrap pointer-events-none"
-        style={{
-          left: rect.right + 8,
-          top: rect.top + rect.height / 2,
-          transform: 'translateY(-50%)',
-        }}
+        className="fixed z-[99999] px-2.5 py-1 bg-slate-800/95 backdrop-blur-sm text-white text-xs rounded-lg border border-white/10 shadow-xl max-w-[220px] pointer-events-none"
+        style={{ left, top, transform: 'translateY(-50%)' }}
       >
         {activeTooltip.content}
         <div
-          className="absolute top-1/2 -left-1 w-2 h-2 bg-slate-800/95 border-l border-b border-white/10 transform -translate-y-1/2 rotate-45"
+          className="absolute top-1/2 w-2 h-2 bg-slate-800/95 border-l border-b border-white/10 transform -translate-y-1/2 rotate-45"
+          style={{
+            left: placedLeft ? undefined : -6,
+            right: placedLeft ? -6 : undefined,
+          }}
         />
       </div>
     );
@@ -578,6 +604,54 @@ const NotesMindMapContent = ({
          connectionRadius={50}
       >
         <Background gap={24} size={1} color="#334155" variant={BackgroundVariant.Dots} />
+
+        {/* Undo/Redo (visual only) - top-right compact */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-1">
+          <button
+            onClick={(e) => e.preventDefault()}
+            onMouseEnter={(e) => showTooltip("Undo (visual)", e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-white transition-colors duration-150"
+            aria-hidden="true"
+            title="Undo (visual)"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={(e) => e.preventDefault()}
+            onMouseEnter={(e) => showTooltip("History Actions (visual)", e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className="w-8 h-8 flex items-center justify-center rounded-full border bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white transition-colors duration-150"
+            aria-hidden="true"
+            title="History Actions (visual)"
+          >
+            <Clock className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={(e) => e.preventDefault()}
+            onMouseEnter={(e) => showTooltip("Redo (visual)", e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-white transition-colors duration-150"
+            aria-hidden="true"
+            title="Redo (visual)"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="w-px h-6 bg-white/10 mx-2" />
+
+          <button
+            onClick={(e) => e.preventDefault()}
+            onMouseEnter={(e) => showTooltip("Menu", e.currentTarget)}
+            onMouseLeave={hideTooltip}
+            className="w-8 h-8 flex items-center justify-center rounded-full border bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white transition-all duration-150 relative overflow-hidden"
+            aria-hidden="true"
+          >
+            <MoreVertical className="w-3.5 h-3.5 relative z-10" />
+          </button>
+        </div>
         
         {/* Custom Control Panel */}
         <div className="absolute bottom-4 left-4 z-10 group">
@@ -601,6 +675,8 @@ const NotesMindMapContent = ({
               <div className={`flex flex-col gap-2 overflow-hidden transition-all duration-300 ease-out ${
                 isControlPanelPinned ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 group-hover:max-h-96 group-hover:opacity-100'
               }`}>
+                {/* (moved) Undo/Redo removed from control menu; now top-right */}
+
                 {/* Pin Button - Small and at the top */}
                 <button
                   onClick={() => setIsControlPanelPinned(!isControlPanelPinned)}
